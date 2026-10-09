@@ -308,7 +308,10 @@ local function rowsSystem()
     { 'SOUND', 'Devices and volume', { { 'OPEN', go('["ms-settings:sound"]') } } },
     { 'NETWORK', 'Wi-Fi and VPN', { { 'WI-FI', go('["ms-settings:network-wifi"]') }, { 'BLUETOOTH', go('["ms-settings:bluetooth"]') } } },
     { 'BATTERY', 'Power mode and battery saver', { { 'OPEN', go('["ms-settings:batterysaver"]') } } },
-    { 'TASKBAR', 'Auto-hide or TranslucentTB keeps the dash visible', { { 'OPEN', go('["ms-settings:taskbar"]') } } },
+    { 'TASKBAR', H.num('FrameBehindTaskbar', 0) == 1 and 'Cockpit runs behind the taskbar' or 'Cockpit stops at the taskbar',
+      { { 'BEHIND', function() writeVar('Settings.inc', 'FrameBehindTaskbar', 1); SKIN:Bang('!Refresh', 'Spaceship\\Frame'); say('COCKPIT BEHIND TASKBAR') end, H.num('FrameBehindTaskbar', 0) == 1 },
+        { 'ABOVE', function() writeVar('Settings.inc', 'FrameBehindTaskbar', 0); SKIN:Bang('!Refresh', 'Spaceship\\Frame'); say('COCKPIT STOPS AT TASKBAR') end, H.num('FrameBehindTaskbar', 0) ~= 1 },
+        { 'SETTINGS', go('["ms-settings:taskbar"]') } } },
     { 'HUD', 'Reload every module', { { 'REFRESH', function() SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { 'MANAGE', go('[!Manage]') } } },
   }
 end
