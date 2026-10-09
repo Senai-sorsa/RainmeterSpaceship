@@ -66,6 +66,8 @@ The HUD is drawn for the laptop's own 2560x1600 panel, and it stays there:
 - **Nothing on the other screen:** the HUD never spreads onto, or appears on, any other monitor.
 - **Laptop panel not connected** (lid closed, external monitor only): the HUD hides, then returns when the panel comes back.
 - **Pinning a monitor:** `HomeMonitor` and `HomeSize` in `Settings.inc` choose which monitor the HUD uses. The default is `HomeMonitor=auto` with `HomeSize=2560x1600`.
+- **Display scaling:** if Windows scaling makes Rainmeter see the panel smaller (for example 1707x1067 at 150%), the Controller still recognises it by its 16:10 shape and refits the HUD to it (`AutoFit=1`). The SCALE buttons in the Control Center turn AutoFit off.
+- **Wrong size on a mixed-scaling setup** (laptop at 150%, external monitor at 100%): Windows may stretch Rainmeter's windows. To fix it, right-click `Rainmeter.exe` → Properties → Compatibility → Change high DPI settings → tick *Override high DPI scaling behavior* → **Application**, then restart Rainmeter.
 
 ## What's where
 
