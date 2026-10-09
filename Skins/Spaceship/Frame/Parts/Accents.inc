@@ -6,5 +6,5 @@ Y=0
 Shape=Ellipse 1280.0,1326.9,170.0,33.0 | Fill Color 0,0,0,230 | Stroke Color #ColorAccent#,120 | StrokeWidth 2
 Shape2=Ellipse 1280.0,1326.9,120.0,22.0 | Fill Color 0,6,12,255 | Stroke Color #ColorAccent#,200 | StrokeWidth 2.5
 TransformationMatrix=#Scale#;0;0;#Scale#;0;0
-Hidden=#UseShipImage#
+Hidden=(Clamp(#FrameOff#+(#UseShipImage#),0,1))
 DynamicVariables=0

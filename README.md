@@ -148,6 +148,8 @@ The rendered hull is clean and symmetric, but a photo-quality render has more de
 python tools/image_frame.py my-cockpit.png
 ```
 
+Control Center → THEME → COCKPIT ART → **OFF** (`FrameOff=1`) hides the whole cockpit: hull, corners, window tint, glare, scanlines, shading, mist, glows and lamps. Only the widgets and the neon HUD lines stay, over your wallpaper.
+
 Then pick Control Center → THEME → COCKPIT ART → PICTURE (`UseShipImage=1`). A PNG with its own transparent windows keeps them. The glass tint, glare, scanlines, dark tints and HUD lines stay on top, and the rendered hull and strut lights hide.
 
 ## Performance

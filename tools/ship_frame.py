@@ -168,7 +168,10 @@ class Layer:
                 else:
                     lines.append(f"{key}={spec}")
             lines.append("TransformationMatrix=#Scale#;0;0;#Scale#;0;0")
-            if self.hidden:
+            if self.name != "Decor":
+                # FrameOff=1 (cockpit art OFF) hides every layer except the HUD lines (Decor)
+                lines.append(f"Hidden=(Clamp(#FrameOff#+({self.hidden or 0}),0,1))")
+            elif self.hidden:
                 lines.append(f"Hidden={self.hidden}")
             lines.append("DynamicVariables=0")
             out.append("\n".join(lines) + "\n")
@@ -815,7 +818,7 @@ def write_order():
 
     def image(name, file, alpha, hidden=None, note=""):
         return (f"{note}[{name}]\nMeter=Image\nImageName=#@#Images\\{file}\nX=0\nY=0\nW=(2560*#Scale#)\nH=(1600*#Scale#)\n"
-                f"PreserveAspectRatio=0\nImageAlpha={alpha}\n" + (f"Hidden={hidden}\n" if hidden else "") + "\n")
+                f"PreserveAspectRatio=0\nImageAlpha={alpha}\nHidden=(Clamp(#FrameOff#+({hidden or 0}),0,1))\n\n")
 
     head = FRAME_INI.read_text().partition("; drawing order")[0]
     body = ("; drawing order: window tint, glass smudges + glare, scanlines, dark tints, hull, picture, live accents\n"
@@ -833,7 +836,8 @@ def write_order():
             + image("Corners", "corners.png", "#HullAlpha#", "#UseShipImage#",
                     note="; the visor corner pieces, over the mist so it only spreads inward (frame_render.corners_png)\n")
             + "; live, theme-coloured: rim glow + LEDs, HUD light on the dash, strut lights, HUD lines\n"
-            "[OrderOver]\nMeasure=Calc\nFormula=0\n" + incs(["Accents", "Spill", "Lights", "Decor"]))
+            "[OrderOver]\nMeasure=Calc\nFormula=0\n" + incs(["Accents", "Spill", "Lights", "Decor"])
+)
     FRAME_INI.write_text(head + body, newline="\r\n")
 
 

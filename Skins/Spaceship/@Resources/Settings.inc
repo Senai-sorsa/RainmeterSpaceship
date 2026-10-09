@@ -49,6 +49,8 @@ ScanLines=1
 ScanAlpha=14
 ; cockpit source: 0 = rendered hull (Images\hull.png, tools\ship_frame.py), 1 = your picture (tools\image_frame.py)
 UseShipImage=0
+; 1 = cockpit art off: no hull, corners, window tint, mist or glows - just the HUD (Control Center > THEME)
+FrameOff=0
 ; hull metal tones baked into Images\hull.png by tools\ship_frame.py: shadow, body, lit ridge, edge highlight
 HullDark=5,7,10
 HullMid=15,19,26

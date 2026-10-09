@@ -24,4 +24,5 @@ Shape18=Ellipse 1280.0,1263.8,231.4,87.1 | Fill Color #ColorAccent#,3 | StrokeWi
 Shape19=Ellipse 1280.0,1263.8,194.3,71.4 | Fill Color #ColorAccent#,3 | StrokeWidth 0
 Shape20=Ellipse 1280.0,1263.8,157.1,55.7 | Fill Color #ColorAccent#,3 | StrokeWidth 0
 TransformationMatrix=#Scale#;0;0;#Scale#;0;0
+Hidden=(Clamp(#FrameOff#+(0),0,1))
 DynamicVariables=0
