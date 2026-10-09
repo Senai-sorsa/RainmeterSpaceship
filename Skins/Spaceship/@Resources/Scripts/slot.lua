@@ -80,20 +80,14 @@ function Update()
     local LA, RA = mirror and 'RightCenter' or 'LeftCenter', mirror and 'LeftCenter' or 'RightCenter'
     local ix, iy = MX(0.14), Y(0.46)
     if isCat then
-      -- folder emblem: a chamfered frame with corner ticks holding its first four apps in neon (2 x 2)
+      -- folder emblem: a chamfered frame with corner ticks around ONE neon icon that stands for the whole
+      -- folder (its category icon from Apps.ini), kept well clear of the frame on every side
       local s2 = h * 0.40
       c:chamfer(ix - s2, iy - s2, 2 * s2, 2 * s2, s2 * 0.32, A1, 1.4, 220, 60)
       c:line(ix - s2 - 5, iy - s2 * 0.5, ix - s2 - 5, iy + s2 * 0.5, A1, 1.2, 160)
       c:line(ix + s2 + 5, iy - s2 * 0.5, ix + s2 + 5, iy + s2 * 0.5, A1, 1.2, 160)
-      for q = 1, 4 do
-        local qa = list[q]
-        local qx = ix + ((q - 1) % 2 == 0 and -1 or 1) * s2 * 0.46
-        local qy = iy + (q <= 2 and -1 or 1) * s2 * 0.46
-        if not (qa and H.image(1, q, qx, qy, s2 * 0.78, qa.id)) then
-          H.hideImage(1, q)
-          if qa then c:icon(qa.icon, qx, qy, s2 * 0.62, A1, 1.2) end
-        end
-      end
+      for q = 1, 4 do H.hideImage(1, q) end
+      c:icon(entry.cat.icon or 'folder', ix, iy, s2 * 1.05, A1, 1.6)
     else
       for q = 2, 4 do H.hideImage(1, q) end
       if not (app and H.image(1, 1, ix, iy, h * 0.66, app.id)) then

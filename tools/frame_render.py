@@ -210,8 +210,8 @@ def shade_png():
     side = np.clip((np.abs(xx - CW / 2) / (CW / 2) - 0.55) / 0.45, 0, 1) ** 1.4
     glass = np.asarray(window_mask(0), dtype=np.float32) / 255
     # thicker glass near the frames reads darker
-    edge = 1 - np.clip(blur(glass, 40) * 1.6 - 0.6, 0, 1)
-    dark = np.clip(cols * 0.55 + top * 0.55 + side * 0.4 + edge * 0.25, 0, 0.78) * glass
+    edge = 1 - np.clip(blur(glass, 55) * 1.5 - 0.5, 0, 1)
+    dark = np.clip(cols * 0.55 + top * 0.55 + side * 0.4 + edge * 0.5, 0, 0.82) * glass   # stronger edge tint
     dark = blur(dark, 6)
     img = np.dstack([np.full((CH, CW, 3), (2, 6, 10), np.float32), dark * 255]).astype(np.uint8)
     return Image.fromarray(img, "RGBA")
@@ -230,9 +230,9 @@ def mist_png():
     a = np.asarray(m, dtype=np.float32) / 255
     a[:6, :] = a[-6:, :] = 0                    # window sides lying on the screen border are not edges
     a[:, :6] = a[:, -6:] = 0
-    near, far = blur(a, 14), blur(a, 70)
+    near, far = blur(a, 18), blur(a, 130)          # wider spread
     near /= max(1e-6, near.max()); far /= max(1e-6, far.max())
-    alpha = np.clip(near * 0.12 + far * 0.08, 0, 0.16)
+    alpha = np.clip(near * 0.055 + far * 0.065, 0, 0.10)   # weaker
     img = np.dstack([np.full((CH, CW, 3), 255, np.float32), alpha * 255]).astype(np.uint8)
     return Image.fromarray(img, "RGBA")
 

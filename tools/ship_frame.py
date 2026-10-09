@@ -356,26 +356,74 @@ def build():
         strip = LineString([(x, y + 36) for x, y in pts]).difference(excl).intersection(HULL.buffer(-2))
         frames.line(strip, "Stroke Color 150,26,30,210 | StrokeWidth 3")
         frames.line(strip, "Stroke Color 255,90,90,60 | StrokeWidth 1")
-    # lamp housings at the strut lights: a pale cylinder along the nearest edge, dark band, lens socket
-    edges = unary_union([g.exterior for g in GLASS])
-    for (x, y) in R.LIGHTS:
-        X, Y = x * R.SX, y * R.SY
-        np_ = edges.interpolate(edges.project(Point(X, Y)))
-        q = edges.interpolate(edges.project(Point(X, Y)) + 4)
-        tx, ty = norm(q.x - np_.x, q.y - np_.y)
-        nx, ny = -ty, tx
-        L2, W2 = 46, 25
-        body = [(X - tx * L2 - nx * W2, Y - ty * L2 - ny * W2), (X + tx * L2 - nx * W2, Y + ty * L2 - ny * W2),
-                (X + tx * L2 + nx * W2, Y + ty * L2 + ny * W2), (X - tx * L2 + nx * W2, Y - ty * L2 + ny * W2)]
+    # lamps (reference): each light is the end of a metal cylinder. On the A-pillar a short collared cylinder
+    # rides the strut beside long glossy tubes; under the side window a long tube runs along the sill toward
+    # the centre with the lamp in its white end cap. Mirrored for the right side.
+    def cylinder_unit(X, Y, ux, uy, length, r, side):
+        if side:
+            X, ux = CW - X, -ux
+        nx, ny = -uy, ux
+        ex, ey = X + ux * length, Y + uy * length
+        body = [(X - nx * r, Y - ny * r), (ex - nx * r, ey - ny * r), (ex + nx * r, ey + ny * r), (X + nx * r, Y + ny * r)]
         ang = math.degrees(math.atan2(ny, nx))
         frames.path(body, "Fill LinearGradient {G} | Stroke Color 0,0,0,230 | StrokeWidth 2", True,
-                    grad(ang, ("50,56,64,255", 0), ("205,212,220,255", 0.35), ("130,140,152,255", 0.7), ("36,40,46,255", 1)))
-        band = [(X + tx * (L2 - 12) - nx * W2, Y + ty * (L2 - 12) - ny * W2), (X + tx * L2 - nx * W2, Y + ty * L2 - ny * W2),
-                (X + tx * L2 + nx * W2, Y + ty * L2 + ny * W2), (X + tx * (L2 - 12) + nx * W2, Y + ty * (L2 - 12) + ny * W2)]
-        frames.path(band, "Fill Color 12,14,18,255 | StrokeWidth 0", True)
-        frames.ellipse(X, Y, 23, 23, "Fill Color 30,34,40,255 | StrokeWidth 0")
-        frames.ellipse(X, Y, 20, 20, "Fill Color 0,0,0,0 | Stroke Color 205,212,220,255 | StrokeWidth 6")
-        frames.ellipse(X, Y, 12, 12, "Fill Color 6,12,22,255 | Stroke Color 90,100,112,255 | StrokeWidth 1.5")
+                    grad(ang, ("8,10,14,255", 0), ("52,62,74,255", 0.22), ("128,144,160,255", 0.36), ("58,68,80,255", 0.55),
+                         ("20,24,30,255", 0.8), ("6,8,10,255", 1)))
+        # glossy line along the top of the tube, collars along its length
+        frames.path([(X - nx * r * 0.45 + ux * r, Y - ny * r * 0.45 + uy * r), (ex - nx * r * 0.45, ey - ny * r * 0.45)],
+                    "Stroke Color 175,200,220,110 | StrokeWidth 1.6")
+        k = r * 1.6
+        while k < length - r:
+            cx_, cy_ = X + ux * k, Y + uy * k
+            frames.path([(cx_ - nx * r, cy_ - ny * r), (cx_ + nx * r, cy_ + ny * r)], "Stroke Color 0,0,0,200 | StrokeWidth 3")
+            frames.path([(cx_ - nx * r + ux * 3, cy_ - ny * r + uy * 3), (cx_ + nx * r + ux * 3, cy_ + ny * r + uy * 3)],
+                        f"Stroke Color {LIGHT},140 | StrokeWidth 1.2")
+            k += max(60, length / 4)
+        frames.path([(ex - nx * r, ey - ny * r), (ex + nx * r, ey + ny * r)], "Stroke Color 0,0,0,230 | StrokeWidth 4")
+        # the white housing collar just behind the lens (the reference lamps' most visible part)
+        k0, k1 = r * 0.35, r * 1.45
+        band = [(X + ux * k0 - nx * r * 1.06, Y + uy * k0 - ny * r * 1.06), (X + ux * k1 - nx * r * 1.06, Y + uy * k1 - ny * r * 1.06),
+                (X + ux * k1 + nx * r * 1.06, Y + uy * k1 + ny * r * 1.06), (X + ux * k0 + nx * r * 1.06, Y + uy * k0 + ny * r * 1.06)]
+        frames.path(band, "Fill LinearGradient {G} | Stroke Color 0,0,0,200 | StrokeWidth 1.5", True,
+                    grad(ang, ("58,64,72,255", 0), ("170,178,188,255", 0.18), ("236,240,244,255", 0.36), ("214,220,228,255", 0.55),
+                         ("120,128,138,255", 0.8), ("40,44,50,255", 1)))
+        frames.path([(X + ux * k1 - nx * r * 1.06, Y + uy * k1 - ny * r * 1.06), (X + ux * k1 + nx * r * 1.06, Y + uy * k1 + ny * r * 1.06)],
+                    "Stroke Color 0,0,0,230 | StrokeWidth 3")
+        frames.path(H_ellipse(X + ux * (k0 + k1) / 2, Y + uy * (k0 + k1) / 2, r * 0.28, r * 0.22, ang),
+                    "Fill Color 30,34,40,230 | StrokeWidth 0", True)
+        # end cap facing the cabin: white collar ring seen at an angle, dark socket, lens
+        cap = H_ellipse(X, Y, r * 1.25, r * 0.75, ang)
+        frames.path(cap, "Fill Color 18,22,28,255 | Stroke Color 0,0,0,230 | StrokeWidth 2", True)
+        frames.path(H_ellipse(X, Y, r * 1.05, r * 0.62, ang), "Stroke Color 200,208,216,255 | StrokeWidth 6", True)
+        frames.path(H_ellipse(X, Y, r * 1.05, r * 0.62, ang, 200, 330), "Stroke Color 245,248,250,200 | StrokeWidth 2.4")
+        frames.ellipse(X, Y, r * 0.5, r * 0.5, "Fill Color 6,12,24,255 | Stroke Color 70,84,100,255 | StrokeWidth 1.5")
+
+    def H_ellipse(cx_, cy_, rx, ry, rot, a0=0, a1=360, n=36):
+        cr, sr = math.cos(math.radians(rot)), math.sin(math.radians(rot))
+        out = []
+        for i in range(n + 1):
+            t = math.radians(a0 + (a1 - a0) * i / n)
+            x_, y_ = rx * math.cos(t), ry * math.sin(t)
+            out.append((cx_ + x_ * cr - y_ * sr, cy_ + x_ * sr + y_ * cr))
+        return out
+
+    pu = norm((500.8 - 342.3) * R.SX, (365.5 - 104) * R.SY)          # down the A-pillar
+    su = norm(440.6 * R.SX, -134.5 * R.SY)                            # along the sill, toward the centre
+    for side in (0, 1):
+        # long glossy tubes running the length of the A-pillar beside the lamp
+        for off, w in ((12, 5), (20, 4), (27, 3)):
+            ln = LineString(C([(342.3, 104), (500.8, 365.5)])).parallel_offset(off, "left")
+            g = (ln if side == 0 else mirror(ln)).intersection(HULL.buffer(-2))
+            frames.line(g, f"Stroke Color 0,0,0,220 | StrokeWidth {w + 2}")
+            frames.line(g, f"Stroke Color {MID},255 | StrokeWidth {w}")
+            frames.line(shp_translate(g, -0.8 if side == 0 else 0.8, -1), f"Stroke Color 170,198,222,{90 + w * 10} | StrokeWidth 1")
+        cylinder_unit(358 * R.SX, 200 * R.SY, -pu[0], -pu[1], 92, 27, side)     # lens faces down the pillar, body above
+        cylinder_unit(232 * R.SX, 498 * R.SY, su[0], su[1], 330, 27, side)
+        # loose cables looping past the pillar lamp on the outer side
+        loop = [(306, 140), (316, 168), (326, 200), (342, 230), (368, 252), (398, 266), (426, 302), (452, 336)]
+        pts = C(loop) if side == 0 else mpts(C(loop))
+        frames.path(pts, "Stroke Color 0,0,0,230 | StrokeWidth 3.4 | StrokeLineJoin Round")
+        frames.path([(x, y - 1) for x, y in pts], f"Stroke Color {LIGHT},150 | StrokeWidth 1.2 | StrokeLineJoin Round")
 
     # ---------------------------------------------------------------- visor bezels: the rounded corner cut-offs
     # baked: a dark rolled lip just outside the rim; live (Accents): blue light bleeding off the rim edge
@@ -384,14 +432,6 @@ def build():
     # ---------------------------------------------------------------- pillar / strut detail
     # the A-pillar is a smooth tube in the reference (no seams or vents); only the roof strut keeps its panels
     members = [(R.STRUT_L, (180, 63), (0, 242), (0.3, 0.75), None)]
-    # glossy streaks running the length of the A-pillar, just off its inner (windscreen) edge
-    inner = LineString(C([(342.3, 104), (500.8, 365.5)]))
-    for off, w, a in ((10, 2.2, 60), (16, 1.2, 38), (30, 1.0, 26)):
-        ln = inner.parallel_offset(off, "left")
-        for side in (0, 1):
-            g = ln if side == 0 else mirror(ln)
-            seg = g.intersection(HULL.buffer(-2)).difference(BUSY)
-            frames.line(seg, f"Stroke Color 150,190,220,{a} | StrokeWidth {w}")
     for pts, a, b, seams, vent in members:
         poly = cpoly(pts).intersection(HULL)
         A, B, ax, n = member_axis(pts, a, b)
@@ -535,13 +575,12 @@ def build():
     # ---------------------------------------------------------------- strut lights, spill
     for (x, y) in R.LIGHTS:
         X, Y = x * R.SX, y * R.SY
-        for r, a in ((190, 4), (130, 7), (85, 12), (46, 20), (34, 34), (24, 60), (15, 110)):
+        # a compact lens glow (reference: a small hot lens, little halo) so the white collar stays readable
+        for r, a in ((120, 3), (74, 6), (44, 11), (27, 24), (17, 55), (11, 110)):
             lights.ellipse(X, Y, r, r, f"Fill Color 50,135,255,{a} | StrokeWidth 0")
-        lights.ellipse(X, Y, 230, 2.2, "Fill Color 120,190,255,30 | StrokeWidth 0")
-        lights.ellipse(X, Y, 120, 3.5, "Fill Color 140,200,255,55 | StrokeWidth 0")
-        lights.ellipse(X, Y, 2.0, 55, "Fill Color 140,200,255,30 | StrokeWidth 0")
-        lights.ellipse(X, Y, 7, 7, "Fill Color 190,230,255,255 | StrokeWidth 0")
-        lights.ellipse(X, Y, 3.2, 3.2, "Fill Color 255,255,255,255 | StrokeWidth 0")
+        lights.ellipse(X, Y, 85, 1.6, "Fill Color 140,200,255,40 | StrokeWidth 0")
+        lights.ellipse(X, Y, 6, 6, "Fill Color 190,230,255,255 | StrokeWidth 0")
+        lights.ellipse(X, Y, 2.8, 2.8, "Fill Color 255,255,255,255 | StrokeWidth 0")
     for (x0, y0, x1, y1) in R.SCREENS:
         cx_, cy_ = (x0 + x1) / 2 * R.SX, (y0 + y1) / 2 * R.SY
         hw, hh = (x1 - x0) / 2 * R.SX, (y1 - y0) / 2 * R.SY

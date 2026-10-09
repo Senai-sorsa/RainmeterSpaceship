@@ -11,7 +11,7 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
 - corrugated floor hoses;
 - panel plating and fine scratches;
 - angular visor cut-offs at all four corners, traced from the reference (silver-blue rim, stepped notch);
-- window edges with tube rails, sagging cables, clamps, pale lamp housings and a red sill strip;
+- window edges with tube rails, sagging cables, clamps, cylindrical lamps with white housing collars and a red sill strip;
 - smooth A-pillars with long glossy streaks, lower walls with long reflections, a slatted console face and a metal pedestal.
 
 The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, LEDs, strut lights and HUD lines.
@@ -60,7 +60,7 @@ If you'd rather use a picture of the ship, an **image mode** cuts the windows ou
 | Four top graphs | CPU (fixed) · two selectable graphs (click the title to change the source) · RAM (fixed) |
 | Side columns, top | Two **category panels** (Rocketry & Aero, Engineering & Analysis): app tabs, a hollow neon wireframe and LAUNCH. Page dots switch the category. |
 | Side columns, middle | Location (LAT/LON) · ship identity card (BLACK-CLOVER specs, uptime, IP) |
-| Side columns, slots 1-8 | Four identical **buttons** per side, mirrored on the right and set in perspective. A single app launches; a category opens a pop-up list of its apps (right-click launches the last one used). Every app shows its **own icon in neon**: the real icon is recoloured from the theme colour to white, with a glow. |
+| Side columns, slots 1-8 | Four identical **buttons** per side, mirrored on the right and set in perspective. A single app launches; a category opens a pop-up list of its apps (right-click launches the last one used). A folder button shows one neon emblem for the whole folder, with room around it. Every single-app button shows the app's **own icon in neon**: the real icon is recoloured from the theme colour to white, with a glow. |
 | Side columns, bottom | Upkeep (Windows Update, winget, antivirus) · dev status (WSL, Ollama, Tailscale) |
 | Centre | Orange target lock on the busiest process · flight HUD (clock, CPU GHz tape, GPU tape, fan/throttle readout, network variometer, **next rocket launch countdown**) · 3D radar sphere (process blips, **ISS position**, your position) |
 | Dash | Storage screen · audio screen (live waveform, volume, media keys) · four info cells either side of the dash arc (temperatures, load, fan · network, ping, Wi-Fi) |
