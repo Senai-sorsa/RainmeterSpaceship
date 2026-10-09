@@ -237,8 +237,16 @@ local function rowsTheme()
   rows[#rows + 1] = { 'HULL OPACITY', tostring(H.num('HullAlpha', 255)) .. ' / 255  (lower = wallpaper shows through the metal)', { { '-25', function() bump('HullAlpha', -25, 0, 255, nil, true) end }, { '+25', function() bump('HullAlpha', 25, 0, 255, nil, true) end }, { 'SOLID', function() writeVar('Settings.inc', 'HullAlpha', 255); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   rows[#rows + 1] = { 'DARK TINTS', tostring(H.num('ShadeAlpha', 255)) .. ' / 255  (shading behind the HUD on the glass)', { { '-25', function() bump('ShadeAlpha', -25, 0, 255, nil, true) end }, { '+25', function() bump('ShadeAlpha', 25, 0, 255, nil, true) end }, { 'OFF', function() writeVar('Settings.inc', 'ShadeAlpha', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   rows[#rows + 1] = { 'HUD OPACITY', tostring(H.num('HudAlpha', 255)) .. ' / 255  (every line and label)', { { '-25', function() bump('HudAlpha', -25, 40, 255, nil, true) end }, { '+25', function() bump('HudAlpha', 25, 40, 255, nil, true) end }, { 'FULL', function() writeVar('Settings.inc', 'HudAlpha', 255); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
-  local img = H.num('UseShipImage', 0) == 1
-  rows[#rows + 1] = { 'COCKPIT ART', img and ('PICTURE  Images\\' .. H.str('ShipImage', 'ship.png')) or 'RENDERED  textured hull (Images\\hull.png)', { { 'RENDERED', function() writeVar('Settings.inc', 'UseShipImage', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end, not img }, { 'PICTURE', function() writeVar('Settings.inc', 'UseShipImage', 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end, img } } }
+  local img, off = H.num('UseShipImage', 0) == 1, H.num('FrameOff', 0) == 1
+  local function art(useImg, frameOff)
+    return function()
+      writeVar('Settings.inc', 'UseShipImage', useImg); writeVar('Settings.inc', 'FrameOff', frameOff)
+      SKIN:Bang('!RefreshGroup', 'Spaceship')
+    end
+  end
+  rows[#rows + 1] = { 'COCKPIT ART', off and 'OFF  no cockpit, window tint or glow - just the HUD'
+      or (img and ('PICTURE  Images\\' .. H.str('ShipImage', 'ship.png')) or 'RENDERED  textured hull (Images\\hull.png)'),
+    { { 'RENDERED', art(0, 0), not img and not off }, { 'PICTURE', art(1, 0), img and not off }, { 'OFF', art(0, 1), off } } }
   rows[#rows + 1] = { 'WARNING COLOUR', H.str('ColorWarn', ''), { { 'ORANGE', function() writeVar('Settings.inc', 'ColorWarn', '255,130,40'); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { 'YELLOW', function() writeVar('Settings.inc', 'ColorWarn', '255,220,60'); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   return rows
 end

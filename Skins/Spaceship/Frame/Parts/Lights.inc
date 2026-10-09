@@ -44,5 +44,5 @@ Shape38=Ellipse 2088.6,1123.8,2.0,22.0 | Fill Color 140,200,255,30 | StrokeWidth
 Shape39=Ellipse 2088.6,1123.8,5.0,5.0 | Fill Color 190,230,255,255 | StrokeWidth 0
 Shape40=Ellipse 2088.6,1123.8,2.4,2.4 | Fill Color 255,255,255,255 | StrokeWidth 0
 TransformationMatrix=#Scale#;0;0;#Scale#;0;0
-Hidden=#UseShipImage#
+Hidden=(Clamp(#FrameOff#+(#UseShipImage#),0,1))
 DynamicVariables=0

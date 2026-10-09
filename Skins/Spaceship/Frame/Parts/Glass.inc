@@ -15,4 +15,5 @@ Shape4=Path P4 | Fill LinearGradient GlassGrad | StrokeWidth 0
 P5=2560.0,409.6 | LineTo 2560.0,288.9 | LineTo 2555.9,259.5 | LineTo 2545.8,214.4 | LineTo 2541.7,201.4 | LineTo 2432.4,0.0 | LineTo 2268.4,82.8 | ClosePath 1
 Shape5=Path P5 | Fill LinearGradient GlassGrad | StrokeWidth 0
 TransformationMatrix=#Scale#;0;0;#Scale#;0;0
+Hidden=(Clamp(#FrameOff#+(0),0,1))
 DynamicVariables=0
