@@ -1,0 +1,56 @@
+{
+  "_comment": "Master layout for the Spaceship HUD. Base canvas 2560x1600 (16:10). Every skin reads its position from Layout.inc, which is generated from this file. Multiply by #Scale# at runtime.",
+  "canvas": { "w": 2560, "h": 1600 },
+  "safe_area": { "inset": 24, "corner_radius": 150 },
+  "min_gap": 12,
+
+  "keepouts": [
+    { "id": "pillar_L",  "desc": "Left A-pillar strut (frame art)",   "poly": [[540,250],[640,250],[990,830],[925,850]] },
+    { "id": "pillar_R",  "desc": "Right A-pillar strut (frame art)",  "poly": [[2020,250],[1920,250],[1570,830],[1635,850]] },
+    { "id": "beam_L",    "desc": "Lower-left console beam",           "poly": [[380,1290],[980,880],[990,925],[400,1335]] },
+    { "id": "beam_R",    "desc": "Lower-right console beam",          "poly": [[2180,1290],[1580,880],[1570,925],[2160,1335]] }
+  ],
+
+  "zones": [
+    { "id": "T_power",     "group": "top",    "x": 680,  "y": 50,   "w": 240, "h": 40,  "content": "Power draw bar (system W: CPU+GPU package, battery discharge/charge W)" },
+    { "id": "T_battery",   "group": "top",    "x": 1640, "y": 50,   "w": 240, "h": 40,  "content": "Battery % bar + time to 80% (charging) or time to empty" },
+    { "id": "T_settings",  "group": "top",    "x": 990,  "y": 30,   "w": 580, "h": 104, "content": "Row 1: GPU mode tabs ECO | HYBRID | AUTO | dGPU | OFF-HUD. Row 2: power mode, refresh rate, 80% charge limit, perf tier, CARGO (all-apps drawer)" },
+    { "id": "T_alert",     "group": "top",    "x": 585,  "y": 130,  "w": 40,  "h": 40,  "content": "Warning triangle + count (temps, disk, battery, dGPU awake)" },
+    { "id": "G1_cpu",      "group": "graphs", "x": 640,  "y": 150,  "w": 280, "h": 80,  "content": "FIXED: CPU usage history graph" },
+    { "id": "G2_select",   "group": "graphs", "x": 960,  "y": 150,  "w": 300, "h": 80,  "content": "SELECTABLE: GPU load / GPU temp / VRAM / CPU temp / disk I/O / network / power" },
+    { "id": "G3_select",   "group": "graphs", "x": 1300, "y": 150,  "w": 300, "h": 80,  "content": "SELECTABLE: same list as G2" },
+    { "id": "G4_ram",      "group": "graphs", "x": 1640, "y": 150,  "w": 280, "h": 80,  "content": "FIXED: RAM usage history graph" },
+
+    { "id": "L_category",  "group": "left",   "x": 60,   "y": 100,  "w": 440, "h": 400, "content": "Category 1 (default Aircraft Design): app-name tabs on top, hollow neon wireframe of the selected app, LAUNCH button" },
+    { "id": "L_location",  "group": "left",   "x": 60,   "y": 520,  "w": 440, "h": 130, "content": "LAT / LON / ALT coordinate bar with crosshair glyph (mask toggle for screenshots)" },
+    { "id": "L_dots",      "group": "left",   "x": 200,  "y": 662,  "w": 160, "h": 24,  "content": "Page dots: cycle which category the left panel shows" },
+    { "id": "L_app1",      "group": "left",   "x": 60,   "y": 700,  "w": 420, "h": 104, "content": "Pinned app 1 (hollow neon icon, name, status: running/not)" },
+    { "id": "L_app2",      "group": "left",   "x": 60,   "y": 820,  "w": 420, "h": 104, "content": "Pinned app 2" },
+    { "id": "L_app3",      "group": "left",   "x": 60,   "y": 940,  "w": 420, "h": 104, "content": "Pinned app 3" },
+    { "id": "L_app4",      "group": "left",   "x": 60,   "y": 1060, "w": 420, "h": 104, "content": "Pinned app 4" },
+
+    { "id": "R_category",  "group": "right",  "x": 2060, "y": 100,  "w": 440, "h": 400, "content": "Category 2 (default CFD & Analysis): same behaviour as L_category" },
+    { "id": "R_sysinfo",   "group": "right",  "x": 2060, "y": 520,  "w": 440, "h": 130, "content": "BLACK-CLOVER / Win11 build / CPU / GPU / RAM / uptime / local IP" },
+    { "id": "R_dots",      "group": "right",  "x": 2200, "y": 662,  "w": 160, "h": 24,  "content": "Page dots for the right category panel" },
+    { "id": "R_app1",      "group": "right",  "x": 2080, "y": 700,  "w": 420, "h": 104, "content": "Pinned app 5" },
+    { "id": "R_app2",      "group": "right",  "x": 2080, "y": 820,  "w": 420, "h": 104, "content": "Pinned app 6" },
+    { "id": "R_app3",      "group": "right",  "x": 2080, "y": 940,  "w": 420, "h": 104, "content": "Pinned app 7" },
+    { "id": "R_app4",      "group": "right",  "x": 2080, "y": 1060, "w": 420, "h": 104, "content": "Pinned app 8" },
+
+    { "id": "C_tierL",     "group": "center", "x": 610,  "y": 800,  "w": 70,  "h": 70,  "content": "Perf-tier ring (FULL / LITE / LOW / STEALTH)" },
+    { "id": "C_dgpuR",     "group": "center", "x": 1880, "y": 800,  "w": 70,  "h": 70,  "content": "dGPU state ring (asleep / awake / MUX)" },
+    { "id": "C_target",    "group": "center", "x": 1150, "y": 330,  "w": 260, "h": 190, "content": "Orange target lock: top process by CPU, its CPU % and RAM (e.g. 567m = 567 MB)" },
+    { "id": "C_hud",       "group": "center", "x": 1020, "y": 560,  "w": 520, "h": 250, "content": "Flight HUD: centre reticle + clock, left tape = CPU clock, right tape = GPU clock, readout = fan speed" },
+    { "id": "C_sphere",    "group": "center", "x": 1090, "y": 900,  "w": 380, "h": 380, "content": "3D wireframe radar sphere: top 8 processes as blips, ring pulses with network traffic" },
+
+    { "id": "B_storage",   "group": "bottom", "x": 760,  "y": 1250, "w": 260, "h": 190, "content": "Storage: C: 361/954 GB ring, read/write bars, SSD temp + health, extra drives" },
+    { "id": "B_audio",     "group": "bottom", "x": 1540, "y": 1250, "w": 260, "h": 190, "content": "Audio: output device, volume arc, mic mute, now playing + controls, live waveform" },
+    { "id": "B_network",   "group": "bottom", "x": 560,  "y": 1380, "w": 170, "h": 180, "content": "Network: up/down sparkline, Wi-Fi SSID + signal, ping" },
+    { "id": "B_mission",   "group": "bottom", "x": 1830, "y": 1380, "w": 170, "h": 180, "content": "Mission clock: date, focus/pomodoro timer, next calendar event" },
+    { "id": "B_strip",     "group": "bottom", "x": 800,  "y": 1480, "w": 960, "h": 80,  "content": "General info strip: CPU C, GPU C, fans RPM, processes, ping, battery wear, power plan, uptime" }
+  ],
+
+  "overlays": [
+    { "id": "O_drawer", "x": 1000, "y": 240, "w": 560, "h": 560, "content": "CARGO drawer (transient): all app categories as drop-downs. While open, C_target and C_hud fade out; closes on launch or after 10 s." }
+  ]
+}
