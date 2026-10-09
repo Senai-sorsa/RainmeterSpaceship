@@ -128,7 +128,7 @@ Fonts: **Oxanium** for labels, **B612 Mono** for numbers (B612 was designed by A
 | `HudAlpha` (HUD OPACITY) | Opacity of every HUD line and label |
 | `GlassTint` (WINDOW TINT) | Theme-colour tint on the windows |
 | `GlassGlare` (GLASS GLARE) | Smudges and reflections on the glass |
-| `MistAlpha` | The neon mist glowing off every edge of the glass (sides, sills, top, corner cuts); 0 turns it off, lower values soften it |
+| `MistAlpha` | The neon mist: a dim haze off the window edges and corner cuts, plus a stronger glow along the top and bottom edges of the screen. 0 turns it off; lower values soften it. |
 | `ScanLines` / `ScanAlpha` (SCANLINES) | Scanlines on the glass |
 
 ### Using a picture of the ship
