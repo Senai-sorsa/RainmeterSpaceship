@@ -75,8 +75,8 @@ function Update()
     c:line(cx + p[1] * (d + 2), cy + p[2] * (d + 2), cx + p[1] * (d + 9), cy + p[2] * (d + 9), A1, 1.6)
   end
   -- readout (reference: M/S  THR 50)
-  H.text(1, 8, X(525), Y(388), 'GHZ', { size = 7, weight = 700, align = 'RightCenter', color = A1 })
-  H.text(1, 9, X(525), Y(398), string.format('THR %.0f', s.load), { size = 7, weight = 700, align = 'RightCenter', color = A1 })
+  H.text(1, 8, X(525), Y(381), 'GHZ', { size = 7, weight = 700, align = 'RightCenter', color = A1 })
+  H.text(1, 9, X(525), Y(391), string.format('THR %.0f', s.load), { size = 7, weight = 700, align = 'RightCenter', color = A1 })
   for t = 10, 24 do H.hideText(1, t) end
   if frame < 3 then H.hit(1, 1, X(600), Y(290), X(660) - X(600), Y(332) - Y(290), 'CPU clock (left), GPU (right), CPU load (pointer)') end
   c:flush()

@@ -7,8 +7,8 @@ return {
   keepouts = {
   },
   modules = {
-    { key = "TopPower", file = "Power.ini", name = "TOP POWER", config = "Spaceship\\Top\\Power", zones = { { {680.63, 54.16}, {877.71, 72.21}, {877.71, 99.29}, {680.63, 81.24} } } },
-    { key = "TopBattery", file = "Battery.ini", name = "TOP BATTERY", config = "Spaceship\\Top\\Battery", zones = { { {1682.29, 72.21}, {1879.37, 54.16}, {1879.37, 81.24}, {1682.29, 99.29} } } },
+    { key = "TopPower", file = "Power.ini", name = "TOP POWER", config = "Spaceship\\Top\\Power", zones = { { {680.63, 40.62}, {877.71, 58.67}, {877.71, 85.75}, {680.63, 67.7} } } },
+    { key = "TopBattery", file = "Battery.ini", name = "TOP BATTERY", config = "Spaceship\\Top\\Battery", zones = { { {1682.29, 58.67}, {1879.37, 40.62}, {1879.37, 67.7}, {1682.29, 85.75} } } },
     { key = "TopConsole", file = "Console.ini", name = "TOP CONSOLE", config = "Spaceship\\Top\\Console", zones = { { {940.7, 22.57}, {1619.3, 22.57}, {1619.3, 128.63}, {940.7, 128.63} } } },
     { key = "TopAlert", file = "Alert.ini", name = "TOP ALERT", config = "Spaceship\\Top\\Alert", zones = { { {587.17, 119.61}, {646.1, 119.61}, {646.1, 162.48}, {587.17, 162.48} } } },
     { key = "TopGraphCPU", file = "GraphCPU.ini", name = "TOP GRAPHCPU", config = "Spaceship\\Top\\GraphCPU", zones = { { {676.57, 139.92}, {908.19, 139.92}, {908.19, 214.39}, {676.57, 214.39} } } },

@@ -19,14 +19,14 @@ function Update()
   c:line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220)
   c:dot(X(40), Y(228), 3, A1); c:dot(X(226), Y(228), 3, A1)
   -- emblem where the location crosshair sits: GPU glyph, a boxed GPU count and a ring
-  local gx, gy = X(100), Y(262)
+  local gx, gy = X(100), Y(256)
   c:circle(gx, gy, 40, W, 1, 90)
   c:icon('gpu', gx, gy, 40, W, 1.4)
-  c:rect(gx + 30, gy + 22, 24, 22, H.C.hi, 1.5)
-  H.text(1, 7, gx + 42, gy + 33, '2', { size = 7, weight = 700, align = 'CenterCenter', color = H.C.hi, font = H.fontNum })
+  c:rect(gx + 32, gy + 12, 24, 22, H.C.hi, 1.5)
+  H.text(1, 7, gx + 44, gy + 23, '2', { size = 7, weight = 700, align = 'CenterCenter', color = H.C.hi, font = H.fontNum })
   local rows = { { 'SYS', H.str('DeviceName', 'PC'), W }, { 'UP', H.sval('mUptime', '--'), H.C.hi }, { 'IP', H.sval('mIP', '--'), W } }
   for i, r in ipairs(rows) do
-    local y = Y(({ 246.5, 257.8, 269.5 })[i])
+    local y = Y(({ 242, 253, 264 })[i])
     H.text(1, i * 2 - 1, X(152), y, r[1], { size = 8, weight = 700, align = 'LeftCenter', color = r[3] })
     H.text(1, i * 2, X(158), y, r[2], { size = 7, weight = 700, align = 'RightCenter', color = r[3], font = H.fontNum, clip = X(158) - X(228) })
   end

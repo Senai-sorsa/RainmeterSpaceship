@@ -43,7 +43,7 @@ function Update()
   c:line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220)
   c:dot(X(40), Y(228), 3, A1); c:dot(X(226), Y(228), 3, A1)
   -- crosshair: dashed vertical, cross ticks, heading vector (pink) + diagonal
-  local gx, gy = X(100), Y(262)
+  local gx, gy = X(100), Y(256)
   for i = -5, 5 do if i ~= 0 then c:hair(gx, gy + i * 9 - 3, gx, gy + i * 9 + 3, W, 1.2, 170) end end
   c:hair(gx - 44, gy, gx + 44, gy, W, 1, 90)
   sweep = (sweep + (H.tier == 0 and 4 or 0)) % 360
@@ -55,7 +55,7 @@ function Update()
   local rows = { { 'LAT', fmt(lat, 'N', 'S'), H.C.white }, { 'LON', fmt(lon, 'E', 'W'), H.C.hi },
                  { alt and 'ALT' or 'TZ', alt and string.format('%.0fM', alt) or (tz ~= '' and string.upper(string.match(tz, '[^/]+$') or tz) or '--'), H.C.white } }
   for i, r in ipairs(rows) do
-    local y = Y(({ 246.5, 257.8, 269.5 })[i])
+    local y = Y(({ 242, 253, 264 })[i])
     local v = r[2]
     if mask and i < 3 then v = string.gsub(v, '%d', '*') end
     H.text(1, i * 2 - 1, X(152), y, r[1], { size = 8, weight = 700, align = 'RightCenter', color = r[3] })

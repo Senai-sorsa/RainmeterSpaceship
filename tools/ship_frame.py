@@ -737,8 +737,8 @@ def build():
             d += drng.uniform(160, 340)
 
     # lower silver rails above the floor hoses (reference: two pale bars rising from the bottom corner)
-    for (a_, b_), w_ in ((((112, 676), (300, 612)), 7), (((128, 692), (318, 628)), 5)):
-        ln = LineString(C([a_, b_])).intersection(HULL.buffer(-4)).difference(BUSY.buffer(6))
+    for (a_, b_), w_ in ((((196, 648), (300, 612)), 7), (((206, 666), (318, 628)), 5)):
+        ln = LineString(C([a_, b_])).intersection(HULL.buffer(-4)).difference(AVOID.buffer(6))
         for seg in lines_of(ln):
             pts = list(seg.coords)
             if seg.length < 40:

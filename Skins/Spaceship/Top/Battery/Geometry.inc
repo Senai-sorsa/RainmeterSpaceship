@@ -4,7 +4,7 @@
 Module=TopBattery
 ModuleConfig=Spaceship\Top\Battery
 WX=1664
-WY=36
+WY=22
 WW=234
 WH=82
 DX=#TopBattery_DX#
@@ -13,7 +13,7 @@ ZoneCount=1
 ; zone 1: T_battery
 Z1=T_battery
 Z1_X=18.29
-Z1_Y=36.21
+Z1_Y=36.67
 Z1_W=197.9
 Z1_H=27.08
 Z1_TM=0.9959;-0.0912;0;1;(0.0758*#Scale#);(1.6682*#Scale#)

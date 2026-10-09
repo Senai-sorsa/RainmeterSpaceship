@@ -4,7 +4,7 @@
 Module=TopPower
 ModuleConfig=Spaceship\Top\Power
 WX=662
-WY=36
+WY=22
 WW=234
 WH=82
 DX=#TopPower_DX#
@@ -13,7 +13,7 @@ ZoneCount=1
 ; zone 1: T_power
 Z1=T_power
 Z1_X=18.63
-Z1_Y=18.16
+Z1_Y=18.62
 Z1_W=197.9
 Z1_H=27.08
 Z1_TM=0.9959;0.0912;0;1;(0.0772*#Scale#);(-1.6992*#Scale#)
