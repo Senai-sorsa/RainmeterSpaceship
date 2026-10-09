@@ -23,7 +23,7 @@ from pathlib import Path
 
 from shapely.affinity import scale as shp_scale
 from shapely.affinity import translate as shp_translate
-from shapely.geometry import LineString, MultiLineString, MultiPolygon, Point, Polygon, box
+from shapely.geometry import LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, box
 from shapely.ops import split, substring, unary_union
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -610,6 +610,161 @@ def build():
 
     hose(C([(150, 712), (230, 688), (310, 684), (352, 700), (365, 712)]), 26)
     hose(C([(60, 715), (120, 694), (210, 676), (250, 664)]), 18)
+
+    # ---------------------------------------------------------------- detail pass (reference comparison): panel tone
+    # changes, white marks (blank placards, tick marks, specular glints), small red/amber markers and extra
+    # shapes. Everything is placed on the left and mirrored, so the ship stays symmetrical.
+    drng = random.Random(23)
+    TONES = [("0,0,0", 70), ("10,14,20", 85), ("28,34,42", 60), ("40,50,62", 45), ("60,74,90", 26),
+             ("50,45,42", 38), ("22,30,40", 70)]
+
+    def patch(g, tone):
+        for gp in polys_of(g):
+            if gp.area < 900:
+                continue
+            col, a = tone
+            sym_poly(hull, gp, f"Fill Color {col},{a} | Stroke Color 0,0,0,150 | StrokeWidth 1.6")
+            sym_path(hull, list(gp.exterior.coords), f"Stroke Color {LIGHT},34 | StrokeWidth 1", True)
+
+    # side wall: cells between lines parallel to the sill and lines across it
+    alongs, downs = [-260, -40, 150, 330, 520, 700, 880, 1060], [36, 100, 160, 228, 300, 390, 520]
+    for i in range(len(alongs) - 1):
+        for j in range(len(downs) - 1):
+            if drng.random() < 0.38:
+                continue
+            a0, a1, d0, d1 = alongs[i], alongs[i + 1], downs[j], downs[j + 1]
+            cell = Polygon([wall_point(a0, d0), wall_point(a1, d0), wall_point(a1, d1), wall_point(a0, d1)])
+            patch(cell.intersection(wall.buffer(-3)), drng.choice(TONES))
+    # ceiling: a row of plates of different shades
+    xs = [0, 120, 230, 330, 440, 560, 630]
+    for i in range(len(xs) - 1):
+        if drng.random() < 0.3:
+            continue
+        cell = box(xs[i] * R.SX, 0, xs[i + 1] * R.SX, 104 * R.SY)
+        patch(cell.intersection(ceil.buffer(-3)).difference(BUSY), drng.choice(TONES))
+    # console flanks
+    for (x0, y0, x1, y1) in ((372, 400, 420, 470), (420, 400, 470, 440), (395, 470, 450, 560)):
+        g = cpoly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)]).intersection(HULL.buffer(-4)).difference(BUSY).difference(WINDOWS)
+        patch(g, drng.choice(TONES))
+
+    def rrect(cx_, cy_, ux_, uy_, w_, h_):
+        nx_, ny_ = -uy_, ux_
+        return [(cx_ - ux_ * w_ / 2 - nx_ * h_ / 2, cy_ - uy_ * w_ / 2 - ny_ * h_ / 2), (cx_ + ux_ * w_ / 2 - nx_ * h_ / 2, cy_ + uy_ * w_ / 2 - ny_ * h_ / 2),
+                (cx_ + ux_ * w_ / 2 + nx_ * h_ / 2, cy_ + uy_ * w_ / 2 + ny_ * h_ / 2), (cx_ - ux_ * w_ / 2 + nx_ * h_ / 2, cy_ - uy_ * w_ / 2 + ny_ * h_ / 2)]
+
+    AVOID = unary_union([BUSY] + [Point(*C([g_])[0]).buffer(160) for g_ in R.GLYPHS])   # widgets and HUD glyphs stay clean
+
+    def ok(pts, pad=4):
+        g = MultiPoint(pts).convex_hull.buffer(1)
+        return HULL.buffer(-pad).contains(g) and not g.intersects(AVOID)
+
+    def placard(cx_, cy_, ux_, uy_, w_, h_, lines_=2):
+        # a blank white placard: plate, dark rule lines where the text would be (no words)
+        pts = rrect(cx_, cy_, ux_, uy_, w_, h_)
+        if not ok(pts):
+            return False
+        sym_path(greeb, pts, "Fill Color 214,222,230,165 | Stroke Color 0,0,0,170 | StrokeWidth 1", True)
+        nx_, ny_ = -uy_, ux_
+        for k in range(lines_):
+            off = (k - (lines_ - 1) / 2) * h_ / (lines_ + 0.6)
+            ln_w = w_ * (0.7 if k == 0 else 0.45)
+            sym_path(greeb, [(cx_ - ux_ * ln_w / 2 + nx_ * off, cy_ - uy_ * ln_w / 2 + ny_ * off),
+                             (cx_ + ux_ * ln_w / 2 + nx_ * off, cy_ + uy_ * ln_w / 2 + ny_ * off)], "Stroke Color 30,36,44,200 | StrokeWidth 1.3")
+        return True
+
+    def ticks(cx_, cy_, ux_, uy_, n=3, ln_=12, gap=6, col="225,232,240", a=190):
+        nx_, ny_ = -uy_, ux_
+        segs = []
+        for k in range(n):
+            o = (k - (n - 1) / 2) * gap
+            segs.append([(cx_ + ux_ * o - nx_ * ln_ / 2, cy_ + uy_ * o - ny_ * ln_ / 2), (cx_ + ux_ * o + nx_ * ln_ / 2, cy_ + uy_ * o + ny_ * ln_ / 2)])
+        if not ok([pt for sg in segs for pt in sg], 3):
+            return False
+        for sg in segs:
+            sym_path(greeb, sg, f"Stroke Color {col},{a} | StrokeWidth 2.2")
+        return True
+
+    def marker(cx_, cy_, col):
+        if not ok(rrect(cx_, cy_, 1, 0, 14, 14), 3):
+            return
+        for side in (0, 1):
+            x_ = cx_ if side == 0 else CW - cx_
+            greeb.rect(x_ - 5, cy_ - 3, 10, 6, "Fill Color 0,0,0,220 | StrokeWidth 0", 1)
+            greeb.rect(x_ - 3.5, cy_ - 1.6, 7, 3.2, f"Fill Color {col},235 | StrokeWidth 0", 1)
+            greeb.ellipse(x_, cy_, 9, 5, f"Fill Color {col},38 | StrokeWidth 0")
+
+    # placards and ticks on the A-pillar, roof strut, sill wall and console flanks
+    pdir = (pu[0], pu[1])
+    for t, off in ((0.62, -26), (0.8, -24)):
+        px_, py_ = at(C([(342.3, 104)])[0], C([(500.8, 365.5)])[0], t)
+        placard(px_ - pdir[1] * off, py_ + pdir[0] * off, pdir[0], pdir[1], 30, 13)
+    for t in (0.35, 0.92):
+        px_, py_ = at(C([(342.3, 104)])[0], C([(500.8, 365.5)])[0], t)
+        ticks(px_ + pdir[1] * 24, py_ - pdir[0] * 24, pdir[0], pdir[1])
+    sdir = (sx, sy)
+    placed = 0
+    for along in range(80, 1100, 37):
+        for down in (48, 132, 196, 262):
+            if placed < 4 and placard(*wall_point(along, down), *sdir, 34 + 8 * (placed % 2), 14, 2 + placed % 2):
+                placed += 1
+                break
+    placed = 0
+    for along in range(40, 1100, 53):
+        for down in (22, 112, 182):
+            if placed < 5 and ticks(*wall_point(along, down), *sdir, n=2 + placed % 3):
+                placed += 1
+                break
+    for x_, y_ in ((400, 420), (446, 452), (414, 520)):
+        placard(x_ * R.SX, y_ * R.SY, 0.0, 1.0, 26, 11, 1) or ticks(x_ * R.SX, y_ * R.SY, 0.0, 1.0)
+    # the white plate on the far end of the beam (reference), and markers
+    bx_, by_ = 232 * R.SX + su[0] * 300, 498 * R.SY + su[1] * 300 + 8
+    pts = rrect(bx_, by_ - 6, su[0], su[1], 38, 12)
+    sym_path(greeb, pts, "Fill Color 222,228,234,200 | Stroke Color 0,0,0,180 | StrokeWidth 1", True)
+    sym_path(greeb, [pts[0], pts[1]], "Stroke Color 255,255,255,220 | StrokeWidth 1.2")
+    for x_, y_, col in ((420, 452, "255,70,60"), (470, 470, "255,170,60"), (300, 590, "255,70,60"), (160, 300, "255,170,60")):
+        marker(x_ * R.SX, y_ * R.SY, col)
+
+    # specular glints: short white streaks along the window rails (left half, mirrored)
+    for wp, ln in rail(7):
+        L = ln.length
+        d = drng.uniform(40, 140)
+        while d < L - 40:
+            p0, p1 = ln.interpolate(d), ln.interpolate(min(L, d + drng.uniform(16, 46)))
+            if p0.x < CW / 2 - 12 and p1.x < CW / 2 - 12 and not Point(p0.x, p0.y).buffer(4).intersects(BUSY):
+                seg = [(p0.x, p0.y), (p1.x, p1.y)]
+                sym_path(greeb, seg, "Stroke Color 200,225,245,40 | StrokeWidth 5 | StrokeStartCap Round | StrokeEndCap Round")
+                sym_path(greeb, seg, f"Stroke Color 245,250,255,{drng.randint(150, 220)} | StrokeWidth 1.5 | StrokeStartCap Round | StrokeEndCap Round")
+            d += drng.uniform(160, 340)
+
+    # lower silver rails above the floor hoses (reference: two pale bars rising from the bottom corner)
+    for (a_, b_), w_ in ((((112, 676), (300, 612)), 7), (((128, 692), (318, 628)), 5)):
+        ln = LineString(C([a_, b_])).intersection(HULL.buffer(-4)).difference(BUSY.buffer(6))
+        for seg in lines_of(ln):
+            pts = list(seg.coords)
+            if seg.length < 40:
+                continue
+            sym_path(greeb, pts, f"Stroke Color 0,0,0,220 | StrokeWidth {w_ + 4} | StrokeStartCap Round | StrokeEndCap Round")
+            sym_path(greeb, pts, f"Stroke Color 96,110,124,255 | StrokeWidth {w_} | StrokeStartCap Round | StrokeEndCap Round")
+            sym_path(greeb, [(x_, y_ - w_ * 0.25) for x_, y_ in pts], f"Stroke Color 220,232,242,{150 if w_ > 5 else 110} | StrokeWidth 1.3")
+
+    # small mechanical boxes beside the console (silver top edge, dark body, white tick)
+    for (x_, y_, w_, h_) in ((392, 392, 22, 12), (452, 404, 14, 18), (376, 448, 18, 10)):
+        X_, Y_, W_, H_ = x_ * R.SX, y_ * R.SY, w_ * R.SX, h_ * R.SY
+        g = box(X_, Y_, X_ + W_, Y_ + H_)
+        if not (HULL.buffer(-4).contains(g) and not g.intersects(BUSY)):
+            continue
+        sym_poly(greeb, g, "Fill LinearGradient {G} | Stroke Color 0,0,0,220 | StrokeWidth 1.4", 90,
+                 [("70,82,96,255", 0), ("24,28,34,255", 0.25), ("10,12,16,255", 1)])
+        sym_path(greeb, [(X_ + 2, Y_ + 1.5), (X_ + W_ - 2, Y_ + 1.5)], "Stroke Color 225,235,245,190 | StrokeWidth 1.4")
+        sym_path(greeb, [(X_ + W_ * 0.2, Y_ + H_ * 0.6), (X_ + W_ * 0.45, Y_ + H_ * 0.6)], "Stroke Color 230,236,242,170 | StrokeWidth 2")
+
+    # silver lip along the front edge of the dash (reference: a pale glossy edge across the bottom)
+    lip = LineString(C([(452, 703), (808, 703)])).difference(cpoly([(606, 640), (654, 640), (654, 709), (606, 709)]))
+    for seg in lines_of(lip):
+        pts = list(seg.coords)
+        greeb.path(pts, "Stroke Color 0,0,0,200 | StrokeWidth 9")
+        greeb.path(pts, "Stroke Color 70,82,96,255 | StrokeWidth 6")
+        greeb.path([(x_, y_ - 2) for x_, y_ in pts], "Stroke Color 215,228,240,170 | StrokeWidth 1.4")
 
     # ---------------------------------------------------------------- strut lights, spill
     for (x, y) in R.LIGHTS:

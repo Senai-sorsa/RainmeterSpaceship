@@ -12,7 +12,14 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
 - panel plating and fine scratches;
 - angular visor cut-offs at all four corners, traced from the reference (silver-blue rim, stepped notch);
 - window edges with tube rails, sagging cables, clamps, lamps built like the reference (a grey cylinder with a hole, a black cylinder, a polished ring and a black cone the light shines from) and a red sill strip;
-- smooth A-pillars with long glossy streaks, lower walls with long reflections, a slatted console face and a metal pedestal.
+- smooth A-pillars, lower walls with long reflections, a smooth glossy beam under each side window, a slatted console face and a metal pedestal.
+- small surface detail, mirrored on both sides:
+  - plating in slightly different shades;
+  - blank white placards and tick marks;
+  - white glints along the rails;
+  - small red and amber markers;
+  - silver lower rails and console-side boxes;
+  - a silver lip along the dash.
 
 The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, LEDs, strut lights and HUD lines.
 
