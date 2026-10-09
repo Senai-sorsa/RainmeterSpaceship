@@ -86,10 +86,9 @@ local function drawSchematic(app)
     -- hologram colour: pale ice-cyan like the reference schematics (theme colour pulled toward white)
     local col = app.missing and D or H.mix(A1, H.C.white, 0.45)
     -- dense wireframe: outer shell, inner shell, offset ghost
-    c:icon(app.icon, cx, cy, sz, col, 2.4)
-    c:icon(app.icon, cx, cy, sz * 0.86, col, 1.2, 150)
-    c:icon(app.icon, cx, cy, sz * 0.7, col, 1, 90)
-    c:icon(app.icon, cx + 3, cy - 3, sz * 0.94, H.C.white, 0.8, 70)
+    -- hologram: the wireframe with glow, plus a faint offset ghost (two passes keep dense ships light)
+    c:icon(app.icon, cx, cy, sz, col, 1.6)
+    c:icon(app.icon, cx + 3, cy - 3, sz * 0.97, H.C.white, 0.7, 60)
     -- bracket marks at the extremities (reference [ ] marks on wing tips)
     local h2 = sz * 0.5
     for _, p in ipairs({ { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } }) do
@@ -97,13 +96,15 @@ local function drawSchematic(app)
       c:poly({ { x - p[1] * 10, y }, { x, y }, { x, y - p[2] * 10 } }, H.C.white, 1.4, 220)
     end
     -- running: red core like the reference's highlighted section
+    -- red core like the reference's highlighted section: always there, brighter while the app runs
+    local live = false
     if app.proc ~= '' then
       H.set('mProc', 'ProcessName', app.proc)
-      if H.val('mProc', -1) > 0 then
-        c:icon(app.icon, cx, cy, sz * 0.32, H.C.hi, 2.2)
-        c:fillCircle(cx, cy, sz * 0.08, H.C.hi, 120)
-      end
+      live = H.val('mProc', -1) > 0
     end
+    c:fillCircle(cx, cy + sz * 0.02, sz * 0.07, H.C.hi, live and 150 or 70)
+    c:circle(cx, cy + sz * 0.02, sz * 0.07, H.C.hi, 1.4, live and 230 or 120)
+    if live then c:icon(app.icon, cx, cy, sz * 0.3, H.C.hi, 1.6) end
     -- scan line (FULL tier only)
     if H.tier == 0 then
       local y = (scan % 100) / 100 * z.h

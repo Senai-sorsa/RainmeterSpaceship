@@ -38,7 +38,7 @@ function Update()
   local c = H.canvas(1)
   local A1, W = H.C.accent, H.C.white
   local function X(rx) return (rx - 34) * SXR end
-  local function Y(ry) return (ry - 222) * SYR end
+  local function Y(ry) return (ry - 220) * SYR end
   -- top rail with end dots (reference 40,228 -> 226,238 follows the zone slant)
   c:line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220)
   c:dot(X(40), Y(228), 3, A1); c:dot(X(226), Y(228), 3, A1)

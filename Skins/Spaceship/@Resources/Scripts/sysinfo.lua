@@ -15,7 +15,7 @@ function Update()
   local A1, W = H.C.accent, H.C.white
   -- the location block's reference positions, mirrored inside the (mirrored) zone
   local function X(rx) return z.w - (rx - 34) * SXR end
-  local function Y(ry) return (ry - 222) * SYR end
+  local function Y(ry) return (ry - 220) * SYR end
   c:line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220)
   c:dot(X(40), Y(228), 3, A1); c:dot(X(226), Y(228), 3, A1)
   -- emblem where the location crosshair sits: GPU glyph, a boxed GPU count and a ring

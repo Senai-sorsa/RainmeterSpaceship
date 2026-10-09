@@ -86,7 +86,7 @@ function Update()
   if lockAnim > 0 then zoom = 1 + lockAnim / 18 * 0.08; lockAnim = lockAnim - step end
   local R = 86 * zoom
   -- haze (pre-blurred sprite, wide and horizontal like the reference)
-  H.sprite(1, 1, cx, cy, R * 2.4, R * 1.3, 'haze.png', RED, tier < 2 and 150 or 90)
+  H.sprite(1, 1, cx, cy, R * 2.4, R * 1.5, 'haze.png', RED, tier < 2 and 235 or 140)
   -- four outer arcs, gaps on the diagonals, rotating
   for q = 0, 3 do
     local a0 = rot + q * 90 - 33
@@ -98,7 +98,7 @@ function Update()
   local thick = 5 + 3 * H.clamp(cpu / 50, 0, 1)
   for q = 0, 2 do
     local a0 = -rot * 1.4 + q * 120 + 5
-    c:arc(cx, cy, r2, a0, a0 + 112, HOT, thick, 250)
+    c:arc(cx, cy, r2, a0, a0 + 116, HOT, thick, 250)   -- small notches, like the reference
   end
   c:fillCircle(cx, cy, r2 - thick - 2, { 20, 60, 140 }, 150)
   c:dot(cx, cy, 3.5, H.C.accent)

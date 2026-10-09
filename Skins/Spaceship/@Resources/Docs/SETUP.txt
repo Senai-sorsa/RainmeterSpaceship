@@ -69,10 +69,11 @@ dGPU light, CARGO drawer, MASTER kill switch, CFG (Control Center).
   shows them recoloured theme colour -> white with a glow. Apps without an icon use a line icon.
 - @Resources\Apps.ini decides what every panel shows. Each of the 8 slots and the 2 top
   panels can be ONE APP or a CATEGORY (categories get a tab line to pick the app).
-  Defaults: Slot1 Chrome and Slot5 File Explorer are single apps, the other six slots are
+  Defaults: Slot1 Chrome and Slot5 Everything are single apps, the other six slots are
   categories, and the top panels are Rocketry & Aero and Engineering & Analysis.
 - Change assignments without editing: Control Center > APPS > < / > on each row.
-- ANSYS is already listed (Engineering). After installing it: Control Center > APPS > RESCAN.
+- ANSYS is in Engineering (ParaView moved to Dev Tools). After installing it: Control Center >
+  APPS > RESCAN, which also pulls its icon.
 - Add any app: copy an [App.x] block in Apps.ini, set Target=start:<Start menu name>,
   add x to a category's Apps= list, RELOAD.
 

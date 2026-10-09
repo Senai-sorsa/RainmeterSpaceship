@@ -240,7 +240,7 @@ def build():
     # ceiling band: darker up top, catching light toward the windscreen
     ceil = box(0, 0, CW / 2, 106 * R.SY + 2).intersection(HULL).difference(STRUT)
     sym_poly(hull, ceil, "Fill LinearGradient {G} | StrokeWidth 0", 90,
-             [(f"{DARK},255", 0), (f"{MID},255", 0.75), (f"{LIGHT},255", 1)])
+             [(f"{DARK},255", 0), (f"{DARK},255", 0.6), (f"{MID},255", 1)])
     # A-pillar and roof strut, shaded as rounded members across their width
     for pts, a, b in ((R.PILLAR_L, (279.6, 97), (489, 371.5)), (R.STRUT_L, (180, 63), (0, 242))):
         A, B, ax, n = member_axis(pts, a, b)
@@ -298,43 +298,85 @@ def build():
             sym_path(hull, pts, "Stroke Color 0,0,0,180 | StrokeWidth 2.6")
             sym_path(hull, [(x + 2.2, y) for x, y in pts], f"Stroke Color {LIGHT},70 | StrokeWidth 1")
 
-    # ---------------------------------------------------------------- window frames: bezel, gasket, rim light, bolts
-    light_dir = norm(0, -1.0)
-    for wp in GLASS:
-        outer = wp.buffer(11, join_style=2).exterior
-        frames.line(outer.intersection(SCREEN.buffer(-1)), f"Stroke Color {MID},255 | StrokeWidth 18 | StrokeLineJoin Miter")
-        frames.line(wp.buffer(19.5, join_style=2).exterior.intersection(SCREEN.buffer(-1)), "Stroke Color 0,0,0,170 | StrokeWidth 2.2 | StrokeLineJoin Miter")
-        frames.line(wp.buffer(17.5, join_style=2).exterior.intersection(SCREEN.buffer(-1)), f"Stroke Color {LIGHT},90 | StrokeWidth 1.2 | StrokeLineJoin Miter")
-        frames.line(wp.buffer(3, join_style=2).exterior.intersection(SCREEN.buffer(-1)), "Stroke Color 0,0,0,230 | StrokeWidth 4 | StrokeLineJoin Miter")
-        # rim light on the inner lip, brighter where the edge faces up toward the sky
-        pts = list(wp.buffer(1.2, join_style=2).exterior.coords)
-        for i in range(len(pts) - 1):
-            (x0, y0), (x1, y1) = pts[i], pts[i + 1]
-            ex, ey = norm(x1 - x0, y1 - y0)
-            nx, ny = ey, -ex
-            lit = 0.3 + 0.7 * max(0.0, -(nx * light_dir[0] + ny * light_dir[1]))
-            seg = LineString([(x0, y0), (x1, y1)]).intersection(SCREEN.buffer(-1))
-            # thin lit lip only; the wide light is the dim neon mist (Images/mist.png)
-            frames.line(seg, f"Stroke Color {EDGE},{int(20 + 50 * lit)} | StrokeWidth {0.8 + 0.5 * lit:.1f}")
-        # bolts along the bezel
-        ring = wp.buffer(11, join_style=2).exterior
-        d = 30.0
-        while d < ring.length:
-            p = ring.interpolate(d)
-            d += 74
-            if not SCREEN.buffer(-8).contains(p):
-                continue
-            frames.ellipse(p.x, p.y, 3.4, 3.4, f"Fill Color {DARK},255 | Stroke Color 0,0,0,200 | StrokeWidth 1")
-            frames.ellipse(p.x - 0.8, p.y - 0.9, 1.4, 1.4, f"Fill Color {EDGE},70 | StrokeWidth 0")
+    # ---------------------------------------------------------------- window edges (owner's crops): a tube rail along
+    # the glass, a thin second rail, two cables sagging between clamps, a red strip under the side-window sills;
+    # no bolts. Not on edges that lie on the screen border or under the corner pieces.
+    excl = SCREEN.difference(SCREEN.buffer(-4)).union(BEZELS.buffer(8))
+
+    def rail(k):
+        out = []
+        for wp in GLASS:
+            ring = wp.buffer(k, join_style=2).exterior.difference(excl)
+            out += [(wp, ln) for ln in lines_of(ring) if ln.length > 30]
+        return out
+
+    for wp, ln in rail(7):
+        pts = list(ln.coords)
+        frames.path(pts, "Stroke Color 0,0,0,230 | StrokeWidth 15 | StrokeLineJoin Round")
+        frames.path(pts, f"Stroke Color {MID},255 | StrokeWidth 11 | StrokeLineJoin Round")
+    for wp, ln in rail(4.5):
+        frames.path(list(ln.coords), f"Stroke Color {LIGHT},255 | StrokeWidth 2.6 | StrokeLineJoin Round")
+    for wp, ln in rail(2.2):
+        frames.path(list(ln.coords), f"Stroke Color {EDGE},70 | StrokeWidth 1 | StrokeLineJoin Round")
+    for wp, ln in rail(19):
+        pts = list(ln.coords)
+        frames.path(pts, "Stroke Color 0,0,0,210 | StrokeWidth 6 | StrokeLineJoin Round")
+        frames.path(pts, f"Stroke Color {MID},255 | StrokeWidth 3 | StrokeLineJoin Round")
+    # cables: sample along the rail, sag outward between clamps every 150 px
+    for k, amp in ((12, 3.5), (26, 5)):
+        for wp, ln in rail(k):
+            outer = wp.buffer(k + 1)
+            pts, d = [], 0.0
+            while d <= ln.length:
+                p, q = ln.interpolate(d), ln.interpolate(min(ln.length, d + 2))
+                tx, ty = norm(q.x - p.x, q.y - p.y)
+                nx, ny = -ty, tx
+                if outer.contains(Point(p.x + nx * 3, p.y + ny * 3)):
+                    nx, ny = -nx, -ny
+                sag = amp * math.sin(math.pi * (d % 150) / 150)
+                pts.append((p.x + nx * sag, p.y + ny * sag))
+                d += 6
+            frames.path(pts, "Stroke Color 3,4,6,255 | StrokeWidth 2.6 | StrokeLineJoin Round")
+            frames.path([(x, y - 1) for x, y in pts], f"Stroke Color {LIGHT},70 | StrokeWidth 0.8")
+    # clamps across the rails where the cables are tied
+    for wp, ln in rail(14):
+        d = 75.0
+        while d < ln.length - 20:
+            p, q = ln.interpolate(d), ln.interpolate(d + 2)
+            tx, ty = norm(q.x - p.x, q.y - p.y)
+            nx, ny = -ty, tx
+            a_, b_ = (p.x - nx * 12, p.y - ny * 12), (p.x + nx * 15, p.y + ny * 15)
+            frames.path([a_, b_], "Stroke Color 0,0,0,230 | StrokeWidth 7")
+            frames.path([a_, b_], f"Stroke Color {LIGHT},255 | StrokeWidth 3")
+            d += 150
+    # red accent strip under the side-window rails (second crop)
+    for pts in (C(R.SILL_EDGE_L), mpts(C(R.SILL_EDGE_L))):
+        strip = LineString([(x, y + 36) for x, y in pts]).difference(excl).intersection(HULL.buffer(-2))
+        frames.line(strip, "Stroke Color 150,26,30,210 | StrokeWidth 3")
+        frames.line(strip, "Stroke Color 255,90,90,60 | StrokeWidth 1")
+    # lamp housings at the strut lights: a pale cylinder along the nearest edge, dark band, lens socket
+    edges = unary_union([g.exterior for g in GLASS])
+    for (x, y) in R.LIGHTS:
+        X, Y = x * R.SX, y * R.SY
+        np_ = edges.interpolate(edges.project(Point(X, Y)))
+        q = edges.interpolate(edges.project(Point(X, Y)) + 4)
+        tx, ty = norm(q.x - np_.x, q.y - np_.y)
+        nx, ny = -ty, tx
+        L2, W2 = 46, 25
+        body = [(X - tx * L2 - nx * W2, Y - ty * L2 - ny * W2), (X + tx * L2 - nx * W2, Y + ty * L2 - ny * W2),
+                (X + tx * L2 + nx * W2, Y + ty * L2 + ny * W2), (X - tx * L2 + nx * W2, Y - ty * L2 + ny * W2)]
+        ang = math.degrees(math.atan2(ny, nx))
+        frames.path(body, "Fill LinearGradient {G} | Stroke Color 0,0,0,230 | StrokeWidth 2", True,
+                    grad(ang, ("50,56,64,255", 0), ("205,212,220,255", 0.35), ("130,140,152,255", 0.7), ("36,40,46,255", 1)))
+        band = [(X + tx * (L2 - 12) - nx * W2, Y + ty * (L2 - 12) - ny * W2), (X + tx * L2 - nx * W2, Y + ty * L2 - ny * W2),
+                (X + tx * L2 + nx * W2, Y + ty * L2 + ny * W2), (X + tx * (L2 - 12) + nx * W2, Y + ty * (L2 - 12) + ny * W2)]
+        frames.path(band, "Fill Color 12,14,18,255 | StrokeWidth 0", True)
+        frames.ellipse(X, Y, 19, 19, "Fill Color 225,230,236,255 | Stroke Color 30,34,40,255 | StrokeWidth 2")
+        frames.ellipse(X, Y, 12, 12, "Fill Color 6,12,22,255 | Stroke Color 90,100,112,255 | StrokeWidth 1.5")
 
     # ---------------------------------------------------------------- visor bezels: the rounded corner cut-offs
     # baked: a dark rolled lip just outside the rim; live (Accents): blue light bleeding off the rim edge
-    for rim in [C(r) for r in R.RIMS]:
-        out = 1 if rim[0][0] > CW / 2 else -1        # outward = toward the screen edge
-        frames.path([(x + out * 8, y) for x, y in rim], f"Stroke Color {DARK},255 | StrokeWidth 16 | StrokeLineJoin Miter")
-        frames.path([(x + out * 3, y) for x, y in rim], f"Stroke Color {MID},255 | StrokeWidth 5 | StrokeLineJoin Miter")
-        frames.path(rim, f"Stroke Color {ACC},90 | StrokeWidth 3 | StrokeLineJoin Miter")
-        frames.path(rim, "Stroke Color 190,230,255,150 | StrokeWidth 1.2 | StrokeLineJoin Miter")
+    # (the corner pieces themselves are baked by frame_render.corners_png and drawn over the mist)
 
     # ---------------------------------------------------------------- pillar / strut detail
     members = [(R.PILLAR_L, (279.6, 97), (489, 371.5), (0.2, 0.62, 0.86), (0.7, 0.8)),
@@ -361,8 +403,6 @@ def build():
                     greeb.path([p0, p1], "Stroke Color 0,0,0,190 | StrokeWidth 2.6")
                     greeb.path([(p0[0] + ax_[0] * 2.4, p0[1] + ax_[1] * 2.4), (p1[0] + ax_[0] * 2.4, p1[1] + ax_[1] * 2.4)],
                                f"Stroke Color {LIGHT},90 | StrokeWidth 1")
-                    for q in (p0, p1):
-                        greeb.ellipse(q[0] + ax_[0] * 8, q[1] + ax_[1] * 8, 2.6, 2.6, f"Fill Color {DARK},255 | Stroke Color 0,0,0,200 | StrokeWidth 0.8")
             if vent:
                 c0, c1 = at(A_, B_, vent[0]), at(A_, B_, vent[1])
                 plate = P_.buffer(-28).intersection(LineString([c0, c1]).buffer(40, cap_style=2))
@@ -481,8 +521,6 @@ def build():
     # ---------------------------------------------------------------- strut lights, spill
     for (x, y) in R.LIGHTS:
         X, Y = x * R.SX, y * R.SY
-        lights.ellipse(X, Y, 22, 22, f"Fill Color {DARK},255 | Stroke Color 0,0,0,220 | StrokeWidth 2")
-        lights.ellipse(X, Y, 15, 15, "Fill Color 10,30,60,255 | StrokeWidth 0")
         for r, a in ((190, 4), (130, 7), (85, 12), (46, 20), (34, 34), (24, 60), (15, 110)):
             lights.ellipse(X, Y, r, r, f"Fill Color 50,135,255,{a} | StrokeWidth 0")
         lights.ellipse(X, Y, 230, 2.2, "Fill Color 120,190,255,30 | StrokeWidth 0")
@@ -579,6 +617,8 @@ def write_order():
             + image("Mist", "mist.png", "#MistAlpha#",
                     note="; neon mist: wide, very dim light bleeding off the window edges and corner cuts (theme colour)\n").replace(
                         "PreserveAspectRatio=0\n", "PreserveAspectRatio=0\nImageTint=#ColorAccent#\n")
+            + image("Corners", "corners.png", "#HullAlpha#", "#UseShipImage#",
+                    note="; the visor corner pieces, over the mist so it only spreads inward (frame_render.corners_png)\n")
             + "; live, theme-coloured: rim glow + LEDs, HUD light on the dash, strut lights, HUD lines\n"
             "[OrderOver]\nMeasure=Calc\nFormula=0\n" + incs(["Accents", "Spill", "Lights", "Decor"]))
     FRAME_INI.write_text(head + body, newline="\r\n")

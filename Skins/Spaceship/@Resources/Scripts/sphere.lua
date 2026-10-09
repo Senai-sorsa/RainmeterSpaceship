@@ -52,25 +52,18 @@ function Update()
   local A1, W, O = H.C.accent, H.C.white, H.C.warn
   -- one smooth sphere: a pre-blurred body sprite in deep blue with a brighter limb (no stacked rings)
   local deep = H.mix(A1, { 10, 55, 150 }, 0.8)
-  H.sprite(1, 1, CX, CY, R * 2.12, R * 2.12, 'sphere_body.png', deep, 235)
+  H.sprite(1, 1, CX, CY, R * 2.12, R * 2.12, 'sphere_body.png', deep, 220)
   H.sprite(1, 2, CX, CY, R * 2.12, R * 2.12, 'sphere_rim.png', H.mix(A1, W, 0.2), 170)
   c:circle(CX, CY, R, A1, 1.2, 90)
-  -- disks cutting through the sphere: latitude planes are the sphere's own chords, so they sit inside it
-  local tilt = 0.17 + (tier == 0 and math.sin(rot * math.pi / 180) * 0.015 or 0)
-  for _, d in ipairs({ { -0.38, 70 }, { 0.42, 60 } }) do
-    local dy = R * d[1]
-    local rx = math.sqrt(R * R - dy * dy) * 0.98
-    local pts = H.ellipsePts(CX, CY + dy, rx, rx * tilt, 0, 0, 360, 48)
-    c:fillPoly(pts, A1, 16)
-    c:poly(pts, A1, 1.1, d[2])
-  end
-  -- the main disk through the centre: filled plane, bright rim, inner ring and the orange sweep
+  -- one tilted disk through the centre: filled plane, bright rim, inner ring and the orange sweep
+  local tilt, TA = 0.17, -9                                  -- disk aspect and tilt (degrees)
   local ey = CY + 6
-  local disk = H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, 0, 0, 360, 64)
+  local disk = H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, TA, 0, 360, 64)
   c:fillPoly(disk, H.mix(A1, W, 0.4), 30)
   c:poly(disk, W, 2.2, 235)
-  c:poly(H.ellipsePts(CX, ey, R * 0.42, R * 0.42 * tilt, 0, 0, 360, 36), W, 1.3, 160)
-  c:poly(H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, 0, rot * 1.5, rot * 1.5 + 55, 14), O, 3, 235)
+  c:poly(H.ellipsePts(CX, ey, R * 0.42, R * 0.42 * tilt, TA, 0, 360, 36), W, 1.3, 160)
+  c:poly(H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, TA, rot * 1.5, rot * 1.5 + 55, 14), O, 3, 235)
+  local ct, st = math.cos(rad(TA)), math.sin(rad(TA))
   -- base ring under the sphere (the projector's beam)
   c:poly(H.ellipsePts(CX, CY + R * 0.9, R * 0.55, R * 0.1, 0, 0, 360, 40), A1, 1.6, 200)
   -- process blips on stalks
@@ -82,7 +75,8 @@ function Update()
       local share = H.clamp(H.val('mP' .. i, 0) / threads / 30, 0, 1)
       local a = rad(hash(name) + rot * 0.35)
       local r = 0.95 - 0.65 * share
-      local bx, by = CX + R * 0.9 * r * cos(a), ey + R * 0.9 * tilt * r * sin(a)
+      local dx, dy = R * 0.9 * r * cos(a), R * 0.9 * tilt * r * sin(a)
+      local bx, by = CX + dx * ct - dy * st, ey + dx * st + dy * ct
       local hgt = 14 + 70 * share
       c:hair(bx, by, bx, by - hgt, W, 1, 160)
       local s2 = i == 1 and 9 or 5

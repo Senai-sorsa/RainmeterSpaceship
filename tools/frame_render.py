@@ -245,7 +245,7 @@ def shade_png():
     glass = np.asarray(window_mask(0), dtype=np.float32) / 255
     # thicker glass near the frames reads darker
     edge = 1 - np.clip(blur(glass, 40) * 1.6 - 0.6, 0, 1)
-    dark = np.clip(cols * 0.55 + top * 0.35 + side * 0.4 + edge * 0.25, 0, 0.72) * glass
+    dark = np.clip(cols * 0.55 + top * 0.55 + side * 0.4 + edge * 0.25, 0, 0.78) * glass
     dark = blur(dark, 6)
     img = np.dstack([np.full((CH, CW, 3), (2, 6, 10), np.float32), dark * 255]).astype(np.uint8)
     return Image.fromarray(img, "RGBA")
@@ -280,19 +280,81 @@ def sprites():
     n = 512
     yy, xx = np.mgrid[0:n, 0:n].astype(np.float32)
     r = np.sqrt((xx - n / 2 + 0.5) ** 2 + (yy - n / 2 + 0.5) ** 2) / (n / 2 * 0.94)
-    body = np.where(r < 1, 0.62 + 0.30 * r ** 3, 0) * np.clip((1.0 - r) / 0.03, 0, 1)
+    body = np.where(r < 1, 0.80 + 0.06 * r ** 4, 0) * np.clip((1.0 - r) / 0.02, 0, 1)   # flat, even blue
     body = blur(body.astype(np.float32), 2.5)
     out["sphere_body.png"] = body
-    rim = np.exp(-((r - 0.985) / 0.035) ** 2) * 0.9
+    rim = np.exp(-((r - 0.985) / 0.03) ** 2) * 0.6
     out["sphere_rim.png"] = blur(rim.astype(np.float32), 3)
+    # target haze: wide and horizontal, broken into scanlines like the reference's red glow
     hy, hx = np.mgrid[0:256, 0:512].astype(np.float32)
-    haze = np.exp(-(((hx - 256) / 190) ** 2 + ((hy - 128) / 70) ** 2) * 2.2) * 0.85
+    haze = np.exp(-(((hx - 256) / 230) ** 2 * 1.6 + ((hy - 128) / 64) ** 2 * 2.4)) * 0.95
+    haze *= 1 - 0.45 * ((hy.astype(int) // 3) % 2)
     out["haze.png"] = haze
     for name, a in out.items():
         h, w = a.shape
         img = np.dstack([np.full((h, w, 3), 255, np.float32), np.clip(a, 0, 1) * 255]).astype(np.uint8)
         Image.fromarray(img, "RGBA").save(IMAGES / name, optimize=True)
     return list(out)
+
+
+def corners_png():
+    """the visor corner pieces, drawn over the mist so the mist only spreads inward. Colours sampled from the
+    reference: near-black body, a silver-blue rim band rising to a pale highlight at the glass edge, an inner
+    panel step and small vents."""
+    from shapely.geometry import Point as SPoint, Polygon as SPolygon
+    img = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    bands = [(0, (215, 235, 242)), (2.5, (168, 198, 212)), (6, (104, 136, 154)), (11, (52, 74, 88)),
+             (18, (20, 28, 35)), (26, (6, 8, 11))]
+    for rim in R.RIMS:
+        pts = [(x * R.SX, y * R.SY) for x, y in rim]
+        # close the piece well outside the screen so only the rim side gets bands
+        def ext(p):
+            if p[0] <= 1:
+                return (-400, p[1])
+            if p[0] >= CW - 1:
+                return (CW + 400, p[1])
+            return (p[0], -400) if p[1] <= 1 else (p[0], CH + 400)
+        corner = (-400 if pts[0][0] < CW / 2 else CW + 400, -400 if min(p[1] for p in pts) < CH / 2 else CH + 400)
+        poly = SPolygon(pts + [ext(pts[-1]), corner, ext(pts[0])]).buffer(0)
+        for k, col in bands:
+            g = poly.buffer(-k, join_style=2)
+            for q in getattr(g, "geoms", [g]):
+                if not q.is_empty:
+                    d.polygon([tuple(p) for p in q.exterior.coords], fill=col + (255,))
+        # inner panel step: a groove with a lit lip, 40 px into the piece
+        for k, col in ((40, (2, 3, 4)), (42.5, (40, 56, 66))):
+            g = poly.buffer(-k, join_style=2)
+            for q in getattr(g, "geoms", [g]):
+                if not q.is_empty:
+                    d.line([tuple(p) for p in q.exterior.coords], fill=col + (255,), width=2)
+        # vents near the corner, along the rim
+        from shapely.geometry import LineString as SLine
+        rl = SLine(pts)
+        for f in (0.30, 0.36, 0.42):
+            p = rl.interpolate(f, normalized=True)
+            q = rl.interpolate(min(1, f + 0.02), normalized=True)
+            tx, ty = q.x - p.x, q.y - p.y
+            n = max(1e-6, (tx * tx + ty * ty) ** 0.5)
+            nx, ny = -ty / n, tx / n
+            if not poly.contains(SPoint(p.x + nx * 60, p.y + ny * 60)):
+                nx, ny = -nx, -ny                   # point the vents into the corner piece
+            a = (p.x + nx * 54, p.y + ny * 54)
+            b = (p.x + nx * 54 + tx / n * 26, p.y + ny * 54 + ty / n * 26)
+            if 4 < a[0] < CW - 4 and 4 < a[1] < CH - 4:
+                d.line([a, b], fill=(1, 1, 2, 255), width=4)
+                d.line([(a[0] - nx * 2, a[1] - ny * 2), (b[0] - nx * 2, b[1] - ny * 2)], fill=(34, 46, 56, 255), width=1)
+    # soften the band steps (premultiplied blur), then a soft bloom of the bright rim edge
+    arr = np.asarray(img, dtype=np.float32).copy()
+    pa = arr[..., 3:4] / 255
+    rgb = np.stack([blur(arr[..., i] * pa[..., 0], 1.3) for i in range(3)], -1)
+    al = blur(pa[..., 0], 1.3)[..., None]
+    arr[..., :3] = np.where(al > 1e-3, rgb / np.maximum(al, 1e-3), 0)
+    arr[..., 3] = al[..., 0] * 255
+    bright = np.clip((arr[..., :3].mean(-1) - 150) / 80, 0, 1) * (arr[..., 3] / 255)
+    bloom = blur(bright, 4) * 0.5
+    arr[..., :3] = np.clip(arr[..., :3] + bloom[..., None] * np.array([120, 160, 180], np.float32) * (arr[..., 3:4] / 255), 0, 255)
+    return Image.fromarray(arr.astype(np.uint8), "RGBA")
 
 
 def render():
@@ -304,6 +366,7 @@ def render():
     scan_png().save(IMAGES / "scan.png", optimize=True)
     shade_png().save(IMAGES / "shade.png", optimize=True)
     mist_png().save(IMAGES / "mist.png", optimize=True)
+    corners_png().save(IMAGES / "corners.png", optimize=True)
     sprites()
     for f in ("hull.png", "window_mask.png", "glass_fx.png", "scan.png", "shade.png", "mist.png"):
         out[f] = round((IMAGES / f).stat().st_size / 1e6, 2)

@@ -71,14 +71,14 @@ PAIRS = [
     ("G1_cpu", "G4_ram", "top", rq(333, 62, 447, 95), "CPU graph (fixed)", "RAM graph (fixed)"),
     ("G2_select", "G3_select", "top", rq(493, 62, 607, 95), "selectable graph", "selectable graph"),
     ("L_tabs", "R_tabs", "side", ((74, 39), (256, 70), (256, 91), (74, 60)), "category app tabs", "category app tabs"),
-    ("L_category", "R_category", "side", persp(62, 97, 232, 218), "app wireframe", "app wireframe"),
-    ("L_location", "R_sysinfo", "side", ((34, 222), (230, 232), (230, 306), (34, 296)), "LAT / LON / TZ", "ship identity"),
-    ("L_dots", "R_dots", "side", persp(92, 307, 164, 321), "category page dots", "category page dots"),
-    ("L_app1", "R_app1", "side", persp(34, 326, 230, 379), "slot 1", "slot 5"),
-    ("L_app2", "R_app2", "side", persp(34, 389, 230, 442), "slot 2", "slot 6"),
-    ("L_app3", "R_app3", "side", persp(34, 452, 230, 505), "slot 3", "slot 7"),
-    ("L_app4", "R_app4", "side", persp(34, 515, 230, 566), "slot 4", "slot 8"),
-    ("L_upkeep", "R_dev", "side", persp(34, 584, 84, 616), "updates / upgrades", "dev status"),
+    ("L_category", "R_category", "side", persp(62, 97, 232, 212), "app wireframe", "app wireframe"),
+    ("L_location", "R_sysinfo", "side", ((34, 220), (230, 230), (230, 298), (34, 288)), "LAT / LON / TZ", "ship identity"),
+    ("L_dots", "R_dots", "side", persp(92, 304, 164, 316), "category page dots", "category page dots"),
+    ("L_app1", "R_app1", "side", persp(34, 326, 230, 376), "slot 1", "slot 5"),
+    ("L_app2", "R_app2", "side", persp(34, 390, 230, 440), "slot 2", "slot 6"),
+    ("L_app3", "R_app3", "side", persp(34, 454, 230, 504), "slot 3", "slot 7"),
+    ("L_app4", "R_app4", "side", persp(34, 518, 230, 568), "slot 4", "slot 8"),
+    ("L_upkeep", "R_dev", "side", persp(34, 586, 84, 618), "updates / upgrades", "dev status"),
     ("B_storage", "B_audio", "bottom", rq(395, 565, 488, 638), "storage screen", "audio screen"),
     ("B_stripL", "B_stripR", "bottom", ((428, 660.3), (600, 644.4), (600, 654.9), (428, 670.8)), "info readouts", "info readouts"),
 ]
@@ -129,7 +129,7 @@ PILLAR_R, STRUT_R = mirror(PILLAR_L), mirror(STRUT_L)
 # side is mirrored). RIMS are the lit edges, BEZELS the hull pieces outside them. The side edges between
 # the corners stay glass (no rim there).
 RIM_TL = [(50, 0), (38, 38), (25, 56), (14, 75), (7, 95), (2, 115), (0, 128)]
-RIM_BL = [(0, 600), (36, 638), (56, 658), (66, 664), (78, 668), (96, 686), (103, 709)]
+RIM_BL = [(0, 602), (38, 642), (52, 654), (60, 658), (66, 658), (70, 669), (82, 672), (100, 692), (104, 709)]   # stepped notch
 RIMS = [RIM_TL, RIM_BL, [(RW - x, y) for x, y in RIM_TL], [(RW - x, y) for x, y in RIM_BL]]
 BEZELS = [[(0, 0)] + RIM_TL, RIM_BL + [(0, RH)], [(RW, 0)] + RIMS[2], RIMS[3] + [(RW, RH)]]
 LIGHTS = [(358, 200), (902, 200), (232, 498), (1028, 498)]

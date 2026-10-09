@@ -37,10 +37,10 @@ ScanAlpha=14
 ; cockpit source: 0 = rendered hull (Images\hull.png, tools\ship_frame.py), 1 = your picture (tools\image_frame.py)
 UseShipImage=0
 ; hull metal tones baked into Images\hull.png by tools\ship_frame.py: shadow, body, lit ridge, edge highlight
-HullDark=7,10,14
-HullMid=20,26,35
-HullLight=30,39,52
-HullEdge=70,135,200
+HullDark=5,7,10
+HullMid=15,19,26
+HullLight=26,33,44
+HullEdge=60,115,170
 ShipImage=ship.png
 ; neon bloom: glow alpha (0 = off), glow width multiplier, how far line cores whiten (0-1)
 GlowAlpha=52

@@ -10,7 +10,8 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
 - a centre console with a hologram projector well;
 - corrugated floor hoses;
 - panel plating, stencil markings and fine scratches;
-- rounded visor cut-offs at all four corners, with blue light bleeding off the rim.
+- angular visor cut-offs at all four corners, traced from the reference (silver-blue rim, stepped notch);
+- window edges with tube rails, sagging cables, clamps, pale lamp housings and a red sill strip.
 
 The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, LEDs, strut lights and HUD lines.
 
@@ -102,6 +103,7 @@ Fonts: **Oxanium** for labels, **B612 Mono** for numbers (B612 was designed by A
 | `HudAlpha` (HUD OPACITY) | Opacity of every HUD line and label |
 | `GlassTint` (WINDOW TINT) | Theme-colour tint on the windows |
 | `GlassGlare` (GLASS GLARE) | Smudges and reflections on the glass |
+| `MistAlpha` | The wide, dim neon mist off the window edges and corner cuts (0 turns it off) |
 | `ScanLines` / `ScanAlpha` (SCANLINES) | Scanlines on the glass |
 
 ### Using a picture of the ship
@@ -137,6 +139,7 @@ tools/frame_render.py   bakes the neutral metal into Images/hull.png (texture, r
 tools/image_frame.py    image mode: cuts the windows out of a cockpit picture -> @Resources/Images/ship.png
 tools/build.py          writes each module's Geometry.inc / Meters.inc and the guard data
 tools/rmsim.py          offline Rainmeter simulator: runs the real Lua, renders, audits alignment
+tools/anim_audit.py     steps the animated modules frame by frame and audits every frame
 tools/package.py        builds the .rmskin installer and the Rainmeter layout
 Skins/Spaceship/        the skin set (Lua in @Resources/Scripts, settings in @Resources/*.inc)
 ```
