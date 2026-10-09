@@ -1,11 +1,12 @@
 -- App slot: one app or a category. Styles copy the reference blocks:
---   row      left 1-2 : icon, title, status, item row (tabs), stepped underline with number
+--   row      all eight slots (default): icon, title, status, item row (tabs), stepped underline with
+--            number; Mirror=1 flips it for the right column
 --   compact  left 3   : icon, bracket, small box, number
 --   ship     4 / 8    : ship-style icon over an underline with number
 --   card     right 5  : right-aligned title / subtitle / RN RV rows, icon at right
 --   rcompact right 6-7: diamond + slashes, icon, bracket underline, number
 local H, A
-local slot, style = 1, 'row'
+local slot, style, mirror = 1, 'row', false
 local entry, sel, first = nil, 1, 1
 local MAXTABS = 3
 
@@ -16,6 +17,7 @@ function Initialize()
   A.load()
   slot = tonumber(SELF:GetOption('Slot', '1')) or 1
   style = SELF:GetOption('Style', 'row')
+  mirror = SELF:GetOption('Mirror', '0') == '1'
   entry = A.entry(A.layout['Slot' .. slot] or '')
   if entry and entry.kind == 'cat' then sel = tonumber(A.getState('Sel_' .. entry.cat.id, '1')) or 1 end
 end
@@ -71,47 +73,39 @@ function Update()
   for k = 1, 7 do H.hideHit(1, k) end
 
   if style == 'row' then
-    -- anchors measured on the reference (weapon rows 1 and 2), in reference pixels
-    local R = ({
-      [1] = { o = { 34, 325 }, icon = { 65, 352 }, title = { 112, 337 }, status = { 112, 346 }, row = { 112, 364 }, rowEnd = 222,
-              ul = { { 35, 386 }, { 98, 383 }, { 105, 375 }, { 222, 374 } }, dash = { 213, 222, 378 }, num = { 37, 380 } },
-      [2] = { o = { 40, 390 }, icon = { 69, 415 }, title = { 113, 394 }, status = { 113, 403 }, row = { 117, 424 }, rowEnd = 222,
-              ul = { { 42, 447 }, { 105, 445 }, { 112, 437 }, { 222, 435 } }, dash = { 217, 226, 439 }, num = { 43, 441 } },
-    })[slot] or nil
-    local SXR, SYR = 2560 / 1260, 1600 / 709
-    local function RX(x) return (x - (R and R.o[1] or 0)) * SXR end
-    local function RY(y) return (y - (R and R.o[2] or 0)) * SYR end
-    if not R then R = { o = { 0, 0 } } end
-    if app then c:icon(app.icon, RX(R.icon[1]), RY(R.icon[2]), h * 0.62, icol, 1.7) end
-    H.text(1, 8, RX(R.title[1]), RY(R.title[2]), app and app.name or 'UNASSIGNED', { size = 8, weight = 700, align = 'LeftCenter', color = W, clip = RX(R.rowEnd) - RX(R.title[1]) })
-    H.text(1, 9, RX(R.status[1]), RY(R.status[2]), st .. (isCat and ('   ' .. entry.cat.short) or ''), { size = 6.5, weight = 700, align = 'LeftCenter', color = scol })
-    local ry = RY(R.row[2])
+    -- one layout for all eight slots (reference weapon rows 1-2); Mirror=1 flips it for the right column.
+    -- Fractions of the zone, measured on the reference row: icon, title, status, item row, stepped underline.
+    local function MX(f) return mirror and (1 - f) * w or f * w end
+    local LA = mirror and 'RightCenter' or 'LeftCenter'
+    if app then c:icon(app.icon, MX(0.165), Y(0.43), h * 0.6, icol, 1.7) end
+    H.text(1, 8, MX(0.385), Y(0.19), app and app.name or 'UNASSIGNED', { size = 8, weight = 700, align = LA, color = W, clip = X(0.58) })
+    H.text(1, 9, MX(0.385), Y(0.37), st .. (isCat and ('   ' .. entry.cat.short) or ''), { size = 6, weight = 700, align = LA, color = scol, clip = X(0.58) })
+    local ry = Y(0.66)
+    local s0, s1 = mirror and X(0.04) or X(0.385), mirror and X(0.615) or X(0.96)
     if isCat then
       local vis = math.min(MAXTABS, #list)
-      local step = (RX(R.rowEnd) - RX(R.row[1])) / MAXTABS
+      local step = (s1 - s0) / MAXTABS
       for t = 1, MAXTABS do
         local i = first + t - 1
         if t <= vis and list[i] then
-          local x = RX(R.row[1]) + (t - 1) * step
+          local x = s0 + (t - 1) * step
           local on = i == sel
-          if on then c:hair(x, ry + 10, x + step - 6, ry + 10, A1, 1.6, 230) end
-          H.text(1, t, x, ry, list[i].short, { size = 6.5, weight = 700, align = 'LeftCenter', color = on and A1 or { 160, 178, 190 }, clip = step - 4 })
+          if on then c:hair(x, ry + 10, x + step - 8, ry + 10, A1, 1.6, 230) end
+          H.text(1, t, x, ry, list[i].short, { size = 5.6, weight = 700, align = 'LeftCenter', color = on and A1 or { 160, 178, 190 }, clip = step - 6 })
           H.hit(1, t, x, ry - 12, step, 24, list[i].name)
         else H.hideText(1, t) end
       end
     else
-      c:dot(RX(R.row[1]) + 4, ry, 3.5, scol)
-      H.text(1, 1, RX(R.row[1]) + 12, ry, app and app.short or '', { size = 6.5, weight = 700, align = 'LeftCenter', color = W })
+      c:dot(s0 + 4, ry, 3.5, scol)
+      H.text(1, 1, s0 + 12, ry, app and app.short or '', { size = 5.6, weight = 700, align = 'LeftCenter', color = W, clip = (s1 - s0) - 60 })
       hideAll(2, 5)
-      local px = RX(R.rowEnd) - 34
+      local px = s1 - 34
       c:circle(px, ry, 6, W, 1.3); c:line(px, ry - 9, px, ry - 1, W, 1.3)
       c:line(px + 16, ry + 7, px + 24, ry - 7, W, 1.3)
     end
-    local ul = {}
-    for i, p in ipairs(R.ul) do ul[i] = { RX(p[1]), RY(p[2]) } end
-    c:poly(ul, A1, 1.4)
-    c:line(RX(R.dash[1]), RY(R.dash[3]), RX(R.dash[2]), RY(R.dash[3]), W, 2.4)
-    H.text(1, 12, RX(R.num[1]), RY(R.num[2]), tostring(slot), { size = 7.5, weight = 700, align = 'LeftCenter', color = W })
+    c:poly({ { MX(0.005), Y(0.98) }, { MX(0.327), Y(0.935) }, { MX(0.362), Y(0.806) }, { MX(0.96), Y(0.79) } }, A1, 1.4)
+    c:line(MX(0.913), Y(0.86), MX(0.959), Y(0.86), W, 2.4)
+    H.text(1, 12, MX(0.015), Y(0.86), tostring(slot > 4 and slot - 4 or slot), { size = 7, weight = 700, align = LA, color = W, font = H.fontNum })
     H.hit(1, 8, 0, 0, w, ry - 14, app and ('Launch ' .. app.name) or 'Unassigned slot')
 
   elseif style == 'card' then

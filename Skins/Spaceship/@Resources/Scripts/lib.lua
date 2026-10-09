@@ -34,6 +34,7 @@ end
 function H.init()
   H.S = num('Scale', 1)
   H.tier = num('PerfTier', 0)
+  H.hudA = num('HudAlpha', 255)
   H.glowA = num('GlowAlpha', 46)
   H.glowW = num('GlowWidth', 3.2)
   H.coreWhite = num('CoreWhite', 0.3)
@@ -53,9 +54,9 @@ function H.init()
     white = parseColor(str('ColorWhite', '215,240,255'), { 215, 240, 255, 255 }),
     panel = parseColor(str('ColorPanel', '0,30,45,90'), { 0, 30, 45, 90 }),
   }
-  H.fontText = str('FontText', 'Rajdhani')
-  H.fontNum = str('FontNum', 'Share Tech Mono')
-  H.fontTitle = str('FontTitle', 'Orbitron')
+  H.fontText = str('FontText', 'Oxanium')
+  H.fontNum = str('FontNum', 'B612 Mono')
+  H.fontTitle = str('FontTitle', 'Michroma')
   -- zones of this module
   H.zones = {}
   local n = num('ZoneCount', 0)
@@ -75,7 +76,8 @@ end
 
 -- colour helpers -----------------------------------------------------------
 function H.rgba(c, a)
-  return fmt('%d,%d,%d,%d', c[1], c[2], c[3], a or c[4] or 255)
+  -- HudAlpha (Settings.inc) scales every widget colour: one knob for the whole HUD's transparency
+  return fmt('%d,%d,%d,%d', c[1], c[2], c[3], floor((a or c[4] or 255) * (H.hudA or 255) / 255))
 end
 
 function H.mix(c1, c2, t)

@@ -3,17 +3,17 @@
 [Variables]
 Module=CenterSphere
 ModuleConfig=Spaceship\Center\Sphere
-WX=1068
+WX=1026
 WY=900
-WW=511
+WW=508
 WH=432
 DX=#CenterSphere_DX#
 DY=#CenterSphere_DY#
 ZoneCount=1
 ; zone 1: C_sphere
 Z1=C_sphere
-Z1_X=18.98
+Z1_X=18.32
 Z1_Y=18.48
-Z1_W=473.4
+Z1_W=471.36
 Z1_H=394.92
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

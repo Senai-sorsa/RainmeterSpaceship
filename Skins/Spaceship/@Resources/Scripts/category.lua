@@ -121,22 +121,13 @@ local function drawPager()
   local c = H.canvas(3)
   local A1, D = H.C.accent, { 170, 185, 195 }
   local idx = catIndex()
-  if mirror then
-    -- reference: small down-triangle with a number under it
-    local cx = z.w / 2
-    c:poly({ { cx - 12, 10 }, { cx + 12, 10 }, { cx, 26 } }, A1, 2, 255, true)
-    c:poly({ { cx - 5, 13 }, { cx + 5, 13 }, { cx, 20 } }, A1, 1.4, 255, true)
-    H.text(3, 1, cx, 50, tostring(idx), { size = 9, weight = 700, align = 'CenterCenter', color = A1 })
-    H.hit(3, 1, 0, 0, z.w, z.h, (cat and cat.name or '') .. '  - click: next category, right-click: previous')
-  else
-    local count = math.min(#A.catOrder, 8)
-    local step = z.w / count
-    for i = 1, count do
-      local x = step * (i - 0.5)
-      local dy = z.h * 0.21
-      if i == idx then c:dot(x, dy, 4, A1) else c:dot(x, dy, 3, D, 150) end
-      H.hit(3, i, x - step / 2, 0, step, z.h, A.cats[A.catOrder[i]].name)
-    end
+  local count = math.min(#A.catOrder, 8)
+  local step = z.w / count
+  for i = 1, count do
+    local x = step * (i - 0.5)
+    local dy = z.h * 0.21
+    if i == idx then c:dot(x, dy, 4, A1) else c:dot(x, dy, 3, D, 150) end
+    H.hit(3, i, x - step / 2, 0, step, z.h, A.cats[A.catOrder[i]].name)
   end
   c:flush()
 end
@@ -157,7 +148,7 @@ local function redraw() frame = 0; Update() end
 
 function OnClick(zi, k)
   if zi == 3 then
-    if mirror then setCat(catIndex() + 1) else setCat(k) end
+    setCat(k)
   elseif zi == 2 then
     local app = current(); if app then A.launch(app) end
   elseif k <= 6 then choose(first + k - 1)
@@ -167,8 +158,7 @@ function OnClick(zi, k)
 end
 
 function OnRightClick(zi, k)
-  if zi == 3 and mirror then setCat(catIndex() - 1); redraw()
-  elseif zi == 1 and k <= 6 and cat and cat.apps[first + k - 1] then A.launch(cat.apps[first + k - 1]) end
+  if zi == 1 and k <= 6 and cat and cat.apps[first + k - 1] then A.launch(cat.apps[first + k - 1]) end
 end
 
 function OnScroll(zi, k, dir)

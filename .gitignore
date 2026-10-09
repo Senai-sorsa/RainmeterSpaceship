@@ -10,3 +10,4 @@ __pycache__/
 
 # simulator output (docs/preview*.jpg are the published copies)
 docs/sim-composite*.png
+tools/frame_src/

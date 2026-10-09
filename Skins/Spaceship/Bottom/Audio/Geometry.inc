@@ -3,17 +3,17 @@
 [Variables]
 Module=BottomAudio
 ModuleConfig=Spaceship\Bottom\Audio
-WX=1562
-WY=1263
-WW=228
-WH=195
+WX=1550
+WY=1257
+WW=226
+WH=201
 DX=#BottomAudio_DX#
 DY=#BottomAudio_DY#
 ZoneCount=1
 ; zone 1: B_audio
 Z1=B_audio
-Z1_X=18.7
-Z1_Y=18.81
-Z1_W=190.98
-Z1_H=157.96
+Z1_X=18.51
+Z1_Y=18.04
+Z1_W=188.95
+Z1_H=164.73
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

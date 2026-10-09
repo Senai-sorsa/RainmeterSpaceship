@@ -1,4 +1,4 @@
--- Top-right "PWR ------" bar (reference 826-956 x 21-45): battery level + time to limit / to empty.
+-- Top-right battery bar, the mirror of the power bar: battery level + time to limit / to empty.
 local H
 local samples = {}
 
@@ -41,15 +41,17 @@ function Update()
     local life = H.val('mLifetime', -1)
     status = (life and life > 0) and (H.duration(life) .. ' LEFT') or 'ON BATT'
   end
+  -- mirror image of the power bar: label on the right, rail filling from the right toward the centre
   local y = z.h * 0.62
-  local x0, x1 = 48, z.w
-  H.text(1, 1, 0, y, 'PWR', { size = 8.5, weight = 700, align = 'LeftCenter', color = H.C.white })
+  local x0, x1 = 26, z.w - 48
+  H.text(1, 1, z.w, y, 'BAT', { size = 8.5, weight = 700, align = 'RightCenter', color = H.C.white })
   c:line(x0, y, x1, y, H.C.white, 1.3, 200)
   local low = (not ac) and pct <= H.num('WarnBattery', 20)
-  c:line(x0, y, x0 + (x1 - x0) * pct / 100, y, low and H.C.alert or (ac and H.C.good or H.C.hi), 2.6)
-  local lx = x0 + (x1 - x0) * limit / 100
+  c:line(x1, y, x1 - (x1 - x0) * pct / 100, y, low and H.C.alert or (ac and H.C.good or H.C.hi), 2.6)
+  local lx = x1 - (x1 - x0) * limit / 100
   c:line(lx, y - 6, lx, y + 3, H.C.white, 1.2, 200)
-  H.text(1, 2, x1, 2, string.format('%d%%  %s', pct, status), { size = 5.2, weight = 700, align = 'RightTop', color = H.C.white, alpha = 200 })
+  H.text(1, 2, 0, y, string.format('%d%%', pct), { size = 8.5, weight = 700, align = 'LeftCenter', color = H.C.white, font = H.fontNum })
+  H.text(1, 3, (x0 + x1) / 2, 1, status, { size = 4.6, weight = 700, align = 'CenterTop', color = H.C.white, alpha = 200 })
   H.hit(1, 1, 0, 0, z.w, z.h, string.format('Battery %d%% - %s', pct, status))
   c:flush()
   return pct

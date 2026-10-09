@@ -3,17 +3,17 @@
 [Variables]
 Module=LeftSlot3
 ModuleConfig=Spaceship\Left\Slot3
-WX=87
-WY=1008
-WW=253
-WH=161
+WX=51
+WY=995
+WW=435
+WH=163
 DX=#LeftSlot3_DX#
 DY=#LeftSlot3_DY#
 ZoneCount=1
 ; zone 1: L_app3
 Z1=L_app3
-Z1_X=18.65
-Z1_Y=18.8
-Z1_W=215.37
-Z1_H=124.12
+Z1_X=18.08
+Z1_Y=18.26
+Z1_W=398.22
+Z1_H=126.37
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

@@ -3,17 +3,17 @@
 [Variables]
 Module=RightSysInfo
 ModuleConfig=Spaceship\Right\SysInfo
-WX=2070
-WY=492
-WW=443
-WH=208
+WX=2074
+WY=482
+WW=435
+WH=227
 DX=#RightSysInfo_DX#
 DY=#RightSysInfo_DY#
 ZoneCount=1
 ; zone 1: R_sysinfo
 Z1=R_sysinfo
-Z1_X=18.63
-Z1_Y=18.01
-Z1_W=406.35
-Z1_H=171.51
-Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)
+Z1_X=18.7
+Z1_Y=41.55
+Z1_W=398.86
+Z1_H=167
+Z1_TM=0.9984;-0.0566;0;1;(0.03*#Scale#);(1.0577*#Scale#)

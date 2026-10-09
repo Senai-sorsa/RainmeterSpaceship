@@ -3,17 +3,17 @@
 [Variables]
 Module=TopGraphRAM
 ModuleConfig=Spaceship\Top\GraphRAM
-WX=1664
+WX=1633
 WY=121
-WW=264
+WW=269
 WH=112
 DX=#TopGraphRAM_DX#
 DY=#TopGraphRAM_DY#
 ZoneCount=1
 ; zone 1: G4_ram
 Z1=G4_ram
-Z1_X=18.29
+Z1_X=18.81
 Z1_Y=18.92
-Z1_W=227.55
+Z1_W=231.62
 Z1_H=74.47
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

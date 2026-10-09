@@ -31,7 +31,7 @@ SPEC = {
     "Top\\GraphB": {"texts": [6], "hits": [1]},
     "Top\\GraphRAM": {"texts": [6], "hits": [1]},
     "Left\\Category": {"texts": [8, 2, 0], "hits": [8, 1, 8]},
-    "Right\\Category": {"texts": [8, 2, 2], "hits": [8, 1, 1]},
+    "Right\\Category": {"texts": [8, 2, 0], "hits": [8, 1, 8]},
     "Left\\Location": {"texts": [8], "hits": [1]},
     "Right\\SysInfo": {"texts": [8], "hits": [1]},
     "Left\\Upkeep": {"texts": [6], "hits": [3]},
@@ -41,7 +41,7 @@ SPEC = {
     "Center\\Sphere": {"texts": [8], "hits": [1]},
     "Bottom\\Storage": {"texts": [14], "hits": [3]},
     "Bottom\\Audio": {"texts": [12], "hits": [6]},
-    "Bottom\\Strip": {"texts": [8, 4], "hits": [4, 2]},
+    "Bottom\\Strip": {"texts": [4, 4], "hits": [4, 4]},
 }
 SPEC["Overlay\\Drawer"] = {"texts": [44], "hits": [40]}
 SPEC["Overlay\\Control"] = {"texts": [110], "hits": [84]}

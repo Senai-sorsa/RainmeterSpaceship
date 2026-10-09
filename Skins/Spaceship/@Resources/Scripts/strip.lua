@@ -1,5 +1,5 @@
--- Bottom strip (reference: four boxed cells "1500  7  0%  443" on the left of the arch, two open
--- cells "20  20" on the right). Left: CPU temp, GPU temp, load (the red cell), fan. Right: down, up.
+-- Bottom strip: four boxed cells each side of the dash arch, the right side mirrored.
+-- Left: CPU temp, GPU temp, load (the red cell), fan. Right: down, up, ping, Wi-Fi.
 local H
 local SXR, SYR = 2560 / 1260, 1600 / 709
 
@@ -14,45 +14,42 @@ local function rate(b)
   return string.format('%.0fK', b / 1024)
 end
 
-function Update()
-  H.refreshTier()
-  local A1, W = H.C.accent, H.C.white
-  -- left: boxed cells
-  local c = H.canvas(1)
-  local function X(rx) return (rx - 425) * SXR end
-  local function Y(ry) return (ry - 650) * SYR end
-  local load = H.val('mCPU', 0)
-  local cells = {
-    { 429, 661, 'gauge', fmt(H.hw('mHwCpuTemp'), '%.0fC'), 'CPU temperature' },
-    { 474, 656, 'gpu', fmt(H.hw('mHwGpuTemp'), '%.0fC'), 'GPU temperature' },
-    { 519, 654, 'wave', string.format('%d%%', load), 'CPU load', true },
-    { 564, 651, 'gear', fmt(H.hw('mHwFan1'), '%.0f'), 'Fan speed (RPM)' },
-  }
-  for i, cl in ipairs(cells) do
-    local x0, y0 = X(cl[1]), Y(cl[2])
-    local w, h = 37 * SXR, 15 * SYR
-    local col = cl[6] and H.C.hi or W
+-- four boxed cells per side stepping up toward the centre along the dash arch (reference left strip:
+-- cells at x 429 / 474 / 519 / 564, tops 661 / 656 / 654 / 651, 37 x 15); the right side is its mirror
+local CX, CY, CW_, CH_ = { 4, 49, 94, 139 }, { 11, 6, 4, 1 }, 37, 15
+
+local function cells(zi, list, mirror)
+  local z = H.zones[zi]
+  local c = H.canvas(zi)
+  for i, cl in ipairs(list) do
+    local w, h = CW_ * SXR, CH_ * SYR
+    local x0 = mirror and (z.w - (CX[i] + CW_) * SXR) or CX[i] * SXR
+    local y0 = CY[i] * SYR
+    local col = cl[5] and H.C.hi or H.C.white
     c:rect(x0, y0, w, h, col, 1.3, 210, 4)
-    c:icon(cl[3], x0 + 16, y0 + h / 2, 18, col, 1.2)
-    H.text(1, i, x0 + 32, y0 + h / 2, cl[4], { size = 7.5, weight = 700, align = 'LeftCenter', color = col })
-    H.hit(1, i, x0, y0, w, h, cl[5])
+    c:icon(cl[1], x0 + 16, y0 + h / 2, 18, col, 1.2)
+    H.text(zi, i, x0 + 32, y0 + h / 2, cl[2], { size = 6, weight = 700, align = 'LeftCenter', color = col, font = H.fontNum, clip = w - 36 })
+    H.hit(zi, i, x0, y0, w, h, cl[3])
   end
   c:flush()
-  -- right: open cells
-  local d = H.canvas(2)
-  local function X2(rx) return (rx - 742) * SXR end
-  local function Y2(ry) return (ry - 654) * SYR end
-  local open = {
-    { 750, 661, 'cloud', rate(H.val('mNetIn', 0)), 'Download   (ping ' .. string.format('%d', H.val('mPing', 0)) .. ' ms)' },
-    { 792, 669, 'nodes', rate(H.val('mNetOut', 0)), 'Upload   (Wi-Fi ' .. string.format('%d', H.val('mWifi', 0)) .. '%)' },
-  }
-  for i, cl in ipairs(open) do
-    local x0, y0 = X2(cl[1]), Y2(cl[2])
-    d:icon(cl[3], x0 + 8, y0, 18, W, 1.2)
-    H.text(2, i, x0 + 22, y0, cl[4], { size = 7.5, weight = 700, align = 'LeftCenter', color = W })
-    H.hit(2, i, x0, y0 - 14, 70, 28, cl[5])
-  end
-  d:flush()
+end
+
+function Update()
+  H.refreshTier()
+  local load = H.val('mCPU', 0)
+  -- outermost cell first on both sides
+  cells(1, {
+    { 'gauge', fmt(H.hw('mHwCpuTemp'), '%.0fC'), 'CPU temperature' },
+    { 'gpu', fmt(H.hw('mHwGpuTemp'), '%.0fC'), 'GPU temperature' },
+    { 'wave', string.format('%d%%', load), 'CPU load', true },
+    { 'gear', fmt(H.hw('mHwFan1'), '%.0f'), 'Fan speed (RPM)' },
+  }, false)
+  cells(2, {
+    { 'cloud', rate(H.val('mNetIn', 0)), 'Download' },
+    { 'nodes', rate(H.val('mNetOut', 0)), 'Upload' },
+    { 'orbit', string.format('%dms', H.val('mPing', 0)), 'Ping' },
+    { 'wave', string.format('%d%%', H.val('mWifi', 0)), 'Wi-Fi signal' },
+  }, true)
   return 0
 end
 

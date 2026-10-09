@@ -19,19 +19,25 @@ ColorGood=60,255,170
 ColorHighlight=255,105,135
 ColorWhite=215,240,255
 ColorPanel=0,30,45,90
+; transparency: hull picture opacity (255 = solid, lower lets the wallpaper through the metal) and the
+; soft dark tints behind the HUD (0 = none)
+HullAlpha=255
+ShadeAlpha=255
+; every HUD line and label (40-255)
+HudAlpha=255
 ; window tint strength in the theme colour (0 = clear glass, 255 = strongest)
 GlassTint=46
 ; faint diagonal reflections on the glass (0 = off)
 GlassGlare=12
-; scanlines over the windows (ScanLines 0/1, ScanAlpha = darkness 0-255)
+; scanlines over the windows (ScanLines 0/1, ScanAlpha = darkness 0-14)
 ScanLines=1
 ScanAlpha=14
-; cockpit source: 0 = vector hull (traced + procedural detail), 1 = picture in @Resources\Images (tools\image_frame.py)
+; cockpit source: 0 = rendered hull (Images\hull.png, tools\ship_frame.py), 1 = your picture (tools\image_frame.py)
 UseShipImage=0
-; hull metal tones (vector cockpit): shadow, body, lit ridge, edge highlight
+; hull metal tones baked into Images\hull.png by tools\ship_frame.py: shadow, body, lit ridge, edge highlight
 HullDark=12,16,22
-HullMid=34,42,52
-HullLight=74,88,104
+HullMid=38,47,58
+HullLight=86,101,118
 HullEdge=165,190,215
 ShipImage=ship.png
 ; neon bloom: glow alpha (0 = off), glow width multiplier, how far line cores whiten (0-1)
@@ -44,9 +50,9 @@ TextGlowAlpha=150
 ; text size multipliers (small HUD labels / larger titles) relative to the authored sizes
 TextScaleSmall=1.85
 TextScaleLarge=1.45
-FontText=Rajdhani
-FontNum=Share Tech Mono
-FontTitle=Rajdhani
+FontText=Oxanium
+FontNum=B612 Mono
+FontTitle=Michroma
 
 ; ---------------------------------------------------------------- performance tiers
 ; PerfOverride: -1 = automatic, 0 FULL, 1 LITE, 2 LOW, 3 STEALTH

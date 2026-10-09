@@ -50,34 +50,6 @@ Hidden=1
 TransformationMatrix=#Z1_TM#
 Group=Zone1 | Text
 
-[T1_5]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_6]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_7]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_8]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
 [T2_1]
 Meter=String
 MeterStyle=sText
@@ -183,3 +155,29 @@ MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(2,2,-1)"]
 MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(2,2,1)"]
 MouseOverAction=[!CommandMeasure mScript "OnHover(2,2,1)"]
 MouseLeaveAction=[!CommandMeasure mScript "OnHover(2,2,0)"]
+
+[H2_3]
+Meter=Shape
+Hidden=1
+Shape=Rectangle 0,0,1,1 | Fill Color 0,0,0,1 | StrokeWidth 0
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Hit
+LeftMouseUpAction=[!CommandMeasure mScript "OnClick(2,3)"]
+RightMouseUpAction=[!CommandMeasure mScript "OnRightClick(2,3)"]
+MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(2,3,-1)"]
+MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(2,3,1)"]
+MouseOverAction=[!CommandMeasure mScript "OnHover(2,3,1)"]
+MouseLeaveAction=[!CommandMeasure mScript "OnHover(2,3,0)"]
+
+[H2_4]
+Meter=Shape
+Hidden=1
+Shape=Rectangle 0,0,1,1 | Fill Color 0,0,0,1 | StrokeWidth 0
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Hit
+LeftMouseUpAction=[!CommandMeasure mScript "OnClick(2,4)"]
+RightMouseUpAction=[!CommandMeasure mScript "OnRightClick(2,4)"]
+MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(2,4,-1)"]
+MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(2,4,1)"]
+MouseOverAction=[!CommandMeasure mScript "OnHover(2,4,1)"]
+MouseLeaveAction=[!CommandMeasure mScript "OnHover(2,4,0)"]

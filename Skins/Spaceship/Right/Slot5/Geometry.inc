@@ -3,17 +3,17 @@
 [Variables]
 Module=RightSlot5
 ModuleConfig=Spaceship\Right\Slot5
-WX=2070
-WY=713
-WW=443
-WH=181
+WX=2074
+WY=715
+WW=435
+WH=163
 DX=#RightSlot5_DX#
 DY=#RightSlot5_DY#
 ZoneCount=1
 ; zone 1: R_app1
 Z1=R_app1
-Z1_X=18.63
-Z1_Y=18.17
-Z1_W=406.35
-Z1_H=144.43
+Z1_X=18.7
+Z1_Y=18.43
+Z1_W=398.22
+Z1_H=126.37
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

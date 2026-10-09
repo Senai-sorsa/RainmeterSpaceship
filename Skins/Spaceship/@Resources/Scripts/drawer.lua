@@ -53,7 +53,7 @@ function Update()
         c:fillRect(20, y, z.w - 40, RH - 3, H.C.panel, 150)
         c:icon(row.cat.icon, 36, y + RH / 2 - 1, 18, A1, 1.2)
         c:poly(isOpen and { { z.w - 40, y + 8 }, { z.w - 34, y + 15 }, { z.w - 28, y + 8 } } or { { z.w - 37, y + 6 }, { z.w - 30, y + 12 }, { z.w - 37, y + 18 } }, A1, 1.4)
-        H.text(1, ti, 54, y + 3, row.cat.name, { size = 10.5, font = H.fontTitle, weight = 700, color = T, clip = 330 })
+        H.text(1, ti, 54, y + 3, row.cat.name, { size = 10.5, font = H.fontText, weight = 700, color = T, clip = 330 })
         H.text(1, ti + 1, z.w - 50, y + 4, #row.cat.apps .. ' APPS', { size = 9, align = 'RightTop', color = D })
         H.hit(1, 1 + r, 20, y, z.w - 40, RH - 3, isOpen and 'Collapse' or 'Expand')
       else

@@ -55,6 +55,11 @@ FONT_FILES = {
     ("rajdhani", 400): "Rajdhani-Medium.ttf", ("rajdhani", 500): "Rajdhani-Medium.ttf",
     ("rajdhani", 600): "Rajdhani-SemiBold.ttf", ("rajdhani", 700): "Rajdhani-Bold.ttf",
     ("share tech mono", 0): "ShareTechMono-Regular.ttf", ("orbitron", 0): "Orbitron.ttf",
+    ("oxanium", 400): "Oxanium-Regular.ttf", ("oxanium", 500): "Oxanium-Medium.ttf",
+    ("oxanium", 600): "Oxanium-SemiBold.ttf", ("oxanium", 700): "Oxanium-Bold.ttf",
+    ("b612 mono", 400): "B612Mono-Regular.ttf", ("b612 mono", 500): "B612Mono-Regular.ttf",
+    ("b612 mono", 600): "B612Mono-Bold.ttf", ("b612 mono", 700): "B612Mono-Bold.ttf",
+    ("michroma", 0): "Michroma-Regular.ttf",
 }
 
 

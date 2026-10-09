@@ -3,17 +3,17 @@
 [Variables]
 Module=TopConsole
 ModuleConfig=Spaceship\Top\Console
-WX=936
+WX=922
 WY=4
-WW=718
+WW=716
 WH=143
 DX=#TopConsole_DX#
 DY=#TopConsole_DY#
 ZoneCount=1
 ; zone 1: T_settings
 Z1=T_settings
-Z1_X=18.92
+Z1_X=18.7
 Z1_Y=18.57
-Z1_W=680.64
+Z1_W=678.6
 Z1_H=106.06
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

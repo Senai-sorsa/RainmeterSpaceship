@@ -1,4 +1,5 @@
--- Ship identity card (reference: VANDUUL SCYTHE / DREAD PIRATE ROBERTS / RN RV, 1028-1228 x 226-302).
+-- Ship identity block: the mirror image of the location block on the left (same rails, same rows,
+-- labels and values flipped), showing this PC instead of coordinates.
 local H
 local SXR, SYR = 2560 / 1260, 1600 / 709
 
@@ -12,30 +13,28 @@ function Update()
   local z = H.zones[1]
   local c = H.canvas(1)
   local A1, W = H.C.accent, H.C.white
-  local function X(rx) return (rx - 1028) * SXR end
-  local function Y(ry) return (ry - 226) * SYR end
-  -- top rail with dot
-  c:line(X(1032), Y(240), X(1218), Y(232), W, 1.1, 170)
-  c:dot(X(1032), Y(240), 2.5, W)
-  H.text(1, 1, X(1176), Y(244), H.str('DeviceName', 'PC'), { size = 9, weight = 700, align = 'RightCenter', color = W })
-  H.text(1, 2, X(1176), Y(255), H.str('DeviceModel', '') .. ' / ' .. H.str('OsName', ''), { size = 6.5, weight = 700, align = 'RightCenter', color = H.C.hi })
-  -- emblem + boxed number (reference skull + [2]) -> GPU glyph + GPU count
-  c:icon('gpu', X(1192), Y(246), 22, W, 1.4)
-  c:rect(X(1203), Y(238), X(1215) - X(1203), Y(252) - Y(238), H.C.hi, 1.5)
-  H.text(1, 3, (X(1203) + X(1215)) / 2, (Y(238) + Y(252)) / 2, '2', { size = 8, weight = 700, align = 'CenterCenter', color = H.C.hi })
-  -- RN / RV rows -> uptime / IP
-  H.text(1, 4, X(1168), Y(270), 'UP', { size = 7, weight = 700, align = 'RightCenter', color = W })
-  H.text(1, 5, X(1222), Y(270), H.sval('mUptime', '--'), { size = 7, weight = 700, align = 'RightCenter', color = W })
-  H.text(1, 6, X(1168), Y(280), 'IP', { size = 7, weight = 700, align = 'RightCenter', color = W })
-  H.text(1, 7, X(1222), Y(280), H.sval('mIP', '--'), { size = 7, weight = 700, align = 'RightCenter', color = W })
-  -- dot + double chevron, double rail with highlight segment
-  c:dot(X(1037), Y(284), 3, A1)
-  c:poly({ { X(1046), Y(281) }, { X(1042), Y(284) }, { X(1046), Y(287) } }, A1, 1.6)
-  c:poly({ { X(1051), Y(281) }, { X(1047), Y(284) }, { X(1051), Y(287) } }, A1, 1.6)
-  c:line(X(1035), Y(295), X(1222), Y(292), W, 1.2, 200)
-  c:line(X(1035), Y(298), X(1222), Y(296), W, 1, 150)
-  c:line(X(1035), Y(298), X(1080), Y(297.3), H.C.hi, 2)
-  H.hit(1, 1, 0, 0, z.w, z.h, H.str('CpuName', '') .. ' ' .. H.str('CpuCores', '') .. 'C/' .. H.str('CpuThreads', '') .. 'T  |  ' ..
+  -- the location block's reference positions, mirrored inside the (mirrored) zone
+  local function X(rx) return z.w - (rx - 34) * SXR end
+  local function Y(ry) return (ry - 222) * SYR end
+  c:line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220)
+  c:dot(X(40), Y(228), 3, A1); c:dot(X(226), Y(228), 3, A1)
+  -- emblem where the location crosshair sits: GPU glyph, a boxed GPU count and a ring
+  local gx, gy = X(100), Y(262)
+  c:circle(gx, gy, 40, W, 1, 90)
+  c:icon('gpu', gx, gy, 40, W, 1.4)
+  c:rect(gx + 30, gy + 22, 24, 22, H.C.hi, 1.5)
+  H.text(1, 7, gx + 42, gy + 33, '2', { size = 7, weight = 700, align = 'CenterCenter', color = H.C.hi, font = H.fontNum })
+  local rows = { { 'SYS', H.str('DeviceName', 'PC'), W }, { 'UP', H.sval('mUptime', '--'), H.C.hi }, { 'IP', H.sval('mIP', '--'), W } }
+  for i, r in ipairs(rows) do
+    local y = Y(({ 246.5, 257.8, 269.5 })[i])
+    H.text(1, i * 2 - 1, X(152), y, r[1], { size = 8, weight = 700, align = 'LeftCenter', color = r[3] })
+    H.text(1, i * 2, X(158), y, r[2], { size = 7, weight = 700, align = 'RightCenter', color = r[3], font = H.fontNum, clip = X(158) - X(228) })
+  end
+  H.hideText(1, 8)
+  local function ly(rx, base) return base - (10 / 196 - 4 / 187) * (rx - 34) * SYR end
+  c:line(X(35), ly(35, z.h - 9), X(222), ly(222, z.h - 9), A1, 1.3, 220)
+  c:line(X(35), ly(35, z.h - 2.5), X(222), ly(222, z.h - 2.5), A1, 1, 160)
+  H.hit(1, 1, 0, 0, z.w, z.h, H.str('DeviceModel', '') .. ' / ' .. H.str('OsName', '') .. '  |  ' .. H.str('CpuName', '') .. ' ' .. H.str('CpuCores', '') .. 'C/' .. H.str('CpuThreads', '') .. 'T  |  ' ..
     H.str('DGpuName', '') .. ' + ' .. H.str('IGpuName', '') .. '  |  ' .. H.str('RamGB', '') .. ' GB  |  ' .. H.str('DisplayName', '') .. '   (click: About)')
   c:flush()
   return 0

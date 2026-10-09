@@ -228,15 +228,17 @@ local function rowsTheme()
     rows[#rows + 1] = { t[1], t[2], { { cur == t[2] and 'ACTIVE' or 'APPLY', function() applyTheme(t) end, cur == t[2] } }, t[2] }
   end
   rows[#rows + 1] = { 'WINDOW TINT', tostring(H.num('GlassTint', 46)) .. ' / 255', { { '-10', function() bump('GlassTint', -10, 0, 255, nil, true) end }, { '+10', function() bump('GlassTint', 10, 0, 255, nil, true) end }, { 'CLEAR', function() writeVar('Settings.inc', 'GlassTint', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
-  rows[#rows + 1] = { 'GLOW STRENGTH', tostring(H.num('GlowAlpha', 46)), { { '-8', function() bump('GlowAlpha', -8, 0, 160, nil, true) end }, { '+8', function() bump('GlowAlpha', 8, 0, 160, nil, true) end } } }
-  rows[#rows + 1] = { 'GLOW WIDTH', string.format('%.1f', H.num('GlowWidth', 3.2)), { { '-0.4', function() bump('GlowWidth', -0.4, 1, 8, nil, true) end }, { '+0.4', function() bump('GlowWidth', 0.4, 1, 8, nil, true) end } } }
-  rows[#rows + 1] = { 'LINE CORES', string.format('%.1f  (0 = pure colour, 1 = white-hot)', H.num('CoreWhite', 0.3)), { { '-0.1', function() bump('CoreWhite', -0.1, 0, 1, nil, true) end }, { '+0.1', function() bump('CoreWhite', 0.1, 0, 1, nil, true) end } } }
-  rows[#rows + 1] = { 'TEXT GLOW', tostring(H.num('TextGlow', 4)) .. ' px', { { '-1', function() bump('TextGlow', -1, 0, 12, nil, true) end }, { '+1', function() bump('TextGlow', 1, 0, 12, nil, true) end } } }
-  rows[#rows + 1] = { 'GLASS GLARE', tostring(H.num('GlassGlare', 12)), { { '-4', function() bump('GlassGlare', -4, 0, 60, nil, true) end }, { '+4', function() bump('GlassGlare', 4, 0, 60, nil, true) end } } }
+  rows[#rows + 1] = { 'GLOW', string.format('strength %d   width %.1f', H.num('GlowAlpha', 52), H.num('GlowWidth', 3)), { { '-', function() bump('GlowAlpha', -8, 0, 160, nil, true) end }, { '+', function() bump('GlowAlpha', 8, 0, 160, nil, true) end }, { 'W-', function() bump('GlowWidth', -0.4, 1, 8, nil, true) end }, { 'W+', function() bump('GlowWidth', 0.4, 1, 8, nil, true) end } } }
+  rows[#rows + 1] = { 'CORES / TEXT GLOW', string.format('cores %.1f (1 = white-hot)   text glow %d px', H.num('CoreWhite', 0.3), H.num('TextGlow', 4)), { { 'C-', function() bump('CoreWhite', -0.1, 0, 1, nil, true) end }, { 'C+', function() bump('CoreWhite', 0.1, 0, 1, nil, true) end }, { 'T-', function() bump('TextGlow', -1, 0, 12, nil, true) end }, { 'T+', function() bump('TextGlow', 1, 0, 12, nil, true) end } } }
+  rows[#rows + 1] = { 'GLASS GLARE', tostring(H.num('GlassGlare', 12)) .. '  smudges + reflections', { { '-4', function() bump('GlassGlare', -4, 0, 60, nil, true) end }, { '+4', function() bump('GlassGlare', 4, 0, 60, nil, true) end }, { 'OFF', function() writeVar('Settings.inc', 'GlassGlare', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   local scan = H.num('ScanLines', 1) == 1
-  rows[#rows + 1] = { 'SCANLINES', (scan and 'ON' or 'OFF') .. '  darkness ' .. tostring(H.num('ScanAlpha', 14)), { { scan and 'OFF' or 'ON', function() writeVar('Settings.inc', 'ScanLines', scan and 0 or 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { '-4', function() bump('ScanAlpha', -4, 0, 80, nil, true) end }, { '+4', function() bump('ScanAlpha', 4, 0, 80, nil, true) end } } }
+  rows[#rows + 1] = { 'SCANLINES', (scan and 'ON' or 'OFF') .. '  darkness ' .. tostring(H.num('ScanAlpha', 14)), { { scan and 'OFF' or 'ON', function() writeVar('Settings.inc', 'ScanLines', scan and 0 or 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { '-4', function() bump('ScanAlpha', -4, 0, 14, nil, true) end }, { '+4', function() bump('ScanAlpha', 4, 0, 14, nil, true) end } } }
+  -- transparency: the metal, the dark tints behind the HUD, and every HUD element
+  rows[#rows + 1] = { 'HULL OPACITY', tostring(H.num('HullAlpha', 255)) .. ' / 255  (lower = wallpaper shows through the metal)', { { '-25', function() bump('HullAlpha', -25, 0, 255, nil, true) end }, { '+25', function() bump('HullAlpha', 25, 0, 255, nil, true) end }, { 'SOLID', function() writeVar('Settings.inc', 'HullAlpha', 255); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
+  rows[#rows + 1] = { 'DARK TINTS', tostring(H.num('ShadeAlpha', 255)) .. ' / 255  (shading behind the HUD on the glass)', { { '-25', function() bump('ShadeAlpha', -25, 0, 255, nil, true) end }, { '+25', function() bump('ShadeAlpha', 25, 0, 255, nil, true) end }, { 'OFF', function() writeVar('Settings.inc', 'ShadeAlpha', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
+  rows[#rows + 1] = { 'HUD OPACITY', tostring(H.num('HudAlpha', 255)) .. ' / 255  (every line and label)', { { '-25', function() bump('HudAlpha', -25, 40, 255, nil, true) end }, { '+25', function() bump('HudAlpha', 25, 40, 255, nil, true) end }, { 'FULL', function() writeVar('Settings.inc', 'HudAlpha', 255); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   local img = H.num('UseShipImage', 0) == 1
-  rows[#rows + 1] = { 'COCKPIT ART', img and ('PICTURE  Images\\' .. H.str('ShipImage', 'ship.png')) or 'VECTOR  traced hull + detail', { { 'VECTOR', function() writeVar('Settings.inc', 'UseShipImage', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end, not img }, { 'PICTURE', function() writeVar('Settings.inc', 'UseShipImage', 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end, img } } }
+  rows[#rows + 1] = { 'COCKPIT ART', img and ('PICTURE  Images\\' .. H.str('ShipImage', 'ship.png')) or 'RENDERED  textured hull (Images\\hull.png)', { { 'RENDERED', function() writeVar('Settings.inc', 'UseShipImage', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end, not img }, { 'PICTURE', function() writeVar('Settings.inc', 'UseShipImage', 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end, img } } }
   rows[#rows + 1] = { 'WARNING COLOUR', H.str('ColorWarn', ''), { { 'ORANGE', function() writeVar('Settings.inc', 'ColorWarn', '255,130,40'); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { 'YELLOW', function() writeVar('Settings.inc', 'ColorWarn', '255,220,60'); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   return rows
 end
@@ -353,7 +355,7 @@ function Update()
     c:fillRect(TX, y, TW, TH, on and A1 or H.C.panel, on and 50 or 120)
     if on then c:line(TX, y, TX, y + TH, A1, 3) end
     c:rect(TX, y, TW, TH, on and A1 or D, 1)
-    H.text(1, 2 + i, TX + 16, y + TH / 2, name, { size = 11, font = H.fontTitle, weight = 700, align = 'LeftCenter', color = on and T or D })
+    H.text(1, 2 + i, TX + 16, y + TH / 2, name, { size = 11, font = H.fontText, weight = 700, align = 'LeftCenter', color = on and T or D })
     H.hit(1, 1 + i, TX, y, TW, TH, name)
     local ti = i
     actions[1 + i] = function() tab = ti; page = 1 end
@@ -372,7 +374,7 @@ function Update()
         c:fillRect(CX, y + 8, 26, 26, col, 255, 4)
       end
       local lx = row[4] and CX + 36 or CX + 8
-      H.text(1, tl, lx, y + 4, row[1], { size = 10.5, font = H.fontTitle, weight = 700, color = T, clip = 260 })
+      H.text(1, tl, lx, y + 4, row[1], { size = 10.5, font = H.fontText, weight = 700, color = T, clip = 260 })
       local nb = #row[3]
       local bx0 = CX + CW - nb * (BW + BG)
       H.text(1, tv, lx, y + 23, row[2] or '', { size = 9.5, color = D, clip = bx0 - lx - 10 })

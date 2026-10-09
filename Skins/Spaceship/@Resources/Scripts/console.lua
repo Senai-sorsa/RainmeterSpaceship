@@ -74,13 +74,13 @@ local function buttons()
   }
 end
 
--- reference positions (ref pixels inside the console zone 470..805 x 10..57)
+-- reference positions (ref pixels inside the console zone 463..797 x 10..57, centred on the axis x = 630)
 local SXR, SYR = 2560 / 1260, 1600 / 709
-local function RX(x) return (x - 470) * SXR end
+local function RX(x) return (x - 463) * SXR end
 local function RY(y) return (y - 10) * SYR end
-local TABX = { 552, 596, 636, 679, 714 }
-local BOX = { { 545, 566 }, { 576, 596 } }
-local TXT = { { 676, 51 }, { 703, 50 }, { 731, 49 }, { 758, 48 }, { 786, 47 } }
+local TABX = { 549, 591, 630, 669, 711 }
+local BOX = { { 538, 559 }, { 569, 589 } }
+local TXT = { { 671, 51 }, { 695, 50 }, { 719, 49 }, { 743, 48 }, { 767, 47 } }
 
 function Update()
   H.refreshTier()
@@ -119,7 +119,7 @@ function Update()
     local b, k = it[1], it[2]
     local x, y = RX(TXT[i][1]), RY(TXT[i][2])
     local lit = b.on
-    H.text(1, 7 + i, x, y, b.label, { size = 5.6, weight = 700, clip = 52, align = 'CenterCenter', color = lit and H.C.hi or { 160, 180, 195 } })
+    H.text(1, 7 + i, x, y, b.label, { size = 5.6, weight = 700, clip = 64, align = 'CenterCenter', color = lit and H.C.hi or { 160, 180, 195 } })
     H.hit(1, 7 + i, x - 24, y - 10, 48, 20, b.tip)
   end
   -- transient message between the two groups
