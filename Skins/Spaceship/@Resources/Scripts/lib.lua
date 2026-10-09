@@ -67,6 +67,16 @@ function H.init()
       x = num('Z' .. i .. '_X', 0), y = num('Z' .. i .. '_Y', 0),
       w = num('Z' .. i .. '_W', 0), h = num('Z' .. i .. '_H', 0),
     }
+    -- the zone's TransformationMatrix (a;b;c;d;e;f, may hold formulas): click areas are drawn already
+    -- transformed (see H.hit), because Rainmeter hit-tests a meter without its matrix
+    local tm, raw = {}, SKIN:ReplaceVariables(str('Z' .. i .. '_TM', '1;0;0;1;0;0'))
+    for part in string.gmatch(raw .. ';', '([^;]*);') do
+      local v = tonumber(part) or tonumber(SKIN:ParseFormula(part)) or 0
+      tm[#tm + 1] = v
+    end
+    if #tm == 6 and not (tm[1] == 1 and tm[2] == 0 and tm[3] == 0 and tm[4] == 1 and tm[5] == 0 and tm[6] == 0) then
+      H.zones[i].tm = tm
+    end
   end
   H.guard(getfenv and getfenv(2) or _G)
 end
@@ -441,9 +451,22 @@ end
 function H.hit(zoneIndex, k, x, y, w, h, tip)
   local z = H.zones[zoneIndex]
   local m = 'H' .. zoneIndex .. '_' .. k
-  H.set(m, 'X', fmt('%.2f', (z.x + x) * H.S))
-  H.set(m, 'Y', fmt('%.2f', (z.y + y) * H.S))
-  H.set(m, 'Shape', fmt('Rectangle 0,0,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', w * H.S, h * H.S))
+  local tm = z.tm
+  if tm then
+    -- slanted zone: the click area is the tilted quad itself, in skin coordinates, with no matrix
+    local function T(px, py)
+      px, py = (z.x + px) * H.S, (z.y + py) * H.S
+      return fmt('%.2f,%.2f', tm[1] * px + tm[3] * py + tm[5], tm[2] * px + tm[4] * py + tm[6])
+    end
+    H.set(m, 'TransformationMatrix', '1;0;0;1;0;0')
+    H.set(m, 'X', '0'); H.set(m, 'Y', '0')
+    H.set(m, 'Quad', T(x, y) .. ' | LineTo ' .. T(x + w, y) .. ' | LineTo ' .. T(x + w, y + h) .. ' | LineTo ' .. T(x, y + h) .. ' | ClosePath 1')
+    H.set(m, 'Shape', 'Path Quad | Fill Color 0,0,0,1 | StrokeWidth 0')
+  else
+    H.set(m, 'X', fmt('%.2f', (z.x + x) * H.S))
+    H.set(m, 'Y', fmt('%.2f', (z.y + y) * H.S))
+    H.set(m, 'Shape', fmt('Rectangle 0,0,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', w * H.S, h * H.S))
+  end
   H.set(m, 'ToolTipText', tip or '')
   H.set(m, 'Hidden', '0')
 end

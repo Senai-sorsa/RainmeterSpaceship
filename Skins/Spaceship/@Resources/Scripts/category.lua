@@ -66,7 +66,7 @@ local function drawTabs()
       local x = 14 + (t - 1) * step + (mirror and (MAXTABS - vis) * step or 0)
       H.text(1, t, x, z.h / 2, cat.apps[i].short, { size = 6.2, weight = 700, align = 'LeftCenter',
         color = on and H.C.accent or { 175, 190, 200 }, alpha = on and 255 or 210, clip = step - 4 })
-      H.hit(1, t, x - 2, 6, step, z.h - 12, cat.apps[i].name)
+      H.hit(1, t, x - 6, 0, step, z.h, cat.apps[i].name .. '  - click: select   right-click: launch')
     else H.hideText(1, t); H.hideHit(1, t) end
   end
   if n > MAXTABS then
