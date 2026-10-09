@@ -36,7 +36,7 @@ end
 
 function OnLltDone()
   local out = H.sval('mLlt', '')
-  if string.find(out, 'result=ok') then say('DONE') else say('LLT: CHECK CLI (see Data\\llt.log)') end
+  if string.find(out, 'result=ok') then say('DONE') else say('SWITCH FAILED') end
   SKIN:Bang('!CommandMeasure', 'mStatus', 'Run')
 end
 
@@ -103,13 +103,14 @@ function Update()
     if t.id == 'dGPU' and st.dgpu ~= '' then c:dot(x + 26, y, 2.6, st.dgpu == 'on' and H.C.good or D) end
     H.hit(1, i, x - 34, y - 12, 68, 24, t.tip)
   end
-  -- boxed pair (reference: RADR IFCS) -> CARGO, CFG
+  -- reference RADR IFCS pair -> CARGO, CFG
   local boxes = { { 'CARGO', 11, 'All apps (drop-down drawer)' }, { 'CFG', 13, 'Control Center' } }
   for i, b in ipairs(boxes) do
     local x0, x1 = RX(BOX[i][1]), RX(BOX[i][2])
     local y0, y1 = RY(46), RY(55)
-    c:rect(x0, y0, x1 - x0, y1 - y0, H.C.accent, 1.3, 230, 2)
-    H.text(1, 5 + i, (x0 + x1) / 2, (y0 + y1) / 2, b[1], { size = 5.2, weight = 700, align = 'CenterCenter', color = H.C.accent })
+    -- plain glowing labels with a short underline (no boxes)
+    H.text(1, 5 + i, (x0 + x1) / 2, (y0 + y1) / 2, b[1], { size = 5.6, weight = 700, align = 'CenterCenter', color = H.C.accent })
+    c:hair((x0 + x1) / 2 - (x1 - x0) * 0.32, y1 + 2, (x0 + x1) / 2 + (x1 - x0) * 0.32, y1 + 2, H.C.accent, 1.2, 150)
     H.hit(1, 5 + i, x0, y0, x1 - x0, y1 - y0, b[3])
   end
   -- text group (reference: MISL HEAT CLSN FUEL GFRC, FUEL lit) -> quick settings
@@ -125,8 +126,6 @@ function Update()
   -- transient message between the two groups
   if os.time() - msgAt < 6 and msg ~= '' then
     H.text(1, 14, RX(630), RY(49), msg, { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn, clip = 150 })
-  elseif st.llt == 'missing' then
-    H.text(1, 14, RX(630), RY(49), 'LLT CLI?', { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn })
   else H.hideText(1, 14) end
   H.hit(1, 14, RX(612), RY(50), RX(648) - RX(612), RY(58) - RY(50), 'dGPU: ' .. (st.dgpu ~= '' and st.dgpu or 'unknown') .. ' - click to refresh status')
   c:flush()
