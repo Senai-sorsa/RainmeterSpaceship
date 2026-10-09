@@ -3,17 +3,17 @@
 [Variables]
 Module=TopAlert
 ModuleConfig=Spaceship\Top\Alert
-WX=567
-WY=133
-WW=76
-WH=81
+WX=569
+WY=101
+WW=96
+WH=80
 DX=#TopAlert_DX#
 DY=#TopAlert_DY#
 ZoneCount=1
 ; zone 1: T_alert
 Z1=T_alert
-Z1_X=18
-Z1_Y=-13
-Z1_W=40
-Z1_H=40
-Z1_TM=1;-0.0989;0;1;(0*#Scale#);(37.1283*#Scale#)
+Z1_X=18.17
+Z1_Y=18.61
+Z1_W=58.93
+Z1_H=42.87
+Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

@@ -3,17 +3,17 @@
 [Variables]
 Module=LeftLocation
 ModuleConfig=Spaceship\Left\Location
-WX=41
-WY=488
-WW=480
-WH=194
+WX=51
+WY=482
+WW=435
+WH=218
 DX=#LeftLocation_DX#
 DY=#LeftLocation_DY#
 ZoneCount=1
 ; zone 1: L_location
 Z1=L_location
-Z1_X=19
-Z1_Y=32
-Z1_W=440
-Z1_H=130
-Z1_TM=1;0.06;-0.0179;1;(2.7638*#Scale#);(-14.34*#Scale#)
+Z1_X=18.08
+Z1_Y=18.99
+Z1_W=398.86
+Z1_H=157.97
+Z1_TM=0.9984;0.0566;0;1;(0.029*#Scale#);(-1.0226*#Scale#)

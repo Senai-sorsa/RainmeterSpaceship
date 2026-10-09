@@ -10,23 +10,23 @@ S.order = { 'cpu', 'ram', 'gpu', 'vram', 'cputemp', 'gputemp', 'power', 'disk', 
 
 S.defs = {
   cpu = { label = 'CPU LOAD', frac = lin(0, 100), get = function(H) local v = H.val('mCPU', 0); return v, pct(v) end },
-  ram = { label = 'MEMORY', frac = lin(0, 100), get = function(H)
+  ram = { label = 'MEMORY USED', frac = lin(0, 100), get = function(H)
     local u, t = H.val('mRamUsed', 0), math.max(1, H.val('mRamTotal', 1))
     return u / t * 100, string.format('%.1f / %.0f GB', u / 1073741824, t / 1073741824) end },
   gpu = { label = 'GPU LOAD', frac = lin(0, 100), get = function(H) local v = H.clamp(H.val('mGPU', 0), 0, 100); return v, pct(v) end },
-  vram = { label = 'VRAM', frac = lin(0, 12 * 1073741824), get = function(H)
+  vram = { label = 'VIDEO MEMORY', frac = lin(0, 12 * 1073741824), get = function(H)
     local b = H.val('mVRAM', 0); return b, string.format('%.1f GB', b / 1073741824) end },
   cputemp = { label = 'CPU TEMP', frac = lin(30, 100), get = function(H)
     local v = H.hw('mHwCpuTemp'); if not v then return nil end; return v, string.format('%.0f C', v) end },
   gputemp = { label = 'GPU TEMP', frac = lin(30, 90), get = function(H)
     local v = H.hw('mHwGpuTemp'); if not v then return nil end; return v, string.format('%.0f C', v) end },
-  power = { label = 'POWER', frac = lin(0, 160), get = function(H)
+  power = { label = 'POWER DRAW', frac = lin(0, 160), get = function(H)
     local c, g = H.hw('mHwCpuPower'), H.hw('mHwGpuPower'); if not (c or g) then return nil end
     local v = (c or 0) + (g or 0); return v, string.format('%.0f W', v) end },
   disk = { label = 'DISK I/O', get = function(H) local v = H.val('mDiskRead', 0) + H.val('mDiskWrite', 0); return v, H.rate(v) end },
   netdown = { label = 'NET DOWN', get = function(H) local v = H.val('mNetIn', 0); return v, H.rate(v) end },
   netup = { label = 'NET UP', get = function(H) local v = H.val('mNetOut', 0); return v, H.rate(v) end },
-  battery = { label = 'BATTERY', frac = lin(0, 100), get = function(H) local v = H.val('mBattPct', 0); return v, pct(v) end },
+  battery = { label = 'BATTERY LEVEL', frac = lin(0, 100), get = function(H) local v = H.val('mBattPct', 0); return v, pct(v) end },
 }
 
 function S.next(id, dir)

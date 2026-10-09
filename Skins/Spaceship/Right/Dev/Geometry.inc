@@ -3,17 +3,17 @@
 [Variables]
 Module=RightDev
 ModuleConfig=Spaceship\Right\Dev
-WX=2207
-WY=1155
-WW=273
-WH=130
+WX=2184
+WY=1150
+WW=118
+WH=114
 DX=#RightDev_DX#
 DY=#RightDev_DY#
 ZoneCount=1
 ; zone 1: R_dev
 Z1=R_dev
-Z1_X=43
-Z1_Y=30
-Z1_W=230
-Z1_H=80
-Z1_TM=1;-0.06;-0.0817;1;(-15.7208*#Scale#);(4.38*#Scale#)
+Z1_X=18.41
+Z1_Y=18.97
+Z1_W=81.27
+Z1_H=76.73
+Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

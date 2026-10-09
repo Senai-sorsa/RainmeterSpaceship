@@ -181,48 +181,6 @@ Hidden=1
 TransformationMatrix=#Z1_TM#
 Group=Zone1 | Text
 
-[T1_25]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_26]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_27]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_28]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_29]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
-[T1_30]
-Meter=String
-MeterStyle=sText
-Hidden=1
-TransformationMatrix=#Z1_TM#
-Group=Zone1 | Text
-
 [H1_1]
 Meter=Shape
 Hidden=1

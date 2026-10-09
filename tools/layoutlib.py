@@ -1,4 +1,4 @@
-"""Shared geometry for the Spaceship HUD layout (used by check_layout, frame_art, build, rmsim)."""
+"""Shared geometry for the Spaceship HUD layout (used by check_layout, vector_frame, build, rmsim)."""
 import json
 import math
 from pathlib import Path
@@ -18,6 +18,12 @@ def by_id(layout):
 def matrix(item, curves):
     """Return Rainmeter TransformationMatrix (a, b, c, d, tx, ty) for an item:
     x' = a*x + c*y + tx,  y' = b*x + d*y + ty."""
+    if "quad" in item:
+        (x0, y0), (x1, y1), _, (x3, y3) = item["quad"]
+        w, h = item["w"], item["h"]
+        a, b = (x1 - x0) / w, (y1 - y0) / w
+        c, d = (x3 - x0) / h, (y3 - y0) / h
+        return (a, b, c, d, x0 - a * item["x"] - c * item["y"], y0 - b * item["x"] - d * item["y"])
     cv = curves.get(item.get("group", "center"), {"type": "flat"})
     zcx, zcy = item["x"] + item["w"] / 2, item["y"] + item["h"] / 2
     if cv["type"] == "arc_x":

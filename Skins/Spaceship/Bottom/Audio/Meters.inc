@@ -69,6 +69,34 @@ Hidden=1
 TransformationMatrix=#Z1_TM#
 Group=Zone1 | Text
 
+[T1_9]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_10]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_11]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_12]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
 [H1_1]
 Meter=Shape
 Hidden=1

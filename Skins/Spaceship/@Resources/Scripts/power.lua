@@ -1,45 +1,32 @@
--- Top-left bar: power draw. Zone T_power (240 x 40).
+-- Top-left "H ---- C" bar (reference 335-432 x 24-44): power draw.
 local H
-local hist = {}
 
 function Initialize()
   H = dofile(SKIN:GetVariable('@') .. 'Scripts\\lib.lua')
   H.init()
 end
 
-local function draw()
+function Update()
+  H.refreshTier()
   local z = H.zones[1]
   local c = H.canvas(1)
   local cpu, gpu = H.hw('mHwCpuPower'), H.hw('mHwGpuPower')
   local rate = H.hw('mHwChargeRate')
   local watts
-  if cpu or gpu then
-    watts = (cpu or 0) + (gpu or 0)
-  elseif rate and rate < 0 then
-    watts = -rate
-  end
-  local scale = 160
-  local v = watts and H.clamp(watts / scale, 0, 1) or 0
-  H.text(1, 1, 0, 0, 'PWR', { size = 10, color = H.C.accent, font = H.fontTitle, weight = 700 })
-  H.text(1, 2, z.w, 0, watts and string.format('%.0f W', watts) or '-- W', { size = 11, align = 'RightTop', font = H.fontNum })
-  H.text(1, 3, 44, 0, H.val('mAC', 1) > 0 and 'AC' or 'BATT', { size = 9, color = H.C.dim })
-  -- reference style: thin rail with an end cap and a lit segment run
-  c:line(0, 33, z.w, 33, H.C.dim, 1, 160)
-  c:line(0, 28, 0, 38, H.C.accent, 1.4)
-  c:line(z.w, 28, z.w, 38, H.C.accent, 1.4)
-  c:segBar(4, 22, z.w - 8, 8, v, 24, nil, 2)
-  if not watts then
-    H.hit(1, 1, 0, 0, z.w, z.h, 'Power needs HWiNFO sensors: Control Center > SENSORS > DETECT')
-  else
-    H.hit(1, 1, 0, 0, z.w, z.h, string.format('CPU %s W   GPU %s W', cpu and string.format('%.0f', cpu) or '--', gpu and string.format('%.0f', gpu) or '--'))
-  end
+  if cpu or gpu then watts = (cpu or 0) + (gpu or 0) elseif rate and rate < 0 then watts = -rate end
+  local v = watts and H.clamp(watts / 160, 0, 1) or 0
+  local y = z.h * 0.5
+  local x0, x1 = 22, z.w - 26
+  -- letter, thin rail, hot segment, end tick, letter (reference: H ==== ' C)
+  H.text(1, 1, 0, y, 'P', { size = 8.5, weight = 700, align = 'LeftCenter', color = H.C.white })
+  c:line(x0, y, x1, y, H.C.white, 1.3, 210)
+  if v > 0 then c:line(x0, y, x0 + (x1 - x0) * v, y, H.C.hi, 2.6) end
+  c:line(x0 + (x1 - x0) * v, y - 6, x0 + (x1 - x0) * v, y + 2, H.C.white, 1.3)
+  H.text(1, 2, z.w, y, watts and string.format('%.0fW', watts) or 'W', { size = 8.5, weight = 700, align = 'RightCenter', color = H.C.white })
+  H.hit(1, 1, 0, 0, z.w, z.h, watts and string.format('Power draw %.0f W  (CPU %s, GPU %s)', watts, cpu and string.format('%.0f', cpu) or '--', gpu and string.format('%.0f', gpu) or '--')
+    or 'Power draw needs HWiNFO: Control Center > SENSORS > DETECT')
   c:flush()
-end
-
-function Update()
-  H.refreshTier()
-  draw()
-  return 0
+  return watts or 0
 end
 
 function OnClick(z, k) SKIN:Bang('!ActivateConfig', 'Spaceship\\Overlay\\Control', 'Control.ini') end

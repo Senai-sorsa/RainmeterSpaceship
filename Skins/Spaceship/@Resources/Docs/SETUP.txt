@@ -104,8 +104,12 @@ Thresholds and the battery minimum: Control Center > PERF.
 Control Center > LAYOUT: pick a module, nudge it with -10/-1/+1/+10. The layout guard
 refuses any move that would overlap another module, a cockpit strut or the taskbar band.
 EDIT MODE outlines every zone. PRESETS saves / loads complete setups (with UNDO).
-To redesign the layout itself, edit layout/layout.json in the source repo and run
-tools/build.py and tools/frame_art.py.
+To redesign the layout itself, edit tools/ref_layout.py in the source repo and run
+tools/ref_layout.py, tools/build.py and tools/vector_frame.py.
+
+The cockpit (Frame) is built from Shape meters only: Frame\Parts\Glass.inc (window tint),
+Base.inc (hull silhouette), Hull_01..17.inc (~1000 traced hull pieces), Lights.inc and
+Decor.inc (HUD lines in the theme colour).
 
 
 9. PRIVACY

@@ -1,4 +1,4 @@
--- Warning triangle. Zone T_alert (40 x 40).
+-- Warning triangle + count (reference: pink triangle "1" at 295,62).
 local H
 local blink = 0
 
@@ -17,9 +17,7 @@ local function alerts()
     local used = (tot - H.val('mDiskFree', 0)) / tot * 100
     if used >= H.num('WarnDiskPct', 90) then list[#list + 1] = string.format('C: %.0f%% FULL', used) end
   end
-  if H.val('mAC', 1) == 0 and H.val('mBattPct', 100) <= H.num('WarnBattery', 20) then
-    list[#list + 1] = string.format('BATTERY %d%%', H.val('mBattPct', 0))
-  end
+  if H.val('mAC', 1) == 0 and H.val('mBattPct', 100) <= H.num('WarnBattery', 20) then list[#list + 1] = string.format('BATTERY %d%%', H.val('mBattPct', 0)) end
   if H.val('mCPU', 0) >= 95 then list[#list + 1] = 'CPU SATURATED' end
   return list
 end
@@ -27,14 +25,16 @@ end
 function Update()
   H.refreshTier()
   blink = 1 - blink
+  local z = H.zones[1]
   local c = H.canvas(1)
   local list = alerts()
   local n = #list
-  local col = n > 0 and H.C.warn or H.C.dim
-  local a = (n > 0 and blink == 1 and H.tier < 2) and 255 or 200
-  c:poly({ { 20, 4 }, { 37, 34 }, { 3, 34 } }, col, 1.8, a, true)
-  H.text(1, 1, 20, 23, tostring(n), { size = 10, align = 'CenterCenter', font = H.fontNum, color = col })
-  H.hit(1, 1, 0, 0, 40, 40, n > 0 and table.concat(list, '  |  ') or 'All systems nominal')
+  local a = (n > 0 and blink == 1 and H.tier < 2) and 130 or 255
+  local s = z.h * 0.62
+  local cx, cy = s * 0.55 + 4, z.h / 2
+  c:poly({ { cx + s * 0.5, cy }, { cx - s * 0.35, cy - s * 0.5 }, { cx - s * 0.35, cy + s * 0.5 } }, H.C.hi, 2, a, true)
+  H.text(1, 1, z.w, cy, tostring(n), { size = 9, weight = 700, align = 'RightCenter', color = H.C.hi, alpha = a })
+  H.hit(1, 1, 0, 0, z.w, z.h, n > 0 and table.concat(list, '  |  ') or 'All systems nominal')
   c:flush()
   return n
 end

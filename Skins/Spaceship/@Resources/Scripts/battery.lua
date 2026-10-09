@@ -1,6 +1,6 @@
--- Top-right bar: battery level + time to charge limit / time to empty. Zone T_battery (240 x 40).
+-- Top-right "PWR ------" bar (reference 826-956 x 21-45): battery level + time to limit / to empty.
 local H
-local samples = {}   -- {t, pct} while charging, for the slope fallback
+local samples = {}
 
 function Initialize()
   H = dofile(SKIN:GetVariable('@') .. 'Scripts\\lib.lua')
@@ -8,15 +8,12 @@ function Initialize()
 end
 
 local function timeToLimit(pct, limit)
-  -- 1) HWiNFO capacities + charge rate (most accurate)
   local rem, full, rate = H.hw('mHwRemainCap'), H.hw('mHwFullCap'), H.hw('mHwChargeRate')
   if rem and full and rate and rate > 0.5 then
-    -- capacities in mWh, rate in W (HWiNFO defaults)
     local need = (limit / 100 * full - rem) / 1000
     if need <= 0 then return 0 end
     return need / rate * 3600
   end
-  -- 2) slope of the last ~10 minutes of % readings
   local now = os.time()
   if #samples == 0 or samples[#samples][2] ~= pct then samples[#samples + 1] = { now, pct } end
   while #samples > 2 and now - samples[1][1] > 600 do table.remove(samples, 1) end
@@ -35,33 +32,25 @@ function Update()
   local pct = H.val('mBattPct', 0)
   local ac = H.val('mAC', 0) > 0
   local limit = H.num('ChargeLimit', 80)
-  local status, col
+  local status
   if ac then
-    if pct >= limit - 1 then
-      status = 'HELD AT ' .. limit .. '%'
-      samples = {}
-    else
-      local t = timeToLimit(pct, limit)
-      status = t and (H.duration(t) .. ' TO ' .. limit .. '%') or ('CHARGING TO ' .. limit .. '%')
-    end
-    col = H.C.good
+    if pct >= limit - 1 then status = 'HELD ' .. limit .. '%'; samples = {}
+    else local t = timeToLimit(pct, limit); status = t and (H.duration(t) .. ' TO ' .. limit .. '%') or ('CHG TO ' .. limit .. '%') end
   else
     samples = {}
     local life = H.val('mLifetime', -1)
-    status = (life and life > 0) and (H.duration(life) .. ' LEFT') or 'ON BATTERY'
-    col = pct <= H.num('WarnBattery', 20) and H.C.alert or H.C.accent
+    status = (life and life > 0) and (H.duration(life) .. ' LEFT') or 'ON BATT'
   end
-  H.text(1, 1, 0, 0, 'BATT', { size = 10, color = H.C.accent, font = H.fontTitle, weight = 700 })
-  H.text(1, 2, 52, 0, string.format('%d%%', pct), { size = 11, font = H.fontNum })
-  H.text(1, 3, z.w, 1, status, { size = 9.5, align = 'RightTop', color = col })
-  c:line(0, 33, z.w, 33, H.C.dim, 1, 160)
-  c:line(0, 28, 0, 38, H.C.accent, 1.4)
-  c:line(z.w, 28, z.w, 38, H.C.accent, 1.4)
-  c:segBar(4, 22, z.w - 8, 8, pct / 100, 24, col, 2)
-  -- charge-limit tick
-  local lx = 4 + (z.w - 8) * limit / 100
-  c:line(lx, 18, lx, 34, H.C.warn, 1.4)
-  H.hit(1, 1, 0, 0, z.w, z.h, ac and 'Plugged in' or 'On battery')
+  local y = z.h * 0.62
+  local x0, x1 = 48, z.w
+  H.text(1, 1, 0, y, 'PWR', { size = 8.5, weight = 700, align = 'LeftCenter', color = H.C.white })
+  c:line(x0, y, x1, y, H.C.white, 1.3, 200)
+  local low = (not ac) and pct <= H.num('WarnBattery', 20)
+  c:line(x0, y, x0 + (x1 - x0) * pct / 100, y, low and H.C.alert or (ac and H.C.good or H.C.hi), 2.6)
+  local lx = x0 + (x1 - x0) * limit / 100
+  c:line(lx, y - 6, lx, y + 3, H.C.white, 1.2, 200)
+  H.text(1, 2, x1, 2, string.format('%d%%  %s', pct, status), { size = 5.2, weight = 700, align = 'RightTop', color = H.C.white, alpha = 200 })
+  H.hit(1, 1, 0, 0, z.w, z.h, string.format('Battery %d%% - %s', pct, status))
   c:flush()
   return pct
 end

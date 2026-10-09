@@ -1,8 +1,13 @@
--- App slot (420 x 104): a single app, or a category with a tab line.
+-- App slot: one app or a category. Styles copy the reference blocks:
+--   row      left 1-2 : icon, title, status, item row (tabs), stepped underline with number
+--   compact  left 3   : icon, bracket, small box, number
+--   ship     4 / 8    : ship-style icon over an underline with number
+--   card     right 5  : right-aligned title / subtitle / RN RV rows, icon at right
+--   rcompact right 6-7: diamond + slashes, icon, bracket underline, number
 local H, A
-local slot, mirror = 1, false
+local slot, style = 1, 'row'
 local entry, sel, first = nil, 1, 1
-local MAXTABS = 5
+local MAXTABS = 3
 
 function Initialize()
   H = dofile(SKIN:GetVariable('@') .. 'Scripts\\lib.lua')
@@ -10,105 +15,156 @@ function Initialize()
   H.init()
   A.load()
   slot = tonumber(SELF:GetOption('Slot', '1')) or 1
-  mirror = SELF:GetOption('Mirror', '0') == '1'
+  style = SELF:GetOption('Style', 'row')
   entry = A.entry(A.layout['Slot' .. slot] or '')
-  if entry and entry.kind == 'cat' then
-    sel = tonumber(A.getState('Sel_' .. entry.cat.id, '1')) or 1
-  end
+  if entry and entry.kind == 'cat' then sel = tonumber(A.getState('Sel_' .. entry.cat.id, '1')) or 1 end
 end
+
+local function apps() return (entry and entry.kind == 'cat') and entry.cat.apps or nil end
 
 local function current()
   if not entry then return nil end
   if entry.kind == 'app' then return entry.app end
-  local apps = entry.cat.apps
-  if #apps == 0 then return nil end
-  if sel > #apps then sel = 1 end
-  return apps[sel]
+  local list = entry.cat.apps
+  if #list == 0 then return nil end
+  if sel > #list then sel = 1 end
+  return list[sel]
 end
 
 local function choose(i)
-  if not entry or entry.kind ~= 'cat' or #entry.cat.apps == 0 then return end
-  local n = #entry.cat.apps
-  sel = (i - 1) % n + 1
+  local list = apps()
+  if not list or #list == 0 then return end
+  sel = (i - 1) % #list + 1
   if sel < first then first = sel end
   if sel >= first + MAXTABS then first = sel - MAXTABS + 1 end
   A.setState('Sel_' .. entry.cat.id, sel)
 end
 
+local function running(app)
+  if not app or app.proc == '' then return false end
+  H.set('mProc', 'ProcessName', app.proc)
+  return H.val('mProc', -1) > 0
+end
+
+local function status(app)
+  if not app then return 'EMPTY', H.C.dim end
+  if app.missing then return 'NOT FOUND', H.C.warn end
+  if running(app) then return 'RUNNING', H.C.good end
+  return 'READY', H.C.white
+end
+
+local function hideAll(from, to) for k = from, to do H.hideText(1, k) end end
+
 function Update()
   H.refreshTier()
   local z = H.zones[1]
   local c = H.canvas(1)
-  local A1, D, T = H.C.accent, H.C.dim, H.C.text
+  local A1, W, D = H.C.accent, H.C.white, H.C.dim
+  local w, h = z.w, z.h
+  local function X(f) return f * w end
+  local function Y(f) return f * h end
   local app = current()
-  local isCat = entry and entry.kind == 'cat'
-  local top = isCat and 26 or 0
-  -- panel outline: chamfered card + slot number (reference weapon/target cards)
-  local pts
-  if mirror then
-    pts = { { 0, top }, { z.w - 14, top }, { z.w, top + 14 }, { z.w, z.h }, { 14, z.h }, { 0, z.h - 14 } }
-  else
-    pts = { { 14, top }, { z.w, top }, { z.w, z.h - 14 }, { z.w - 14, z.h }, { 0, z.h }, { 0, top + 14 } }
-  end
-  c:fillPoly(pts, H.C.panel, 120)
-  c:poly(pts, D, 1.2, 230, true)
-  local nx = mirror and z.w - 10 or 10
-  H.text(1, 12, nx, z.h - 4, tostring(slot), { size = 12, font = H.fontNum, align = mirror and 'RightBottom' or 'LeftBottom', color = A1 })
-  -- tab line for categories
-  if isCat then
-    local apps = entry.cat.apps
-    local n = #apps
-    local vis = math.min(MAXTABS, n)
-    local arrows = n > MAXTABS
-    local x0, x1 = arrows and 16 or 0, z.w - (arrows and 16 or 0)
-    local tw = vis > 0 and (x1 - x0) / vis or 0
-    c:line(0, 22, z.w, 22, D, 1, 200)
-    for t = 1, MAXTABS do
-      local i = first + t - 1
-      if t <= vis and apps[i] then
-        local x = x0 + (t - 1) * tw
-        local on = i == sel
-        if on then c:line(x + 2, 22, x + tw - 2, 22, A1, 2) end
-        H.text(1, t, x + tw / 2, 11, apps[i].short, { size = 8.5, align = 'CenterCenter', weight = 700, color = on and T or D, clip = tw - 2 })
-        H.hit(1, t, x, 0, tw, 24, apps[i].name)
-      else H.hideText(1, t); H.hideHit(1, t) end
+  local list = apps()
+  local st, scol = status(app)
+  local isCat = list ~= nil
+  local icol = (app and not app.missing) and A1 or D
+  for k = 1, 7 do H.hideHit(1, k) end
+
+  if style == 'row' then
+    if app then c:icon(app.icon, X(0.16), Y(0.44), h * 0.62, icol, 1.7) end
+    H.text(1, 8, X(0.40), Y(0.20), app and app.name or 'UNASSIGNED', { size = 8, weight = 700, align = 'LeftCenter', color = W, clip = X(0.58) })
+    H.text(1, 9, X(0.40), Y(0.36), st .. (isCat and ('   ' .. entry.cat.short) or ''), { size = 6.5, weight = 700, align = 'LeftCenter', color = scol })
+    -- item row: category tabs, or status items for a single app
+    if isCat then
+      local vis = math.min(MAXTABS, #list)
+      local step = X(0.56) / MAXTABS
+      for t = 1, MAXTABS do
+        local i = first + t - 1
+        if t <= vis and list[i] then
+          local x = X(0.40) + (t - 1) * step
+          local on = i == sel
+          if on then c:hair(x, Y(0.70), x + step - 6, Y(0.70), A1, 1.6, 230) end
+          H.text(1, t, x, Y(0.61), list[i].short, { size = 6.5, weight = 700, align = 'LeftCenter', color = on and A1 or { 160, 178, 190 }, clip = step - 4 })
+          H.hit(1, t, x, Y(0.50), step, Y(0.22), list[i].name)
+        else H.hideText(1, t) end
+      end
+    else
+      c:dot(X(0.42), Y(0.61), 3.5, scol)
+      H.text(1, 1, X(0.45), Y(0.61), app and app.short or '', { size = 6.5, weight = 700, align = 'LeftCenter', color = W })
+      hideAll(2, 5)
+      -- power + wrench glyphs (reference) -> launch + open location
+      c:circle(X(0.86), Y(0.61), 6, W, 1.3); c:line(X(0.86), Y(0.52), X(0.86), Y(0.60), W, 1.3)
+      c:line(X(0.92), Y(0.68), X(0.96), Y(0.54), W, 1.3)
     end
-    if arrows then
-      c:poly({ { 10, 5 }, { 3, 11 }, { 10, 17 } }, A1, 1.4)
-      c:poly({ { z.w - 10, 5 }, { z.w - 3, 11 }, { z.w - 10, 17 } }, A1, 1.4)
-      H.hit(1, 6, 0, 0, 16, 24, 'Previous'); H.hit(1, 7, z.w - 16, 0, 16, 24, 'Next')
-    else H.hideHit(1, 6); H.hideHit(1, 7) end
+    c:poly({ { X(0.005), Y(0.97) }, { X(0.327), Y(0.92) }, { X(0.362), Y(0.80) }, { X(0.959), Y(0.78) } }, A1, 1.4)
+    c:line(X(0.913), Y(0.85), X(0.959), Y(0.85), W, 2.4)
+    H.text(1, 12, X(0.015), Y(0.86), tostring(slot), { size = 7.5, weight = 700, align = 'LeftCenter', color = W })
+    H.hit(1, 8, 0, 0, w, Y(0.48), app and ('Launch ' .. app.name) or 'Unassigned slot')
+
+  elseif style == 'card' then
+    if app then c:icon(app.icon, X(0.81), Y(0.44), h * 0.62, icol, 1.7) end
+    H.text(1, 8, X(0.585), Y(0.19), app and string.upper(app.name) or 'UNASSIGNED', { size = 8, weight = 700, align = 'RightCenter', color = W, clip = X(0.56) })
+    H.text(1, 9, X(0.585), Y(0.33), isCat and entry.cat.name or (app and app.info or ''), { size = 6.5, weight = 700, align = 'RightCenter', color = W, alpha = 210, clip = X(0.56) })
+    H.text(1, 10, X(0.385), Y(0.52), 'ST', { size = 6.5, weight = 700, align = 'RightCenter', color = W })
+    H.text(1, 11, X(0.585), Y(0.52), st, { size = 6.5, weight = 700, align = 'RightCenter', color = scol })
+    -- glyphs: dot, double chevron, diamond
+    c:dot(X(0.045), Y(0.64), 3, A1)
+    c:poly({ { X(0.085), Y(0.59) }, { X(0.07), Y(0.64) }, { X(0.085), Y(0.69) } }, A1, 1.4)
+    c:poly({ { X(0.105), Y(0.59) }, { X(0.09), Y(0.64) }, { X(0.105), Y(0.69) } }, A1, 1.4)
+    c:poly({ { X(0.18), Y(0.56) }, { X(0.20), Y(0.64) }, { X(0.18), Y(0.72) }, { X(0.16), Y(0.64) } }, W, 1.4, 255, true)
+    if isCat then
+      local vis = math.min(4, #list)
+      local step = X(0.36) / 4
+      for t = 1, 4 do
+        local i = first + t - 1
+        if t <= vis and list[i] then
+          local x = X(0.23) + (t - 1) * step
+          local on = i == sel
+          H.text(1, t, x, Y(0.68), list[i].short, { size = 6, weight = 700, align = 'LeftCenter', color = on and A1 or { 160, 178, 190 }, clip = step - 3 })
+          H.hit(1, t, x, Y(0.58), step, Y(0.2), list[i].name)
+        else H.hideText(1, t) end
+      end
+      H.hideText(1, 5)
+    else hideAll(1, 5) end
+    c:line(X(0.04), Y(0.82), X(0.085), Y(0.82), W, 2.2)
+    c:poly({ { X(0.61), Y(0.83) }, { X(0.65), Y(0.94) }, { X(0.96), Y(0.94) } }, A1, 1.4)
+    H.text(1, 12, X(0.965), Y(0.84), tostring(slot - 4), { size = 7.5, weight = 700, align = 'CenterCenter', color = W })
+    H.hit(1, 8, X(0.60), 0, X(0.40), Y(0.80), app and ('Launch ' .. app.name) or 'Unassigned slot')
+
   else
-    for t = 1, MAXTABS do H.hideText(1, t); H.hideHit(1, t) end
-    H.hideHit(1, 6); H.hideHit(1, 7)
-  end
-  -- icon + text
-  local bodyH = z.h - top
-  local isz = isCat and 56 or 66
-  local ix = mirror and (z.w - 18 - isz / 2) or (18 + isz / 2)
-  local iy = top + bodyH / 2
-  local tx = mirror and (z.w - 36 - isz) or (36 + isz)
-  local al = mirror and 'RightTop' or 'LeftTop'
-  if app then
-    local running = false
-    if app.proc ~= '' then
-      H.set('mProc', 'ProcessName', app.proc)
-      running = H.val('mProc', -1) > 0
+    -- compact / rcompact / ship: icon blocks with a selector for categories
+    local ix, iy, isz, nx, ny, ul
+    if style == 'compact' then
+      ix, iy, isz = X(0.24), Y(0.40), h * 0.62
+      c:poly({ { X(0.71), Y(0.02) }, { X(0.64), Y(0.14) }, { X(0.64), Y(0.66) } }, A1, 1.4)
+      c:rect(X(0.72), Y(0.36), X(0.12), Y(0.19), W, 1.3)
+      if app then c:icon(app.icon, X(0.78), Y(0.455), Y(0.15), W, 1) end
+      nx, ny = X(0.05), Y(0.86)
+      ul = { { X(0.05), Y(0.98) }, { X(0.59), Y(0.92) }, { X(0.64), Y(0.74) } }
+    elseif style == 'rcompact' then
+      ix, iy, isz = X(0.63), Y(0.33), h * 0.62
+      c:poly({ { X(0.08), Y(0.07) }, { X(0.11), Y(0.17) }, { X(0.08), Y(0.27) }, { X(0.05), Y(0.17) } }, W, 1.4, 255, true)
+      c:line(X(0.15), Y(0.12), X(0.19), Y(0.0), W, 1.2); c:line(X(0.19), Y(0.12), X(0.23), Y(0.0), W, 1.2)
+      nx, ny = X(0.88), Y(0.78)
+      ul = { { X(0.25), Y(0.45) }, { X(0.25), Y(0.90) }, { X(0.89), Y(0.93) } }
+    else -- ship
+      ix, iy, isz = X(0.45), Y(0.33), h * 0.62
+      nx, ny = slot > 4 and X(0.78) or X(0.12), Y(0.86)
+      ul = slot > 4 and { { X(0.0), Y(0.86) }, { X(0.70), Y(0.86) } } or { { X(0.18), Y(0.94) }, { X(0.98), Y(0.85) } }
     end
-    c:icon(app.icon, ix, iy, isz, app.missing and D or A1, 1.8)
-    H.text(1, 8, tx, top + (isCat and 6 or 12), string.upper(app.name), { size = isCat and 11 or 12.5, font = H.fontTitle, weight = 700, color = T, align = al, clip = z.w - isz - 60 })
-    local sub = isCat and (entry.cat.name .. string.format('   %d/%d', sel, #entry.cat.apps)) or app.info
-    H.text(1, 9, tx, top + (isCat and 30 or 40), sub, { size = 9, color = D, align = al, clip = z.w - isz - 60 })
-    local scol = app.missing and H.C.warn or (running and H.C.good or A1)
-    local sy = top + (isCat and 56 or 70)
-    local sx = mirror and tx - 6 or tx + 6
-    c:dot(sx, sy, 4, scol)
-    H.text(1, 10, mirror and tx - 16 or tx + 16, sy - 8, app.missing and 'NOT FOUND' or (running and 'RUNNING' or 'READY'),
-      { size = 9, weight = 700, color = scol, align = al })
-    H.hit(1, 8, 0, top, z.w, bodyH, 'Launch ' .. app.name .. (isCat and '  (scroll to switch)' or ''))
-  else
-    H.text(1, 8, tx, top + 20, entry and 'EMPTY CATEGORY' or 'UNASSIGNED', { size = 11, font = H.fontTitle, color = D, align = al })
-    H.hideText(1, 9); H.hideText(1, 10); H.hideHit(1, 8)
+    if app then c:icon(app.icon, ix, iy, isz, icol, 1.6) end
+    c:poly(ul, A1, 1.4)
+    H.text(1, 12, nx, ny, tostring(slot > 4 and slot - 4 or slot), { size = 7.5, weight = 700, align = 'CenterCenter', color = W })
+    local label = app and app.short or 'EMPTY'
+    if isCat and #list > 1 then label = label .. ' ' .. sel .. '/' .. #list end
+    local lx = style == 'compact' and X(0.70) or (style == 'rcompact' and X(0.27) or ix)
+    local ly = style == 'compact' and Y(0.74) or (style == 'rcompact' and Y(0.72) or Y(0.70))
+    H.text(1, 8, lx, ly, label, { size = 6, weight = 700, align = style == 'ship' and 'CenterCenter' or 'LeftCenter', color = scol, clip = X(0.62) })
+    hideAll(1, 5); H.hideText(1, 9); H.hideText(1, 10); H.hideText(1, 11)
+    if isCat and #list > 1 then
+      H.hit(1, 6, 0, 0, X(0.15), h, 'Previous app'); H.hit(1, 7, X(0.85), 0, X(0.15), Y(0.6), 'Next app')
+    end
+    H.hit(1, 8, ix - isz / 2, iy - isz / 2, isz, isz, app and ('Launch ' .. app.name .. (isCat and '  (scroll to switch)' or '')) or 'Unassigned slot')
   end
   c:flush()
   return 0
@@ -122,7 +178,8 @@ function OnClick(zi, k)
   Update()
 end
 function OnRightClick(zi, k)
-  if k <= 5 and entry and entry.kind == 'cat' and entry.cat.apps[first + k - 1] then A.launch(entry.cat.apps[first + k - 1]) end
+  local list = apps()
+  if k <= 5 and list and list[first + k - 1] then A.launch(list[first + k - 1]) end
 end
 function OnScroll(zi, k, d) choose(sel + d); Update() end
 function OnHover(zi, k, on) end

@@ -15,15 +15,21 @@ ColorText=170,235,255
 ColorWarn=255,130,40
 ColorAlert=255,60,70
 ColorGood=60,255,170
+; reference pink highlight (LON value, card subtitles, warnings)
+ColorHighlight=255,105,135
+ColorWhite=215,240,255
 ColorPanel=0,30,45,90
 ; window tint strength in the theme colour (0 = clear glass, 255 = strongest)
 GlassTint=46
 ; glow pass strength (0 = off) and width multiplier
 GlowAlpha=46
 GlowWidth=3.2
+; text size multipliers (small HUD labels / larger titles) relative to the authored sizes
+TextScaleSmall=1.85
+TextScaleLarge=1.45
 FontText=Rajdhani
 FontNum=Share Tech Mono
-FontTitle=Orbitron
+FontTitle=Rajdhani
 
 ; ---------------------------------------------------------------- performance tiers
 ; PerfOverride: -1 = automatic, 0 FULL, 1 LITE, 2 LOW, 3 STEALTH
@@ -36,6 +42,8 @@ TierStealth=90
 BatteryMinTier=1
 ; runtime, broadcast by the Controller - do not edit
 PerfTier=0
+; measures in fast-animating modules poll data every N updates
+DataDivider=1
 EditMode=0
 
 ; ---------------------------------------------------------------- graphs (top console)

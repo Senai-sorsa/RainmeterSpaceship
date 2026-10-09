@@ -3,24 +3,31 @@
 [Variables]
 Module=RightCategory
 ModuleConfig=Spaceship\Right\Category
-WX=2017
-WY=68
-WW=501
-WH=642
+WX=2021
+WY=72
+WW=517
+WH=434
 DX=#RightCategory_DX#
 DY=#RightCategory_DY#
-ZoneCount=2
-; zone 1: R_category
-Z1=R_category
-Z1_X=43
-Z1_Y=32
-Z1_W=440
-Z1_H=400
-Z1_TM=1;-0.06;0.0622;1;(-26.88*#Scale#);(15.78*#Scale#)
-; zone 2: R_dots
-Z2=R_dots
-Z2_X=183
-Z2_Y=599
-Z2_W=160
-Z2_H=20
-Z2_TM=1;-0.06;0.0036;1;(-2.22*#Scale#);(15.78*#Scale#)
+ZoneCount=3
+; zone 1: R_tabs
+Z1=R_tabs
+Z1_X=18.87
+Z1_Y=85.97
+Z1_W=367.93
+Z1_H=47.39
+Z1_TM=0.9829;-0.184;0;1;(0.3221*#Scale#);(3.4721*#Scale#)
+; zone 2: R_category
+Z2=R_category
+Z2_X=71.7
+Z2_Y=144.64
+Z2_W=349.46
+Z2_H=261.78
+Z2_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)
+; zone 3: R_dots
+Z3=R_dots
+Z3_X=437.41
+Z3_Y=347.75
+Z3_W=60.96
+Z3_H=67.7
+Z3_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

@@ -3,17 +3,17 @@
 [Variables]
 Module=LeftUpkeep
 ModuleConfig=Spaceship\Left\Upkeep
-WX=80
-WY=1155
-WW=273
-WH=130
+WX=266
+WY=1150
+WW=118
+WH=114
 DX=#LeftUpkeep_DX#
 DY=#LeftUpkeep_DY#
 ZoneCount=1
 ; zone 1: L_upkeep
 Z1=L_upkeep
-Z1_X=0
-Z1_Y=30
-Z1_W=230
-Z1_H=80
-Z1_TM=1;0.06;0.0817;1;(15.7208*#Scale#);(-12*#Scale#)
+Z1_X=18.44
+Z1_Y=18.97
+Z1_W=81.27
+Z1_H=76.73
+Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

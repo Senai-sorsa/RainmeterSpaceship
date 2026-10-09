@@ -3,24 +3,31 @@
 [Variables]
 Module=LeftCategory
 ModuleConfig=Spaceship\Left\Category
-WX=42
-WY=68
-WW=501
-WH=642
+WX=107
+WY=65
+WW=432
+WH=671
 DX=#LeftCategory_DX#
 DY=#LeftCategory_DY#
-ZoneCount=2
-; zone 1: L_category
-Z1=L_category
-Z1_X=18
-Z1_Y=32
-Z1_W=440
-Z1_H=400
-Z1_TM=1;0.06;-0.0622;1;(26.88*#Scale#);(-14.28*#Scale#)
-; zone 2: L_dots
-Z2=L_dots
-Z2_X=158
-Z2_Y=599
-Z2_W=160
-Z2_H=20
-Z2_TM=1;0.06;-0.0036;1;(2.22*#Scale#);(-14.28*#Scale#)
+ZoneCount=3
+; zone 1: L_tabs
+Z1=L_tabs
+Z1_X=43.35
+Z1_Y=18.5
+Z1_W=376.34
+Z1_H=47.39
+Z1_TM=0.9826;0.1859;0;1;(0.7556*#Scale#);(-8.0586*#Scale#)
+; zone 2: L_category
+Z2=L_category
+Z2_X=18.97
+Z2_Y=142.62
+Z2_W=345.4
+Z2_H=284.34
+Z2_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)
+; zone 3: L_dots
+Z3=L_dots
+Z3_X=79.92
+Z3_Y=621.04
+Z3_W=146.29
+Z3_H=31.59
+Z3_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

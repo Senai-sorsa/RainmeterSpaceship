@@ -43,20 +43,21 @@ function Update()
   if tick == 5 or tick % period == 0 then SKIN:Bang('!CommandMeasure', 'mRun', 'Run') end
   local z = H.zones[1]
   local c = H.canvas(1)
-  local A1, D, T = H.C.accent, H.C.dim, H.C.text
-  local list, icon = rows()
-  local ix = mirror and z.w - 34 or 34
-  c:icon(icon, ix, 40, 56, A1, 1.6)
-  local x0 = mirror and 0 or 76
-  local w = z.w - 76
-  for i, r in ipairs(list) do
-    local y = 4 + (i - 1) * 25
-    local col = r[3] and H.C.warn or A1
-    c:poly({ { x0 + 4, y + 10 }, { x0 + 10, y + 4 }, { x0 + 16, y + 10 }, { x0 + 10, y + 16 } }, col, 1.4, 255, true)
-    H.text(1, i * 2 - 1, x0 + 24, y + 1, r[1], { size = 9.5, weight = 700, color = D })
-    H.text(1, i * 2, x0 + 62, y, r[2], { size = 10.5, font = H.fontNum, color = r[3] and H.C.warn or T, clip = w - 62 })
-    H.hit(1, i, x0, y, w, 24, r[4])
-  end
+  local list = rows()
+  -- reference: pink diamond + count, cyan gear + count
+  local function n2(v) local x = tonumber(v); if not x or x < 0 then return '-' end; return tostring(x) end
+  local r1 = kind == 'upkeep' and { n2(vals[1]), list[1][4] } or { n2(vals[1]), list[1][4] }
+  local r2 = kind == 'upkeep' and { n2(vals[2]), list[2][4] } or { n2(vals[2]), list[2][4] }
+  local x0 = kind == 'upkeep' and 4 or z.w - 40
+  local y1, y2 = z.h * 0.33, z.h * 0.72
+  c:poly({ { x0 + 8, y1 - 8 }, { x0 + 16, y1 }, { x0 + 8, y1 + 8 }, { x0, y1 } }, H.C.hi, 1.8, 255, true)
+  c:dot(x0 + 8, y1, 2.5, H.C.hi)
+  H.text(1, 1, x0 + 22, y1, r1[1], { size = 8, weight = 700, align = 'LeftCenter', color = H.C.hi })
+  c:icon('gear', x0 + 8, y2, 18, H.C.accent, 1.3)
+  H.text(1, 2, x0 + 22, y2, r2[1], { size = 8, weight = 700, align = 'LeftCenter', color = H.C.accent })
+  local extra = kind == 'upkeep' and ('   AV ' .. (vals[3] or '--') .. ' ' .. (vals[4] or '')) or ('   Tailscale ' .. (vals[3] or '--'))
+  H.hit(1, 1, 0, 0, z.w, z.h / 2, r1[2] .. extra)
+  H.hit(1, 2, 0, z.h / 2, z.w, z.h / 2, r2[2])
   c:flush()
   return 0
 end

@@ -62,10 +62,10 @@ local function buttons()
   local hz = st.refresh ~= '' and (string.match(st.refresh, '%d+') or st.refresh) .. 'HZ' or '--HZ'
   local cons = st.battery ~= '' and (string.find(st.battery, string.lower(H.str('LltBatteryConserve', 'conservation')), 1, true) and 'ON' or 'OFF') or '--'
   return {
-    { label = 'PWR ' .. pw, tip = 'Power mode - click to cycle ' .. table.concat(modes, ' / ') },
+    { label = pw, tip = 'Power mode - click to cycle ' .. table.concat(modes, ' / ') },
     { label = hz, tip = 'Refresh rate - click to toggle ' .. table.concat(rates, ' / ') .. ' Hz' },
-    { label = H.num('ChargeLimit', 80) .. '% ' .. cons, tip = 'Battery conservation (hold at ' .. H.num('ChargeLimit', 80) .. '%)' },
-    { label = 'TIER ' .. (tierOv < 0 and ('A-' .. string.sub(TIERS[H.num('PerfTier', 0)] or 'FULL', 1, 1)) or string.sub(TIERS[tierOv], 1, 4)),
+    { label = H.num('ChargeLimit', 80) .. '%', on = cons == 'ON', tip = 'Battery conservation (hold at ' .. H.num('ChargeLimit', 80) .. '%)' },
+    { label = (tierOv < 0 and string.sub(TIERS[H.num('PerfTier', 0)] or 'FULL', 1, 4) or string.sub(TIERS[tierOv], 1, 4)),
       tip = 'Graphics tier: ' .. (TIERS[tierOv] or 'AUTO') .. ' (now ' .. (TIERS[H.num('PerfTier', 0)] or '?') .. ') - click to cycle' },
     { label = 'dGPU', light = st.dgpu, tip = 'RTX 5070: ' .. (st.dgpu == 'on' and 'present / powered' or (st.dgpu == 'off' and 'off (ECO mode)' or 'unknown')) .. ' - click to refresh' },
     { label = 'CARGO', tip = 'All apps (drop-down drawer)' },
@@ -74,6 +74,14 @@ local function buttons()
   }
 end
 
+-- reference positions (ref pixels inside the console zone 470..805 x 10..57)
+local SXR, SYR = 2560 / 1260, 1600 / 709
+local function RX(x) return (x - 470) * SXR end
+local function RY(y) return (y - 10) * SYR end
+local TABX = { 552, 596, 636, 679, 714 }
+local BOX = { { 545, 566 }, { 576, 596 } }
+local TXT = { { 676, 51 }, { 703, 50 }, { 731, 49 }, { 758, 48 }, { 786, 47 } }
+
 function Update()
   H.refreshTier()
   tick = tick + 1
@@ -81,48 +89,46 @@ function Update()
   if armed and os.time() - armedAt > 5 then armed = nil end
   local z = H.zones[1]
   local c = H.canvas(1)
-  local A, D = H.C.accent, H.C.dim
-  -- row 1: angled tab strip
+  local W, D = H.C.white, H.C.dim
+  -- tab row (reference: COMBAT STARMAP MINING GROUND OFF)
   local active = hybridIndex()
   if hudHidden then active = 5 end
-  local tw = z.w / 5
-  c:line(0, 30, z.w, 30, D, 1.2, 200)
   for i, t in ipairs(TABS) do
-    local x = (i - 1) * tw
-    local on = (i == active)
-    local col = on and A or D
-    if on then
-      c:fillPoly({ { x + 8, 2 }, { x + tw - 8, 2 }, { x + tw, 30 }, { x, 30 } }, A, 40)
-      c:poly({ { x, 30 }, { x + 8, 2 }, { x + tw - 8, 2 }, { x + tw, 30 } }, A, 1.6)
-    end
-    if armed == i then c:poly({ { x, 30 }, { x + 8, 2 }, { x + tw - 8, 2 }, { x + tw, 30 } }, H.C.warn, 1.8) end
-    H.text(1, i, x + tw / 2, 16, armed == i and 'CONFIRM?' or t.id, { size = 10.5, align = 'CenterCenter', font = H.fontTitle, weight = 700,
-      color = armed == i and H.C.warn or (on and H.C.text or col) })
-    H.hit(1, i, x, 0, tw, 32, t.tip)
+    local x, y = RX(TABX[i]), RY(23)
+    local on = i == active
+    local label = armed == i and 'CONFIRM?' or t.id
+    H.text(1, i, x, y, label, { size = 6.4, weight = 700, align = 'CenterCenter',
+      color = armed == i and H.C.warn or (on and W or { 150, 170, 185 }), alpha = on and 255 or 200 })
+    if on then c:hair(x - 22, y + 9, x + 22, y + 9, H.C.accent, 1.2, 160) end
+    if t.id == 'dGPU' and st.dgpu ~= '' then c:dot(x + 26, y, 2.6, st.dgpu == 'on' and H.C.good or D) end
+    H.hit(1, i, x - 34, y - 12, 68, 24, t.tip)
   end
-  -- row 2: boxed quick buttons (reference: RADR / IFCS / MISL HEAT CLSN FUEL)
+  -- boxed pair (reference: RADR IFCS) -> CARGO, CFG
+  local boxes = { { 'CARGO', 11, 'All apps (drop-down drawer)' }, { 'CFG', 13, 'Control Center' } }
+  for i, b in ipairs(boxes) do
+    local x0, x1 = RX(BOX[i][1]), RX(BOX[i][2])
+    local y0, y1 = RY(46), RY(55)
+    c:rect(x0, y0, x1 - x0, y1 - y0, H.C.accent, 1.3, 230, 2)
+    H.text(1, 5 + i, (x0 + x1) / 2, (y0 + y1) / 2, b[1], { size = 5.2, weight = 700, align = 'CenterCenter', color = H.C.accent })
+    H.hit(1, 5 + i, x0, y0, x1 - x0, y1 - y0, b[3])
+  end
+  -- text group (reference: MISL HEAT CLSN FUEL GFRC, FUEL lit) -> quick settings
   local bs = buttons()
-  local bw, gap = 66, (z.w - 66 * 8) / 7
-  for i, b in ipairs(bs) do
-    local x = (i - 1) * (bw + gap)
-    local col = b.on and H.C.alert or A
-    c:fillRect(x, 44, bw, 26, H.C.panel, b.on and 160 or 110)
-    c:rect(x, 44, bw, 26, b.on and H.C.alert or D, 1.2)
-    if b.light ~= nil then
-      local lc = b.light == 'on' and H.C.good or (b.light == 'off' and D or H.C.warn)
-      c:dot(x + 10, 57, 4, lc)
-      H.text(1, 5 + i, x + bw / 2 + 6, 57, b.label, { size = 9, align = 'CenterCenter', color = col, font = H.fontText, weight = 700 })
-    else
-      H.text(1, 5 + i, x + bw / 2, 57, b.label, { size = 9, align = 'CenterCenter', color = col, font = H.fontText, weight = 700 })
-    end
-    H.hit(1, 5 + i, x, 44, bw, 26, b.tip)
+  local items = { { bs[1], 6 }, { bs[2], 7 }, { bs[3], 8 }, { bs[4], 9 }, { bs[7], 12 } }
+  for i, it in ipairs(items) do
+    local b, k = it[1], it[2]
+    local x, y = RX(TXT[i][1]), RY(TXT[i][2])
+    local lit = b.on
+    H.text(1, 7 + i, x, y, b.label, { size = 5.6, weight = 700, clip = 52, align = 'CenterCenter', color = lit and H.C.hi or { 160, 180, 195 } })
+    H.hit(1, 7 + i, x - 24, y - 10, 48, 20, b.tip)
   end
-  -- status line
-  local llt = st.llt == 'missing' and 'LLT CLI NOT FOUND - SET LltPath / ENABLE CLI' or (st.llt == 'found' and 'LEGION TOOLKIT LINKED' or 'READING STATUS...')
-  local line = (os.time() - msgAt < 8 and msg ~= '') and msg or llt
-  H.text(1, 14, z.w / 2, 88, line, { size = 8.5, align = 'CenterCenter', color = st.llt == 'missing' and H.C.warn or D })
-  c:hair(0, 80, 120, 80, D, 1, 120)
-  c:hair(z.w - 120, 80, z.w, 80, D, 1, 120)
+  -- transient message between the two groups
+  if os.time() - msgAt < 6 and msg ~= '' then
+    H.text(1, 14, RX(630), RY(54), msg, { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn, clip = 150 })
+  elseif st.llt == 'missing' then
+    H.text(1, 14, RX(630), RY(54), 'LLT CLI?', { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn })
+  else H.hideText(1, 14) end
+  H.hit(1, 14, RX(612), RY(50), RX(648) - RX(612), RY(58) - RY(50), 'dGPU: ' .. (st.dgpu ~= '' and st.dgpu or 'unknown') .. ' - click to refresh status')
   c:flush()
   return 0
 end
@@ -144,7 +150,10 @@ local function cycle(listVar, current, default)
   return list[1]
 end
 
+local HITMAP = { [6] = 11, [7] = 13, [8] = 6, [9] = 7, [10] = 8, [11] = 9, [12] = 12, [14] = 10 }
+
 function OnClick(zi, k)
+  if k > 5 then k = HITMAP[k] or k end
   if k <= 4 then
     if k == 4 and armed ~= 4 then armed, armedAt = 4, os.time(); say('dGPU MODE NEEDS A REBOOT - CLICK AGAIN'); return end
     armed = nil

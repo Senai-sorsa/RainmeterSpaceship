@@ -1,6 +1,8 @@
 # Spaceship HUD for Rainmeter
 
-A full-screen starship cockpit for the desktop, closely modelled on a Star Citizen-style canopy view. The cockpit hull, struts and dashboard frame the screen, and **tinted windows look out onto your own animated space wallpaper** (Lively). Every instrument is a live widget:
+A full-screen starship cockpit for the desktop, reproduced one-to-one from a Star Citizen-style canopy reference. The cockpit hull, struts and dashboard frame the screen, and **tinted windows look out onto your own animated space wallpaper** (Lively).
+
+The ship itself is **pure Rainmeter Shape meters**: about 1,000 vector pieces generated from a trace of the reference, plus glass, lights and theme-coloured HUD lines. There are no images. Every instrument is a live widget sitting exactly where its counterpart sits in the reference:
 
 - system telemetry
 - GPU-mode control for the Legion laptop
@@ -10,7 +12,14 @@ A full-screen starship cockpit for the desktop, closely modelled on a Star Citiz
 
 ![Simulated render of the full HUD](docs/preview.jpg)
 
-*Rendered offline by `tools/rmsim.py` with mock sensor data. The background is a stand-in starfield; on your PC it is your Lively wallpaper.*
+*Rendered offline by `tools/rmsim.py` with mock sensor data. The background is a stand-in starfield; on your PC it is your Lively wallpaper. Animated parts:*
+
+- *the target lock rotates, breathes and zooms in on a new target*
+- *the sphere spins, with an orange sweep and drifting blips*
+- *the HUD ladders scroll smoothly*
+- *the category wireframes have a scan line*
+- *the waveform is live*
+- *the warning triangle blinks*
 
 ## Install
 
@@ -67,17 +76,19 @@ The HUD lowers its own detail as GPU load rises (**FULL → LITE → LOW → STE
 ## How it's built
 
 ```
-layout/layout.json      single source of truth: zones, curves, struts, decor, taskbar band
-tools/check_layout.py   overlap / safe-area / taskbar checks on the curved shapes (+ preview image)
-tools/frame_art.py      renders the cockpit hull + glass tint mask from the layout
+tools/ref_layout.py     every zone, window and hull outline traced from the reference image -> layout.json
+layout/layout.json      generated: zones (with slant quads), windows, decor, taskbar band
+tools/check_layout.py   overlap / safe-area / taskbar checks on the slanted shapes (+ preview image)
+art/cockpit-trace.svg   vector trace of the reference (3485 regions)
+tools/vector_frame.py   filters the trace to the ship and writes Frame/Parts/*.inc (~1000 Shape paths)
 tools/build.py          writes each module's Geometry.inc / Meters.inc and the guard data
 tools/rmsim.py          offline Rainmeter simulator: runs the real Lua, renders, audits alignment
 tools/package.py        builds the .rmskin installer and the Rainmeter layout
 Skins/Spaceship/        the skin set (Lua in @Resources/Scripts, settings in @Resources/*.inc)
 ```
 
-After editing the layout, run: `python tools/build.py && python tools/frame_art.py && python tools/rmsim.py && python tools/package.py`.
-`rmsim` needs `pip install lupa pillow`.
+After editing the layout, run: `python tools/ref_layout.py && python tools/build.py && python tools/vector_frame.py && python tools/rmsim.py && python tools/package.py`.
+The tools need `pip install lupa pillow shapely`.
 
 The full design rationale is in [`docs/PLAN.md`](docs/PLAN.md).
 

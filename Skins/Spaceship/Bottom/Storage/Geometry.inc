@@ -3,17 +3,17 @@
 [Variables]
 Module=BottomStorage
 ModuleConfig=Spaceship\Bottom\Storage
-WX=742
-WY=1181
-WW=296
-WH=223
+WX=784
+WY=1257
+WW=226
+WH=201
 DX=#BottomStorage_DX#
 DY=#BottomStorage_DY#
 ZoneCount=1
 ; zone 1: B_storage
 Z1=B_storage
-Z1_X=18
-Z1_Y=41
-Z1_W=260
-Z1_H=168
-Z1_TM=1;0.0677;0;1;(0*#Scale#);(-23.224*#Scale#)
+Z1_X=18.54
+Z1_Y=18.04
+Z1_W=188.95
+Z1_H=164.73
+Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

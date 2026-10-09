@@ -1,5 +1,7 @@
--- Bottom info strip (B_strip, 960 x 72), drawn along the dash arc. Reference: "1500 . 7 . 0% . 443 ... 20 . 20".
+-- Bottom strip (reference: four boxed cells "1500  7  0%  443" on the left of the arch, two open
+-- cells "20  20" on the right). Left: CPU temp, GPU temp, load (the red cell), fan. Right: down, up.
 local H
+local SXR, SYR = 2560 / 1260, 1600 / 709
 
 function Initialize()
   H = dofile(SKIN:GetVariable('@') .. 'Scripts\\lib.lua')
@@ -7,51 +9,50 @@ function Initialize()
 end
 
 local function fmt(v, f) if v == nil then return '--' end; return string.format(f, v) end
+local function rate(b)
+  if b >= 1048576 then return string.format('%.1fM', b / 1048576) end
+  return string.format('%.0fK', b / 1024)
+end
 
 function Update()
   H.refreshTier()
-  local z = H.zones[1]
+  local A1, W = H.C.accent, H.C.white
+  -- left: boxed cells
   local c = H.canvas(1)
-  local A1, D, T = H.C.accent, H.C.dim, H.C.text
+  local function X(rx) return (rx - 425) * SXR end
+  local function Y(ry) return (ry - 644) * SYR end
+  local load = H.val('mCPU', 0)
   local cells = {
-    { 'gauge', 'CPU', fmt(H.hw('mHwCpuTemp'), '%.0fC'), H.hw('mHwCpuTemp') and H.hw('mHwCpuTemp') >= H.num('WarnCpuTemp', 92) },
-    { 'gpu', 'GPU', fmt(H.hw('mHwGpuTemp'), '%.0fC'), H.hw('mHwGpuTemp') and H.hw('mHwGpuTemp') >= H.num('WarnGpuTemp', 85) },
-    { 'gear', 'FAN L', fmt(H.hw('mHwFan1'), '%.0f') },
-    { 'gear', 'FAN R', fmt(H.hw('mHwFan2'), '%.0f') },
-    { 'wave', 'LOAD', string.format('%d%%', H.val('mCPU', 0)) },
-    { 'cloud', 'DOWN', H.rate(H.val('mNetIn', 0)) },
-    { 'nodes', 'UP', H.rate(H.val('mNetOut', 0)) },
-    { 'globe', 'PING', string.format('%dms', H.val('mPing', 0)) },
-    { 'satellite', 'WIFI', string.format('%d%%', H.val('mWifi', 0)) },
-    { 'shield', 'WEAR', fmt(H.hw('mHwWear'), '%.1f%%') },
+    { 429, 655, 'gauge', fmt(H.hw('mHwCpuTemp'), '%.0fC'), 'CPU temperature' },
+    { 474, 650, 'gpu', fmt(H.hw('mHwGpuTemp'), '%.0fC'), 'GPU temperature' },
+    { 519, 648, 'wave', string.format('%d%%', load), 'CPU load', true },
+    { 564, 645, 'gear', fmt(H.hw('mHwFan1'), '%.0f'), 'Fan speed (RPM)' },
   }
-  local n = #cells
-  local cw = z.w / n
-  local function arcY(x) local u = (x - z.w / 2) / (z.w / 2); return -10 * u * u end
-  -- strip body: angled ends + separators following the arc
-  local top, bot = {}, {}
-  for i = 0, 20 do
-    local x = z.w * i / 20
-    top[#top + 1] = { x, 16 + arcY(x) }
-    bot[#bot + 1] = { x, 66 + arcY(x) }
+  for i, cl in ipairs(cells) do
+    local x0, y0 = X(cl[1]), Y(cl[2])
+    local w, h = 37 * SXR, 15 * SYR
+    local col = cl[6] and H.C.hi or W
+    c:rect(x0, y0, w, h, col, 1.3, 210, 4)
+    c:icon(cl[3], x0 + 16, y0 + h / 2, 18, col, 1.2)
+    H.text(1, i, x0 + 32, y0 + h / 2, cl[4], { size = 7.5, weight = 700, align = 'LeftCenter', color = col })
+    H.hit(1, i, x0, y0, w, h, cl[5])
   end
-  local body = {}
-  for _, p in ipairs(top) do body[#body + 1] = p end
-  for i = #bot, 1, -1 do body[#body + 1] = bot[i] end
-  c:fillPoly(body, H.C.panel, 120)
-  c:poly(top, D, 1.2, 220)
-  c:poly(bot, D, 1.2, 220)
-  for i, cell in ipairs(cells) do
-    local x = (i - 0.5) * cw
-    local y = 41 + arcY(x)
-    if i > 1 then c:hair((i - 1) * cw, 20 + arcY((i - 1) * cw), (i - 1) * cw, 62 + arcY((i - 1) * cw), D, 1, 160) end
-    local col = cell[4] and H.C.warn or A1
-    c:icon(cell[1], x - cw / 2 + 18, y, 22, col, 1.3)
-    H.text(1, i * 2 - 1, x - cw / 2 + 34, y - 15, cell[2], { size = 7.5, weight = 700, color = D })
-    H.text(1, i * 2, x - cw / 2 + 34, y - 3, cell[3], { size = 10, font = H.fontNum, color = cell[4] and H.C.warn or T, clip = cw - 38 })
-  end
-  H.hit(1, 1, 0, 10, z.w, 60, 'System telemetry (temps and fans need HWiNFO - Control Center > SENSORS)')
   c:flush()
+  -- right: open cells
+  local d = H.canvas(2)
+  local function X2(rx) return (rx - 742) * SXR end
+  local function Y2(ry) return (ry - 648) * SYR end
+  local open = {
+    { 750, 655, 'cloud', rate(H.val('mNetIn', 0)), 'Download   (ping ' .. string.format('%d', H.val('mPing', 0)) .. ' ms)' },
+    { 792, 663, 'nodes', rate(H.val('mNetOut', 0)), 'Upload   (Wi-Fi ' .. string.format('%d', H.val('mWifi', 0)) .. '%)' },
+  }
+  for i, cl in ipairs(open) do
+    local x0, y0 = X2(cl[1]), Y2(cl[2])
+    d:icon(cl[3], x0 + 8, y0, 18, W, 1.2)
+    H.text(2, i, x0 + 22, y0, cl[4], { size = 7.5, weight = 700, align = 'LeftCenter', color = W })
+    H.hit(2, i, x0, y0 - 14, 70, 28, cl[5])
+  end
+  d:flush()
   return 0
 end
 

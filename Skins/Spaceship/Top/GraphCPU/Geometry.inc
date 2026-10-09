@@ -3,17 +3,17 @@
 [Variables]
 Module=TopGraphCPU
 ModuleConfig=Spaceship\Top\GraphCPU
-WX=622
-WY=140
-WW=316
-WH=137
+WX=658
+WY=121
+WW=269
+WH=112
 DX=#TopGraphCPU_DX#
 DY=#TopGraphCPU_DY#
 ZoneCount=1
 ; zone 1: G1_cpu
 Z1=G1_cpu
-Z1_X=18
-Z1_Y=10
-Z1_W=280
-Z1_H=80
-Z1_TM=1;-0.0732;0;1;(0*#Scale#);(29.8828*#Scale#)
+Z1_X=18.57
+Z1_Y=18.92
+Z1_W=231.62
+Z1_H=74.47
+Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

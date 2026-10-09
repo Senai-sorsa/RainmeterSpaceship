@@ -36,6 +36,8 @@ function H.init()
   H.tier = num('PerfTier', 0)
   H.glowA = num('GlowAlpha', 46)
   H.glowW = num('GlowWidth', 3.2)
+  H.textSmall = num('TextScaleSmall', 1.85)
+  H.textLarge = num('TextScaleLarge', 1.45)
   H.edit = num('EditMode', 0)
   H.C = {
     accent = parseColor(str('ColorAccent', '0,210,255'), { 0, 210, 255, 255 }),
@@ -44,6 +46,8 @@ function H.init()
     warn = parseColor(str('ColorWarn', '255,130,40'), { 255, 130, 40, 255 }),
     alert = parseColor(str('ColorAlert', '255,60,70'), { 255, 60, 70, 255 }),
     good = parseColor(str('ColorGood', '60,255,170'), { 60, 255, 170, 255 }),
+    hi = parseColor(str('ColorHighlight', '255,105,135'), { 255, 105, 135, 255 }),
+    white = parseColor(str('ColorWhite', '215,240,255'), { 215, 240, 255, 255 }),
     panel = parseColor(str('ColorPanel', '0,30,45,90'), { 0, 30, 45, 90 }),
   }
   H.fontText = str('FontText', 'Rajdhani')
@@ -189,6 +193,19 @@ function Canvas:fillCircle(cx, cy, r, col, alpha)
 end
 
 -- arc as a polyline; angles in degrees, 0 = right, clockwise (screen coords)
+-- ellipse rotated by rot degrees
+function H.ellipsePts(cx, cy, rx, ry, rot, a0, a1, segs)
+  local pts = {}
+  local cr, sr = cos(rot * pi / 180), sin(rot * pi / 180)
+  a0, a1, segs = a0 or 0, a1 or 360, segs or 40
+  for i = 0, segs do
+    local a = (a0 + (a1 - a0) * i / segs) * pi / 180
+    local x, y = rx * cos(a), ry * sin(a)
+    pts[#pts + 1] = { cx + x * cr - y * sr, cy + x * sr + y * cr }
+  end
+  return pts
+end
+
 function H.arcPts(cx, cy, rx, ry, a0, a1, segs)
   segs = segs or max(6, floor(math.abs(a1 - a0) / 6))
   local pts = {}
@@ -284,7 +301,10 @@ function H.text(zoneIndex, k, x, y, txt, opts)
   H.set(m, 'X', fmt('%.2f', (z.x + x) * H.S))
   H.set(m, 'Y', fmt('%.2f', (z.y + y) * H.S))
   H.set(m, 'Text', txt or '')
-  H.set(m, 'FontSize', fmt('%.2f', (opts.size or 11) * H.S))
+  -- small HUD text is drawn larger so it matches the reference's cap heights on the 2560x1600 canvas
+  local sz = opts.size or 11
+  sz = sz * (sz < 9.5 and H.textSmall or H.textLarge)
+  H.set(m, 'FontSize', fmt('%.2f', sz * H.S))
   H.set(m, 'FontColor', H.rgba(opts.color or H.C.text, opts.alpha))
   H.set(m, 'StringAlign', opts.align or 'LeftTop')
   H.set(m, 'FontFace', opts.font or H.fontText)

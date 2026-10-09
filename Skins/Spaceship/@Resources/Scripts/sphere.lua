@@ -1,8 +1,13 @@
--- Holographic radar sphere (C_sphere, 380 x 380).
+-- Holographic sphere (reference: glowing blue bubble at 628,491 with rotating translucent blades,
+-- white equator ring, dashed outer ring, orange sweep arc, blips on stalks, and the "DSP RNGE" box).
+-- Blips = busiest processes; ISS and your position ride on the rotating globe; the box = network rate.
 local H
-local yaw, frame = 0, 0
+local frame, rot, yaw = 0, 0, 0
 local iss = nil
-local R, CX, CY, TILT = 132, 190, 168, math.rad(22)
+local SXR, SYR = 2560 / 1260, 1600 / 709
+local function X(rx) return (rx - 535) * SXR end
+local function Y(ry) return (ry - 407) * SYR end
+local CX, CY, R = X(628), Y(491), 180
 local sin, cos, rad = math.sin, math.cos, math.rad
 
 function Initialize()
@@ -17,38 +22,11 @@ function OnISS()
   if la and lo then iss = { la, lo } end
 end
 
--- lat/lon (deg) -> screen x, y, depth
 local function project(lat, lon)
   local la, lo = rad(lat), rad(lon) + yaw
-  local x = R * cos(la) * sin(lo)
-  local y = R * sin(la)
-  local z = R * cos(la) * cos(lo)
-  local y2 = y * cos(TILT) - z * sin(TILT)
-  local z2 = y * sin(TILT) + z * cos(TILT)
-  return CX + x, CY - y2, z2
-end
-
--- draw a curve split into front (bright) and back (dim) runs
-local function curve(c, fn, n, col)
-  local run, front = {}, nil
-  local function flush()
-    if #run >= 2 then
-      if front then c:poly(run, col, 1.3, 230) else c:hairPoly(run, col, 90) end
-    end
-  end
-  for i = 0, n do
-    local x, y, z = fn(i / n)
-    local f = z >= 0
-    if front == nil then front = f end
-    if f ~= front then
-      run[#run + 1] = { x, y }
-      flush()
-      run, front = { { x, y } }, f
-    else
-      run[#run + 1] = { x, y }
-    end
-  end
-  flush()
+  local x, y, z = R * cos(la) * sin(lo), R * sin(la), R * cos(la) * cos(lo)
+  local t = rad(18)
+  return CX + x, CY - (y * cos(t) - z * sin(t)), y * sin(t) + z * cos(t)
 end
 
 local function hash(s)
@@ -59,66 +37,81 @@ end
 
 function Update()
   frame = frame + 1
-  if frame % 10 == 1 then H.refreshTier() end
+  if frame % 20 == 1 then H.refreshTier() end
   local tier = H.tier
-  local every = ({ [0] = 1, [1] = 3, [2] = 100, [3] = 0 })[tier] or 1
   if tier == 3 then
-    if frame % 20 == 1 then local c = H.canvas(1); for k = 1, 10 do H.hideText(1, k) end; c:flush() end
+    if frame % 40 == 1 then local c = H.canvas(1); for k = 1, 8 do H.hideText(1, k) end; c:flush() end
     return 0
   end
-  if frame % every ~= 1 and every ~= 1 then return 0 end
-  yaw = (yaw + rad(0.9) * every) % (2 * math.pi)
+  local every = ({ [0] = 1, [1] = 3 })[tier] or 100
+  if frame > 1 and every > 1 and frame % every ~= 0 then return 0 end
+  rot = (rot + 1.1 * every) % 360
+  yaw = (yaw + rad(0.5) * every) % (2 * math.pi)
   local c = H.canvas(1)
-  local A1, D, O = H.C.accent, H.C.dim, H.C.warn
-  -- globe
-  c:fillCircle(CX, CY, R, H.C.panel, 50)
-  c:circle(CX, CY, R, A1, 1.2, 160)
-  for lon = 0, 150, 30 do
-    curve(c, function(t) return project(-90 + 180 * t, lon) end, 18, A1)
-    curve(c, function(t) return project(-90 + 180 * t, lon + 180) end, 18, A1)
+  local A1, W, O = H.C.accent, H.C.white, H.C.warn
+  local deep = H.mix(A1, { 30, 80, 200 }, 0.55)
+  -- glowing bubble: stacked translucent discs (bright core, darker rim) + highlight
+  for i = 0, 9 do
+    c:fillCircle(CX, CY, R * (1 - i * 0.075), i < 3 and deep or A1, 16 + i * 2)
   end
-  for _, lat in ipairs({ -60, -30, 0, 30, 60 }) do
-    curve(c, function(t) return project(lat, 360 * t) end, 36, A1)
+  for i = 1, 3 do c:fillCircle(CX - R * 0.22, CY - R * 0.3, R * (0.5 - i * 0.1), W, 9) end
+  c:circle(CX, CY, R, A1, 1.6, 150)
+  -- translucent rotating blades (reference: large faint fan planes inside the bubble)
+  for i = 0, 2 do
+    local pts = H.ellipsePts(CX, CY + 10, R * 0.86, R * 0.2, rot + i * 60, 0, 360, 28)
+    c:fillPoly(pts, A1, 26)
+    c:hairPoly(pts, A1, 55, 1)
   end
-  -- radar disk at the base (reference: orange ring with blips)
-  local dy, rx, ry = CY + R * 0.62, 150, 34
-  c:poly(H.arcPts(CX, dy, rx, ry, 0, 360, 48), O, 1.4, 200)
-  c:poly(H.arcPts(CX, dy, rx * 0.6, ry * 0.6, 0, 360, 36), O, 1.2, 140)
-  local net = H.val('mNetIn', 0)
-  local pulse = (frame * 0.02 + math.min(1, net / (5 * 1048576))) % 1
-  c:poly(H.arcPts(CX, dy, rx * pulse, ry * pulse, 0, 360, 36), O, 1, math.floor(200 * (1 - pulse)))
+  -- faint meridians so the rotation reads
+  for lon = 0, 120, 60 do
+    local run = {}
+    for k = 0, 18 do
+      local x, y, z = project(-90 + k * 10, lon)
+      if z > 0 then run[#run + 1] = { x, y } elseif #run > 1 then c:hairPoly(run, W, 60); run = {} else run = {} end
+    end
+    if #run > 1 then c:hairPoly(run, W, 60) end
+  end
+  -- equator rings: white main ring, inner ring, dashed outer ring, orange sweep
+  local ey = CY + 34
+  c:poly(H.ellipsePts(CX, ey, 138, 25, 0, 0, 360, 48), W, 2, 235)
+  c:poly(H.ellipsePts(CX, ey + 2, 62, 11, 0, 0, 360, 28), W, 1.2, 150)
+  for a = 0, 350, 20 do c:hairPoly(H.ellipsePts(CX, ey, 162, 30, 0, a + rot * 0.2, a + rot * 0.2 + 10, 3), W, 140, 1.2) end
+  c:poly(H.ellipsePts(CX, ey + 4, 150, 28, 0, rot * 1.5, rot * 1.5 + 55, 12), O, 3, 235)
+  -- process blips on stalks
   local threads = math.max(1, H.val('mThreads', 20))
   local ti = 1
   for i = 1, 8 do
     local name = string.gsub(H.sval('mP' .. i, ''), '#%d+$', '')
     if name ~= '' then
       local share = H.clamp(H.val('mP' .. i, 0) / threads / 30, 0, 1)
-      local a = rad(hash(name)) + yaw * 0.25
-      local r = 0.95 - 0.7 * share
-      local bx, by = CX + rx * r * cos(a), dy + ry * r * sin(a)
-      local h = 12 + 60 * share
-      c:hair(bx, by, bx, by - h, i == 1 and O or A1, 1, 170)
-      c:poly({ { bx, by - h - 5 }, { bx + 5, by - h }, { bx, by - h + 5 }, { bx - 5, by - h } }, i == 1 and O or A1, 1.4, 255, true)
-      if i <= 3 then
-        H.text(1, ti, bx + 8, by - h, string.upper(name), { size = 7.5, weight = 700, align = 'LeftCenter', color = i == 1 and O or D, clip = 90 })
-        ti = ti + 1
-      end
+      local a = rad(hash(name) + rot * 0.35)
+      local r = 0.95 - 0.65 * share
+      local bx, by = CX + 138 * r * cos(a), ey + 25 * r * sin(a)
+      local hgt = 14 + 70 * share
+      c:hair(bx, by, bx, by - hgt, W, 1, 160)
+      local s2 = i == 1 and 9 or 5
+      c:poly({ { bx, by - hgt - s2 }, { bx + s2, by - hgt }, { bx, by - hgt + s2 }, { bx - s2, by - hgt } }, i == 1 and W or A1, 1.6, 255, true)
+      if i == 1 then c:dot(bx, by - hgt, 2.5, W); c:line(bx + 10, by - hgt, bx + 80, by - hgt + 14, W, 1.2, 200) end
     end
   end
-  -- ISS + you
   local function marker(lat, lon, label, col)
     local x, y, z = project(lat, lon)
     if z < 0 then return end
     c:rect(x - 4, y - 4, 8, 8, col, 1.4)
-    H.text(1, ti, x + 7, y - 8, label, { size = 7.5, weight = 700, color = col }); ti = ti + 1
+    H.text(1, ti, x + 8, y - 6, label, { size = 6, weight = 700, color = col }); ti = ti + 1
   end
   if iss then marker(iss[1], iss[2], 'ISS', H.C.good) end
   local g = H.sval('mGeo', '')
   local la, lo = tonumber(string.match(g, '"lat":%s*(-?[%d%.]+)')), tonumber(string.match(g, '"lon":%s*(-?[%d%.]+)'))
-  if la and lo then marker(la, lo, 'YOU', A1) end
-  H.text(1, ti, CX, 362, iss and string.format('ISS %.1f %.1f', iss[1], iss[2]) or 'PROCESS RADAR', { size = 8, font = H.fontNum, align = 'CenterTop', color = D }); ti = ti + 1
-  for k = ti, 10 do H.hideText(1, k) end
-  if frame < 3 then H.hit(1, 1, CX - R, CY - R, 2 * R, 2 * R, 'Radar: busiest processes (disk), ISS and your position (globe)') end
+  if la and lo then marker(la, lo, 'YOU', W) end
+  -- side label box (reference "DSP RNGE" with an orange bar) -> network rate
+  local net = H.val('mNetIn', 0) + H.val('mNetOut', 0)
+  H.text(1, ti, X(721), Y(533), 'NET', { size = 6, weight = 700, color = W }); ti = ti + 1
+  H.text(1, ti, X(738), Y(533), H.rate(net), { size = 6, weight = 700, color = W, alpha = 200 }); ti = ti + 1
+  c:hair(X(720), Y(541), X(760), Y(541), W, 1, 120)
+  c:line(X(720), Y(541), X(720) + (X(760) - X(720)) * H.clamp(math.log(1 + net / 1024) / math.log(1 + 50 * 1024), 0, 1), Y(541), O, 2.4)
+  for k = ti, 8 do H.hideText(1, k) end
+  if frame < 3 then H.hit(1, 1, CX - R, CY - R, 2 * R, 2 * R, 'Radar: busiest processes, ISS and your position - click: Task Manager') end
   c:flush()
   return 0
 end

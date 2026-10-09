@@ -235,10 +235,27 @@ def mock_value(name, opts, scenario, tick):
 
 
 # ----------------------------------------------------------------------------- shapes
+def split_args(s):
+    """split on commas that are not inside parentheses"""
+    out, depth, cur = [], 0, ""
+    for ch in s:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    out.append(cur)
+    return [x.strip() for x in out]
+
+
 def parse_color(s, default=(255, 255, 255, 255)):
-    parts = [p.strip() for p in s.split(",")]
+    parts = split_args(s)
     try:
-        vals = [int(float(p)) for p in parts]
+        vals = [max(0, min(255, int(num(p) if p.startswith("(") else float(p)))) for p in parts]
     except ValueError:
         return default
     if len(vals) == 3:
@@ -277,7 +294,7 @@ def parse_shape(spec, meter_opts):
             raise ValueError(f"path '{name}' not defined")
         sh["pts"], sh["closed"] = parse_path(defn)
     else:
-        vals = [float(num(v)) for v in args.split(",")] if args.strip() else []
+        vals = [float(num(v)) for v in split_args(args)] if args.strip() else []
         sh["args"] = vals
         if kind == "rectangle":
             x, y, w, h = vals[:4]
@@ -296,7 +313,19 @@ def parse_shape(spec, meter_opts):
         kl = k.lower()
         if kl == "fill":
             sub, _, col = v.partition(" ")
-            sh["fill"] = parse_color(col)
+            if sub.lower() == "lineargradient":
+                gdef = meter_opts.get(col.strip().lower())
+                if gdef is None:
+                    raise ValueError(f"gradient '{col}' not defined")
+                parts = [x.strip() for x in gdef.split("|")]
+                stops = []
+                for st in parts[1:]:
+                    c_, _, off = st.partition(";")
+                    stops.append((float(off), parse_color(c_)))
+                sh["grad"] = (float(num(parts[0])), stops)
+                sh["fill"] = stops[0][1]
+            else:
+                sh["fill"] = parse_color(col)
         elif kl == "stroke":
             sub, _, col = v.partition(" ")
             sh["stroke"] = parse_color(col)
@@ -667,6 +696,27 @@ def render_skin(skin, canvas, audit_zones, probs, draw_zone_outlines=False):
             probs.add(skin.config, "meter", f"[{name}] unsupported meter type {mtype}")
 
 
+def starfield(w, h, seed=3):
+    """stand-in for the animated wallpaper behind the cockpit"""
+    from PIL import ImageFilter
+    rnd = random.Random(seed)
+    bg = Image.new("RGBA", (w, h))
+    d = ImageDraw.Draw(bg)
+    for y in range(h):
+        t = y / h
+        d.line([(0, y), (w, y)], fill=(int(6 - 4 * t), int(10 - 7 * t), int(26 - 18 * t), 255))
+    for _ in range(1600):
+        x, y = rnd.randrange(w), rnd.randrange(h)
+        b = rnd.randint(80, 255)
+        d.point((x, y), fill=(b, b, min(255, b + 20), 255))
+    neb = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    nd = ImageDraw.Draw(neb)
+    nd.ellipse([1500, 300, 2500, 1000], fill=(60, 40, 120, 70))
+    nd.ellipse([200, 900, 1100, 1500], fill=(20, 80, 120, 60))
+    bg.alpha_composite(neb.filter(ImageFilter.GaussianBlur(120)))
+    return bg
+
+
 def inside_grown(poly, p, pad):
     # point within pad px of a convex polygon
     x, y = p
@@ -693,7 +743,14 @@ def inside_grown(poly, p, pad):
 
 
 def draw_shape(canvas, sh, cpts, sc, tm):
-    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    xs, ys = [p[0] for p in cpts], [p[1] for p in cpts]
+    pad = int(sh["sw"] * 2 + 4)
+    x0, y0 = max(0, int(min(xs)) - pad), max(0, int(min(ys)) - pad)
+    x1, y1 = min(canvas.width, int(max(xs)) + pad + 1), min(canvas.height, int(max(ys)) + pad + 1)
+    if x1 <= x0 or y1 <= y0:
+        return
+    cpts = [(x - x0, y - y0) for x, y in cpts]
+    layer = Image.new("RGBA", (x1 - x0, y1 - y0), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     det = abs(tm[0] * tm[3] - tm[1] * tm[2]) ** 0.5
     sw = sh["sw"] * det
@@ -702,11 +759,28 @@ def draw_shape(canvas, sh, cpts, sc, tm):
         pts = cpts + [cpts[0]]
     else:
         pts = cpts + ([cpts[0]] if sh.get("closed") else [])
-    if sh["fill"][3] > 0 and sh.get("closed") and len(cpts) >= 3:
+    if sh.get("grad") and sh.get("closed") and len(cpts) >= 3:
+        stops = sh["grad"][1]
+        h = layer.height
+        grad = Image.new("RGBA", layer.size)
+        gd = ImageDraw.Draw(grad)
+        for yy in range(h):
+            t = yy / max(1, h - 1)
+            lo = max([s_ for s_ in stops if s_[0] <= t] or [stops[0]], key=lambda s_: s_[0])
+            hi = min([s_ for s_ in stops if s_[0] >= t] or [stops[-1]], key=lambda s_: s_[0])
+            k = 0 if hi[0] == lo[0] else (t - lo[0]) / (hi[0] - lo[0])
+            col = tuple(int(lo[1][i] + (hi[1][i] - lo[1][i]) * k) for i in range(4))
+            gd.line([(0, yy), (layer.width, yy)], fill=col)
+        m = Image.new("L", layer.size, 0)
+        ImageDraw.Draw(m).polygon(cpts, fill=255)
+        a = Image.composite(grad, layer, m)
+        layer = a
+    elif sh["fill"][3] > 0 and sh.get("closed") and len(cpts) >= 3:
         d.polygon(cpts, fill=sh["fill"])
     if sw > 0 and sh["stroke"][3] > 0 and len(pts) >= 2:
+        d = ImageDraw.Draw(layer)
         d.line(pts, fill=sh["stroke"], width=max(1, int(round(sw))), joint="curve")
-    canvas.alpha_composite(layer)
+    canvas.alpha_composite(layer, (x0, y0))
 
 
 def draw_text(canvas, txt, font, col, ox, oy, tm, wx, wy, clipw):
@@ -872,7 +946,6 @@ def _run(args):
     if args.wallpaper:
         canvas = Image.open(args.wallpaper).convert("RGBA").resize((2560, 1600))
     else:
-        from frame_art import starfield
         canvas = starfield(2560, 1600)
     skins = []
     for config, ini in discover():

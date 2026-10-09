@@ -25,7 +25,6 @@ end
 
 function Update()
   H.refreshTier()
-  local z = H.zones[1]
   local c = H.canvas(1)
   local def = SRC.defs[src]
   local v, txt = def.get(H)
@@ -34,32 +33,28 @@ function Update()
     if #hist > N then table.remove(hist, 1) end
   end
   local norm = SRC.normalise(def, hist, H)
+  local z = H.zones[1]
   local col = H.ramp(norm[#norm] or 0)
-  -- title plate (reference: "OXYGEN LEVEL" plates)
-  local title = def.label
-  c:fillPoly({ { 0, 0 }, { 150, 0 }, { 140, 18 }, { 0, 18 } }, H.C.panel, 140)
-  c:poly({ { 0, 18 }, { 0, 0 }, { 150, 0 }, { 140, 18 } }, H.C.dim, 1, 200)
-  H.text(1, 1, 6, 1, title, { size = 9.5, color = H.C.accent, font = H.fontTitle, weight = 700 })
-  if mode == 'select' then
-    H.text(1, 4, 156, 3, '< >', { size = 8, color = H.C.dim, font = H.fontNum })
-  else H.hideText(1, 4) end
-  H.text(1, 2, z.w, 0, txt or '--', { size = 11, align = 'RightTop', font = H.fontNum, color = v and H.C.text or H.C.dim })
-  -- graph body
-  local gx, gy, gw, gh = 0, 24, z.w, z.h - 26
-  c:fillRect(gx, gy, gw, gh, H.C.panel, 70)
-  for i = 1, 3 do c:hair(gx, gy + gh * i / 4, gx + gw, gy + gh * i / 4, H.C.dim, 1, 60) end
-  for i = 1, 7 do c:hair(gx + gw * i / 8, gy, gx + gw * i / 8, gy + gh, H.C.dim, 1, 40) end
-  c:brackets(gx, gy, gw, gh, 8, H.C.accent, 1.2, 200)
+  local w1, w2 = string.match(def.label, '^(%S+)%s+(.+)$')
+  local faint = H.C.dim
+  -- faint history behind the label
   if #norm >= 2 then
     local pad = {}
     for i = 1, N - #norm do pad[i] = 0 end
     for _, x in ipairs(norm) do pad[#pad + 1] = x end
-    c:graph(gx + 2, gy + 2, gw - 4, gh - 4, pad, col, 46)
+    local pts = {}
+    for i = 1, #pad do pts[i] = { 6 + (i - 1) * (z.w - 12) / (#pad - 1), z.h - 4 - pad[i] * (z.h - 10) } end
+    local area = { { 6, z.h - 4 } }
+    for _, p in ipairs(pts) do area[#area + 1] = p end
+    area[#area + 1] = { z.w - 6, z.h - 4 }
+    c:fillPoly(area, col, 26)
+    c:hairPoly(pts, col, 110, 1.2)
   end
-  if v == nil then
-    H.text(1, 3, gw / 2, gy + gh / 2, 'NO SENSOR - MAP HWINFO IN CONTROL CENTER', { size = 8, align = 'CenterCenter', color = H.C.dim })
-  else H.hideText(1, 3) end
-  H.hit(1, 1, 0, 0, z.w, 20, mode == 'select' and 'Click: next source   Right-click: previous' or def.label)
+  H.text(1, 1, z.w / 2, z.h * 0.27, w1 or def.label, { size = 8, weight = 700, align = 'CenterCenter', color = faint, alpha = 200 })
+  H.text(1, 2, z.w / 2, z.h * 0.60, w2 or '', { size = 8, weight = 700, align = 'CenterCenter', color = faint, alpha = 200 })
+  H.text(1, 3, z.w - 4, z.h - 2, txt or '--', { size = 5.4, weight = 700, align = 'RightBottom', color = v and H.C.white or H.C.dim })
+  H.hideText(1, 4)
+  H.hit(1, 1, 0, 0, z.w, z.h, def.label .. (mode == 'select' and '  - click: next source, right-click: previous' or ''))
   c:flush()
   return v or 0
 end

@@ -1,9 +1,11 @@
--- Big category panel (L_category / R_category, 440 x 400) + page dots (160 x 20).
+-- Category panel: tab rail (zone 1), wireframe schematic (zone 2), page selector (zone 3).
+-- Reference: OVR WEAP AVI PWR SHLD COMM rail over the ship schematic (left); SUBSYS CARGO MAIL over
+-- the ship with the small triangle/number glyph (right).
 local H, A
 local panel, mirror = 1, false
 local cat, sel, first = nil, 1, 1
-local spin = 0
-local MAXTABS = 6
+local frame, scan = 0, 0
+local MAXTABS = 4
 
 function Initialize()
   H = dofile(SKIN:GetVariable('@') .. 'Scripts\\lib.lua')
@@ -32,127 +34,145 @@ local function choose(i)
   A.setState('Sel_' .. cat.id, sel)
 end
 
-function Update()
-  H.refreshTier()
+local function catIndex()
+  for i, id in ipairs(A.catOrder) do if cat and id == cat.id then return i end end
+  return 1
+end
+
+local function setCat(i)
+  local n = #A.catOrder
+  local id = A.catOrder[(i - 1) % n + 1]
+  cat, first = A.cats[id], 1
+  sel = tonumber(A.getState('Sel_' .. id, '1')) or 1
+  A.setState('TopCat' .. panel, id)
+end
+
+local function drawTabs()
   local z = H.zones[1]
   local c = H.canvas(1)
-  local A1, D, T = H.C.accent, H.C.dim, H.C.text
-  local app = current()
-  if H.tier == 0 then spin = (spin + 9) % 360 end
-  -- tab strip (reference: OVR WEAP AVI PWR SHLD COMM)
+  local A1 = H.C.accent
+  -- two parallel rails with end dots
+  c:line(10, 4, z.w - 4, 4, A1, 1.3, 220)
+  c:line(4, z.h - 4, z.w - 8, z.h - 4, A1, 1.3, 220)
+  c:dot(10, 4, 3, A1); c:dot(4, z.h - 4, 3, A1)
+  c:dot(z.w - 4, 4, 3, A1); c:dot(z.w - 8, z.h - 4, 3, A1)
   local n = cat and #cat.apps or 0
   local vis = math.min(MAXTABS, n)
-  local arrows = n > MAXTABS
-  local x0, x1 = arrows and 18 or 0, z.w - (arrows and 18 or 0)
-  local tw = vis > 0 and (x1 - x0) / vis or 0
-  c:line(0, 30, z.w, 30, D, 1, 200)
-  for t = 1, MAXTABS do
+  local step = (z.w - 20) / MAXTABS
+  for t = 1, 6 do
     local i = first + t - 1
     if t <= vis and cat.apps[i] then
-      local x = x0 + (t - 1) * tw
-      local on = (i == sel)
-      if on then
-        c:fillPoly({ { x + 4, 4 }, { x + tw - 4, 4 }, { x + tw, 30 }, { x, 30 } }, A1, 34)
-        c:line(x + 2, 30, x + tw - 2, 30, A1, 2.2)
-      end
-      H.text(1, t, x + tw / 2, 17, cat.apps[i].short, { size = 9, align = 'CenterCenter', weight = 700, color = on and T or D, clip = tw - 2 })
-      H.hit(1, t, x, 0, tw, 32, cat.apps[i].name)
-    else
-      H.hideText(1, t); H.hideHit(1, t)
-    end
+      local on = i == sel
+      local x = 14 + (t - 1) * step + (mirror and (MAXTABS - vis) * step or 0)
+      H.text(1, t, x, z.h / 2, cat.apps[i].short, { size = 6.2, weight = 700, align = 'LeftCenter',
+        color = on and H.C.accent or { 175, 190, 200 }, alpha = on and 255 or 210, clip = step - 4 })
+      H.hit(1, t, x - 2, 6, step, z.h - 12, cat.apps[i].name)
+    else H.hideText(1, t); H.hideHit(1, t) end
   end
-  if arrows then
-    c:poly({ { 12, 9 }, { 4, 17 }, { 12, 25 } }, A1, 1.6)
-    c:poly({ { z.w - 12, 9 }, { z.w - 4, 17 }, { z.w - 12, 25 } }, A1, 1.6)
-    H.hit(1, 7, 0, 0, 18, 32, 'Previous'); H.hit(1, 8, z.w - 18, 0, 18, 32, 'Next')
+  if n > MAXTABS then
+    H.hit(1, 7, 0, 0, 12, z.h, 'Previous app'); H.hit(1, 8, z.w - 12, 0, 12, z.h, 'Next app')
   else H.hideHit(1, 7); H.hideHit(1, 8) end
-  -- wireframe display
-  local gx = mirror and 304 or 136
-  local gy = 182
-  c:circle(gx, gy, 116, D, 1, 150)
-  c:arc(gx, gy, 102, spin, spin + 70, A1, 2)
-  c:arc(gx, gy, 102, spin + 180, spin + 250, A1, 2)
-  c:circle(gx, gy, 86, D, 1, 90)
-  for a = 0, 330, 30 do
-    local r1, r2 = 116, (a % 90 == 0) and 128 or 122
-    local ca, sa = math.cos(math.rad(a)), math.sin(math.rad(a))
-    c:hair(gx + r1 * ca, gy + r1 * sa, gx + r2 * ca, gy + r2 * sa, A1, 1.2, 200)
-  end
-  c:hair(gx - 128, gy, gx - 92, gy, D, 1, 160); c:hair(gx + 92, gy, gx + 128, gy, D, 1, 160)
+  c:flush()
+end
+
+local function drawSchematic(app)
+  local z = H.zones[2]
+  local c = H.canvas(2)
+  local A1, D = H.C.accent, H.C.dim
+  local cx, cy = z.w / 2, z.h / 2
+  local sz = math.min(z.w, z.h) * 0.94
   if app then
-    c:icon(app.icon, gx, gy, 136, app.missing and D or A1, 2)
-  else
-    H.text(1, 9, gx, gy, 'NO APPS', { size = 12, align = 'CenterCenter', color = D, font = H.fontTitle })
-  end
-  -- info column
-  local cx = mirror and 4 or 272
-  local cw = 160
-  local al = mirror and 'LeftTop' or 'LeftTop'
-  if app then
-    local running = false
+    H.hideText(2, 1)
+    local col = app.missing and D or A1
+    -- dense wireframe: outer shell, inner shell, offset ghost
+    c:icon(app.icon, cx, cy, sz, col, 2.4)
+    c:icon(app.icon, cx, cy, sz * 0.86, col, 1.2, 150)
+    c:icon(app.icon, cx, cy, sz * 0.7, col, 1, 90)
+    c:icon(app.icon, cx + 3, cy - 3, sz * 0.94, H.C.white, 0.8, 70)
+    -- bracket marks at the extremities (reference [ ] marks on wing tips)
+    local h2 = sz * 0.5
+    for _, p in ipairs({ { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } }) do
+      local x, y = cx + p[1] * h2, cy + p[2] * h2 * 0.92
+      c:poly({ { x - p[1] * 10, y }, { x, y }, { x, y - p[2] * 10 } }, H.C.white, 1.4, 220)
+    end
+    -- running: red core like the reference's highlighted section
     if app.proc ~= '' then
       H.set('mProc', 'ProcessName', app.proc)
-      running = H.val('mProc', -1) > 0
+      if H.val('mProc', -1) > 0 then
+        c:icon(app.icon, cx, cy, sz * 0.32, H.C.hi, 2.2)
+        c:fillCircle(cx, cy, sz * 0.08, H.C.hi, 120)
+      end
     end
-    H.text(1, 9, cx, 60, string.upper(app.name), { size = (#app.name > 11) and 10 or 12, font = H.fontTitle, weight = 700, color = T, clip = cw, align = al })
-    H.text(1, 10, cx, 88, app.info, { size = 9.5, color = D, clip = cw, align = al })
-    local scol = app.missing and H.C.warn or (running and H.C.good or A1)
-    c:dot(cx + 5, 124, 4, scol)
-    H.text(1, 11, cx + 14, 116, app.missing and 'NOT FOUND' or (running and 'RUNNING' or 'READY'), { size = 9.5, weight = 700, color = scol })
-    H.text(1, 12, cx, 140, string.format('%02d / %02d', sel, n), { size = 9, font = H.fontNum, color = D })
-    -- launch button
-    c:chamfer(cx, 266, cw, 36, 8, A1, 1.6, 255, 150)
-    H.text(1, 13, cx + cw / 2, 284, 'LAUNCH', { size = 11, align = 'CenterCenter', font = H.fontTitle, weight = 700, color = A1 })
-    H.hit(1, 9, cx, 266, cw, 36, 'Launch ' .. app.name)
-    H.hit(1, 10, gx - 100, gy - 100, 200, 200, 'Launch ' .. app.name .. '  (scroll to switch app)')
+    -- scan line (FULL tier only)
+    if H.tier == 0 then
+      local y = (scan % 100) / 100 * z.h
+      c:hair(cx - h2, y, cx + h2, y, A1, 1.5, 90)
+      c:hair(cx - h2, y - 6, cx + h2, y - 6, A1, 1, 35)
+    end
+    H.hit(2, 1, cx - h2, cy - h2, 2 * h2, 2 * h2, 'Launch ' .. app.name .. (app.missing and '  (not found - RESCAN in Control Center)' or '') .. '   scroll: next app')
   else
-    for k = 10, 13 do H.hideText(1, k) end
-    H.hideHit(1, 9); H.hideHit(1, 10)
+    H.text(2, 1, cx, cy, 'NO APPS', { size = 10, weight = 700, align = 'CenterCenter', color = D })
   end
-  -- category footer
-  c:line(0, 350, z.w, 350, D, 1, 200)
-  c:poly({ { 0, 350 }, { 10, 340 }, { 150, 340 }, { 160, 350 } }, A1, 1.4)
-  H.text(1, 14, 0, 358, cat and cat.name or 'NO CATEGORY', { size = 11, font = H.fontTitle, weight = 700, color = A1, clip = z.w - 80 })
-  c:dot(z.w - 6, 368, 3, A1)
   c:flush()
-  -- page dots (zone 2)
-  local d = H.canvas(2)
-  local zz = H.zones[2]
-  local count = math.min(#A.catOrder, 8)
-  local step = zz.w / math.max(count, 1)
-  for i = 1, count do
-    local id = A.catOrder[i]
-    local x = step * (i - 0.5)
-    if cat and id == cat.id then d:dot(x, 10, 5, A1) else d:circle(x, 10, 4, D, 1.2) end
-    H.hit(2, i, x - step / 2, 0, step, 20, A.cats[id].name)
+end
+
+local function drawPager()
+  local z = H.zones[3]
+  local c = H.canvas(3)
+  local A1, D = H.C.accent, { 170, 185, 195 }
+  local idx = catIndex()
+  if mirror then
+    -- reference: small down-triangle with a number under it
+    local cx = z.w / 2
+    c:poly({ { cx - 12, 10 }, { cx + 12, 10 }, { cx, 26 } }, A1, 2, 255, true)
+    c:poly({ { cx - 5, 13 }, { cx + 5, 13 }, { cx, 20 } }, A1, 1.4, 255, true)
+    H.text(3, 1, cx, 50, tostring(idx), { size = 9, weight = 700, align = 'CenterCenter', color = A1 })
+    H.hit(3, 1, 0, 0, z.w, z.h, (cat and cat.name or '') .. '  - click: next category, right-click: previous')
+  else
+    local count = math.min(#A.catOrder, 8)
+    local step = z.w / count
+    for i = 1, count do
+      local x = step * (i - 0.5)
+      if i == idx then c:dot(x, z.h / 2, 4, A1) else c:dot(x, z.h / 2, 3, D, 150) end
+      H.hit(3, i, x - step / 2, 0, step, z.h, A.cats[A.catOrder[i]].name)
+    end
   end
-  for i = count + 1, 8 do H.hideHit(2, i) end
-  d:flush()
+  c:flush()
+end
+
+function Update()
+  frame = frame + 1
+  if frame % 10 == 1 then H.refreshTier() end
+  scan = scan + 1.5
+  if frame % 10 == 1 then
+    drawTabs()
+    drawPager()
+  end
+  if H.tier == 0 or frame % 10 == 1 then drawSchematic(current()) end
   return 0
 end
 
-local function launch()
-  local app = current()
-  if app then A.launch(app) end
-end
+local function redraw() frame = 0; Update() end
 
 function OnClick(zi, k)
-  if zi == 2 then
-    local id = A.catOrder[k]
-    if id then cat = A.cats[id]; first = 1; sel = tonumber(A.getState('Sel_' .. id, '1')) or 1; A.setState('TopCat' .. panel, id) end
+  if zi == 3 then
+    if mirror then setCat(catIndex() + 1) else setCat(k) end
+  elseif zi == 2 then
+    local app = current(); if app then A.launch(app) end
   elseif k <= 6 then choose(first + k - 1)
   elseif k == 7 then choose(sel - 1)
-  elseif k == 8 then choose(sel + 1)
-  else launch() end
-  Update()
+  elseif k == 8 then choose(sel + 1) end
+  redraw()
 end
 
 function OnRightClick(zi, k)
-  if zi == 1 and k <= 6 and cat and cat.apps[first + k - 1] then A.launch(cat.apps[first + k - 1]) end
+  if zi == 3 and mirror then setCat(catIndex() - 1); redraw()
+  elseif zi == 1 and k <= 6 and cat and cat.apps[first + k - 1] then A.launch(cat.apps[first + k - 1]) end
 end
 
 function OnScroll(zi, k, dir)
-  if zi == 1 then choose(sel + dir); Update() end
+  if zi == 3 then setCat(catIndex() + dir) else choose(sel + dir) end
+  redraw()
 end
 
 function OnHover(zi, k, on) end

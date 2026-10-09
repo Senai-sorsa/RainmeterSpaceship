@@ -3,17 +3,17 @@
 [Variables]
 Module=CenterTarget
 ModuleConfig=Spaceship\Center\Target
-WX=1167
-WY=332
-WW=296
-WH=241
+WX=1166
+WY=331
+WW=293
+WH=254
 DX=#CenterTarget_DX#
 DY=#CenterTarget_DY#
 ZoneCount=1
 ; zone 1: C_target
 Z1=C_target
-Z1_X=18
-Z1_Y=18
-Z1_W=260
-Z1_H=205
+Z1_X=18.51
+Z1_Y=18.79
+Z1_W=256
+Z1_H=216.64
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

@@ -3,17 +3,17 @@
 [Variables]
 Module=TopGraphB
 ModuleConfig=Spaceship\Top\GraphB
-WX=1282
-WY=130
-WW=336
-WH=124
+WX=1329
+WY=121
+WW=288
+WH=112
 DX=#TopGraphB_DX#
 DY=#TopGraphB_DY#
 ZoneCount=1
 ; zone 1: G3_select
 Z1=G3_select
-Z1_X=18
-Z1_Y=20
-Z1_W=300
-Z1_H=80
-Z1_TM=1;0.0249;0;1;(0*#Scale#);(-2.0669*#Scale#)
+Z1_X=18.05
+Z1_Y=18.92
+Z1_W=251.93
+Z1_H=74.47
+Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)
