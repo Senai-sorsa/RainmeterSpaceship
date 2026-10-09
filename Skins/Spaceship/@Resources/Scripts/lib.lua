@@ -36,6 +36,9 @@ function H.init()
   H.tier = num('PerfTier', 0)
   H.glowA = num('GlowAlpha', 46)
   H.glowW = num('GlowWidth', 3.2)
+  H.coreWhite = num('CoreWhite', 0.3)
+  H.textGlow = num('TextGlow', 4)
+  H.textGlowA = num('TextGlowAlpha', 150)
   H.textSmall = num('TextScaleSmall', 1.85)
   H.textLarge = num('TextScaleLarge', 1.45)
   H.edit = num('EditMode', 0)
@@ -119,14 +122,29 @@ local function strokeMods(col, a, w, s)
     H.rgba(col, a), w * s)
 end
 
--- neon: glow pass (skipped at perf tier >= 2) + sharp core pass
+-- neon bloom (reference look): wide faint halo + medium glow + bright core pulled toward white.
+-- FULL tier draws all three, LITE drops the outer halo, LOW and STEALTH draw the core only.
 function Canvas:neon(geom, col, w, alpha, layer)
   w = w or 1.6
   local a = alpha or col[4] or 255
   if H.tier < 2 and H.glowA > 0 then
+    if H.tier == 0 then
+      table.insert(self.glow, geom .. ' ' .. strokeMods(col, floor(H.glowA * 0.38 * a / 255), w * H.glowW * 2.1, self.s))
+    end
     table.insert(self.glow, geom .. ' ' .. strokeMods(col, floor(H.glowA * a / 255), w * H.glowW, self.s))
   end
-  table.insert(layer or self.core, geom .. ' ' .. strokeMods(col, a, w, self.s))
+  local core = H.coreWhite > 0 and H.mix(col, H.C.white, H.coreWhite) or col
+  table.insert(layer or self.core, geom .. ' ' .. strokeMods(core, a, w, self.s))
+end
+
+-- soft round halo for dots and lights (stacked translucent discs)
+function Canvas:halo(cx, cy, r, col, alpha)
+  if H.tier >= 2 then return end
+  local a = alpha or 60
+  for i = 3, 1, -1 do
+    table.insert(self.glow, fmt('Ellipse %s,%s,%s | Fill Color %s | StrokeWidth 0',
+      self:px(cx), self:py(cy), self:pw(r * (1 + i * 0.9)), H.rgba(col, floor(a / (i + 1)))))
+  end
 end
 
 function Canvas:line(x1, y1, x2, y2, col, w, alpha)
@@ -183,6 +201,7 @@ function Canvas:circle(cx, cy, r, col, lw, alpha)
 end
 
 function Canvas:dot(cx, cy, r, col, alpha)
+  if (alpha or 255) > 150 then self:halo(cx, cy, r, col, 70) end
   table.insert(self.core, fmt('Ellipse %s,%s,%s | Fill Color %s | StrokeWidth 0',
     self:px(cx), self:py(cy), self:pw(r), H.rgba(col, alpha)))
 end
@@ -305,7 +324,14 @@ function H.text(zoneIndex, k, x, y, txt, opts)
   local sz = opts.size or 11
   sz = sz * (sz < 9.5 and H.textSmall or H.textLarge)
   H.set(m, 'FontSize', fmt('%.2f', sz * H.S))
-  H.set(m, 'FontColor', H.rgba(opts.color or H.C.text, opts.alpha))
+  local tc = opts.color or H.C.text
+  H.set(m, 'FontColor', H.rgba(H.coreWhite > 0 and H.mix(tc, H.C.white, H.coreWhite * 0.5) or tc, opts.alpha))
+  -- text glow: zero-offset blurred shadow in the text's own colour (off on LOW / STEALTH)
+  if H.tier < 2 and H.textGlow > 0 and opts.glow ~= false then
+    H.set(m, 'InlineSetting', fmt('Shadow | 0 | 0 | %.1f | %s', H.textGlow * H.S, H.rgba(tc, floor(H.textGlowA * (opts.alpha or 255) / 255))))
+  else
+    H.set(m, 'InlineSetting', 'Shadow | 0 | 0 | 0 | 0,0,0,0')
+  end
   H.set(m, 'StringAlign', opts.align or 'LeftTop')
   H.set(m, 'FontFace', opts.font or H.fontText)
   H.set(m, 'FontWeight', tostring(opts.weight or 600))

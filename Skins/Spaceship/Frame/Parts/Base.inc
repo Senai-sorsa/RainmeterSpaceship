@@ -14,5 +14,6 @@ Shape4=Path P4 | Fill Color 5,10,15 | StrokeWidth 0
 P5=1281.7,0.0 | LineTo 416.5,0.0 | LineTo 436.8,20.3 | LineTo 532.3,67.7 | LineTo 918.3,830.5 | LineTo 471.4,1060.6 | LineTo 0.0,1326.9 | LineTo 0.0,1600.0 | LineTo 1281.7,1600.0 | LineTo 1281.7,826.0 | LineTo 1026.0,826.0 | LineTo 660.3,216.6 | LineTo 975.2,212.1 | LineTo 1280.0,209.9 | LineTo 1281.7,209.9 | ClosePath 1
 Shape5=Path P5 | Fill Color 5,10,15 | StrokeWidth 0
 TransformationMatrix=#Scale#;0;0;#Scale#;0;0
+Hidden=#UseShipImage#
 DynamicVariables=0
 

@@ -7,8 +7,11 @@ ship itself and written as hundreds of Shape paths into Skins/Spaceship/Frame/Pa
   Glass.inc      theme-tinted window glass (gradient), drawn first
   Base.inc       hull silhouette fill (windows cut out), the backing for every traced piece
   Hull_NN.inc    the traced hull pieces, in the trace's stacking order, ~60 shapes per meter
-  Lights.inc     strut lights with layered glow
-  Decor.inc      HUD lines etched on the glass / dash, in the theme colour
+  Decor.inc      HUD lines etched on the glass / dash, in the theme colour (three-layer bloom)
+  + the procedural detail layers from tools/frame_detail.py (sheen, greebles, lights, spill, glare, scanlines)
+
+Frame.ini's include list is regenerated too. With UseShipImage=1 (Settings.inc) the traced hull and its
+detail are hidden and @Resources/Images/<ShipImage> (made by tools/image_frame.py) is shown instead.
 
 Dropped from the trace: anything seen through the windows (space, planet), the reference's own HUD
 (bright cyan / orange / pink marks, text) and regions our live widgets occupy (sphere, screens, plates).
@@ -25,12 +28,14 @@ from shapely.geometry import LineString, MultiPolygon, Polygon, box
 from shapely.ops import split, unary_union
 
 sys.path.insert(0, str(Path(__file__).parent))
+import frame_detail as FD  # noqa: E402
 import ref_layout as R  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 SVG = ROOT / "art" / "cockpit-trace.svg"
 PARTS = ROOT / "Skins" / "Spaceship" / "Frame" / "Parts"
 PER_METER = 60
+FRAME_INI = PARTS.parent / "Frame.ini"
 
 
 # ---------------------------------------------------------------- SVG parsing
@@ -140,7 +145,7 @@ def fmt_pts(pts, closed=False):
     return d + (" | ClosePath 1" if closed else "")
 
 
-def meter_block(name, shapes, tm=True):
+def meter_block(name, shapes, tm=True, hidden=None):
     """shapes: list of (pathdef or None, spec). Returns ini text for one Shape meter."""
     lines = [f"[{name}]", "Meter=Shape", "X=0", "Y=0"]
     for k, (pdef, spec) in enumerate(shapes, 1):
@@ -152,6 +157,8 @@ def meter_block(name, shapes, tm=True):
             lines.append(f"{key}={spec}")
     if tm:
         lines.append("TransformationMatrix=#Scale#;0;0;#Scale#;0;0")
+    if hidden:
+        lines.append(f"Hidden={hidden}")
     lines.append("DynamicVariables=0")
     return "\n".join(lines) + "\n\n"
 
@@ -207,30 +214,33 @@ def write(kept, hull):
     for p in polys_of(hull):
         for q in hole_free(p):
             base.append((fmt_pts(list(q.exterior.coords)[:-1], True), "Fill Color 5,10,15 | StrokeWidth 0"))
-    (PARTS / "Base.inc").write_text(header + meter_block("Base", base), newline="\r\n")
+    (PARTS / "Base.inc").write_text(header + meter_block("Base", base, hidden="#UseShipImage#"), newline="\r\n")
     # Hull pieces in stacking order
     n = 0
     for start in range(0, len(kept), PER_METER):
         n += 1
         chunk = kept[start:start + PER_METER]
         shapes = [(fmt_pts(pts, True), "Fill Color %d,%d,%d | StrokeWidth 0" % rgb) for pts, rgb in chunk]
-        (PARTS / f"Hull_{n:02d}.inc").write_text(header + meter_block(f"Hull{n:02d}", shapes), newline="\r\n")
-    # Lights with layered glow
-    lights = []
-    for (x, y) in R.LIGHTS:
-        X, Y = x * R.SX, y * R.SY
-        for r, a in ((46, 20), (34, 34), (24, 60), (15, 110)):
-            lights.append((None, f"Ellipse {X:.1f},{Y:.1f},{r} | Fill Color 40,130,255,{a} | StrokeWidth 0"))
-        lights.append((None, f"Ellipse {X:.1f},{Y:.1f},7 | Fill Color 190,230,255,255 | StrokeWidth 0"))
-    (PARTS / "Lights.inc").write_text(header + meter_block("Lights", lights), newline="\r\n")
-    # Decor: HUD lines in the theme colour (glow pass + sharp pass)
+        (PARTS / f"Hull_{n:02d}.inc").write_text(header + meter_block(f"Hull{n:02d}", shapes, hidden="#UseShipImage#"), newline="\r\n")
+    # procedural detail layers
+    dheader = header.replace("from art/cockpit-trace.svg", "(tools/frame_detail.py)")
+    detail = {}
+    for layer in FD.build_layers(hull, windows_of(hull)):
+        txt, meters = layer.text()
+        (PARTS / f"{layer.name}.inc").write_text(dheader + txt, newline="\r\n")
+        detail[layer.name] = len(layer)
+    # Decor: HUD lines in the theme colour, the same bloom as the widgets (lib.lua Canvas:neon):
+    # wide faint halo, glow, theme-colour line and a hot white core
     dec = []
 
     def line(pts, w=1.7, glow=True, alpha=235, closed=False):
         d = fmt_pts(pts, closed)
         if glow:
-            dec.append((d, f"Fill Color 0,0,0,0 | Stroke Color #ColorAccent#,(#GlowAlpha#*0.9) | StrokeWidth {w * 3.2:.1f} | StrokeLineJoin Round"))
+            dec.append((d, f"Fill Color 0,0,0,0 | Stroke Color #ColorAccent#,(#GlowAlpha#*0.38) | StrokeWidth (#GlowWidth#*{w * 2.1:.2f}) | StrokeLineJoin Round"))
+            dec.append((d, f"Fill Color 0,0,0,0 | Stroke Color #ColorAccent#,(#GlowAlpha#*0.95) | StrokeWidth (#GlowWidth#*{w:.2f}) | StrokeLineJoin Round"))
         dec.append((d, f"Fill Color 0,0,0,0 | Stroke Color #ColorAccent#,{alpha} | StrokeWidth {w:.1f} | StrokeLineJoin Round"))
+        if glow:
+            dec.append((d, f"Fill Color 0,0,0,0 | Stroke Color 235,250,255,({alpha}*#CoreWhite#*0.8) | StrokeWidth {w * 0.45:.2f} | StrokeLineJoin Round"))
 
     for l in R.CONSOLE_LINES:
         line(l)
@@ -260,9 +270,36 @@ def write(kept, hull):
     x0, x1, y = R.COWL_DOTS
     for i in range(22):
         xx = (x0 + (x1 - x0) * i / 21) * R.SX
+        dec.append((None, f"Rectangle {xx - 5:.1f},{y * R.SY - 7:.1f},10,14 | Fill Color #ColorAccent#,(#GlowAlpha#*0.5) | StrokeWidth 0"))
         dec.append((None, f"Rectangle {xx - 2:.1f},{y * R.SY - 4:.1f},4,8 | Fill Color #ColorAccent#,170 | StrokeWidth 0"))
     (PARTS / "Decor.inc").write_text(header + meter_block("Decor", dec), newline="\r\n")
-    return n
+    write_order(n, detail)
+    return n, detail
+
+
+def windows_of(hull):
+    return box(0, 0, R.RW, R.RH).difference(hull).buffer(0)
+
+
+def write_order(n_hull, detail):
+    """regenerate Frame.ini's include lists (= drawing order) from the parts that exist"""
+    under = ["Glass", "Glare", "Scan", "Base"] + [f"Hull_{i:02d}" for i in range(1, n_hull + 1)]
+    over = ["Sheen", "Greebles", "Spill", "Lights", "Decor"]
+
+    def incs(parts):
+        return "".join(f"@Include{p.replace('_', '')}=#CURRENTPATH#Parts\\{p}.inc\n"
+                       for p in parts if (PARTS / f"{p}.inc").exists())
+
+    head = FRAME_INI.read_text().partition("; drawing order")[0]
+    body = ("; drawing order: glass tint, glare, scanlines, hull silhouette, traced hull pieces (stacking order)\n"
+            "[Order]\nMeasure=Calc\nFormula=0\n" + incs(under) + "\n"
+            "; image mode (Settings.inc UseShipImage=1): a cockpit picture with the windows cut out, made by\n"
+            "; tools/image_frame.py. The traced hull and its surface detail hide; glass, HUD light and lines stay.\n"
+            "[ShipImage]\nMeter=Image\nImageName=#@#Images\\#ShipImage#\nX=0\nY=0\nW=(2560*#Scale#)\nH=(1600*#Scale#)\n"
+            "PreserveAspectRatio=0\nHidden=(1-#UseShipImage#)\n\n"
+            "; over the hull: metal sheen and rim light, greebles, HUD light spill, strut lights + LEDs, HUD lines\n"
+            "[OrderOver]\nMeasure=Calc\nFormula=0\n" + incs(over))
+    FRAME_INI.write_text(head + body, newline="\r\n")
 
 
 def main():
@@ -271,10 +308,10 @@ def main():
     ap.add_argument("--min-area", type=float, default=1.2, help="drop traced regions smaller than this (ref px^2)")
     args = ap.parse_args()
     kept, stats, hull = build(args.tolerance, args.min_area)
-    n = write(kept, hull)
+    n, detail = write(kept, hull)
     size = sum(f.stat().st_size for f in PARTS.glob("*.inc"))
     print(f"trace regions: {stats}")
-    print(f"kept {len(kept)} hull shapes in {n} meters (+ glass, base, lights, decor); {size / 1e6:.2f} MB of ini")
+    print(f"kept {len(kept)} hull shapes in {n} meters (+ glass, base, decor); detail shapes {detail}; {size / 1e6:.2f} MB of ini")
 
 
 if __name__ == "__main__":

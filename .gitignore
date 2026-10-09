@@ -7,3 +7,6 @@ Skins/Spaceship/@Resources/Presets/*/*.ini
 Skins/Spaceship/@Resources/Presets/*/stamp.txt
 dist/
 __pycache__/
+
+# simulator output (docs/preview*.jpg are the published copies)
+docs/sim-composite*.png

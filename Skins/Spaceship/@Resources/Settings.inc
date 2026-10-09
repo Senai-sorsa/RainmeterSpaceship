@@ -21,9 +21,21 @@ ColorWhite=215,240,255
 ColorPanel=0,30,45,90
 ; window tint strength in the theme colour (0 = clear glass, 255 = strongest)
 GlassTint=46
-; glow pass strength (0 = off) and width multiplier
-GlowAlpha=46
-GlowWidth=3.2
+; faint diagonal reflections on the glass (0 = off)
+GlassGlare=12
+; scanlines over the windows (ScanLines 0/1, ScanAlpha = darkness 0-255)
+ScanLines=1
+ScanAlpha=14
+; cockpit source: 0 = vector hull (traced + procedural detail), 1 = picture in @Resources\Images (tools\image_frame.py)
+UseShipImage=0
+ShipImage=ship.png
+; neon bloom: glow alpha (0 = off), glow width multiplier, how far line cores whiten (0-1)
+GlowAlpha=52
+GlowWidth=3.0
+CoreWhite=0.3
+; text glow: blur radius (px, 0 = off) and strength
+TextGlow=4
+TextGlowAlpha=150
 ; text size multipliers (small HUD labels / larger titles) relative to the authored sizes
 TextScaleSmall=1.85
 TextScaleLarge=1.45

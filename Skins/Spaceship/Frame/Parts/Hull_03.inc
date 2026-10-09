@@ -124,5 +124,6 @@ Shape59=Path P59 | Fill Color 47,75,94 | StrokeWidth 0
 P60=1131.7,830.5 | LineTo 1265.8,828.2 | LineTo 1266.8,826.0 | LineTo 1131.7,826.0 | ClosePath 1
 Shape60=Path P60 | Fill Color 36,75,111 | StrokeWidth 0
 TransformationMatrix=#Scale#;0;0;#Scale#;0;0
+Hidden=#UseShipImage#
 DynamicVariables=0
 

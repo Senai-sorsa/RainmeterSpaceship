@@ -230,6 +230,13 @@ local function rowsTheme()
   rows[#rows + 1] = { 'WINDOW TINT', tostring(H.num('GlassTint', 46)) .. ' / 255', { { '-10', function() bump('GlassTint', -10, 0, 255, nil, true) end }, { '+10', function() bump('GlassTint', 10, 0, 255, nil, true) end }, { 'CLEAR', function() writeVar('Settings.inc', 'GlassTint', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   rows[#rows + 1] = { 'GLOW STRENGTH', tostring(H.num('GlowAlpha', 46)), { { '-8', function() bump('GlowAlpha', -8, 0, 160, nil, true) end }, { '+8', function() bump('GlowAlpha', 8, 0, 160, nil, true) end } } }
   rows[#rows + 1] = { 'GLOW WIDTH', string.format('%.1f', H.num('GlowWidth', 3.2)), { { '-0.4', function() bump('GlowWidth', -0.4, 1, 8, nil, true) end }, { '+0.4', function() bump('GlowWidth', 0.4, 1, 8, nil, true) end } } }
+  rows[#rows + 1] = { 'LINE CORES', string.format('%.1f  (0 = pure colour, 1 = white-hot)', H.num('CoreWhite', 0.3)), { { '-0.1', function() bump('CoreWhite', -0.1, 0, 1, nil, true) end }, { '+0.1', function() bump('CoreWhite', 0.1, 0, 1, nil, true) end } } }
+  rows[#rows + 1] = { 'TEXT GLOW', tostring(H.num('TextGlow', 4)) .. ' px', { { '-1', function() bump('TextGlow', -1, 0, 12, nil, true) end }, { '+1', function() bump('TextGlow', 1, 0, 12, nil, true) end } } }
+  rows[#rows + 1] = { 'GLASS GLARE', tostring(H.num('GlassGlare', 12)), { { '-4', function() bump('GlassGlare', -4, 0, 60, nil, true) end }, { '+4', function() bump('GlassGlare', 4, 0, 60, nil, true) end } } }
+  local scan = H.num('ScanLines', 1) == 1
+  rows[#rows + 1] = { 'SCANLINES', (scan and 'ON' or 'OFF') .. '  darkness ' .. tostring(H.num('ScanAlpha', 14)), { { scan and 'OFF' or 'ON', function() writeVar('Settings.inc', 'ScanLines', scan and 0 or 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { '-4', function() bump('ScanAlpha', -4, 0, 80, nil, true) end }, { '+4', function() bump('ScanAlpha', 4, 0, 80, nil, true) end } } }
+  local img = H.num('UseShipImage', 0) == 1
+  rows[#rows + 1] = { 'COCKPIT ART', img and ('PICTURE  Images\\' .. H.str('ShipImage', 'ship.png')) or 'VECTOR  traced hull + detail', { { 'VECTOR', function() writeVar('Settings.inc', 'UseShipImage', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end, not img }, { 'PICTURE', function() writeVar('Settings.inc', 'UseShipImage', 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end, img } } }
   rows[#rows + 1] = { 'WARNING COLOUR', H.str('ColorWarn', ''), { { 'ORANGE', function() writeVar('Settings.inc', 'ColorWarn', '255,130,40'); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { 'YELLOW', function() writeVar('Settings.inc', 'ColorWarn', '255,220,60'); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
   return rows
 end

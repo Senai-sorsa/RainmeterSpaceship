@@ -21,7 +21,8 @@ import re
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, str(Path(__file__).parent))
 from layoutlib import ROOT, load, shape  # noqa: E402
@@ -330,7 +331,7 @@ def parse_shape(spec, meter_opts):
             sub, _, col = v.partition(" ")
             sh["stroke"] = parse_color(col)
         elif kl == "strokewidth":
-            sh["sw"] = float(v)
+            sh["sw"] = float(num(v))
         elif kl in ("strokestartcap", "strokeendcap", "strokelinejoin", "strokedashes", "antialias"):
             pass
         else:
@@ -647,7 +648,9 @@ def render_skin(skin, canvas, audit_zones, probs, draw_zone_outlines=False):
                 cpts = to_canvas(pts)
                 if name not in ("Bounds",) and not name.startswith("H"):
                     visible = sh["fill"][3] > 1 or (sh["sw"] > 0 and sh["stroke"][3] > 0)
-                    if visible:
+                    # soft light halos (fill-only, faint) are allowed to bloom past the zone edge
+                    halo = (sh["sw"] == 0 or sh["stroke"][3] == 0) and sh["fill"][3] <= 40
+                    if visible and not halo:
                         audit(cpts, sk, pad=sh["sw"] / 2 * 0 + (2 if sh["sw"] > 3 else 0))
                 draw_shape(canvas, sh, cpts, sc, tm)
         elif mtype == "String":
@@ -670,7 +673,12 @@ def render_skin(skin, canvas, audit_zones, probs, draw_zone_outlines=False):
                 oy = my
             box = [(ox, oy + t), (ox + tw, oy + t), (ox + tw, oy + b), (ox, oy + b)]
             audit(to_canvas(box), f"text '{txt[:20]}'")
-            draw_text(canvas, txt, font, col, ox, oy, tm, wx, wy, tw)
+            shadow = None
+            m = re.search(r"Shadow\s*\|\s*([-\d.]+)\s*\|\s*([-\d.]+)\s*\|\s*([-\d.]+)\s*\|\s*([^|]+)",
+                          skin.opt(name, "InlineSetting", "") or "")
+            if m and num(m.group(3)) > 0:
+                shadow = (num(m.group(1)), num(m.group(2)), num(m.group(3)), parse_color(m.group(4).strip()))
+            draw_text(canvas, txt, font, col, ox, oy, tm, wx, wy, tw, shadow)
         elif mtype == "Image":
             img = skin.opt(name, "ImageName", "")
             p = Path((img or "").replace("\\", "/"))
@@ -760,17 +768,24 @@ def draw_shape(canvas, sh, cpts, sc, tm):
     else:
         pts = cpts + ([cpts[0]] if sh.get("closed") else [])
     if sh.get("grad") and sh.get("closed") and len(cpts) >= 3:
-        stops = sh["grad"][1]
-        h = layer.height
-        grad = Image.new("RGBA", layer.size)
-        gd = ImageDraw.Draw(grad)
-        for yy in range(h):
-            t = yy / max(1, h - 1)
+        ang, stops = sh["grad"]
+        # gradient runs across the shape's bounding box along the angle (0 = left->right, 90 = top->bottom)
+        ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+        proj = [x * ca + y * sa for x, y in cpts]
+        p0, p1 = min(proj), max(proj)
+        n = 256
+        lut = []
+        for i in range(n):
+            t = i / (n - 1)
             lo = max([s_ for s_ in stops if s_[0] <= t] or [stops[0]], key=lambda s_: s_[0])
             hi = min([s_ for s_ in stops if s_[0] >= t] or [stops[-1]], key=lambda s_: s_[0])
             k = 0 if hi[0] == lo[0] else (t - lo[0]) / (hi[0] - lo[0])
-            col = tuple(int(lo[1][i] + (hi[1][i] - lo[1][i]) * k) for i in range(4))
-            gd.line([(0, yy), (layer.width, yy)], fill=col)
+            lut.append(tuple(int(lo[1][j] + (hi[1][j] - lo[1][j]) * k) for j in range(4)))
+        W, Hh = layer.size
+        ys_, xs_ = np.mgrid[0:Hh, 0:W]
+        t = np.clip(((xs_ * ca + ys_ * sa) - p0) / max(1e-6, p1 - p0), 0, 1)
+        idx = (t * (n - 1)).astype(np.int32)
+        grad = Image.fromarray(np.array(lut, dtype=np.uint8)[idx], "RGBA")
         m = Image.new("L", layer.size, 0)
         ImageDraw.Draw(m).polygon(cpts, fill=255)
         a = Image.composite(grad, layer, m)
@@ -783,11 +798,20 @@ def draw_shape(canvas, sh, cpts, sc, tm):
     canvas.alpha_composite(layer, (x0, y0))
 
 
-def draw_text(canvas, txt, font, col, ox, oy, tm, wx, wy, clipw):
-    pad = 4
+def draw_text(canvas, txt, font, col, ox, oy, tm, wx, wy, clipw, shadow=None):
+    pad = 4 + (int(shadow[2] * 2) if shadow else 0)
     tw = int(clipw) + pad * 2
     th = int(font.size * 1.6) + pad * 2
     tile = Image.new("RGBA", (max(1, tw), max(1, th)), (0, 0, 0, 0))
+    if shadow:
+        # D2D-style text shadow: blurred copy of the glyphs in the shadow colour, under the text
+        sdx, sdy, blur, scol = shadow
+        glow = Image.new("RGBA", tile.size, (0, 0, 0, 0))
+        ImageDraw.Draw(glow).text((pad + sdx, pad + sdy), txt, font=font, fill=scol[:3] + (255,))
+        glow = glow.filter(ImageFilter.GaussianBlur(blur / 2))
+        ga = glow.split()[3].point(lambda v: min(255, int(v * scol[3] / 255 * 1.6)))
+        glow.putalpha(ga)
+        tile.alpha_composite(glow)
     ImageDraw.Draw(tile).text((pad, pad), txt, font=font, fill=col)
     if clipw < font.getbbox(txt)[2]:
         tile = tile.crop((0, 0, int(clipw) + pad, th))
@@ -916,6 +940,7 @@ def main():
     ap.add_argument("--wallpaper", help="image to use behind the cockpit")
     ap.add_argument("--only", help="substring filter on config names")
     ap.add_argument("--interact", action="store_true", help="also fire every click/scroll handler once")
+    ap.add_argument("--set", action="append", default=[], metavar="VAR=VALUE", help="override a skin variable (repeatable)")
     args = ap.parse_args()
 
     start_file = RES / "Data" / "StartApps.txt"
@@ -942,6 +967,9 @@ def _run(args):
             overrides[f"HW_{k}"] = str(i)
     if args.scenario == "stress":
         overrides["PerfTier"] = "2"
+    for kv in args.set:
+        k, _, v = kv.partition("=")
+        overrides[k.strip()] = v.strip()
 
     if args.wallpaper:
         canvas = Image.open(args.wallpaper).convert("RGBA").resize((2560, 1600))

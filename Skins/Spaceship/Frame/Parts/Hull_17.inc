@@ -26,5 +26,6 @@ Shape10=Path P10 | Fill Color 5,22,34 | StrokeWidth 0
 P11=1599.0,6.8 | LineTo 1613.2,6.8 | LineTo 1611.2,0.0 | LineTo 1601.0,0.0 | ClosePath 1
 Shape11=Path P11 | Fill Color 0,10,13 | StrokeWidth 0
 TransformationMatrix=#Scale#;0;0;#Scale#;0;0
+Hidden=#UseShipImage#
 DynamicVariables=0
 
