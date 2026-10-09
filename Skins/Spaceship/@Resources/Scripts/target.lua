@@ -41,7 +41,7 @@ function Update()
   -- a thick segmented inner ring (three small gaps) that breathes with the CPU share, and a blue core
   local P = { 255, 176, 138 }
   local R = 86 * zoom
-  for i = 0, 11 do c:fillCircle(cx, cy, R * (1.1 - i * 0.07), O, 3) end
+  for i = 0, 11 do c:fillCircle(cx, cy, R * (1.1 - i * 0.07), P, 2) end
   for q = 0, 3 do
     local a0 = rot * 0.4 + q * 90 - 33
     c:arc(cx, cy, R, a0, a0 + 66, P, 2.4, 240)
@@ -51,7 +51,7 @@ function Update()
   local thick = 5 + 3 * H.clamp(cpu / 50, 0, 1)
   for q = 0, 2 do
     local a0 = -rot * 0.6 + q * 120 + 8
-    c:arc(cx, cy, r2, a0, a0 + 104, P, thick, 245)
+    c:arc(cx, cy, r2, a0, a0 + 112, P, thick, 245)
   end
   c:fillCircle(cx, cy, r2 - thick - 2, { 20, 60, 140 }, 150)
   c:dot(cx, cy, 3.5, H.C.accent)
