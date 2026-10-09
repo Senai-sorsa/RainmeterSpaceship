@@ -790,7 +790,8 @@ def draw_shape(canvas, sh, cpts, sc, tm):
         ImageDraw.Draw(m).polygon(cpts, fill=255)
         a = Image.composite(grad, layer, m)
         layer = a
-    elif sh["fill"][3] > 0 and sh.get("closed") and len(cpts) >= 3:
+    elif sh["fill"][3] > 0 and (sh.get("closed") or sh["kind"] == "path") and len(cpts) >= 3:
+        # Direct2D fills open path figures too (implicitly closed); Fill defaults to white
         d.polygon(cpts, fill=sh["fill"])
     if sw > 0 and sh["stroke"][3] > 0 and len(pts) >= 2:
         d = ImageDraw.Draw(layer)

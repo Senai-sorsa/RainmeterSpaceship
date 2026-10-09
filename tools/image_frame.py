@@ -33,13 +33,12 @@ def cover(im, w, h):
 
 
 def window_mask(w, h, feather):
-    """255 = hull, 0 = glass; the right strut crosses the right window and stays opaque"""
+    """255 = hull, 0 = glass"""
     m = Image.new("L", (w, h), 255)
     d = ImageDraw.Draw(m)
     sx, sy = w / R.RW, h / R.RH
-    for win in (R.WIN_CENTER, R.WIN_LEFT, R.WIN_RIGHT):
+    for win in R.WINDOWS:
         d.polygon([(x * sx, y * sy) for x, y in win], fill=0)
-    d.polygon([(x * sx, y * sy) for x, y in R.STRUT_RIGHT], fill=255)
     if feather > 0:
         m = m.filter(ImageFilter.GaussianBlur(feather))
     return m

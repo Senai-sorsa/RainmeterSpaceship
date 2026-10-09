@@ -28,6 +28,11 @@ ScanLines=1
 ScanAlpha=14
 ; cockpit source: 0 = vector hull (traced + procedural detail), 1 = picture in @Resources\Images (tools\image_frame.py)
 UseShipImage=0
+; hull metal tones (vector cockpit): shadow, body, lit ridge, edge highlight
+HullDark=12,16,22
+HullMid=34,42,52
+HullLight=74,88,104
+HullEdge=165,190,215
 ShipImage=ship.png
 ; neon bloom: glow alpha (0 = off), glow width multiplier, how far line cores whiten (0-1)
 GlowAlpha=52

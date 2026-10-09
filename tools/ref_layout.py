@@ -7,7 +7,7 @@ gridded crops of the original cockpit image, and mapped onto the 2560 x 1600 can
 into a Rainmeter TransformationMatrix so text and graphics lean exactly like the reference.
 
 Deviations from the reference are deliberate and listed in DEVIATIONS.
-Run:  python tools/ref_layout.py && python tools/build.py && python tools/vector_frame.py
+Run:  python tools/ref_layout.py && python tools/build.py && python tools/ship_frame.py
 """
 import json
 import math
@@ -88,32 +88,36 @@ ZONES = [
 ]
 
 # ---------------------------------------------------------------- the ship (reference pixels)
-WIN_CENTER = [(325, 96), (480, 94), (630, 93), (780, 94), (930, 96), (778, 366), (505, 366)]
-WIN_LEFT = [(52, 0), (205, 0), (215, 9), (262, 30), (452, 368), (232, 470), (0, 588), (0, 150), (10, 95), (28, 45)]
-WIN_RIGHT = [(1208, 0), (1055, 0), (1045, 9), (998, 30), (808, 372), (1030, 474), (1260, 588), (1260, 150), (1250, 95), (1232, 45)]
+# Windows from the owner's line drawing (art/window-lines-right.png: the right half, mirrored for the left).
+# Drawing px -> reference px: x = 630 + gx * 630/597.7, y = (gy - 2.6) * 709/674.9
+WIN_CENTER = [(333.9, 90.2), (926.1, 90.2), (759.2, 365.5), (500.8, 365.5)]
+WIN_RIGHT = [(1043.1, 89.9), (1260, 303.4), (1260, 554.7), (819.4, 420.2), (782.8, 377.4)]
+WIN_TOP_R = [(1116.5, 36.7), (1197.2, 0), (1260, 104.2), (1260, 181.5)]
+
+
+def mirror(pts):
+    return [(RW - x, y) for x, y in pts][::-1]
+
+
+WIN_LEFT = mirror(WIN_RIGHT)
+WIN_TOP_L = mirror(WIN_TOP_R)
+WINDOWS = [WIN_CENTER, WIN_LEFT, WIN_RIGHT, WIN_TOP_L, WIN_TOP_R]
+
+
 def _arc(cx, cy, rx, ry, a0, a1, n=14):
     return [(cx + rx * math.cos(math.radians(a0 + (a1 - a0) * i / n)), cy + ry * math.sin(math.radians(a0 + (a1 - a0) * i / n))) for i in range(n + 1)]
 
 
-# visor bezel: dark rounded canopy rim outside the windows (top corners and bottom corners)
-_RIM_L = _arc(62, 150, 56, 150, 270, 180) + [(6, 560)] + _arc(140, 560, 134, 149, 180, 90)
-BEZEL_L = [(0, 0)] + _RIM_L + [(0, 709)]
-BEZEL_R = [(RW - x, y) for x, y in BEZEL_L]
-RIM_L = _RIM_L
-RIM_R = [(RW - x, y) for x, y in _RIM_L]
-STRUT_RIGHT = [(1080, 16), (1110, 16), (1260, 214), (1260, 254)]
-PILLAR_L = [(262, 30), (325, 96), (505, 366), (470, 374), (452, 368)]
-PILLAR_R = [(998, 30), (930, 96), (778, 366), (792, 376), (808, 372)]
-BEAM_L = [(470, 374), (505, 380), (250, 500), (0, 610), (0, 584), (232, 470)]
-BEAM_R = [(792, 376), (772, 384), (1012, 503), (1260, 612), (1260, 586), (1030, 474)]
-LIGHTS = [(380, 195), (880, 195), (232, 495), (1030, 500)]
+# structure between the windows (left side; the right side is mirrored)
+PILLAR_L = [(216.9, 89.9), (333.9, 90.2), (500.8, 365.5), (477.2, 377.4)]       # A-pillar: windscreen | side window
+STRUT_L = [(143.5, 36.7), (216.9, 89.9), (0, 303.4), (0, 181.5)]                # roof strut: side window | top window
+SILL_EDGE_L = [(0, 554.7), (440.6, 420.2), (477.2, 377.4)]                      # side-window sill
+PILLAR_R, STRUT_R = mirror(PILLAR_L), mirror(STRUT_L)
+LIGHTS = [(358, 200), (902, 200), (232, 498), (1028, 498)]
 PLATES = [(330, 52, 450, 93), (490, 52, 610, 93), (660, 52, 790, 93), (825, 52, 943, 93)]
 SCREENS = [(392, 562, 491, 641), (775, 565, 875, 641)]
 TILTED = [[(305, 648), (348, 632), (360, 694), (318, 709)], [(955, 648), (912, 632), (900, 694), (942, 709)]]
 ARCH = [(382, 706), (420, 668), (520, 650), (640, 645), (760, 650), (838, 668), (876, 706)]
-CONSOLE = [(505, 366), (778, 366), (765, 420), (725, 600), (535, 600), (518, 420)]
-STREAKS = [[(195, 585), (365, 518)], [(245, 625), (380, 572)], [(150, 650), (300, 600)],
-           [(1065, 585), (895, 518)], [(1015, 625), (880, 572)], [(1110, 650), (960, 600)]]
 
 # HUD lines that are part of the cockpit glass (decor layer, tinted with the theme colour)
 CONSOLE_LINES = [
@@ -157,18 +161,13 @@ def main():
             {"id": "O_control", "x": 760, "y": 300, "w": 1040, "h": 900, "content": "Control Center (transient)"},
         ],
         "frame": {
-            "windows": [scale(WIN_CENTER), scale(WIN_LEFT), scale(WIN_RIGHT)],
-            "hull_extra": [scale(STRUT_RIGHT), scale(BEZEL_L), scale(BEZEL_R)],
-            "rims": [scale(RIM_L), scale(RIM_R)],
+            "windows": [scale(w) for w in WINDOWS],
             "pillars": [scale(PILLAR_L), scale(PILLAR_R)],
-            "beams": [scale(BEAM_L), scale(BEAM_R)],
+            "struts": [scale(STRUT_L), scale(STRUT_R)],
             "lights": scale(LIGHTS),
-            "plates": [P(a, b) + P(c, d) for a, b, c, d in PLATES],
             "screens": [P(a, b) + P(c, d) for a, b, c, d in SCREENS],
             "tilted": [scale(t) for t in TILTED],
             "arch": scale(ARCH),
-            "console": scale(CONSOLE),
-            "streaks": [scale(s) for s in STREAKS],
             "console_lines": [scale(l) for l in CONSOLE_LINES],
             "glyphs": scale(GLYPHS),
             "circle_glyph": P(*CIRCLE_GLYPH),

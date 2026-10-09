@@ -1,4 +1,4 @@
-"""Shared geometry for the Spaceship HUD layout (used by check_layout, vector_frame, build, rmsim)."""
+"""Shared geometry for the Spaceship HUD layout (used by check_layout, ship_frame, build, rmsim)."""
 import json
 import math
 from pathlib import Path

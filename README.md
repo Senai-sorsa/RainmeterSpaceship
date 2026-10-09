@@ -1,8 +1,17 @@
 # Spaceship HUD for Rainmeter
 
-A full-screen starship cockpit for the desktop, reproduced one-to-one from a Star Citizen-style canopy reference. The cockpit hull, struts and dashboard frame the screen, and **tinted windows look out onto your own animated space wallpaper** (Lively).
+A full-screen starship cockpit for the desktop, laid out after a Star Citizen-style canopy reference. The cockpit hull, struts and dashboard frame the screen, and **tinted windows look out onto your own animated space wallpaper** (Lively).
 
-The ship itself is **pure Rainmeter Shape meters**: about 1,000 vector pieces generated from a trace of the reference, plus about 1,500 procedural detail shapes. The detail includes brushed-metal sheen, rim light where the hull meets the glass, panel seams, rivets, vent grilles, dash rails, hazard bands, status LEDs, light spill and flares, glass glare and scanlines. If you'd rather use a picture of the ship, an **image mode** cuts the windows out of any cockpit picture (see below). Every instrument is a live widget sitting exactly where its counterpart sits in the reference:
+The ship itself is **pure Rainmeter Shape meters**, about 2,000 of them. The left side is designed and mirrored to the right. The window shapes come from the owner's line drawing (`art/window-lines-right.png`). The rest takes its look from real sci-fi cockpit renders:
+
+- gunmetal struts with rounded shading;
+- window frames with gaskets, bolts and rim light;
+- lit window sills, and side walls with grab handles and blue LED banks;
+- a centre console with a hologram projector well;
+- corrugated floor hoses;
+- recessed housings behind every instrument that sits on the hull (the two category panels hang like monitors).
+
+If you'd rather use a picture of the ship, an **image mode** cuts the windows out of any cockpit picture (see below). Every instrument is a live widget sitting where its counterpart sits in the reference:
 
 - system telemetry
 - GPU-mode control for the Legion laptop
@@ -54,7 +63,7 @@ The Control Center (the CFG button, or right-click any module) has these tabs:
 
 - **MODULES:** turn any module on or off, and make it click-through.
 - **LAYOUT:** nudge modules. A **layout guard** blocks any move that would overlap another module, a strut or the taskbar band. Also: edit mode, scale and auto-fit.
-- **THEME:** colour presets, window tint, glow strength and width, line cores, text glow, glass glare, scanlines, and the cockpit art (vector or picture).
+- **THEME:** colour presets, window tint, glow strength and width, line cores, text glow, glass glare, scanlines, and the cockpit art (vector or picture). The metal tones are `HullDark` / `HullMid` / `HullLight` / `HullEdge` in `Settings.inc`.
 - **APPS:** reassign the 2 panels and 8 slots, rescan the Start menu, edit the catalog.
 - **SENSORS:** auto-map HWiNFO sensors.
 - **PERF:** performance-tier thresholds and the MASTER switch.
@@ -75,7 +84,7 @@ Bright dots get a soft halo. Text carries a blurred glow in its own colour (`Tex
 
 ### Using a picture of the ship
 
-The vector hull matches the reference, but a real render has more detail than any trace. If you have a picture of the cockpit (ship only, or with space in the windows), run this to scale it to 2560×1600 and cut the windows out along the reference window shapes with a soft edge:
+The vector hull is clean and symmetric, but a real render has more surface detail than shapes can give. If you have a picture of the cockpit (ship only, or with space in the windows), run this to scale it to 2560×1600 and cut the windows out along the reference window shapes with a soft edge:
 
 ```
 python tools/image_frame.py my-cockpit.png
@@ -99,9 +108,8 @@ The HUD lowers its own detail as GPU load rises (**FULL → LITE → LOW → STE
 tools/ref_layout.py     every zone, window and hull outline traced from the reference image -> layout.json
 layout/layout.json      generated: zones (with slant quads), windows, decor, taskbar band
 tools/check_layout.py   overlap / safe-area / taskbar checks on the slanted shapes (+ preview image)
-art/cockpit-trace.svg   vector trace of the reference (3485 regions)
-tools/vector_frame.py   filters the trace to the ship and writes Frame/Parts/*.inc (~1000 Shape paths) and Frame.ini's draw order
-tools/frame_detail.py   procedural surface detail: sheen, rim light, seams, rivets, vents, rails, LEDs, spill, glare, scanlines
+art/window-lines-right.png   the owner's window drawing (right half; mirrored for the left)
+tools/ship_frame.py     the symmetric cockpit: glass, shaded hull, frames, detail, housings, lights -> Frame/Parts/*.inc + Frame.ini order
 tools/image_frame.py    image mode: cuts the windows out of a cockpit picture -> @Resources/Images/ship.png
 tools/build.py          writes each module's Geometry.inc / Meters.inc and the guard data
 tools/rmsim.py          offline Rainmeter simulator: runs the real Lua, renders, audits alignment
@@ -109,7 +117,7 @@ tools/package.py        builds the .rmskin installer and the Rainmeter layout
 Skins/Spaceship/        the skin set (Lua in @Resources/Scripts, settings in @Resources/*.inc)
 ```
 
-After editing the layout, run: `python tools/ref_layout.py && python tools/build.py && python tools/vector_frame.py && python tools/rmsim.py && python tools/package.py`.
+After editing the layout, run: `python tools/ref_layout.py && python tools/build.py && python tools/ship_frame.py && python tools/rmsim.py && python tools/package.py`.
 The tools need `pip install lupa pillow shapely`.
 
 The full design rationale is in [`docs/PLAN.md`](docs/PLAN.md).
