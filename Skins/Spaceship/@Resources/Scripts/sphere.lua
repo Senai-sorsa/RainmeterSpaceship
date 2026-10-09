@@ -1,13 +1,14 @@
--- Holographic sphere (reference: glowing blue bubble at 628,491 with rotating translucent blades,
--- white equator ring, dashed outer ring, orange sweep arc, blips on stalks, and the "DSP RNGE" box).
+-- Holographic sphere: one smooth glow with a crisp outer circle, three overlapping rotating rings, and the
+-- disc (bright ring through the centre, inner ring, orange sweep, base ring), plus blips on stalks and the
+-- "DSP RNGE" box. Centred on the screen axis.
 -- Blips = busiest processes; ISS and your position ride on the rotating globe; the box = network rate.
 local H
 local frame, rot, yaw = 0, 0, 0
 local iss = nil
 local SXR, SYR = 2560 / 1260, 1600 / 709
-local function X(rx) return (rx - 535) * SXR end
+local function X(rx) return (rx - 514) * SXR end
 local function Y(ry) return (ry - 407) * SYR end
-local CX, CY, R = X(628), Y(491), 180
+local CX, CY, R = (746 - 514) / 2 * SXR, Y(491), 180   -- centred in the zone, i.e. on the screen axis
 local sin, cos, rad = math.sin, math.cos, math.rad
 
 function Initialize()
@@ -49,34 +50,25 @@ function Update()
   yaw = (yaw + rad(0.5) * every) % (2 * math.pi)
   local c = H.canvas(1)
   local A1, W, O = H.C.accent, H.C.white, H.C.warn
-  local deep = H.mix(A1, { 30, 80, 200 }, 0.55)
-  -- glowing bubble: stacked translucent discs (bright core, darker rim) + highlight
-  for i = 0, 9 do
-    c:fillCircle(CX, CY, R * (1 - i * 0.075), i < 3 and deep or A1, 16 + i * 2)
+  local deep = H.mix(A1, { 22, 88, 168 }, 0.72)   -- the reference bubble is a deep, fairly even blue
+  -- one smooth glow (many faint layers, no visible steps) and a crisp outer circle
+  for i = 0, 15 do
+    c:fillCircle(CX, CY, R * (1 - i * 0.05), i < 11 and deep or A1, 20 + i)
   end
-  for i = 1, 3 do c:fillCircle(CX - R * 0.22, CY - R * 0.3, R * (0.5 - i * 0.1), W, 9) end
-  c:circle(CX, CY, R, A1, 1.2, 60)
-  -- translucent rotating blades (reference: large faint fan planes inside the bubble)
+  c:fillCircle(CX - R * 0.22, CY - R * 0.3, R * 0.32, W, 10)
+  c:circle(CX, CY, R, A1, 1.8, 200)
+  -- three overlapping rings, rotating (reference: the large translucent planes inside the bubble)
   for i = 0, 2 do
-    local pts = H.ellipsePts(CX, CY + 10, R * 0.86, R * 0.2, rot + i * 60, 0, 360, 28)
-    c:fillPoly(pts, A1, 26)
-    c:hairPoly(pts, A1, 55, 1)
+    local pts = H.ellipsePts(CX, CY, R * 0.92, R * 0.24, rot + i * 60, 0, 360, 36)
+    c:fillPoly(pts, A1, 20)
+    c:poly(pts, A1, 1.2, 120)
   end
-  -- faint meridians so the rotation reads
-  for lon = 0, 120, 60 do
-    local run = {}
-    for k = 0, 18 do
-      local x, y, z = project(-90 + k * 10, lon)
-      if z > 0 then run[#run + 1] = { x, y } elseif #run > 1 then c:hairPoly(run, W, 60); run = {} else run = {} end
-    end
-    if #run > 1 then c:hairPoly(run, W, 60) end
-  end
-  -- equator rings: white main ring, inner ring, dashed outer ring, orange sweep
+  -- the disc: a bright ring through the centre with its inner ring, and the base ring at the bottom
   local ey = CY + 34
-  c:poly(H.ellipsePts(CX, ey, 138, 25, 0, 0, 360, 48), W, 2, 235)
-  c:poly(H.ellipsePts(CX, ey + 2, 62, 11, 0, 0, 360, 28), W, 1.2, 150)
-  for a = 0, 350, 20 do c:hairPoly(H.ellipsePts(CX, ey, 162, 30, 0, a + rot * 0.2, a + rot * 0.2 + 10, 3), W, 140, 1.2) end
-  c:poly(H.ellipsePts(CX, ey + 4, 150, 28, 0, rot * 1.5, rot * 1.5 + 55, 12), O, 3, 235)
+  c:poly(H.ellipsePts(CX, ey, 150, 27, 0, 0, 360, 56), W, 2.2, 235)
+  c:poly(H.ellipsePts(CX, ey + 2, 66, 12, 0, 0, 360, 32), W, 1.3, 160)
+  c:poly(H.ellipsePts(CX, ey + 4, 150, 28, 0, rot * 1.5, rot * 1.5 + 55, 14), O, 3, 235)
+  c:poly(H.ellipsePts(CX, CY + R * 0.9, R * 0.55, R * 0.1, 0, 0, 360, 40), A1, 1.6, 200)
   -- process blips on stalks
   local threads = math.max(1, H.val('mThreads', 20))
   local ti = 1
@@ -106,10 +98,10 @@ function Update()
   if la and lo then marker(la, lo, 'YOU', W) end
   -- side label box (reference "DSP RNGE" with an orange bar) -> network rate
   local net = H.val('mNetIn', 0) + H.val('mNetOut', 0)
-  H.text(1, ti, X(721), Y(533), 'NET', { size = 6, weight = 700, color = W }); ti = ti + 1
-  H.text(1, ti, X(738), Y(533), H.rate(net), { size = 6, weight = 700, color = W, alpha = 200 }); ti = ti + 1
-  c:hair(X(720), Y(541), X(760), Y(541), W, 1, 120)
-  c:line(X(720), Y(541), X(720) + (X(760) - X(720)) * H.clamp(math.log(1 + net / 1024) / math.log(1 + 50 * 1024), 0, 1), Y(541), O, 2.4)
+  H.text(1, ti, X(700), Y(533), 'NET', { size = 6, weight = 700, color = W }); ti = ti + 1
+  H.text(1, ti, X(716), Y(533), H.rate(net), { size = 6, weight = 700, color = W, alpha = 200 }); ti = ti + 1
+  c:hair(X(699), Y(541), X(744), Y(541), W, 1, 120)
+  c:line(X(699), Y(541), X(699) + (X(744) - X(699)) * H.clamp(math.log(1 + net / 1024) / math.log(1 + 50 * 1024), 0, 1), Y(541), O, 2.4)
   for k = ti, 8 do H.hideText(1, k) end
   if frame < 3 then H.hit(1, 1, CX - R, CY - R, 2 * R, 2 * R, 'Radar: busiest processes, ISS and your position - click: Task Manager') end
   c:flush()

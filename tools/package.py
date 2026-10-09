@@ -64,7 +64,8 @@ def main():
         z.writestr("RMSKIN.ini", rmskin_ini)
         z.writestr("Layouts/Spaceship/Rainmeter.ini", lay)
         for f in sorted(SKINS.rglob("*")):
-            if f.is_dir() or f.name in SKIP or (f.parent.parent.name == "Presets" and f.name != "README.txt"):
+            if f.is_dir() or f.name in SKIP or (f.parent.parent.name == "Presets" and f.name != "README.txt") \
+                    or f.parent.name == "Icons":   # extracted on the user's PC by Scripts/app-icons.ps1
                 continue
             z.write(f, "Skins/Spaceship/" + f.relative_to(SKINS).as_posix())
     data = buf.getvalue()

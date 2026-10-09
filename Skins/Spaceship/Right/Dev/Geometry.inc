@@ -4,16 +4,16 @@
 Module=RightDev
 ModuleConfig=Spaceship\Right\Dev
 WX=2371
-WY=1277
+WY=1290
 WW=138
-WH=114
+WH=128
 DX=#RightDev_DX#
 DY=#RightDev_DY#
 ZoneCount=1
 ; zone 1: R_dev
 Z1=R_dev
 Z1_X=18.33
-Z1_Y=18.35
-Z1_W=101.59
-Z1_H=76.72
-Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)
+Z1_Y=18.1
+Z1_W=103.47
+Z1_H=72.21
+Z1_TM=0.9818;0.1897;0;1;(0.333*#Scale#);(-3.4775*#Scale#)

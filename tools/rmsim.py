@@ -694,6 +694,17 @@ def render_skin(skin, canvas, audit_zones, probs, draw_zone_outlines=False):
             w, h = int(num(skin.opt(name, "W", str(im.width)))), int(num(skin.opt(name, "H", str(im.height))))
             if (w, h) != im.size:
                 im = im.resize((w, h))
+            cm = [skin.opt(name, f"ColorMatrix{i}") for i in range(1, 6)]
+            if any(cm):
+                # Rainmeter / GDI+ colour matrix: [r g b a 1] x M (rows 1-4 = inputs, row 5 = offsets)
+                M = np.eye(5, dtype=np.float32)
+                for i, row in enumerate(cm):
+                    if row:
+                        M[i] = [num(v) for v in row.split(";")][:5]
+                arr = np.asarray(im, dtype=np.float32) / 255
+                vec = np.concatenate([arr, np.ones(arr.shape[:2] + (1,), np.float32)], -1)
+                out = np.clip(vec @ M, 0, 1)[..., :4]
+                im = Image.fromarray((out * 255).astype(np.uint8), "RGBA")
             tint = skin.opt(name, "ImageTint")
             alpha = num(skin.opt(name, "ImageAlpha", "255"), 255)
             if tint or alpha < 255:
@@ -704,7 +715,8 @@ def render_skin(skin, canvas, audit_zones, probs, draw_zone_outlines=False):
                 b = b.point(lambda v: v * tc[2] // 255)
                 a = a.point(lambda v: int(v * tc[3] / 255 * alpha / 255))
                 im = Image.merge("RGBA", (r, g, b, a))
-            canvas.alpha_composite(im, (int(wx + mx), int(wy + my)))
+            (px, py), = tm_apply(tm, [(mx, my)])
+            canvas.alpha_composite(im, (int(wx + px), int(wy + py)))
         else:
             probs.add(skin.config, "meter", f"[{name}] unsupported meter type {mtype}")
 
@@ -953,11 +965,69 @@ def main():
     mock_start = not start_file.exists()
     if mock_start:
         start_file.write_text(MOCK_START)
+    icon_dir = RES / "Icons"
+    mock_icons = not icon_dir.exists()
+    if mock_icons:
+        make_mock_icons(icon_dir)
     try:
         _run(args)
     finally:
         if mock_start:
             start_file.unlink()
+        if mock_icons:
+            for f in icon_dir.glob("*"):
+                f.unlink()
+            icon_dir.rmdir()
+
+
+def make_mock_icons(folder):
+    """stand-ins for Scripts/app-icons.ps1 output (real app icons are extracted on Windows): each app's line
+    icon filled in grey, 128 px, plus the blurred glow silhouette"""
+    from lupa import lua51
+    folder.mkdir()
+    L = lua51.LuaRuntime()
+    icons = L.execute(open(RES / "Scripts" / "icons.lua", encoding="utf-8").read())
+    apps = {}
+    cur = None
+    for line in open(RES / "Apps.ini", encoding="utf-8", errors="replace"):
+        m = re.match(r"\[App\.(.+)\]", line.strip())
+        if m:
+            cur = m.group(1)
+        elif cur and line.startswith("Icon="):
+            apps[cur] = line.split("=", 1)[1].strip()
+    done = []
+    for app, icon in apps.items():
+        prims = icons[icon]
+        if prims is None:
+            continue
+        big = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+        d = ImageDraw.Draw(big)
+        P = lambda x, y: (56 + x * 4, 56 + y * 4)  # noqa: E731
+        for prim in prims.values():
+            v = list(prim.values())
+            kind, nums = v[0], [float(x) for x in v[1:]]
+            pts = [P(nums[i], nums[i + 1]) for i in range(0, len(nums) - 1, 2)]
+            if kind == "p":
+                d.polygon(pts, fill=(120, 120, 120, 255), outline=(255, 255, 255, 255), width=10)
+            elif kind == "l":
+                d.line(pts, fill=(235, 235, 235, 255), width=10, joint="curve")
+            elif kind in ("c", "e", "a"):
+                cx, cy = P(nums[0], nums[1])
+                rx = nums[2] * 4
+                ry = (nums[3] if kind == "e" else (nums[5] if kind == "a" and len(nums) > 5 else nums[2])) * 4
+                if kind == "a":
+                    d.arc([cx - rx, cy - ry, cx + rx, cy + ry], nums[3], nums[4], fill=(235, 235, 235, 255), width=10)
+                else:
+                    d.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=(60, 60, 60, 255) if kind == "c" else None,
+                              outline=(255, 255, 255, 255), width=10)
+        im = big.resize((128, 128), Image.LANCZOS)
+        im.save(folder / f"{app}.png")
+        a = im.split()[3].filter(ImageFilter.GaussianBlur(6))
+        glow = Image.new("RGBA", im.size, (255, 255, 255, 0))
+        glow.putalpha(a.point(lambda x: min(255, int(x * 1.33))))
+        glow.save(folder / f"{app}_glow.png")
+        done.append(app)
+    (folder / "_index.txt").write_text("\n".join(done))
 
 
 def _run(args):

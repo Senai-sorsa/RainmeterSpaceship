@@ -9,7 +9,8 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
 - lit window sills, and side walls with grab handles and blue LED banks;
 - a centre console with a hologram projector well;
 - corrugated floor hoses;
-- panel plating, stencil markings and fine scratches.
+- panel plating, stencil markings and fine scratches;
+- rounded visor cut-offs at all four corners, with blue light bleeding off the rim.
 
 The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, LEDs, strut lights and HUD lines.
 
@@ -57,7 +58,7 @@ If you'd rather use a picture of the ship, an **image mode** cuts the windows ou
 | Four top graphs | CPU (fixed) · two selectable graphs (click the title to change the source) · RAM (fixed) |
 | Side columns, top | Two **category panels** (Rocketry & Aero, Engineering & Analysis): app tabs, a hollow neon wireframe and LAUNCH. Page dots switch the category. |
 | Side columns, middle | Location (LAT/LON) · ship identity card (BLACK-CLOVER specs, uptime, IP) |
-| Side columns, slots 1-8 | Four identical slots per side, mirrored on the right. Each slot is **one app or a category** with its own tab line. Chrome and File Explorer are single apps; the other six are categories. |
+| Side columns, slots 1-8 | Four identical **buttons** per side, mirrored on the right and set in perspective. A single app launches; a category opens a pop-up list of its apps (right-click launches the last one used). Every app shows its **own icon in neon**: the real icon is recoloured from the theme colour to white, with a glow. |
 | Side columns, bottom | Upkeep (Windows Update, winget, antivirus) · dev status (WSL, Ollama, Tailscale) |
 | Centre | Orange target lock on the busiest process · flight HUD (clock, CPU GHz tape, GPU tape, fan/throttle readout, network variometer, **next rocket launch countdown**) · 3D radar sphere (process blips, **ISS position**, your position) |
 | Dash | Storage screen · audio screen (live waveform, volume, media keys) · four info cells either side of the dash arc (temperatures, load, fan · network, ping, Wi-Fi) |

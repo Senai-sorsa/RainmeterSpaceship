@@ -27,35 +27,36 @@ function Update()
   if not animate and frame % 20 ~= 1 then return 0 end
   local c = H.canvas(1)
   local O = H.C.warn
-  local function X(rx) return (rx - 583) * SXR end
-  local function Y(ry) return (ry - 155) * SYR end
-  local cx, cy = X(657), Y(203)
+  -- reticle centred in its zone (the zone is centred on the screen axis); the [n] box and range readout
+  -- keep the reference's offsets from the reticle
+  local z = H.zones[1]
+  local cx, cy = z.w / 2, z.h / 2
+  local function X(rx) return cx + (rx - 657) * SXR end
+  local function Y(ry) return cy + (ry - 203) * SYR end
   local t = frame * 0.05
   local zoom = 1
   if lockAnim > 0 then zoom = 1 + lockAnim / 18 * 0.1; lockAnim = lockAnim - (animate and 1 or 18) end
   local rot = animate and (frame * 1.2) % 360 or 0
-  -- outer ring: two long arcs with gaps (reference), rotating
+  -- reference reticle in peach: a warm haze, four outer arcs with gaps on the diagonals (slowly rotating),
+  -- a thick segmented inner ring (three small gaps) that breathes with the CPU share, and a blue core
+  local P = { 255, 176, 138 }
   local R = 86 * zoom
-  for q = 0, 1 do
-    local a0 = rot + q * 180 + 18
-    c:arc(cx, cy, R, a0, a0 + 144, O, 1.8, 235)
+  for i = 0, 11 do c:fillCircle(cx, cy, R * (1.1 - i * 0.07), O, 3) end
+  for q = 0, 3 do
+    local a0 = rot * 0.4 + q * 90 - 33
+    c:arc(cx, cy, R, a0, a0 + 66, P, 2.4, 240)
   end
-  -- short tick marks in the gaps
-  for q = 0, 1 do
-    local a = math.rad(rot + q * 180)
-    c:line(cx + (R - 7) * math.cos(a), cy + (R - 7) * math.sin(a), cx + (R + 3) * math.cos(a), cy + (R + 3) * math.sin(a), O, 1.6)
-  end
-  -- inner lock ring: thick, breathing, thicker with CPU share
   local pulse = animate and (math.sin(t * 2) * 0.06) or 0
   local r2 = 36 * (1 + pulse) * (zoom > 1 and zoom * 0.9 or 1)
-  -- double lock ring with a blue core (reference)
-  local thick = 4 + 3 * H.clamp(cpu / 50, 0, 1)
-  c:circle(cx, cy, r2, O, thick)
-  c:circle(cx, cy, r2 - thick - 4, H.mix(O, H.C.white, 0.35), thick * 0.7, 230)
-  c:fillCircle(cx, cy, r2 - 2 * thick - 6, { 20, 60, 140 }, 150)
+  local thick = 5 + 3 * H.clamp(cpu / 50, 0, 1)
+  for q = 0, 2 do
+    local a0 = -rot * 0.6 + q * 120 + 8
+    c:arc(cx, cy, r2, a0, a0 + 104, P, thick, 245)
+  end
+  c:fillCircle(cx, cy, r2 - thick - 2, { 20, 60, 140 }, 150)
   c:dot(cx, cy, 3.5, H.C.accent)
   -- [n] box + memory readout
-  local bx0, by0, bx1, by1 = X(597), Y(192), X(608), Y(203)
+  local bx0, by0, bx1, by1 = X(604), Y(192), X(615), Y(203)
   local flash = lockAnim > 0 and (lockAnim % 4 < 2)
   c:rect(bx0, by0, bx1 - bx0, by1 - by0, O, 1.8, flash and 120 or 255)
   H.text(1, 1, (bx0 + bx1) / 2, (by0 + by1) / 2, tostring(rank), { size = 8, weight = 700, align = 'CenterCenter', color = O })

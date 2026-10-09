@@ -4,7 +4,7 @@
 Module=CenterHUD
 ModuleConfig=Spaceship\Center\HUD
 WX=965
-WY=559
+WY=487
 WW=630
 WH=364
 DX=#CenterHUD_DX#
@@ -13,7 +13,7 @@ ZoneCount=1
 ; zone 1: C_hud
 Z1=C_hud
 Z1_X=18.37
-Z1_Y=18.72
+Z1_Y=18.5
 Z1_W=593.26
 Z1_H=327.22
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

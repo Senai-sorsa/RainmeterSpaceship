@@ -34,6 +34,8 @@ def window_mask(feather=1.2):
     d = ImageDraw.Draw(m)
     for w in R.WINDOWS:
         d.polygon([(x * R.SX, y * R.SY) for x, y in w], fill=255)
+    for b in (R.BEZEL_L, R.BEZEL_R):            # the rounded visor corners are hull
+        d.polygon([(x * R.SX, y * R.SY) for x, y in b], fill=0)
     return m.filter(ImageFilter.GaussianBlur(feather)) if feather else m
 
 
@@ -149,6 +151,22 @@ def stencils(base_alpha):
     return layer
 
 
+def highlights():
+    """where the reference's metal is lit: the light colours of the owner's simplified SVG
+    (art/reference-simplified.png), on the hull only, off the HUD, left half mirrored for symmetry -> 0..1"""
+    ref = Image.open(ROOT / "art" / "reference-simplified.png").convert("RGB").resize((CW, CH), Image.NEAREST)
+    a = np.asarray(ref, dtype=np.float32) / 255
+    light = np.clip((a.mean(-1) - 0.30) / 0.45, 0, 1)
+    sat = a.max(-1) - a.min(-1)
+    light *= np.clip(1 - (sat - 0.35) * 4, 0, 1)            # drop saturated HUD colours
+    hull = 1 - np.asarray(window_mask(0), dtype=np.float32) / 255
+    hull = blur(hull, 3) > 0.98                               # stay a little off the glass edge
+    light *= hull * (1 - _busy())
+    half = light[:, : CW // 2]
+    light = np.concatenate([half, half[:, ::-1]], axis=1)
+    return np.clip(blur(light, 5) * 0.8 + blur(light, 22) * 0.6, 0, 1) * 0.35
+
+
 def hull_png(base):
     rgba = np.asarray(base, dtype=np.float32)
     rgb, a = rgba[..., :3] / 255, rgba[..., 3] / 255
@@ -172,14 +190,14 @@ def hull_png(base):
     out += lip[..., None] * np.array([0.10, 0.12, 0.14], np.float32)
     # relief: light from the upper left catches every edge (emboss of the luminance)
     L = blur(lum, 1.2)
-    relief = np.clip((L - np.roll(np.roll(L, 2, 0), 2, 1)) * 1.6, -0.12, 0.12)
-    out = np.clip(out + relief[..., None] * np.array([0.8, 0.9, 1.0], np.float32), 0, 1)
+    relief = np.clip((L - np.roll(np.roll(L, 2, 0), 2, 1)) * 1.0, -0.06, 0.06)
+    out = np.clip(out + relief[..., None] * np.array([0.35, 0.6, 1.0], np.float32), 0, 1)
     # fine scratches: short bright streaks, sparse
-    scr = np.clip(noise(9, 0.6, sx=10, sy=1) - 0.82, 0, 1) * 1.4
-    out = np.clip(out + scr[..., None] * 0.18, 0, 1)
-    # cool rim tint on the brightest metal (reflected sky), dither against banding
-    spec = np.clip((lum - 0.25) * 2.5, 0, 1)[..., None]
-    out = out * (1 - spec * 0.15) + spec * 0.15 * np.array([0.72, 0.84, 0.95], np.float32) * out.max(-1, keepdims=True)
+    scr = np.clip(noise(9, 0.6, sx=10, sy=1) - 0.86, 0, 1) * 1.4
+    out = np.clip(out + scr[..., None] * np.array([0.04, 0.08, 0.14], np.float32), 0, 1)
+    # shine: no grey speculars - a little blue light, only where the reference's metal catches light
+    hi = highlights()
+    out = out + hi[..., None] * np.array([0.10, 0.36, 0.85], np.float32) * 0.55
     out += (np.random.default_rng(5).random(out.shape, dtype=np.float32) - 0.5) / 255 * 1.5
     # windows: fully transparent, soft 1 px edge
     glass = np.asarray(window_mask(0.8), dtype=np.float32) / 255

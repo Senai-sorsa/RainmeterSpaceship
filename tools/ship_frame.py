@@ -189,7 +189,10 @@ def sym_path(layer, pts, spec, closed=False):
 
 # ------------------------------------------------------------------ the ship
 SCREEN = box(0, 0, CW, CH)
-WINDOWS = unary_union([cpoly(w) for w in R.WINDOWS])
+BEZELS = unary_union([cpoly(R.BEZEL_L), cpoly(R.BEZEL_R)])
+# glass = the drawn windows minus the rounded visor bezels at the four corners
+GLASS = [g for w in R.WINDOWS for g in polys_of(cpoly(w).difference(BEZELS)) if g.area > 50]
+WINDOWS = unary_union(GLASS)
 HULL = SCREEN.difference(WINDOWS)
 ZONES = {z["id"]: Polygon(z["quad"]) for z in R.ZONES}
 BUSY = unary_union(list(ZONES.values()) + [Point(*C([l])[0]).buffer(60) for l in R.LIGHTS]).buffer(10)
@@ -227,8 +230,8 @@ def build():
     decor = Layer("Decor")
 
     # ---------------------------------------------------------------- glass
-    for w in R.WINDOWS:
-        glass.path(C(w), "Fill LinearGradient GlassGrad | StrokeWidth 0", True)
+    for g in GLASS:
+        glass.poly(g, "Fill LinearGradient GlassGrad | StrokeWidth 0")
 
     # ---------------------------------------------------------------- hull: silhouette, then shaded members
     hull.poly(HULL, "Fill LinearGradient {G} | StrokeWidth 0",
@@ -297,8 +300,7 @@ def build():
 
     # ---------------------------------------------------------------- window frames: bezel, gasket, rim light, bolts
     light_dir = norm(0, -1.0)
-    for w in R.WINDOWS:
-        wp = cpoly(w)
+    for wp in GLASS:
         outer = wp.buffer(11, join_style=2).exterior
         frames.line(outer.intersection(SCREEN.buffer(-1)), f"Stroke Color {MID},255 | StrokeWidth 18 | StrokeLineJoin Miter")
         frames.line(wp.buffer(19.5, join_style=2).exterior.intersection(SCREEN.buffer(-1)), "Stroke Color 0,0,0,170 | StrokeWidth 2.2 | StrokeLineJoin Miter")
@@ -312,8 +314,8 @@ def build():
             nx, ny = ey, -ex
             lit = 0.3 + 0.7 * max(0.0, -(nx * light_dir[0] + ny * light_dir[1]))
             seg = LineString([(x0, y0), (x1, y1)]).intersection(SCREEN.buffer(-1))
-            frames.line(seg, f"Stroke Color {ACC},{int(22 * lit)} | StrokeWidth 8")
-            frames.line(seg, f"Stroke Color {EDGE},{int(60 + 150 * lit)} | StrokeWidth {1.0 + lit:.1f}")
+            frames.line(seg, f"Stroke Color {ACC},{int(14 * lit)} | StrokeWidth 8")
+            frames.line(seg, f"Stroke Color {EDGE},{int(25 + 70 * lit)} | StrokeWidth {0.8 + 0.6 * lit:.1f}")
         # bolts along the bezel
         ring = wp.buffer(11, join_style=2).exterior
         d = 30.0
@@ -323,7 +325,17 @@ def build():
             if not SCREEN.buffer(-8).contains(p):
                 continue
             frames.ellipse(p.x, p.y, 3.4, 3.4, f"Fill Color {DARK},255 | Stroke Color 0,0,0,200 | StrokeWidth 1")
-            frames.ellipse(p.x - 0.8, p.y - 0.9, 1.4, 1.4, f"Fill Color {EDGE},150 | StrokeWidth 0")
+            frames.ellipse(p.x - 0.8, p.y - 0.9, 1.4, 1.4, f"Fill Color {EDGE},70 | StrokeWidth 0")
+
+    # ---------------------------------------------------------------- visor bezels: the rounded corner cut-offs
+    # baked: a dark rolled lip just outside the rim; live (Accents): blue light bleeding off the rim edge
+    for rim in (C(R.RIM_L), mpts(C(R.RIM_L))):
+        side = -1 if rim[0][0] < CW / 2 else 1
+        frames.path([(x - 10 if side < 0 else x + 10, y) for x, y in rim], f"Stroke Color {DARK},255 | StrokeWidth 20 | StrokeLineJoin Round")
+        frames.path([(x - 4 if side < 0 else x + 4, y) for x, y in rim], f"Stroke Color {MID},255 | StrokeWidth 6 | StrokeLineJoin Round")
+        for w, a in ((40, 10), (22, 22), (10, 50), (4, 120)):
+            frames.path(rim, f"Stroke Color {ACC},{a} | StrokeWidth {w} | StrokeLineJoin Round")
+        frames.path(rim, f"Stroke Color 205,238,255,(#GlowAlpha#*2.4) | StrokeWidth 1.6 | StrokeLineJoin Round")
 
     # ---------------------------------------------------------------- pillar / strut detail
     members = [(R.PILLAR_L, (275.4, 90), (489, 371.5), (0.2, 0.62, 0.86), (0.7, 0.8)),
@@ -498,17 +510,23 @@ def build():
         if glow:
             decor.path(pts, f"Stroke Color 235,250,255,({alpha}*#CoreWhite#*0.8) | StrokeWidth {w * 0.45:.2f} | StrokeLineJoin Round", closed)
 
+    for l in R.CONSOLE_LINES:        # the top console outline (reference: tab trapezoid and both wings)
+        neon(C(l))
     neon(C(R.ARCH))
-    neon(C([(x, y + 22 / R.SY) for x, y in R.ARCH][1:-1]), 1.2, False, 150)
+    for l in R.DASH_LINES:           # parallels and outer diagonals under the arch
+        neon(C(l), 1.3, True, 190)
     # the two dash screens: a lit pane in the theme colour with a bloom edge (glass, not a black box)
+    # (reference: softly lit navy panes - no neon outline, just a faint edge and an inner sheen)
     for (x0, y0, x1, y1) in R.SCREENS:
         pts = C([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
         decor.path(pts, "Fill LinearGradient {G} | StrokeWidth 0", True,
-                   grad(90, (f"{ACC},46", 0), (f"{ACC},22", 0.6), (f"{ACC},34", 1)))
-        neon(pts, 1.3, True, 150, closed=True)
+                   grad(90, ("40,110,200,70", 0), ("30,85,170,52", 0.6), ("40,110,200,64", 1)))
+        decor.path(pts, f"Stroke Color {ACC},55 | StrokeWidth 1.2", True)
+        decor.path([(p[0], p[1]) for p in C([(x0 + 2, y0 + 2), (x1 - 2, y0 + 2)])], "Stroke Color 200,230,255,40 | StrokeWidth 1.5")
     for t in R.TILTED:
-        decor.path(C(t), f"Fill Color {ACC},60 | StrokeWidth 0", True)
-        neon(C(t), 1.3, True, 180, closed=True)
+        decor.path(C(t), "Fill LinearGradient {G} | StrokeWidth 0", True,
+                   grad(90, ("45,115,205,80", 0), ("30,85,170,55", 1)))
+        decor.path(C(t), f"Stroke Color {ACC},60 | StrokeWidth 1.2", True)
         a, b, c, d4 = t
         for i in range(1, 8):
             v = i / 9

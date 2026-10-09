@@ -1,9 +1,11 @@
--- CARGO drawer (O_drawer, 560 x 560): accordion of every category.
+-- CARGO drawer (O_drawer, 560 x 560): accordion of every category, or - opened from a side slot - a pop-up
+-- list of one category's apps (DrawerFocus, set by slot.lua and cleared here once read).
 local H, A
 local open = {}
 local scroll = 0
 local rows = {}
 local idle = 0
+local focus = nil
 local ROWS, RH, TOP = 19, 26, 50
 
 function Initialize()
@@ -12,10 +14,20 @@ function Initialize()
   H.init()
   A.load()
   if A.catOrder[1] then open[A.catOrder[1]] = true end
+  local f = A.getState('DrawerFocus', '')
+  if f ~= '' then
+    A.setState('DrawerFocus', '')
+    if A.cats[f] then focus = f end
+  end
 end
 
 local function build()
   rows = {}
+  if focus then
+    for _, app in ipairs(A.cats[focus].apps) do rows[#rows + 1] = { kind = 'app', app = app } end
+    rows[#rows + 1] = { kind = 'all' }
+    return
+  end
   for _, id in ipairs(A.catOrder) do
     local cat = A.cats[id]
     rows[#rows + 1] = { kind = 'cat', cat = cat }
@@ -38,8 +50,8 @@ function Update()
   -- panel
   c:chamfer(0, 0, z.w, z.h, 18, A1, 1.6, 255, 230)
   c:fillRect(0, 0, z.w, z.h, { 2, 8, 14 }, 170, 0)
-  H.text(1, 1, 20, 12, 'CARGO HOLD', { size = 13, font = H.fontTitle, weight = 700, color = A1 })
-  H.text(1, 2, z.w - 50, 14, #A.catOrder .. ' CATEGORIES', { size = 9, align = 'RightTop', color = D })
+  H.text(1, 1, 20, 12, focus and string.upper(A.cats[focus].name) or 'CARGO HOLD', { size = 13, font = H.fontTitle, weight = 700, color = A1, clip = z.w - 220 })
+  H.text(1, 2, z.w - 50, 14, focus and (#A.cats[focus].apps .. ' APPS') or (#A.catOrder .. ' CATEGORIES'), { size = 9, align = 'RightTop', color = D })
   c:line(20, 42, z.w - 20, 42, D, 1, 200)
   c:line(z.w - 34, 14, z.w - 18, 30, A1, 1.6); c:line(z.w - 18, 14, z.w - 34, 30, A1, 1.6)
   H.hit(1, 1, z.w - 40, 8, 30, 30, 'Close')
@@ -48,7 +60,13 @@ function Update()
     local y = TOP + (r - 1) * RH
     local ti = 2 + r * 2 - 1
     if row then
-      if row.kind == 'cat' then
+      if row.kind ~= 'app' then H.hideImage(1, r) end
+      if row.kind == 'all' then
+        c:hair(20, y + 2, z.w - 40, y + 2, D, 1, 80)
+        H.text(1, ti, 54, y + 6, 'ALL CATEGORIES', { size = 9.5, weight = 700, color = A1 })
+        H.hideText(1, ti + 1)
+        H.hit(1, 1 + r, 20, y, z.w - 40, RH - 3, 'Show every category')
+      elseif row.kind == 'cat' then
         local isOpen = open[row.cat.id]
         c:fillRect(20, y, z.w - 40, RH - 3, H.C.panel, 150)
         c:icon(row.cat.icon, 36, y + RH / 2 - 1, 18, A1, 1.2)
@@ -58,14 +76,17 @@ function Update()
         H.hit(1, 1 + r, 20, y, z.w - 40, RH - 3, isOpen and 'Collapse' or 'Expand')
       else
         local app = row.app
-        c:icon(app.icon, 68, y + RH / 2 - 1, 16, app.missing and D or A1, 1.1)
+        if app.missing or not H.image(1, r, 68, y + RH / 2 - 1, 24, app.id) then
+          H.hideImage(1, r)
+          c:icon(app.icon, 68, y + RH / 2 - 1, 16, app.missing and D or A1, 1.1)
+        end
         H.text(1, ti, 86, y + 4, app.name, { size = 10, color = app.missing and D or T, clip = 280 })
         H.text(1, ti + 1, z.w - 50, y + 5, app.missing and 'NOT FOUND' or app.short, { size = 8.5, align = 'RightTop', color = app.missing and H.C.warn or D })
         c:hair(60, y + RH - 2, z.w - 40, y + RH - 2, D, 1, 50)
         H.hit(1, 1 + r, 50, y, z.w - 90, RH - 2, 'Launch ' .. app.name)
       end
     else
-      H.hideText(1, ti); H.hideText(1, ti + 1); H.hideHit(1, 1 + r)
+      H.hideText(1, ti); H.hideText(1, ti + 1); H.hideHit(1, 1 + r); H.hideImage(1, r)
     end
   end
   if #rows > ROWS then
@@ -82,7 +103,8 @@ function OnClick(zi, k)
   if k == 1 then SKIN:Bang('!DeactivateConfig'); return end
   local row = rows[k - 1 + scroll]
   if not row then return end
-  if row.kind == 'cat' then open[row.cat.id] = not open[row.cat.id]; Update()
+  if row.kind == 'all' then focus = nil; scroll = 0; Update()
+  elseif row.kind == 'cat' then open[row.cat.id] = not open[row.cat.id]; Update()
   else A.launch(row.app); SKIN:Bang('!DeactivateConfig') end
 end
 function OnRightClick(zi, k) end

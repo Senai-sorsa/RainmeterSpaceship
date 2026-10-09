@@ -63,7 +63,8 @@ function Update()
   -- first run / daily Start-menu scan
   if tick == 2 then
     local last = tonumber(H.str('LastAppScan', '0')) or 0
-    if not A.readLines(RES .. 'Data\\StartApps.txt') or os.time() - last > 86400 then Rescan() end
+    if not A.readLines(RES .. 'Data\\StartApps.txt') or os.time() - last > 86400 then Rescan()
+    elseif not A.readLines(RES .. 'Icons\\_index.txt') then StartIcons() end
   end
   if tick % 3600 == 0 then Rescan() end
   return tier
@@ -97,8 +98,20 @@ function Rescan()
   SKIN:Bang('!CommandMeasure', 'mScan', 'Run')
 end
 
+-- with the Start menu known, pull every app's own icon for the neon icons (Scripts\app-icons.ps1);
+-- the group refresh waits for OnIcons, so the extraction is never cut short by a refresh of this skin
+function StartIcons()
+  A.load()
+  if A.writeIconQueue() > 0 then SKIN:Bang('!CommandMeasure', 'mIcons', 'Run'); return true end
+  return false
+end
+
 function OnScan()
   H.save('LastAppScan', os.time(), RES .. 'State.inc')
+  if not StartIcons() then SKIN:Bang('!RefreshGroup', 'Spaceship') end
+end
+
+function OnIcons()
   SKIN:Bang('!RefreshGroup', 'Spaceship')
 end
 

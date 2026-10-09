@@ -4,16 +4,16 @@
 Module=LeftSlot1
 ModuleConfig=Spaceship\Left\Slot1
 WX=51
-WY=715
+WY=712
 WW=435
-WH=163
+WH=167
 DX=#LeftSlot1_DX#
 DY=#LeftSlot1_DY#
 ZoneCount=1
 ; zone 1: L_app1
 Z1=L_app1
 Z1_X=18.08
-Z1_Y=18.43
-Z1_W=398.22
-Z1_H=126.37
-Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)
+Z1_Y=29.32
+Z1_W=398.38
+Z1_H=119.61
+Z1_TM=0.9996;-0.0283;0;1;(0.0073*#Scale#);(0.5119*#Scale#)

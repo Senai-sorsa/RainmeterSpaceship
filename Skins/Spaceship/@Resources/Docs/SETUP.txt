@@ -64,7 +64,9 @@ dGPU light, CARGO drawer, MASTER kill switch, CFG (Control Center).
 
 5. APPS
 -------
-- The Start menu is scanned automatically on first load and every day.
+- The Start menu is scanned automatically on first load and every day. After each scan the
+  Controller extracts every app's own icon (Scripts\app-icons.ps1 -> @Resources\Icons); the HUD
+  shows them recoloured theme colour -> white with a glow. Apps without an icon use a line icon.
 - @Resources\Apps.ini decides what every panel shows. Each of the 8 slots and the 2 top
   panels can be ONE APP or a CATEGORY (categories get a tab line to pick the app).
   Defaults: Slot1 Chrome and Slot5 File Explorer are single apps, the other six slots are
@@ -79,7 +81,9 @@ dGPU light, CARGO drawer, MASTER kill switch, CFG (Control Center).
 -----------------------
 Category panels   click tab = select, click wireframe/LAUNCH = launch, scroll = next app,
                   page dots underneath = switch category
-Slots             click = launch, tabs/scroll = pick app (category slots)
+Slots             app: click = launch
+                  category: click = pop-up list of its apps, right-click = launch the last one,
+                  scroll = change which app is "last"
 Graphs            middle two: click title = next source, right-click = previous
 Target lock       click = next busiest process, right-click = Task Manager
 Location          click = mask digits (for screenshots), right-click = refresh

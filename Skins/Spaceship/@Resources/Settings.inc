@@ -36,9 +36,9 @@ ScanAlpha=14
 UseShipImage=0
 ; hull metal tones baked into Images\hull.png by tools\ship_frame.py: shadow, body, lit ridge, edge highlight
 HullDark=12,16,22
-HullMid=38,47,58
-HullLight=86,101,118
-HullEdge=165,190,215
+HullMid=32,40,52
+HullLight=52,66,86
+HullEdge=90,160,230
 ShipImage=ship.png
 ; neon bloom: glow alpha (0 = off), glow width multiplier, how far line cores whiten (0-1)
 GlowAlpha=52

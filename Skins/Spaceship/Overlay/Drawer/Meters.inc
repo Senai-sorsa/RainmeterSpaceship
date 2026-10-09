@@ -13,6 +13,286 @@ TransformationMatrix=#Z1_TM#
 Group=Zone1 | Draw
 DynamicVariables=1
 
+[G1_1]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_1]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_2]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_2]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_3]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_3]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_4]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_4]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_5]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_5]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_6]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_6]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_7]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_7]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_8]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_8]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_9]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_9]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_10]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_10]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_11]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_11]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_12]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_12]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_13]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_13]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_14]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_14]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_15]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_15]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_16]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_16]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_17]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_17]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_18]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_18]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_19]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_19]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_20]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_20]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
 [T1_1]
 Meter=String
 MeterStyle=sText

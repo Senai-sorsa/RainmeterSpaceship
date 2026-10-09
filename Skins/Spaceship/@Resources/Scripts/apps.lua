@@ -148,6 +148,20 @@ function A.launch(app)
   return true
 end
 
+-- icon extraction queue for Scripts\app-icons.ps1: "id|path" (path = file, or shell:AppsFolder\AppID)
+function A.writeIconQueue()
+  local f = io.open(RES .. 'Data\\IconQueue.txt', 'w')
+  if not f then return 0 end
+  local n = 0
+  for id, app in pairs(A.apps) do
+    local t = app.target
+    if t and t.kind == 'start' then f:write(id .. '|shell:AppsFolder\\' .. t.value .. '\n'); n = n + 1
+    elseif t and t.kind == 'file' then f:write(id .. '|' .. t.value .. '\n'); n = n + 1 end
+  end
+  f:close()
+  return n
+end
+
 -- persistent per-panel selection (State.inc)
 function A.getState(key, default)
   local v = SKIN:GetVariable(key, '')

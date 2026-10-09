@@ -33,6 +33,7 @@ end
 -- Theme + runtime state; call at Initialize and whenever variables may have changed.
 function H.init()
   H.S = num('Scale', 1)
+  H.res = SKIN:GetVariable('@')
   H.tier = num('PerfTier', 0)
   H.hudA = num('HudAlpha', 255)
   H.glowA = num('GlowAlpha', 46)
@@ -349,6 +350,53 @@ function H.hideText(zoneIndex, k)
 end
 
 -- Hit areas ---------------------------------------------------------------------
+-- App icon from @Resources\Icons (made by Scripts\app-icons.ps1): the greyscale icon recoloured from the theme
+-- colour (dark parts) to white (bright parts) with a ColorMatrix, over a blurred glow tinted in the theme colour.
+-- Returns false when there is no icon file, so the caller can draw its line icon instead.
+local iconCache = {}
+function H.hasIcon(id)
+  if not id then return false end
+  if iconCache[id] == nil then
+    local f = io.open(H.res .. 'Icons\\' .. id .. '.png', 'rb')
+    iconCache[id] = f ~= nil
+    if f then f:close() end
+  end
+  return iconCache[id]
+end
+
+function H.image(zoneIndex, k, cx, cy, size, id, alpha)
+  local gm, im = 'G' .. zoneIndex .. '_' .. k, 'I' .. zoneIndex .. '_' .. k
+  if not H.hasIcon(id) then H.set(gm, 'Hidden', '1'); H.set(im, 'Hidden', '1'); return false end
+  local z = H.zones[zoneIndex]
+  local base = H.res .. 'Icons\\' .. id
+  local a = floor((alpha or 255) * (H.hudA or 255) / 255)
+  local A1 = H.C.accent
+  local function place(m, s)
+    H.set(m, 'X', fmt('%.2f', (z.x + cx - s / 2) * H.S))
+    H.set(m, 'Y', fmt('%.2f', (z.y + cy - s / 2) * H.S))
+    H.set(m, 'W', fmt('%.2f', s * H.S)); H.set(m, 'H', fmt('%.2f', s * H.S))
+    H.set(m, 'Hidden', '0')
+  end
+  H.set(gm, 'ImageName', base .. '_glow.png')
+  H.set(gm, 'ImageTint', fmt('%d,%d,%d', A1[1], A1[2], A1[3]))
+  H.set(gm, 'ImageAlpha', tostring(H.tier < 2 and floor(a * 0.8) or 0))
+  place(gm, size * 1.25)
+  local r, g, b = A1[1] / 255, A1[2] / 255, A1[3] / 255
+  H.set(im, 'ImageName', base .. '.png')
+  H.set(im, 'ColorMatrix1', fmt('%.3f;%.3f;%.3f;0;0', 1 - r, 1 - g, 1 - b))
+  H.set(im, 'ColorMatrix2', '0;0;0;0;0')
+  H.set(im, 'ColorMatrix3', '0;0;0;0;0')
+  H.set(im, 'ColorMatrix4', '0;0;0;1;0')
+  H.set(im, 'ColorMatrix5', fmt('%.3f;%.3f;%.3f;0;1', r, g, b))
+  H.set(im, 'ImageAlpha', tostring(a))
+  place(im, size)
+  return true
+end
+
+function H.hideImage(zoneIndex, k)
+  H.set('G' .. zoneIndex .. '_' .. k, 'Hidden', '1'); H.set('I' .. zoneIndex .. '_' .. k, 'Hidden', '1')
+end
+
 function H.hit(zoneIndex, k, x, y, w, h, tip)
   local z = H.zones[zoneIndex]
   local m = 'H' .. zoneIndex .. '_' .. k

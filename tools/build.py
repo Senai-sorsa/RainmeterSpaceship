@@ -43,11 +43,11 @@ SPEC = {
     "Bottom\\Audio": {"texts": [12], "hits": [6]},
     "Bottom\\Strip": {"texts": [4, 4], "hits": [4, 4]},
 }
-SPEC["Overlay\\Drawer"] = {"texts": [44], "hits": [40]}
+SPEC["Overlay\\Drawer"] = {"texts": [44], "hits": [40], "images": [20]}
 SPEC["Overlay\\Control"] = {"texts": [110], "hits": [84]}
 for i in range(1, 9):
     side = "Left" if i <= 4 else "Right"
-    SPEC[f"{side}\\Slot{i}"] = {"texts": [12], "hits": [9]}
+    SPEC[f"{side}\\Slot{i}"] = {"texts": [12], "hits": [9], "images": [1]}
 
 
 def key_of(config):
@@ -125,6 +125,14 @@ def meters_inc(config, g, spec):
             "Shape=Rectangle 0,0,0,0 | Fill Color 0,0,0,0 | StrokeWidth 0",
             f"TransformationMatrix=#Z{n}_TM#", f"Group=Zone{n} | Draw", "DynamicVariables=1", "",
         ]
+    for n, z in enumerate(g["zones"], 1):
+        # app icons: a glow image under each icon image (driven by H.image in lib.lua)
+        for i in range(1, (spec.get("images") or [0] * len(g["zones"]))[n - 1] + 1):
+            for kind in ("G", "I"):
+                out += [
+                    f"[{kind}{n}_{i}]", "Meter=Image", "Hidden=1", "PreserveAspectRatio=1",
+                    f"TransformationMatrix=#Z{n}_TM#", f"Group=Zone{n} | Image", "",
+                ]
     for n, z in enumerate(g["zones"], 1):
         for t in range(1, spec["texts"][n - 1] + 1):
             out += [

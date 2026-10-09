@@ -1,6 +1,6 @@
 -- App slot: one app or a category. Styles copy the reference blocks:
---   row      all eight slots (default): icon, title, status, item row (tabs), stepped underline with
---            number; Mirror=1 flips it for the right column
+--   row      all eight slots (default): a button - icon, name, status / app count, OPEN or LAUNCH hint,
+--            stepped underline; categories open a pop-up app list. Mirror=1 flips it for the right column
 --   compact  left 3   : icon, bracket, small box, number
 --   ship     4 / 8    : ship-style icon over an underline with number
 --   card     right 5  : right-aligned title / subtitle / RN RV rows, icon at right
@@ -73,40 +73,39 @@ function Update()
   for k = 1, 7 do H.hideHit(1, k) end
 
   if style == 'row' then
-    -- one layout for all eight slots (reference weapon rows 1-2); Mirror=1 flips it for the right column.
-    -- Fractions of the zone, measured on the reference row: icon, title, status, item row, stepped underline.
+    -- every slot is one button (no numbering): a single app launches, a category opens its pop-up app list.
+    -- Same layout for all eight; Mirror=1 flips it for the right column. Icons are the apps' own icons in
+    -- neon (theme colour -> white, with glow) when Scripts\app-icons.ps1 has extracted them, else line icons.
     local function MX(f) return mirror and (1 - f) * w or f * w end
-    local LA = mirror and 'RightCenter' or 'LeftCenter'
-    if app then c:icon(app.icon, MX(0.165), Y(0.43), h * 0.6, icol, 1.7) end
-    H.text(1, 8, MX(0.385), Y(0.19), app and app.name or 'UNASSIGNED', { size = 8, weight = 700, align = LA, color = W, clip = X(0.58) })
-    H.text(1, 9, MX(0.385), Y(0.37), st .. (isCat and ('   ' .. entry.cat.short) or ''), { size = 6, weight = 700, align = LA, color = scol, clip = X(0.58) })
-    local ry = Y(0.66)
-    local s0, s1 = mirror and X(0.04) or X(0.385), mirror and X(0.615) or X(0.96)
-    if isCat then
-      local vis = math.min(MAXTABS, #list)
-      local step = (s1 - s0) / MAXTABS
-      for t = 1, MAXTABS do
-        local i = first + t - 1
-        if t <= vis and list[i] then
-          local x = s0 + (t - 1) * step
-          local on = i == sel
-          if on then c:hair(x, ry + 10, x + step - 8, ry + 10, A1, 1.6, 230) end
-          H.text(1, t, x, ry, list[i].short, { size = 5.6, weight = 700, align = 'LeftCenter', color = on and A1 or { 160, 178, 190 }, clip = step - 6 })
-          H.hit(1, t, x, ry - 12, step, 24, list[i].name)
-        else H.hideText(1, t) end
-      end
-    else
-      c:dot(s0 + 4, ry, 3.5, scol)
-      H.text(1, 1, s0 + 12, ry, app and app.short or '', { size = 5.6, weight = 700, align = 'LeftCenter', color = W, clip = (s1 - s0) - 60 })
-      hideAll(2, 5)
-      local px = s1 - 34
-      c:circle(px, ry, 6, W, 1.3); c:line(px, ry - 9, px, ry - 1, W, 1.3)
-      c:line(px + 16, ry + 7, px + 24, ry - 7, W, 1.3)
+    local LA, RA = mirror and 'RightCenter' or 'LeftCenter', mirror and 'LeftCenter' or 'RightCenter'
+    local iconApp = isCat and app or app
+    if not (iconApp and H.image(1, 1, MX(0.14), Y(0.46), h * 0.66, iconApp.id)) then
+      H.hideImage(1, 1)
+      if isCat then c:icon(entry.cat.icon, MX(0.14), Y(0.46), h * 0.6, A1, 1.7)
+      elseif app then c:icon(app.icon, MX(0.14), Y(0.46), h * 0.6, icol, 1.7) end
     end
-    c:poly({ { MX(0.005), Y(0.98) }, { MX(0.327), Y(0.935) }, { MX(0.362), Y(0.806) }, { MX(0.96), Y(0.79) } }, A1, 1.4)
-    c:line(MX(0.913), Y(0.86), MX(0.959), Y(0.86), W, 2.4)
-    H.text(1, 12, MX(0.015), Y(0.86), tostring(slot > 4 and slot - 4 or slot), { size = 7, weight = 700, align = LA, color = W, font = H.fontNum })
-    H.hit(1, 8, 0, 0, w, ry - 14, app and ('Launch ' .. app.name) or 'Unassigned slot')
+    local title = isCat and entry.cat.name or (app and app.name or 'UNASSIGNED')
+    H.text(1, 8, MX(0.30), Y(0.24), title, { size = 8, weight = 700, align = LA, color = W, clip = X(0.62) })
+    local sub
+    if isCat then
+      sub = #list .. ' APPS' .. (app and ('   LAST  ' .. app.short) or '')
+      H.text(1, 9, MX(0.30), Y(0.50), sub, { size = 5.6, weight = 700, align = LA, color = { 160, 178, 190 }, clip = X(0.62) })
+    else
+      H.text(1, 9, MX(0.30), Y(0.50), st, { size = 5.6, weight = 700, align = LA, color = scol, clip = X(0.62) })
+      c:dot(MX(0.30) + (mirror and 6 or -6), Y(0.50), 2.6, scol)
+    end
+    -- action hint on the outer end of the underline: OPEN (category) / LAUNCH (app), with a chevron
+    local hx = MX(0.95)
+    H.text(1, 10, hx + (mirror and 18 or -18), Y(0.72), isCat and 'OPEN' or 'LAUNCH', { size = 5, weight = 700, align = RA, color = A1, alpha = 220 })
+    local cd = mirror and -1 or 1
+    c:poly({ { hx - 6 * cd, Y(0.72) - 6 }, { hx, Y(0.72) }, { hx - 6 * cd, Y(0.72) + 6 } }, A1, 1.5)
+    if isCat then c:poly({ { hx - 12 * cd, Y(0.72) - 6 }, { hx - 6 * cd, Y(0.72) }, { hx - 12 * cd, Y(0.72) + 6 } }, A1, 1.2, 160) end
+    hideAll(1, 7); H.hideText(1, 11); H.hideText(1, 12)
+    -- stepped underline (reference weapon rows)
+    c:poly({ { MX(0.005), Y(0.98) }, { MX(0.327), Y(0.935) }, { MX(0.362), Y(0.84) }, { MX(0.96), Y(0.83) } }, A1, 1.4)
+    for k = 1, 7 do H.hideHit(1, k) end
+    H.hit(1, 8, 0, 0, w, h, isCat and (entry.cat.name .. ' - click: choose an app   right-click: launch ' .. (app and app.name or '') .. '   scroll: change it')
+      or (app and ('Launch ' .. app.name) or 'Unassigned slot'))
 
   elseif style == 'card' then
     if app then c:icon(app.icon, X(0.81), Y(0.44), h * 0.62, icol, 1.7) end
@@ -177,7 +176,18 @@ function Update()
   return 0
 end
 
+local function openPopup()
+  -- the CARGO drawer opens focused on this category (it reads and clears DrawerFocus)
+  A.setState('DrawerFocus', entry.cat.id)
+  SKIN:Bang('!ActivateConfig', 'Spaceship\\Overlay\\Drawer', 'Drawer.ini')
+  SKIN:Bang('!Refresh', 'Spaceship\\Overlay\\Drawer')
+end
+
 function OnClick(zi, k)
+  if style == 'row' and k == 8 then
+    if apps() then openPopup() else local app = current(); if app then A.launch(app) end end
+    return
+  end
   if k <= 5 then choose(first + k - 1)
   elseif k == 6 then choose(sel - 1)
   elseif k == 7 then choose(sel + 1)
@@ -186,6 +196,7 @@ function OnClick(zi, k)
 end
 function OnRightClick(zi, k)
   local list = apps()
+  if style == 'row' and k == 8 then local app = current(); if app then A.launch(app) end; return end
   if k <= 5 and list and list[first + k - 1] then A.launch(list[first + k - 1]) end
 end
 function OnScroll(zi, k, d) choose(sel + d); Update() end

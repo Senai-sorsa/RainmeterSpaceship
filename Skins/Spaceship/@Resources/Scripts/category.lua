@@ -83,7 +83,8 @@ local function drawSchematic(app)
   local sz = math.min(z.w, z.h) * 0.94
   if app then
     H.hideText(2, 1)
-    local col = app.missing and D or A1
+    -- hologram colour: pale ice-cyan like the reference schematics (theme colour pulled toward white)
+    local col = app.missing and D or H.mix(A1, H.C.white, 0.45)
     -- dense wireframe: outer shell, inner shell, offset ghost
     c:icon(app.icon, cx, cy, sz, col, 2.4)
     c:icon(app.icon, cx, cy, sz * 0.86, col, 1.2, 150)

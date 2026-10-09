@@ -5,8 +5,9 @@ local H
 local frame = 0
 local s = { cpu = nil, gpu = nil, load = nil }
 local SXR, SYR = 2560 / 1260, 1600 / 709
-local function X(rx) return (rx - 486) * SXR end
-local function Y(ry) return (ry - 256) * SYR end
+-- zone 484..776 is centred on the screen axis (x = 630); the pipper sits on it
+local function X(rx) return (rx - 484) * SXR end
+local function Y(ry) return (ry - 256) * SYR end  -- reference rows; the zone itself now sits 32 px higher
 
 function Initialize()
   H = dofile(SKIN:GetVariable('@') .. 'Scripts\\lib.lua')
@@ -32,7 +33,7 @@ local function ladder(c, ti, x, side, v, step, ppu, fmt)
   local lx = side < 0 and X(510) or X(750)
   local al = side < 0 and 'RightCenter' or 'LeftCenter'
   H.text(1, ti, lx, Y(268), string.format(fmt, v + step), { size = 7.6, weight = 700, align = al, color = A1 })
-  H.text(1, ti + 1, side < 0 and X(512) or X(752), mid, string.format(fmt, v), { size = 14, weight = 700, align = al, color = A1 })
+  H.text(1, ti + 1, side < 0 and X(512) or X(748), mid, string.format(fmt, v), { size = 14, weight = 700, align = al, color = A1 })
   H.text(1, ti + 2, lx, Y(353), string.format(fmt, math.max(0, v - step)), { size = 7.6, weight = 700, align = al, color = A1 })
   c:line(x - 4, Y(268), x + 4, Y(268), A1, 1.4)
   c:line(x - 4, Y(353), x + 4, Y(353), A1, 1.4)

@@ -13,6 +13,20 @@ TransformationMatrix=#Z1_TM#
 Group=Zone1 | Draw
 DynamicVariables=1
 
+[G1_1]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_1]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
 [T1_1]
 Meter=String
 MeterStyle=sText
