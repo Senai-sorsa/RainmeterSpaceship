@@ -21,7 +21,7 @@ b) Keep Lively Wallpaper running - your animated space background shows through 
 - Keep the HUD on the integrated GPU (so it never wakes the RTX 5070):
   Settings > System > Display > Graphics > Add desktop app > Rainmeter.exe >
   Options > Power saving.
-- Taskbar: the cockpit art runs to the very bottom of the screen and no widget sits in
+- Taskbar: the cockpit stops at the top of the taskbar and no widget sits in
   the taskbar band. Make the taskbar transparent with TranslucentTB (Clear) or turn on
   auto-hide (Settings > Personalization > Taskbar > Taskbar behaviours).
 - Desktop icons sit under the cockpit. Hide them (right-click desktop > View >
@@ -166,6 +166,10 @@ from open-notify.org (every minute while the sphere is visible). Nothing else le
   Apps= list in Apps.ini. HideMissing=0 lists missing apps greyed out instead of hiding them.
 - External monitor: the HUD stays on the laptop's 2560x1600 panel. It hides when that panel isn't
   connected (lid closed) and comes back with it. HomeMonitor / HomeSize in Settings.inc override it.
+- HUD the wrong size / stretched (often with an external monitor at a different scale):
+  right-click Rainmeter.exe > Properties > Compatibility > Change high DPI settings >
+  tick "Override high DPI scaling behavior" > Application, then restart Rainmeter.
+  AutoFit=1 (Settings.inc) also refits the HUD to the laptop panel as Rainmeter sees it.
 - Errors: each module catches its own errors and keeps running. Look for
   "Spaceship error in ..." in Rainmeter > Manage > Log.
 - GPU buttons do nothing: see section 4 (CLI enabled? names right? check Data\llt.log).

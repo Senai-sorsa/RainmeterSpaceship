@@ -206,7 +206,7 @@ local function rowsLayout()
     { 'LAYOUT GUARD', 'Checks every module against the struts, taskbar and each other', { { 'CHECK ALL', function()
       local bad = G.checkAll(Z, offsets())
       say(#bad == 0 and 'LAYOUT OK - NO OVERLAPS' or ('PROBLEM: ' .. bad[1])) end } } },
-    { 'SCALE', string.format('%.2f', sc), { { '-0.05', function() bump('Scale', -0.05, 0.4, 3, nil, true) end }, { '+0.05', function() bump('Scale', 0.05, 0.4, 3, nil, true) end },
+    { 'SCALE', string.format('%.2f', sc), { { '-0.05', function() writeVar('Settings.inc', 'AutoFit', 0); bump('Scale', -0.05, 0.4, 3, nil, true) end }, { '+0.05', function() writeVar('Settings.inc', 'AutoFit', 0); bump('Scale', 0.05, 0.4, 3, nil, true) end },
       { 'AUTO-FIT', function()
         local w, h = tonumber(SKIN:GetVariable('SCREENAREAWIDTH')) or 2560, tonumber(SKIN:GetVariable('SCREENAREAHEIGHT')) or 1600
         local s = math.min(w / 2560, h / 1600)

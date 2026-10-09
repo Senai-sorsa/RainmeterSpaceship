@@ -3,7 +3,7 @@
 AccurateText=1
 DynamicWindowSize=1
 Group=Spaceship
-OnRefreshAction=[!Move "((#WX#+#DX#)*#Scale#+#OriginX#+#MonX#)" "((#WY#+#DY#)*#Scale#+#OriginY#+#MonY#)"][!ZPos -2][!KeepOnScreen 0][!Draggable 0][!SnapEdges 0]
+OnRefreshAction=[!Move "((#WX#+#DX#)*#Scale#+#OriginX#+#MonX#)" "((#WY#+#DY#)*#Scale#+#OriginY#+#MonY#)"][!ZPos "#ZLayer#"][!ZPos -2 "Spaceship\Frame"][!KeepOnScreen 0][!Draggable 0][!SnapEdges 0]
 ContextTitle=Control Center
 ContextAction=[!ToggleConfig "Spaceship\Overlay\Control" "Control.ini"]
 ContextTitle2=App drawer (CARGO)
@@ -14,6 +14,9 @@ ContextTitle4=Refresh HUD
 ContextAction4=[!RefreshGroup Spaceship]
 
 [Variables]
+; z-layer: -2 = on the desktop (modules), 1 = topmost (pop-ups). After any refresh the Frame is pushed
+; back to the bottom so it never covers a module (on-desktop windows stack newest-at-the-back).
+ZLayer=-2
 @IncludeSettings=#@#Settings.inc
 @IncludeHardware=#@#Hardware.inc
 @IncludeState=#@#State.inc

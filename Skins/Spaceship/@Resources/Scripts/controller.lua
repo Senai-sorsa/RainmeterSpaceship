@@ -53,11 +53,29 @@ local function findHome()
   if pin then return mon(pin) end
   local hw, hh = string.match(H.str('HomeSize', '2560x1600'), '(%d+)%s*[xX]%s*(%d+)')
   hw, hh = tonumber(hw) or 2560, tonumber(hh) or 1600
-  for n = 1, 16 do
-    local m = mon(n)
-    if m and m.w == hw and m.h == hh then return m end
+  local mons = {}
+  for n = 1, 16 do mons[#mons + 1] = mon(n) end
+  for _, m in ipairs(mons) do
+    if m.w == hw and m.h == hh then return m end
+  end
+  -- Windows display scaling can make Rainmeter see the panel smaller (2560x1600 at 150% -> 1707x1067):
+  -- accept a monitor with the panel's shape (16:10) and fit the HUD to it
+  for _, m in ipairs(mons) do
+    if math.abs(m.w / m.h - hw / hh) < 0.01 then return m end
   end
   return nil
+end
+
+-- AutoFit=1: scale the 2560x1600 design to the home display as Rainmeter sees it (centred if the shape differs)
+local function fitTo(m)
+  if H.num('AutoFit', 1) ~= 1 then return false end
+  local s = math.min(m.w / 2560, m.h / 1600)
+  local sx = string.format('%.4f', s)
+  local ox, oy = math.floor((m.w - 2560 * s) / 2), math.floor((m.h - 1600 * s) / 2)
+  if math.abs(H.num('Scale', 1) - s) < 0.0005 and H.num('OriginX', 0) == ox and H.num('OriginY', 0) == oy then return false end
+  H.save('Scale', sx); H.save('OriginX', ox); H.save('OriginY', oy)
+  print(string.format('Spaceship: fitted to a %dx%d display (scale %s)', m.w, m.h, sx))
+  return true
 end
 
 local homeHidden = false
@@ -72,7 +90,8 @@ local function checkMonitor()
     end
     return
   end
-  if m.x ~= H.num('MonX', 0) or m.y ~= H.num('MonY', 0) then
+  local refit = fitTo(m)
+  if refit or m.x ~= H.num('MonX', 0) or m.y ~= H.num('MonY', 0) then
     -- the panel moved on the virtual desktop (a monitor was added, removed or made primary): follow it
     H.save('MonX', m.x, RES .. 'State.inc'); H.save('MonY', m.y, RES .. 'State.inc')
     homeHidden = false

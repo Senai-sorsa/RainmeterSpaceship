@@ -28,7 +28,7 @@ def layout_ini(layout):
         lines += [
             f"[Spaceship\\{cfg}]",
             f"Active={0 if overlay else 1}",
-            "AlwaysOnTop=-2",
+            f"AlwaysOnTop={1 if overlay else -2}",
             f"LoadOrder={-10 if cfg == 'Frame' else (10 if overlay else 0)}",
             f"ClickThrough={1 if cfg == 'Frame' else 0}",
             "Draggable=0",
