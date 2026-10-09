@@ -356,7 +356,7 @@ class Skin:
         self.ini, self.config, self.scenario, self.probs = Path(ini), config, scenario, probs
         self.dir = self.ini.parent
         self.vars = {"@": str(RES) + "\\", "CURRENTPATH": str(self.dir) + "\\", "SCREENAREAWIDTH": "2560",
-                     "SCREENAREAHEIGHT": "1600", "WORKAREAWIDTH": "2560", "WORKAREAHEIGHT": "1552",
+                     "SCREENAREAHEIGHT": "1600", "WORKAREAWIDTH": "2560", "WORKAREAHEIGHT": "1552", "WORKAREAX": "0", "WORKAREAY": "0",
                      "CURRENTCONFIG": config, "ROOTCONFIGPATH": str(SKINS) + "\\", "SKINSPATH": str(SKINS.parent) + "\\",
                      "SETTINGSPATH": "/tmp/", "CRLF": "\n",
                      "SCREENAREAX@1": "0", "SCREENAREAY@1": "0", "SCREENAREAWIDTH@1": "2560", "SCREENAREAHEIGHT@1": "1600"}
