@@ -80,6 +80,8 @@ PAIRS = [
     ("L_app4", "R_app4", "side", persp(34, 518, 230, 568), "slot 4", "slot 8"),
     ("L_upkeep", "R_dev", "side", persp(34, 586, 84, 618), "updates / upgrades", "dev status"),
     ("B_storage", "B_audio", "bottom", rq(395, 565, 488, 638), "storage screen", "audio screen"),
+    # the tilted side screens: the upper part of each pane (the rest runs into the taskbar band)
+    ("B_panelL", "B_panelR", "bottom", ((305, 648), (348, 632), (353.0, 658.0), (310.5, 673.6)), "pilot / date / time", "host / OS / display"),
     ("B_stripL", "B_stripR", "bottom", ((428, 660.3), (600, 644.4), (600, 654.9), (428, 670.8)), "info readouts", "info readouts"),
 ]
 GROUPS = {"top": ("top", "top"), "side": ("left", "right"), "bottom": ("bottom", "bottom")}
@@ -179,8 +181,6 @@ def main():
             {"id": f"D_circle{i + 1}", "group": "center", "x": P(cx - 9, 0)[0], "y": P(0, CIRCLE_GLYPH[1] - 9)[1],
              "w": round(18 * SX, 2), "h": round(18 * SY, 2)} for i, cx in enumerate((CIRCLE_GLYPH[0], RW - CIRCLE_GLYPH[0]))
         ] + [
-            {"id": "D_tiltL", "poly": scale(TILTED[0])},
-            {"id": "D_tiltR", "poly": scale(TILTED[1])},
         ],
         "overlays": [
             {"id": "O_drawer", "x": 1000, "y": 240, "w": 560, "h": 560, "content": "CARGO drawer (transient)"},
@@ -206,6 +206,7 @@ def main():
     skins["Left\\Category"] = {"zones": ["L_tabs", "L_category", "L_dots"]}
     skins["Right\\Category"] = {"zones": ["R_tabs", "R_category", "R_dots"]}
     skins["Bottom\\Strip"] = {"zones": ["B_stripL", "B_stripR"]}
+    skins["Bottom\\Panels"] = {"zones": ["B_panelL", "B_panelR"]}
     layout["skins"] = skins
     (ROOT / "layout" / "layout.json").write_text(json.dumps(layout, indent=1))
     print(f"wrote layout.json: {len(ZONES)} zones")

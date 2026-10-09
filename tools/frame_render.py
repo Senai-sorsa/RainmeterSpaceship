@@ -106,9 +106,6 @@ def plating():
             segs.append((P(630 + sx * dx, 0), P(630 + sx * dx, 88)))
     segs.append((P(150, 60), P(1110, 60)))
     # console: horizontal plating bands and a centre spine
-    for y in (420, 455, 625, 668):
-        segs.append((P(400, y), P(860, y)))
-    segs.append((P(630, 395), P(630, 545)))
     # side walls: cuts parallel to the struts' fall line
     for x0 in (120, 260, 380):
         for sx in (-1, 1):
@@ -120,35 +117,6 @@ def plating():
     busy = _busy()
     k = 1 - busy * 0.85
     return np.asarray(groove, dtype=np.float32) / 255 * k, np.asarray(lip, dtype=np.float32) / 255 * k
-
-
-def stencils(base_alpha):
-    """small hull markings (unit codes, caution labels, arrows), placed off the widgets"""
-    from PIL import ImageFont
-    font = ImageFont.truetype(str(ROOT / "Skins" / "Spaceship" / "@Resources" / "Fonts" / "Oxanium-SemiBold.ttf"), 15)
-    small = ImageFont.truetype(str(ROOT / "Skins" / "Spaceship" / "@Resources" / "Fonts" / "B612Mono-Regular.ttf"), 12)
-    layer = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
-    busy = _busy()
-    marks = [  # (ref x, ref y, text, rotation, font) left side; the right side gets its own codes, mirrored placement
-        (300, 120, ("A-01", "A-02"), -55, font), (420, 300, ("LOAD 4.2T", "LOAD 4.2T"), -59, small),
-        (95, 255, ("R-1", "R-2"), 46, font), (300, 590, ("CAUTION  HOT SURFACE", "CAUTION  HOT SURFACE"), 17, small),
-        (210, 40, ("O2 FEED  07", "O2 FEED  08"), 0, small), (470, 690, ("SVC 12", "SVC 13"), 0, small),
-    ]
-    for x, y, texts, rot, f in marks:
-        for side in (0, 1):
-            txt = texts[side]
-            w_, h_ = f.getbbox(txt)[2] + 8, f.getbbox(txt)[3] + 8
-            tile = Image.new("RGBA", (w_, h_), (0, 0, 0, 0))
-            ImageDraw.Draw(tile).text((4, 2), txt, font=f, fill=(185, 200, 212, 120))
-            tile = tile.rotate(rot if side == 0 else -rot, expand=True, resample=Image.BICUBIC)
-            cx = (x if side == 0 else R.RW - x) * R.SX
-            cy = y * R.SY
-            ox, oy = int(cx - tile.width / 2), int(cy - tile.height / 2)
-            x0, y0, x1, y1 = max(0, ox), max(0, oy), min(CW, ox + tile.width), min(CH, oy + tile.height)
-            if x1 <= x0 or y1 <= y0 or busy[y0:y1, x0:x1].max() > 0 or base_alpha[y0:y1, x0:x1].min() < 0.99:
-                continue
-            layer.alpha_composite(tile, (ox, oy))
-    return layer
 
 
 def highlights():
@@ -203,8 +171,6 @@ def hull_png(base):
     glass = np.asarray(window_mask(0.8), dtype=np.float32) / 255
     alpha = np.clip(a * (1 - glass), 0, 1)
     img = Image.fromarray(np.dstack([np.clip(out, 0, 1) * 255, alpha * 255]).astype(np.uint8), "RGBA")
-    marks = stencils(a)
-    img.alpha_composite(marks)
     return img
 
 
@@ -304,8 +270,8 @@ def corners_png():
     from shapely.geometry import Point as SPoint, Polygon as SPolygon
     img = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    bands = [(0, (215, 235, 242)), (2.5, (168, 198, 212)), (6, (104, 136, 154)), (11, (52, 74, 88)),
-             (18, (20, 28, 35)), (26, (6, 8, 11))]
+    bands = [(0, (150, 172, 184)), (1.2, (104, 128, 142)), (3.5, (62, 82, 96)), (8, (30, 42, 52)),
+             (14, (12, 17, 22)), (22, (5, 6, 9))]
     for rim in R.RIMS:
         pts = [(x * R.SX, y * R.SY) for x, y in rim]
         # close the piece well outside the screen so only the rim side gets bands
@@ -351,8 +317,8 @@ def corners_png():
     al = blur(pa[..., 0], 1.3)[..., None]
     arr[..., :3] = np.where(al > 1e-3, rgb / np.maximum(al, 1e-3), 0)
     arr[..., 3] = al[..., 0] * 255
-    bright = np.clip((arr[..., :3].mean(-1) - 150) / 80, 0, 1) * (arr[..., 3] / 255)
-    bloom = blur(bright, 4) * 0.5
+    bright = np.clip((arr[..., :3].mean(-1) - 120) / 80, 0, 1) * (arr[..., 3] / 255)
+    bloom = blur(bright, 4) * 0.25
     arr[..., :3] = np.clip(arr[..., :3] + bloom[..., None] * np.array([120, 160, 180], np.float32) * (arr[..., 3:4] / 255), 0, 255)
     return Image.fromarray(arr.astype(np.uint8), "RGBA")
 

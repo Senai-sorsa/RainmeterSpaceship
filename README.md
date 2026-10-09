@@ -9,9 +9,10 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
 - lit window sills, and side walls with grab handles and blue LED banks;
 - a centre console with a hologram projector well;
 - corrugated floor hoses;
-- panel plating, stencil markings and fine scratches;
+- panel plating and fine scratches;
 - angular visor cut-offs at all four corners, traced from the reference (silver-blue rim, stepped notch);
-- window edges with tube rails, sagging cables, clamps, pale lamp housings and a red sill strip.
+- window edges with tube rails, sagging cables, clamps, pale lamp housings and a red sill strip;
+- smooth A-pillars with long glossy streaks, lower walls with long reflections, a slatted console face and a metal pedestal.
 
 The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, LEDs, strut lights and HUD lines.
 
@@ -63,6 +64,7 @@ If you'd rather use a picture of the ship, an **image mode** cuts the windows ou
 | Side columns, bottom | Upkeep (Windows Update, winget, antivirus) · dev status (WSL, Ollama, Tailscale) |
 | Centre | Orange target lock on the busiest process · flight HUD (clock, CPU GHz tape, GPU tape, fan/throttle readout, network variometer, **next rocket launch countdown**) · 3D radar sphere (process blips, **ISS position**, your position) |
 | Dash | Storage screen · audio screen (live waveform, volume, media keys) · four info cells either side of the dash arc (temperatures, load, fan · network, ping, Wi-Fi) |
+| Tilted corner screens | Angled with their panes: pilot (your Windows user), date and live time on the left; host, Windows and display on the right |
 | Overlays | **CARGO** drawer (every category as a drop-down) · **Control Center** |
 
 ![Control Center](docs/preview-control.jpg)

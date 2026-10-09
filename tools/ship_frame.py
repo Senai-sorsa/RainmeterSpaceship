@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 from shapely.affinity import scale as shp_scale
+from shapely.affinity import translate as shp_translate
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Point, Polygon, box
 from shapely.ops import split, substring, unary_union
 
@@ -289,14 +290,15 @@ def build():
             sym_path(hull, pts, "Stroke Color 0,0,0,190 | StrokeWidth 3")
             sym_path(hull, [(x + sn[0] * 2.5, y + sn[1] * 2.5) for x, y in pts], f"Stroke Color {LIGHT},110 | StrokeWidth 1.2")
 
-    # wall panel cuts across the bands, each with a pair of rivets
-    for along in range(260, 1100, 290):
-        p0, p1 = (e0[0] + sx * along + sn[0] * 34, e0[1] + sy * along + sn[1] * 34), (e0[0] + sx * along + sn[0] * 290, e0[1] + sy * along + sn[1] * 290)
-        seg = LineString([p0, p1]).intersection(wall.buffer(-8)).difference(BUSY)
-        for s_ in lines_of(seg):
+    # long glossy reflections running along the lower wall, parallel to the sill (reference beam highlights)
+    for down, w, al in ((58, 3.0, 34), (66, 1.4, 26), (150, 2.4, 22), (232, 1.6, 16)):
+        ln = LineString([(e0[0] - sx * 200 + sn[0] * down, e0[1] - sy * 200 + sn[1] * down),
+                         (e0[0] + sx * 1400 + sn[0] * down, e0[1] + sy * 1400 + sn[1] * down)])
+        for s_ in lines_of(ln.intersection(wall.buffer(-10)).difference(BUSY)):
+            if s_.length < 120:
+                continue
             pts = list(s_.coords)
-            sym_path(hull, pts, "Stroke Color 0,0,0,180 | StrokeWidth 2.6")
-            sym_path(hull, [(x + 2.2, y) for x, y in pts], f"Stroke Color {LIGHT},70 | StrokeWidth 1")
+            sym_path(hull, pts, f"Stroke Color 140,180,210,{al} | StrokeWidth {w}")
 
     # ---------------------------------------------------------------- window edges (owner's crops): a tube rail along
     # the glass, a thin second rail, two cables sagging between clamps, a red strip under the side-window sills;
@@ -371,7 +373,8 @@ def build():
         band = [(X + tx * (L2 - 12) - nx * W2, Y + ty * (L2 - 12) - ny * W2), (X + tx * L2 - nx * W2, Y + ty * L2 - ny * W2),
                 (X + tx * L2 + nx * W2, Y + ty * L2 + ny * W2), (X + tx * (L2 - 12) + nx * W2, Y + ty * (L2 - 12) + ny * W2)]
         frames.path(band, "Fill Color 12,14,18,255 | StrokeWidth 0", True)
-        frames.ellipse(X, Y, 19, 19, "Fill Color 225,230,236,255 | Stroke Color 30,34,40,255 | StrokeWidth 2")
+        frames.ellipse(X, Y, 23, 23, "Fill Color 30,34,40,255 | StrokeWidth 0")
+        frames.ellipse(X, Y, 20, 20, "Fill Color 0,0,0,0 | Stroke Color 205,212,220,255 | StrokeWidth 6")
         frames.ellipse(X, Y, 12, 12, "Fill Color 6,12,22,255 | Stroke Color 90,100,112,255 | StrokeWidth 1.5")
 
     # ---------------------------------------------------------------- visor bezels: the rounded corner cut-offs
@@ -379,8 +382,16 @@ def build():
     # (the corner pieces themselves are baked by frame_render.corners_png and drawn over the mist)
 
     # ---------------------------------------------------------------- pillar / strut detail
-    members = [(R.PILLAR_L, (279.6, 97), (489, 371.5), (0.2, 0.62, 0.86), (0.7, 0.8)),
-               (R.STRUT_L, (180, 63), (0, 242), (0.3, 0.75), None)]
+    # the A-pillar is a smooth tube in the reference (no seams or vents); only the roof strut keeps its panels
+    members = [(R.STRUT_L, (180, 63), (0, 242), (0.3, 0.75), None)]
+    # glossy streaks running the length of the A-pillar, just off its inner (windscreen) edge
+    inner = LineString(C([(342.3, 104), (500.8, 365.5)]))
+    for off, w, a in ((10, 2.2, 60), (16, 1.2, 38), (30, 1.0, 26)):
+        ln = inner.parallel_offset(off, "left")
+        for side in (0, 1):
+            g = ln if side == 0 else mirror(ln)
+            seg = g.intersection(HULL.buffer(-2)).difference(BUSY)
+            frames.line(seg, f"Stroke Color 150,190,220,{a} | StrokeWidth {w}")
     for pts, a, b, seams, vent in members:
         poly = cpoly(pts).intersection(HULL)
         A, B, ax, n = member_axis(pts, a, b)
@@ -484,16 +495,19 @@ def build():
     spill.ellipse(cx, wy, 150, 26, f"Fill Color {ACC},28 | StrokeWidth 0")
     spill.ellipse(cx, wy, 95, 15, f"Fill Color {ACC},60 | StrokeWidth 0")
     spill.ellipse(cx, wy, 40, 6, "Fill Color 220,250,255,140 | StrokeWidth 0")
-    # hazard chevrons along the cowl corners
-    for x0 in (492, 742):
-        strip = cpoly([(x0, 381), (x0 + 26, 381), (x0 + 26, 390), (x0, 390)])
-        if strip.intersects(BUSY):
-            continue
-        hull.poly(strip, "Fill Color 12,12,10,220 | StrokeWidth 0")
-        for i in range(6):
-            q = Polygon([(x0 * R.SX + i * 9, 390 * R.SY), (x0 * R.SX + i * 9 + 5, 390 * R.SY),
-                         (x0 * R.SX + i * 9 + 13, 381 * R.SY), (x0 * R.SX + i * 9 + 8, 381 * R.SY)]).intersection(strip)
-            hull.poly(q, "Fill Color #ColorWarn#,110 | StrokeWidth 0")
+    # console face: vertical grille slats (reference), then the metal pedestal under the arch
+    gx0, gx1 = 515 * R.SX, 745 * R.SX
+    x = gx0
+    while x <= gx1:
+        seg = LineString([(x, 400 * R.SY), (x, 600 * R.SY)]).intersection(CONSOLE.buffer(-14))
+        frames.line(seg, "Stroke Color 0,0,0,150 | StrokeWidth 2.2")
+        frames.line(shp_translate(seg, 2, 0), f"Stroke Color {LIGHT},40 | StrokeWidth 1")
+        x += 11
+    ped = [(612, 709), (614, 662), (622, 652), (638, 652), (646, 662), (648, 709)]
+    hull.poly(cpoly(ped), "Fill LinearGradient {G} | Stroke Color 0,0,0,230 | StrokeWidth 2",
+              grad(0, ("18,22,28,255", 0), ("88,104,120,255", 0.35), ("150,170,186,255", 0.5), ("70,84,98,255", 0.7), ("16,20,26,255", 1)))
+    hull.path(C([(622, 653), (638, 653)]), "Stroke Color 190,215,230,120 | StrokeWidth 2")
+    hull.path(C([(630, 655), (630, 709)]), "Stroke Color 0,0,0,120 | StrokeWidth 2")
 
     # ---------------------------------------------------------------- corrugated hoses along the floor
     def hose(pts, width):
@@ -564,14 +578,6 @@ def build():
         decor.path(C(t), "Fill LinearGradient {G} | StrokeWidth 0", True,
                    grad(90, ("45,115,205,80", 0), ("30,85,170,55", 1)))
         decor.path(C(t), f"Stroke Color {ACC},60 | StrokeWidth 1.2", True)
-        a, b, c, d4 = t
-        for i in range(1, 8):
-            v = i / 9
-            l0 = (a[0] + (d4[0] - a[0]) * v, a[1] + (d4[1] - a[1]) * v)
-            r0 = (b[0] + (c[0] - b[0]) * v, b[1] + (c[1] - b[1]) * v)
-            ww = 0.35 + 0.08 * ((i * 37) % 7)
-            neon(C([(l0[0] + (r0[0] - l0[0]) * 0.15, l0[1] + (r0[1] - l0[1]) * 0.15),
-                    (l0[0] + (r0[0] - l0[0]) * (0.15 + ww), l0[1] + (r0[1] - l0[1]) * (0.15 + ww))]), 1, False, 140)
     for (x, y) in R.GLYPHS:
         s = 7
         neon(C([(x - s, y - 3), (x - s, y - s), (x - 3, y - s)]), 1.5)

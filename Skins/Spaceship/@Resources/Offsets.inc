@@ -64,3 +64,5 @@ OverlayDrawer_DX=0
 OverlayDrawer_DY=0
 OverlayControl_DX=0
 OverlayControl_DY=0
+BottomPanels_DX=0
+BottomPanels_DY=0

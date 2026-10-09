@@ -35,5 +35,6 @@ return {
     { key = "BottomStorage", file = "Storage.ini", name = "BOTTOM STORAGE", config = "Spaceship\\Bottom\\Storage", zones = { { {802.54, 1275.04}, {991.49, 1275.04}, {991.49, 1439.77}, {802.54, 1439.77} } } },
     { key = "BottomAudio", file = "Audio.ini", name = "BOTTOM AUDIO", config = "Spaceship\\Bottom\\Audio", zones = { { {1568.51, 1275.04}, {1757.46, 1275.04}, {1757.46, 1439.77}, {1568.51, 1439.77} } } },
     { key = "BottomStrip", file = "Strip.ini", name = "BOTTOM STRIP", config = "Spaceship\\Bottom\\Strip", zones = { { {869.59, 1490.1}, {1219.05, 1454.22}, {1219.05, 1477.91}, {869.59, 1513.79} }, { {1340.95, 1454.22}, {1690.41, 1490.1}, {1690.41, 1513.79}, {1340.95, 1477.91} } } },
+    { key = "BottomPanels", file = "Panels.ini", name = "BOTTOM PANELS", config = "Spaceship\\Bottom\\Panels", zones = { { {619.68, 1462.34}, {707.05, 1426.23}, {718.23, 1484}, {630.86, 1520.11} }, { {1852.95, 1426.23}, {1940.32, 1462.34}, {1930.16, 1521.02}, {1842.79, 1484.91} } } },
   },
 }
