@@ -17,6 +17,9 @@ HomeSize=2560x1600
 ; AutoFit=1 rescales the HUD to the home display as Rainmeter sees it (Windows display scaling can make
 ; it look smaller to Rainmeter). 0 keeps Scale / OriginX / OriginY exactly as set.
 AutoFit=1
+; 1 = the cockpit continues behind a transparent taskbar (it can show over the taskbar if Windows reorders
+; desktop windows); 0 = it stops at the top of the taskbar
+FrameBehindTaskbar=0
 
 ; ---------------------------------------------------------------- theme
 ColorAccent=0,210,255
