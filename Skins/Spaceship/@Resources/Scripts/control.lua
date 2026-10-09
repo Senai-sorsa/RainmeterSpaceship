@@ -343,7 +343,8 @@ function Update()
   c:fillPoly({ { 24, 0 }, { z.w, 0 }, { z.w, z.h - 24 }, { z.w - 24, z.h }, { 0, z.h }, { 0, 24 } }, { 3, 9, 16 }, 238)
   c:chamfer(0, 0, z.w, z.h, 24, A1, 1.6)
   H.text(1, 1, 28, 18, 'CONTROL CENTER', { size = 16, font = H.fontTitle, weight = 700, color = A1 })
-  H.text(1, 2, 330, 24, 'SPACESHIP HUD  /  ' .. H.str('DeviceName', ''), { size = 10, color = D })
+  -- subtitle right-aligned before the close button, so it can never run into the wide title
+  H.text(1, 2, z.w - 66, 30, 'SPACESHIP HUD  /  ' .. H.str('DeviceName', ''), { size = 10, align = 'RightCenter', color = D, clip = z.w - 560 })
   c:line(22, 62, z.w - 22, 62, D, 1, 200)
   c:line(z.w - 44, 18, z.w - 24, 38, A1, 1.8); c:line(z.w - 24, 18, z.w - 44, 38, A1, 1.8)
   H.hit(1, 1, z.w - 52, 10, 36, 36, 'Close')
@@ -375,19 +376,23 @@ function Update()
       end
       local lx = row[4] and CX + 36 or CX + 8
       H.text(1, tl, lx, y + 4, row[1], { size = 10.5, font = H.fontText, weight = 700, color = T, clip = 260 })
-      local nb = #row[3]
-      local bx0 = CX + CW - nb * (BW + BG)
+      -- buttons sized to their labels (right-aligned), so no label is clipped
+      local bws, total = {}, 0
+      for b, btn in ipairs(row[3]) do bws[b] = math.max(BW, #btn[1] * 11.5 + 22); total = total + bws[b] + BG end
+      local bx0 = CX + CW - total
       H.text(1, tv, lx, y + 23, row[2] or '', { size = 9.5, color = D, clip = bx0 - lx - 10 })
       for b = 1, 4 do
         local hi = 10 + (r - 1) * 4 + b
         local tb = 43 + (r - 1) * 4 + b
         local btn = row[3][b]
         if btn then
-          local bx = bx0 + (b - 1) * (BW + BG)
-          c:fillRect(bx, y + 6, BW, 30, btn[3] and A1 or H.C.panel, btn[3] and 70 or 140)
-          c:rect(bx, y + 6, BW, 30, btn[3] and A1 or D, 1.2)
-          H.text(1, tb, bx + BW / 2, y + 21, btn[1], { size = 9.5, weight = 700, align = 'CenterCenter', color = btn[3] and T or A1, clip = BW - 6 })
-          H.hit(1, hi, bx, y + 6, BW, 30, btn[1])
+          local bx = bx0
+          for q = 1, b - 1 do bx = bx + bws[q] + BG end
+          local bw = bws[b]
+          c:fillRect(bx, y + 6, bw, 30, btn[3] and A1 or H.C.panel, btn[3] and 70 or 140)
+          c:rect(bx, y + 6, bw, 30, btn[3] and A1 or D, 1.2)
+          H.text(1, tb, bx + bw / 2, y + 21, btn[1], { size = 9.5, weight = 700, align = 'CenterCenter', color = btn[3] and T or A1, clip = bw - 6 })
+          H.hit(1, hi, bx, y + 6, bw, 30, btn[1])
           actions[hi] = btn[2]
         else
           H.hideText(1, tb); H.hideHit(1, hi)
