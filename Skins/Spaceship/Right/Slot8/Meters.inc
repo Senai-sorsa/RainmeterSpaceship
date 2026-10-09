@@ -27,6 +27,48 @@ PreserveAspectRatio=1
 TransformationMatrix=#Z1_TM#
 Group=Zone1 | Image
 
+[G1_2]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_2]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_3]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_3]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[G1_4]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
+[I1_4]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Image
+
 [T1_1]
 Meter=String
 MeterStyle=sText

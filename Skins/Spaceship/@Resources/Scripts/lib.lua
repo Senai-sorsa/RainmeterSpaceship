@@ -393,6 +393,22 @@ function H.image(zoneIndex, k, cx, cy, size, id, alpha)
   return true
 end
 
+-- soft light sprite from @Resources\Images (pre-blurred, white + alpha) tinted at runtime; drawn behind the
+-- zone's shapes. cx, cy = centre in zone units, w, h = size.
+function H.sprite(zoneIndex, k, cx, cy, w, h, file, col, alpha)
+  local z = H.zones[zoneIndex]
+  local m = 'S' .. zoneIndex .. '_' .. k
+  H.set(m, 'ImageName', H.res .. 'Images\\' .. file)
+  H.set(m, 'ImageTint', fmt('%d,%d,%d', col[1], col[2], col[3]))
+  H.set(m, 'ImageAlpha', tostring(floor((alpha or 255) * (H.hudA or 255) / 255)))
+  H.set(m, 'X', fmt('%.2f', (z.x + cx - w / 2) * H.S))
+  H.set(m, 'Y', fmt('%.2f', (z.y + cy - h / 2) * H.S))
+  H.set(m, 'W', fmt('%.2f', w * H.S)); H.set(m, 'H', fmt('%.2f', h * H.S))
+  H.set(m, 'Hidden', '0')
+end
+
+function H.hideSprite(zoneIndex, k) H.set('S' .. zoneIndex .. '_' .. k, 'Hidden', '1') end
+
 function H.hideImage(zoneIndex, k)
   H.set('G' .. zoneIndex .. '_' .. k, 'Hidden', '1'); H.set('I' .. zoneIndex .. '_' .. k, 'Hidden', '1')
 end

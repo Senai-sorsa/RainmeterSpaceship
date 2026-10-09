@@ -4,6 +4,13 @@ Meter=Shape
 Shape=Rectangle 0,0,(#WW#*#Scale#),(#WH#*#Scale#) | Fill Color 0,0,0,0 | StrokeWidth 0
 DynamicVariables=1
 
+[S1_1]
+Meter=Image
+Hidden=1
+PreserveAspectRatio=0
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Sprite
+
 [Draw1]
 Meter=Shape
 X=0

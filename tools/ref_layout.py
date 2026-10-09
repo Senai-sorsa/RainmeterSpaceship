@@ -80,7 +80,7 @@ PAIRS = [
     ("L_app4", "R_app4", "side", persp(34, 515, 230, 566), "slot 4", "slot 8"),
     ("L_upkeep", "R_dev", "side", persp(34, 584, 84, 616), "updates / upgrades", "dev status"),
     ("B_storage", "B_audio", "bottom", rq(395, 565, 488, 638), "storage screen", "audio screen"),
-    ("B_stripL", "B_stripR", "bottom", rq(425, 650, 604, 676), "info cells", "info cells"),
+    ("B_stripL", "B_stripR", "bottom", ((428, 660.3), (600, 644.4), (600, 654.9), (428, 670.8)), "info readouts", "info readouts"),
 ]
 GROUPS = {"top": ("top", "top"), "side": ("left", "right"), "bottom": ("bottom", "bottom")}
 
@@ -93,7 +93,8 @@ ZONES += [
     # on the axis (x = 630)
     zone("T_settings", "top", rect(463, 10, 797, 57), "GPU modes + quick settings"),
     zone("T_alert", "top", rect(289, 53, 318, 72), "warning triangle + count"),
-    zone("C_target", "center", rect(567, 120, 693, 216), "orange target lock"),
+    # the target lock roams the upper windscreen (inside the glass, above the flight HUD)
+    zone("C_target", "center", rect(412, 108, 848, 218), "red target lock, roaming"),
     zone("C_hud", "center", rect(484, 224, 776, 369), "speed ladders, pipper, M/S THR"),
     zone("C_sphere", "center", rect(514, 407, 746, 582), "holographic sphere"),
 ]
@@ -101,7 +102,7 @@ ZONES += [
 # ---------------------------------------------------------------- the ship (reference pixels)
 # Windows from the owner's line drawing (art/window-lines-right.png: the right half, mirrored for the left).
 # Drawing px -> reference px: x = 630 + gx * 630/597.7, y = (gy - 2.6) * 709/674.9
-WIN_CENTER = [(333.9, 90.2), (926.1, 90.2), (759.2, 365.5), (500.8, 365.5)]
+WIN_CENTER = [(342.3, 104), (917.7, 104), (759.2, 365.5), (500.8, 365.5)]   # top lowered 14 px (owner)
 WIN_RIGHT = [(1043.1, 89.9), (1260, 303.4), (1260, 554.7), (819.4, 420.2), (782.8, 377.4)]
 WIN_TOP_R = [(1116.5, 36.7), (1197.2, 0), (1260, 104.2), (1260, 181.5)]
 
@@ -120,24 +121,27 @@ def _arc(cx, cy, rx, ry, a0, a1, n=14):
 
 
 # structure between the windows (left side; the right side is mirrored)
-PILLAR_L = [(216.9, 89.9), (333.9, 90.2), (500.8, 365.5), (477.2, 377.4)]       # A-pillar: windscreen | side window
+PILLAR_L = [(216.9, 89.9), (342.3, 104), (500.8, 365.5), (477.2, 377.4)]       # A-pillar: windscreen | side window
 STRUT_L = [(143.5, 36.7), (216.9, 89.9), (0, 303.4), (0, 181.5)]                # roof strut: side window | top window
 SILL_EDGE_L = [(0, 554.7), (440.6, 420.2), (477.2, 377.4)]                      # side-window sill
 PILLAR_R, STRUT_R = mirror(PILLAR_L), mirror(STRUT_L)
-# visor bezel: the rounded cut-off at each screen corner (reference rim), left side; mirrored for the right
-RIM_L = _arc(62, 150, 58, 150, 270, 180, 18) + [(4, 560)] + _arc(140, 560, 136, 149, 180, 90, 18)
-BEZEL_L = [(0, 0)] + RIM_L + [(0, RH)]
-BEZEL_R = mirror(BEZEL_L)
-RIM_R = [(RW - x, y) for x, y in RIM_L]
+# visor bezel: the angular cut-offs at the screen corners, traced from the reference (left side; the right
+# side is mirrored). RIMS are the lit edges, BEZELS the hull pieces outside them. The side edges between
+# the corners stay glass (no rim there).
+RIM_TL = [(50, 0), (38, 38), (25, 56), (14, 75), (7, 95), (2, 115), (0, 128)]
+RIM_BL = [(0, 600), (36, 638), (56, 658), (66, 664), (78, 668), (96, 686), (103, 709)]
+RIMS = [RIM_TL, RIM_BL, [(RW - x, y) for x, y in RIM_TL], [(RW - x, y) for x, y in RIM_BL]]
+BEZELS = [[(0, 0)] + RIM_TL, RIM_BL + [(0, RH)], [(RW, 0)] + RIMS[2], RIMS[3] + [(RW, RH)]]
 LIGHTS = [(358, 200), (902, 200), (232, 498), (1028, 498)]
 PLATES = [(330, 52, 450, 93), (490, 52, 610, 93), (660, 52, 790, 93), (825, 52, 943, 93)]
 SCREENS = [(392, 562, 491, 641), (769, 562, 868, 641)]   # dash screens behind storage / audio (mirrored)
 TILTED = [[(305, 648), (348, 632), (360, 694), (318, 709)], [(955, 648), (912, 632), (900, 694), (942, 709)]]
-ARCH = [(383, 709), (419, 669), (500, 658), (560, 653), (630, 651), (700, 653), (760, 658), (841, 669), (877, 709)]
-# lower dash lines under the arch (reference: the parallels under the cells and the outer diagonals)
+ARCH = [(383, 709), (419, 659), (500, 648), (560, 643), (630, 641), (700, 643), (760, 648), (841, 659), (877, 709)]
+# lower dash lines (reference: the parallel under the cells and the outer diagonals). The parallel sits 16 px
+# under the arch so the info readouts have a clear lane between the two lines.
 DASH_LINES = [
-    [(290, 706), (402, 679), (419, 669)], [(970, 706), (858, 679), (841, 669)],
-    [(424, 683), (520, 671), (630, 668)], [(836, 683), (740, 671), (630, 668)],
+    [(290, 706), (402, 671), (419, 659)], [(970, 706), (858, 671), (841, 659)],
+    [(424, 675), (500, 664), (560, 659), (606, 658)], [(836, 675), (760, 664), (700, 659), (654, 658)],
 ]
 
 # HUD lines that are part of the cockpit glass (decor layer, tinted with the theme colour)

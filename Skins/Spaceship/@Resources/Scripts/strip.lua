@@ -1,4 +1,4 @@
--- Bottom strip: four boxed cells each side of the dash arch, the right side mirrored.
+-- Bottom strip: four readouts each side of the dash arch, in the lane under it, the right side mirrored.
 -- Left: CPU temp, GPU temp, load (the red cell), fan. Right: down, up, ping, Wi-Fi.
 local H
 local SXR, SYR = 2560 / 1260, 1600 / 709
@@ -14,22 +14,20 @@ local function rate(b)
   return string.format('%.0fK', b / 1024)
 end
 
--- four boxed cells per side stepping up toward the centre along the dash arch (reference left strip:
--- cells at x 429 / 474 / 519 / 564, tops 661 / 656 / 654 / 651, 37 x 15); the right side is its mirror
-local CX, CY, CW_, CH_ = { 4, 49, 94, 139 }, { 11, 6, 4, 1 }, 37, 15
+-- readouts sit unboxed in the lane between the dash arch and its lower parallel (the zone follows the arch's
+-- slope), grouped toward the outer ends; the right side is the mirror image
+local STEP, CELLW = 84, 76
 
 local function cells(zi, list, mirror)
   local z = H.zones[zi]
   local c = H.canvas(zi)
+  local y = z.h / 2
   for i, cl in ipairs(list) do
-    local w, h = CW_ * SXR, CH_ * SYR
-    local x0 = mirror and (z.w - (CX[i] + CW_) * SXR) or CX[i] * SXR
-    local y0 = CY[i] * SYR
-    local col = cl[5] and H.C.hi or H.C.white
-    c:rect(x0, y0, w, h, col, 1.3, 210, 4)
-    c:icon(cl[1], x0 + 16, y0 + h / 2, 18, col, 1.2)
-    H.text(zi, i, x0 + 32, y0 + h / 2, cl[2], { size = 6, weight = 700, align = 'LeftCenter', color = col, font = H.fontNum, clip = w - 36 })
-    H.hit(zi, i, x0, y0, w, h, cl[3])
+    local x0 = mirror and (z.w - 4 - (i - 1) * STEP - CELLW) or (4 + (i - 1) * STEP)
+    local col = cl[4] and H.C.hi or H.C.white
+    c:icon(cl[1], x0 + 9, y, 15, cl[4] and H.C.hi or H.C.accent, 1.2)
+    H.text(zi, i, x0 + 20, y, cl[2], { size = 5, weight = 700, align = 'LeftCenter', color = col, font = H.fontNum, clip = CELLW - 22 })
+    H.hit(zi, i, x0, 0, CELLW, z.h, cl[3])
   end
   c:flush()
 end

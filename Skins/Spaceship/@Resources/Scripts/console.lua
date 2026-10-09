@@ -124,9 +124,9 @@ function Update()
   end
   -- transient message between the two groups
   if os.time() - msgAt < 6 and msg ~= '' then
-    H.text(1, 14, RX(630), RY(54), msg, { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn, clip = 150 })
+    H.text(1, 14, RX(630), RY(49), msg, { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn, clip = 150 })
   elseif st.llt == 'missing' then
-    H.text(1, 14, RX(630), RY(54), 'LLT CLI?', { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn })
+    H.text(1, 14, RX(630), RY(49), 'LLT CLI?', { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn })
   else H.hideText(1, 14) end
   H.hit(1, 14, RX(612), RY(50), RX(648) - RX(612), RY(58) - RY(50), 'dGPU: ' .. (st.dgpu ~= '' and st.dgpu or 'unknown') .. ' - click to refresh status')
   c:flush()

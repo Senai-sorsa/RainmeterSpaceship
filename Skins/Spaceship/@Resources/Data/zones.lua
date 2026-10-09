@@ -29,11 +29,11 @@ return {
     { key = "RightSlot7", file = "Slot7.ini", name = "RIGHT SLOT7", config = "Spaceship\\Right\\Slot7", zones = { { {2092.7, 997.67}, {2490.92, 1042.39}, {2490.92, 1161.99}, {2092.7, 1117.27} } } },
     { key = "RightSlot8", file = "Slot8.ini", name = "RIGHT SLOT8", config = "Spaceship\\Right\\Slot8", zones = { { {2092.7, 1131.61}, {2490.92, 1192.79}, {2490.92, 1307.89}, {2092.7, 1246.71} } } },
     { key = "RightDev", file = "Dev.ini", name = "RIGHT DEV", config = "Spaceship\\Right\\Dev", zones = { { {2389.33, 1308.1}, {2490.92, 1327.73}, {2490.92, 1399.94}, {2389.33, 1380.31} } } },
-    { key = "CenterTarget", file = "Target.ini", name = "CENTER TARGET", config = "Spaceship\\Center\\Target", zones = { { {1152, 270.8}, {1408, 270.8}, {1408, 487.45}, {1152, 487.45} } } },
+    { key = "CenterTarget", file = "Target.ini", name = "CENTER TARGET", config = "Spaceship\\Center\\Target", zones = { { {837.08, 243.72}, {1722.92, 243.72}, {1722.92, 491.96}, {837.08, 491.96} } } },
     { key = "CenterHUD", file = "HUD.ini", name = "CENTER HUD", config = "Spaceship\\Center\\HUD", zones = { { {983.37, 505.5}, {1576.63, 505.5}, {1576.63, 832.72}, {983.37, 832.72} } } },
     { key = "CenterSphere", file = "Sphere.ini", name = "CENTER SPHERE", config = "Spaceship\\Center\\Sphere", zones = { { {1044.32, 918.48}, {1515.68, 918.48}, {1515.68, 1313.4}, {1044.32, 1313.4} } } },
     { key = "BottomStorage", file = "Storage.ini", name = "BOTTOM STORAGE", config = "Spaceship\\Bottom\\Storage", zones = { { {802.54, 1275.04}, {991.49, 1275.04}, {991.49, 1439.77}, {802.54, 1439.77} } } },
     { key = "BottomAudio", file = "Audio.ini", name = "BOTTOM AUDIO", config = "Spaceship\\Bottom\\Audio", zones = { { {1568.51, 1275.04}, {1757.46, 1275.04}, {1757.46, 1439.77}, {1568.51, 1439.77} } } },
-    { key = "BottomStrip", file = "Strip.ini", name = "BOTTOM STRIP", config = "Spaceship\\Bottom\\Strip", zones = { { {863.49, 1466.85}, {1227.17, 1466.85}, {1227.17, 1525.53}, {863.49, 1525.53} }, { {1332.83, 1466.85}, {1696.51, 1466.85}, {1696.51, 1525.53}, {1332.83, 1525.53} } } },
+    { key = "BottomStrip", file = "Strip.ini", name = "BOTTOM STRIP", config = "Spaceship\\Bottom\\Strip", zones = { { {869.59, 1490.1}, {1219.05, 1454.22}, {1219.05, 1477.91}, {869.59, 1513.79} }, { {1340.95, 1454.22}, {1690.41, 1490.1}, {1690.41, 1513.79}, {1340.95, 1477.91} } } },
   },
 }

@@ -189,7 +189,7 @@ def sym_path(layer, pts, spec, closed=False):
 
 # ------------------------------------------------------------------ the ship
 SCREEN = box(0, 0, CW, CH)
-BEZELS = unary_union([cpoly(R.BEZEL_L), cpoly(R.BEZEL_R)])
+BEZELS = unary_union([cpoly(b) for b in R.BEZELS])
 # glass = the drawn windows minus the rounded visor bezels at the four corners
 GLASS = [g for w in R.WINDOWS for g in polys_of(cpoly(w).difference(BEZELS)) if g.area > 50]
 WINDOWS = unary_union(GLASS)
@@ -238,11 +238,11 @@ def build():
               grad(90, (f"{DARK},255", 0), (f"{MID},255", 0.5), (f"{DARK},255", 1)))
     left = box(0, 0, CW / 2, CH)
     # ceiling band: darker up top, catching light toward the windscreen
-    ceil = box(0, 0, CW / 2, 92 * R.SY + 2).intersection(HULL).difference(STRUT)
+    ceil = box(0, 0, CW / 2, 106 * R.SY + 2).intersection(HULL).difference(STRUT)
     sym_poly(hull, ceil, "Fill LinearGradient {G} | StrokeWidth 0", 90,
              [(f"{DARK},255", 0), (f"{MID},255", 0.75), (f"{LIGHT},255", 1)])
     # A-pillar and roof strut, shaded as rounded members across their width
-    for pts, a, b in ((R.PILLAR_L, (275.4, 90), (489, 371.5)), (R.STRUT_L, (180, 63), (0, 242))):
+    for pts, a, b in ((R.PILLAR_L, (279.6, 97), (489, 371.5)), (R.STRUT_L, (180, 63), (0, 242))):
         A, B, ax, n = member_axis(pts, a, b)
         g, ang = cpoly(pts).intersection(HULL), math.degrees(math.atan2(n[1], n[0]))
         hull.poly(g, "Fill LinearGradient {G} | StrokeWidth 0", cylinder(ang))
@@ -314,8 +314,8 @@ def build():
             nx, ny = ey, -ex
             lit = 0.3 + 0.7 * max(0.0, -(nx * light_dir[0] + ny * light_dir[1]))
             seg = LineString([(x0, y0), (x1, y1)]).intersection(SCREEN.buffer(-1))
-            frames.line(seg, f"Stroke Color {ACC},{int(14 * lit)} | StrokeWidth 8")
-            frames.line(seg, f"Stroke Color {EDGE},{int(25 + 70 * lit)} | StrokeWidth {0.8 + 0.6 * lit:.1f}")
+            # thin lit lip only; the wide light is the dim neon mist (Images/mist.png)
+            frames.line(seg, f"Stroke Color {EDGE},{int(20 + 50 * lit)} | StrokeWidth {0.8 + 0.5 * lit:.1f}")
         # bolts along the bezel
         ring = wp.buffer(11, join_style=2).exterior
         d = 30.0
@@ -329,16 +329,15 @@ def build():
 
     # ---------------------------------------------------------------- visor bezels: the rounded corner cut-offs
     # baked: a dark rolled lip just outside the rim; live (Accents): blue light bleeding off the rim edge
-    for rim in (C(R.RIM_L), mpts(C(R.RIM_L))):
-        side = -1 if rim[0][0] < CW / 2 else 1
-        frames.path([(x - 10 if side < 0 else x + 10, y) for x, y in rim], f"Stroke Color {DARK},255 | StrokeWidth 20 | StrokeLineJoin Round")
-        frames.path([(x - 4 if side < 0 else x + 4, y) for x, y in rim], f"Stroke Color {MID},255 | StrokeWidth 6 | StrokeLineJoin Round")
-        for w, a in ((40, 10), (22, 22), (10, 50), (4, 120)):
-            frames.path(rim, f"Stroke Color {ACC},{a} | StrokeWidth {w} | StrokeLineJoin Round")
-        frames.path(rim, f"Stroke Color 205,238,255,(#GlowAlpha#*2.4) | StrokeWidth 1.6 | StrokeLineJoin Round")
+    for rim in [C(r) for r in R.RIMS]:
+        out = 1 if rim[0][0] > CW / 2 else -1        # outward = toward the screen edge
+        frames.path([(x + out * 8, y) for x, y in rim], f"Stroke Color {DARK},255 | StrokeWidth 16 | StrokeLineJoin Miter")
+        frames.path([(x + out * 3, y) for x, y in rim], f"Stroke Color {MID},255 | StrokeWidth 5 | StrokeLineJoin Miter")
+        frames.path(rim, f"Stroke Color {ACC},90 | StrokeWidth 3 | StrokeLineJoin Miter")
+        frames.path(rim, "Stroke Color 190,230,255,150 | StrokeWidth 1.2 | StrokeLineJoin Miter")
 
     # ---------------------------------------------------------------- pillar / strut detail
-    members = [(R.PILLAR_L, (275.4, 90), (489, 371.5), (0.2, 0.62, 0.86), (0.7, 0.8)),
+    members = [(R.PILLAR_L, (279.6, 97), (489, 371.5), (0.2, 0.62, 0.86), (0.7, 0.8)),
                (R.STRUT_L, (180, 63), (0, 242), (0.3, 0.75), None)]
     for pts, a, b, seams, vent in members:
         poly = cpoly(pts).intersection(HULL)
@@ -577,6 +576,9 @@ def write_order():
                     note="; the textured hull, pre-rendered by tools/ship_frame.py (windows transparent)\n")
             + image("ShipImage", "#ShipImage#", "#HullAlpha#", "(1-#UseShipImage#)",
                     note="; picture mode (UseShipImage=1): your own cockpit picture, windows cut by tools/image_frame.py\n")
+            + image("Mist", "mist.png", "#MistAlpha#",
+                    note="; neon mist: wide, very dim light bleeding off the window edges and corner cuts (theme colour)\n").replace(
+                        "PreserveAspectRatio=0\n", "PreserveAspectRatio=0\nImageTint=#ColorAccent#\n")
             + "; live, theme-coloured: rim glow + LEDs, HUD light on the dash, strut lights, HUD lines\n"
             "[OrderOver]\nMeasure=Calc\nFormula=0\n" + incs(["Accents", "Spill", "Lights", "Decor"]))
     FRAME_INI.write_text(head + body, newline="\r\n")

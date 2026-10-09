@@ -36,9 +36,9 @@ SPEC = {
     "Right\\SysInfo": {"texts": [8], "hits": [1]},
     "Left\\Upkeep": {"texts": [6], "hits": [3]},
     "Right\\Dev": {"texts": [6], "hits": [3]},
-    "Center\\Target": {"texts": [3], "hits": [1]},
+    "Center\\Target": {"texts": [3], "hits": [1], "sprites": [1]},
     "Center\\HUD": {"texts": [24], "hits": [1]},
-    "Center\\Sphere": {"texts": [8], "hits": [1]},
+    "Center\\Sphere": {"texts": [8], "hits": [1], "sprites": [2]},
     "Bottom\\Storage": {"texts": [14], "hits": [3]},
     "Bottom\\Audio": {"texts": [12], "hits": [6]},
     "Bottom\\Strip": {"texts": [4, 4], "hits": [4, 4]},
@@ -47,7 +47,7 @@ SPEC["Overlay\\Drawer"] = {"texts": [44], "hits": [40], "images": [20]}
 SPEC["Overlay\\Control"] = {"texts": [110], "hits": [84]}
 for i in range(1, 9):
     side = "Left" if i <= 4 else "Right"
-    SPEC[f"{side}\\Slot{i}"] = {"texts": [12], "hits": [9], "images": [1]}
+    SPEC[f"{side}\\Slot{i}"] = {"texts": [12], "hits": [9], "images": [4]}
 
 
 def key_of(config):
@@ -120,6 +120,12 @@ def meters_inc(config, g, spec):
         "",
     ]
     for n, z in enumerate(g["zones"], 1):
+        # soft light sprites (H.sprite in lib.lua) sit behind the zone's shapes
+        for i in range(1, (spec.get("sprites") or [0] * len(g["zones"]))[n - 1] + 1):
+            out += [
+                f"[S{n}_{i}]", "Meter=Image", "Hidden=1", "PreserveAspectRatio=0",
+                f"TransformationMatrix=#Z{n}_TM#", f"Group=Zone{n} | Sprite", "",
+            ]
         out += [
             f"[Draw{n}]", "Meter=Shape", "X=0", "Y=0",
             "Shape=Rectangle 0,0,0,0 | Fill Color 0,0,0,0 | StrokeWidth 0",

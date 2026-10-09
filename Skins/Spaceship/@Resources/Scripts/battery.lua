@@ -43,7 +43,7 @@ function Update()
   end
   -- reference "PWR ----" bar: label on the left, rail rising to the right, fill from the left,
   -- percentage and time-to-limit small above the far end
-  local y = z.h * 0.62
+  local y = z.h * 0.76
   local x0, x1 = 48, z.w
   H.text(1, 1, 0, y, 'PWR', { size = 8.5, weight = 700, align = 'LeftCenter', color = H.C.white })
   c:line(x0, y, x1, y, H.C.white, 1.3, 200)
@@ -51,7 +51,8 @@ function Update()
   c:line(x0, y, x0 + (x1 - x0) * pct / 100, y, low and H.C.alert or (ac and H.C.good or H.C.hi), 2.6)
   local lx = x0 + (x1 - x0) * limit / 100
   c:line(lx, y - 6, lx, y + 3, H.C.white, 1.2, 200)
-  H.text(1, 2, x1, 2, string.format('%d%%  %s', pct, status), { size = 5.2, weight = 700, align = 'RightTop', color = H.C.white, alpha = 200 })
+  -- readout above the start of the rail, clear of the bar's far end and the limit tick
+  H.text(1, 2, x0, 0, string.format('%d%%  %s', pct, status), { size = 4.8, weight = 700, align = 'LeftTop', color = H.C.white, alpha = 210, clip = (x1 - x0) * 0.7 })
   H.hideText(1, 3)
   H.hit(1, 1, 0, 0, z.w, z.h, string.format('Battery %d%% - %s', pct, status))
   c:flush()

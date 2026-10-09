@@ -1,6 +1,6 @@
--- Holographic sphere: one smooth glow with a crisp outer circle, three overlapping rotating rings, and the
--- disc (bright ring through the centre, inner ring, orange sweep, base ring), plus blips on stalks and the
--- "DSP RNGE" box. Centred on the screen axis.
+-- Holographic sphere: one smooth deep-blue sphere (pre-blurred sprite with a brighter limb), flat disks
+-- slicing through it (the main one through the centre with its rim, inner ring and orange sweep), a base
+-- ring, blips on stalks and the "DSP RNGE" box. Centred on the screen axis.
 -- Blips = busiest processes; ISS and your position ride on the rotating globe; the box = network rate.
 local H
 local frame, rot, yaw = 0, 0, 0
@@ -41,7 +41,7 @@ function Update()
   if frame % 20 == 1 then H.refreshTier() end
   local tier = H.tier
   if tier == 3 then
-    if frame % 40 == 1 then local c = H.canvas(1); for k = 1, 8 do H.hideText(1, k) end; c:flush() end
+    if frame % 40 == 1 then local c = H.canvas(1); for k = 1, 8 do H.hideText(1, k) end; H.hideSprite(1, 1); H.hideSprite(1, 2); c:flush() end
     return 0
   end
   local every = ({ [0] = 1, [1] = 3 })[tier] or 100
@@ -50,24 +50,28 @@ function Update()
   yaw = (yaw + rad(0.5) * every) % (2 * math.pi)
   local c = H.canvas(1)
   local A1, W, O = H.C.accent, H.C.white, H.C.warn
-  local deep = H.mix(A1, { 22, 88, 168 }, 0.72)   -- the reference bubble is a deep, fairly even blue
-  -- one smooth glow (many faint layers, no visible steps) and a crisp outer circle
-  for i = 0, 15 do
-    c:fillCircle(CX, CY, R * (1 - i * 0.05), i < 11 and deep or A1, 20 + i)
+  -- one smooth sphere: a pre-blurred body sprite in deep blue with a brighter limb (no stacked rings)
+  local deep = H.mix(A1, { 10, 55, 150 }, 0.8)
+  H.sprite(1, 1, CX, CY, R * 2.12, R * 2.12, 'sphere_body.png', deep, 235)
+  H.sprite(1, 2, CX, CY, R * 2.12, R * 2.12, 'sphere_rim.png', H.mix(A1, W, 0.2), 170)
+  c:circle(CX, CY, R, A1, 1.2, 90)
+  -- disks cutting through the sphere: latitude planes are the sphere's own chords, so they sit inside it
+  local tilt = 0.17 + (tier == 0 and math.sin(rot * math.pi / 180) * 0.015 or 0)
+  for _, d in ipairs({ { -0.38, 70 }, { 0.42, 60 } }) do
+    local dy = R * d[1]
+    local rx = math.sqrt(R * R - dy * dy) * 0.98
+    local pts = H.ellipsePts(CX, CY + dy, rx, rx * tilt, 0, 0, 360, 48)
+    c:fillPoly(pts, A1, 16)
+    c:poly(pts, A1, 1.1, d[2])
   end
-  c:fillCircle(CX - R * 0.22, CY - R * 0.3, R * 0.32, W, 10)
-  c:circle(CX, CY, R, A1, 1.8, 200)
-  -- three overlapping rings, rotating (reference: the large translucent planes inside the bubble)
-  for i = 0, 2 do
-    local pts = H.ellipsePts(CX, CY, R * 0.92, R * 0.24, rot + i * 60, 0, 360, 36)
-    c:fillPoly(pts, A1, 20)
-    c:poly(pts, A1, 1.2, 120)
-  end
-  -- the disc: a bright ring through the centre with its inner ring, and the base ring at the bottom
-  local ey = CY + 34
-  c:poly(H.ellipsePts(CX, ey, 150, 27, 0, 0, 360, 56), W, 2.2, 235)
-  c:poly(H.ellipsePts(CX, ey + 2, 66, 12, 0, 0, 360, 32), W, 1.3, 160)
-  c:poly(H.ellipsePts(CX, ey + 4, 150, 28, 0, rot * 1.5, rot * 1.5 + 55, 14), O, 3, 235)
+  -- the main disk through the centre: filled plane, bright rim, inner ring and the orange sweep
+  local ey = CY + 6
+  local disk = H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, 0, 0, 360, 64)
+  c:fillPoly(disk, H.mix(A1, W, 0.4), 30)
+  c:poly(disk, W, 2.2, 235)
+  c:poly(H.ellipsePts(CX, ey, R * 0.42, R * 0.42 * tilt, 0, 0, 360, 36), W, 1.3, 160)
+  c:poly(H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, 0, rot * 1.5, rot * 1.5 + 55, 14), O, 3, 235)
+  -- base ring under the sphere (the projector's beam)
   c:poly(H.ellipsePts(CX, CY + R * 0.9, R * 0.55, R * 0.1, 0, 0, 360, 40), A1, 1.6, 200)
   -- process blips on stalks
   local threads = math.max(1, H.val('mThreads', 20))
@@ -78,7 +82,7 @@ function Update()
       local share = H.clamp(H.val('mP' .. i, 0) / threads / 30, 0, 1)
       local a = rad(hash(name) + rot * 0.35)
       local r = 0.95 - 0.65 * share
-      local bx, by = CX + 138 * r * cos(a), ey + 25 * r * sin(a)
+      local bx, by = CX + R * 0.9 * r * cos(a), ey + R * 0.9 * tilt * r * sin(a)
       local hgt = 14 + 70 * share
       c:hair(bx, by, bx, by - hgt, W, 1, 160)
       local s2 = i == 1 and 9 or 5

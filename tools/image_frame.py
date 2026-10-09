@@ -39,7 +39,7 @@ def window_mask(w, h, feather):
     sx, sy = w / R.RW, h / R.RH
     for win in R.WINDOWS:
         d.polygon([(x * sx, y * sy) for x, y in win], fill=0)
-    for b in (R.BEZEL_L, R.BEZEL_R):
+    for b in R.BEZELS:
         d.polygon([(x * sx, y * sy) for x, y in b], fill=255)
     if feather > 0:
         m = m.filter(ImageFilter.GaussianBlur(feather))

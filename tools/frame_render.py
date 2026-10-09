@@ -34,7 +34,7 @@ def window_mask(feather=1.2):
     d = ImageDraw.Draw(m)
     for w in R.WINDOWS:
         d.polygon([(x * R.SX, y * R.SY) for x, y in w], fill=255)
-    for b in (R.BEZEL_L, R.BEZEL_R):            # the rounded visor corners are hull
+    for b in R.BEZELS:                          # the visor corner cut-offs are hull
         d.polygon([(x * R.SX, y * R.SY) for x, y in b], fill=0)
     return m.filter(ImageFilter.GaussianBlur(feather)) if feather else m
 
@@ -182,22 +182,22 @@ def hull_png(base):
     # depth: hull falls off toward the screen edges and the floor, like the reference's vignette
     cx, cy = CW / 2, CH * 0.42
     r = np.sqrt(((xx - cx) / (CW * 0.62)) ** 2 + ((yy - cy) / (CH * 0.75)) ** 2)
-    depth = np.clip(1.15 - 0.55 * r, 0.45, 1.05)
+    depth = np.clip(1.0 - 0.6 * r, 0.3, 0.92)
     floor = np.clip(1 - (yy / CH - 0.78) * 1.4, 0.6, 1)
     groove, lip = plating()
     k = (1 + brushed + diag + grime - cav - groove * 0.55) * depth * floor
     out = np.clip(rgb * k[..., None], 0, 1)
-    out += lip[..., None] * np.array([0.10, 0.12, 0.14], np.float32)
+    out += lip[..., None] * np.array([0.02, 0.03, 0.04], np.float32)
     # relief: light from the upper left catches every edge (emboss of the luminance)
     L = blur(lum, 1.2)
-    relief = np.clip((L - np.roll(np.roll(L, 2, 0), 2, 1)) * 1.0, -0.06, 0.06)
+    relief = np.clip((L - np.roll(np.roll(L, 2, 0), 2, 1)) * 1.0, -0.03, 0.02)
     out = np.clip(out + relief[..., None] * np.array([0.35, 0.6, 1.0], np.float32), 0, 1)
     # fine scratches: short bright streaks, sparse
     scr = np.clip(noise(9, 0.6, sx=10, sy=1) - 0.86, 0, 1) * 1.4
-    out = np.clip(out + scr[..., None] * np.array([0.04, 0.08, 0.14], np.float32), 0, 1)
+    out = np.clip(out + scr[..., None] * np.array([0.01, 0.02, 0.035], np.float32), 0, 1)
     # shine: no grey speculars - a little blue light, only where the reference's metal catches light
     hi = highlights()
-    out = out + hi[..., None] * np.array([0.10, 0.36, 0.85], np.float32) * 0.55
+    out = out + hi[..., None] * np.array([0.10, 0.36, 0.85], np.float32) * 0.055
     out += (np.random.default_rng(5).random(out.shape, dtype=np.float32) - 0.5) / 255 * 1.5
     # windows: fully transparent, soft 1 px edge
     glass = np.asarray(window_mask(0.8), dtype=np.float32) / 255
@@ -251,6 +251,50 @@ def shade_png():
     return Image.fromarray(img, "RGBA")
 
 
+def mist_png():
+    """neon mist: the window edges and the corner cuts, blurred very wide and kept very dim. White with an
+    alpha falloff; the Frame tints it with the theme colour (ImageTint) so it follows colour themes."""
+    m = Image.new("L", (CW, CH), 0)
+    d = ImageDraw.Draw(m)
+    for w in R.WINDOWS:
+        pts = [(x * R.SX, y * R.SY) for x, y in w]
+        d.line(pts + [pts[0]], fill=255, width=4)
+    for rim in R.RIMS:
+        d.line([(x * R.SX, y * R.SY) for x, y in rim], fill=255, width=6)
+    a = np.asarray(m, dtype=np.float32) / 255
+    a[:6, :] = a[-6:, :] = 0                    # window sides lying on the screen border are not edges
+    a[:, :6] = a[:, -6:] = 0
+    near, far = blur(a, 14), blur(a, 70)
+    near /= max(1e-6, near.max()); far /= max(1e-6, far.max())
+    alpha = np.clip(near * 0.12 + far * 0.08, 0, 0.16)
+    img = np.dstack([np.full((CH, CW, 3), 255, np.float32), alpha * 255]).astype(np.uint8)
+    return Image.fromarray(img, "RGBA")
+
+
+def sprites():
+    """soft light sprites for the widgets, white with alpha (tinted at runtime with ImageTint):
+    sphere_body - an even, slightly limb-brightened disc with a soft edge (smooth, no rings)
+    sphere_rim  - the bright limb of the sphere, blurred
+    haze        - a wide horizontal haze (target lock glow)"""
+    out = {}
+    n = 512
+    yy, xx = np.mgrid[0:n, 0:n].astype(np.float32)
+    r = np.sqrt((xx - n / 2 + 0.5) ** 2 + (yy - n / 2 + 0.5) ** 2) / (n / 2 * 0.94)
+    body = np.where(r < 1, 0.62 + 0.30 * r ** 3, 0) * np.clip((1.0 - r) / 0.03, 0, 1)
+    body = blur(body.astype(np.float32), 2.5)
+    out["sphere_body.png"] = body
+    rim = np.exp(-((r - 0.985) / 0.035) ** 2) * 0.9
+    out["sphere_rim.png"] = blur(rim.astype(np.float32), 3)
+    hy, hx = np.mgrid[0:256, 0:512].astype(np.float32)
+    haze = np.exp(-(((hx - 256) / 190) ** 2 + ((hy - 128) / 70) ** 2) * 2.2) * 0.85
+    out["haze.png"] = haze
+    for name, a in out.items():
+        h, w = a.shape
+        img = np.dstack([np.full((h, w, 3), 255, np.float32), np.clip(a, 0, 1) * 255]).astype(np.uint8)
+        Image.fromarray(img, "RGBA").save(IMAGES / name, optimize=True)
+    return list(out)
+
+
 def render():
     IMAGES.mkdir(parents=True, exist_ok=True)
     out = {}
@@ -259,7 +303,9 @@ def render():
     glass_fx_png().save(IMAGES / "glass_fx.png", optimize=True)
     scan_png().save(IMAGES / "scan.png", optimize=True)
     shade_png().save(IMAGES / "shade.png", optimize=True)
-    for f in ("hull.png", "window_mask.png", "glass_fx.png", "scan.png", "shade.png"):
+    mist_png().save(IMAGES / "mist.png", optimize=True)
+    sprites()
+    for f in ("hull.png", "window_mask.png", "glass_fx.png", "scan.png", "shade.png", "mist.png"):
         out[f] = round((IMAGES / f).stat().st_size / 1e6, 2)
     return out
 

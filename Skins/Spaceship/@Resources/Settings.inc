@@ -25,6 +25,8 @@ HullAlpha=255
 ShadeAlpha=255
 ; every HUD line and label (40-255)
 HudAlpha=255
+; neon mist off the window edges and corner cuts (0 = off, 255 = full)
+MistAlpha=255
 ; window tint strength in the theme colour (0 = clear glass, 255 = strongest)
 GlassTint=46
 ; faint diagonal reflections on the glass (0 = off)
@@ -35,10 +37,10 @@ ScanAlpha=14
 ; cockpit source: 0 = rendered hull (Images\hull.png, tools\ship_frame.py), 1 = your picture (tools\image_frame.py)
 UseShipImage=0
 ; hull metal tones baked into Images\hull.png by tools\ship_frame.py: shadow, body, lit ridge, edge highlight
-HullDark=12,16,22
-HullMid=32,40,52
-HullLight=52,66,86
-HullEdge=90,160,230
+HullDark=7,10,14
+HullMid=20,26,35
+HullLight=30,39,52
+HullEdge=70,135,200
 ShipImage=ship.png
 ; neon bloom: glow alpha (0 = off), glow width multiplier, how far line cores whiten (0-1)
 GlowAlpha=52

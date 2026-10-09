@@ -78,11 +78,28 @@ function Update()
     -- neon (theme colour -> white, with glow) when Scripts\app-icons.ps1 has extracted them, else line icons.
     local function MX(f) return mirror and (1 - f) * w or f * w end
     local LA, RA = mirror and 'RightCenter' or 'LeftCenter', mirror and 'LeftCenter' or 'RightCenter'
-    local iconApp = isCat and app or app
-    if not (iconApp and H.image(1, 1, MX(0.14), Y(0.46), h * 0.66, iconApp.id)) then
-      H.hideImage(1, 1)
-      if isCat then c:icon(entry.cat.icon, MX(0.14), Y(0.46), h * 0.6, A1, 1.7)
-      elseif app then c:icon(app.icon, MX(0.14), Y(0.46), h * 0.6, icol, 1.7) end
+    local ix, iy = MX(0.14), Y(0.46)
+    if isCat then
+      -- folder emblem: a chamfered frame with corner ticks holding its first four apps in neon (2 x 2)
+      local s2 = h * 0.40
+      c:chamfer(ix - s2, iy - s2, 2 * s2, 2 * s2, s2 * 0.32, A1, 1.4, 220, 60)
+      c:line(ix - s2 - 5, iy - s2 * 0.5, ix - s2 - 5, iy + s2 * 0.5, A1, 1.2, 160)
+      c:line(ix + s2 + 5, iy - s2 * 0.5, ix + s2 + 5, iy + s2 * 0.5, A1, 1.2, 160)
+      for q = 1, 4 do
+        local qa = list[q]
+        local qx = ix + ((q - 1) % 2 == 0 and -1 or 1) * s2 * 0.46
+        local qy = iy + (q <= 2 and -1 or 1) * s2 * 0.46
+        if not (qa and H.image(1, q, qx, qy, s2 * 0.78, qa.id)) then
+          H.hideImage(1, q)
+          if qa then c:icon(qa.icon, qx, qy, s2 * 0.62, A1, 1.2) end
+        end
+      end
+    else
+      for q = 2, 4 do H.hideImage(1, q) end
+      if not (app and H.image(1, 1, ix, iy, h * 0.66, app.id)) then
+        H.hideImage(1, 1)
+        if app then c:icon(app.icon, ix, iy, h * 0.6, icol, 1.7) end
+      end
     end
     local title = isCat and entry.cat.name or (app and app.name or 'UNASSIGNED')
     H.text(1, 8, MX(0.30), Y(0.24), title, { size = 8, weight = 700, align = LA, color = W, clip = X(0.62) })
