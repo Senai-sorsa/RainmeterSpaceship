@@ -1,0 +1,9 @@
+# machine-specific runtime data written by the skins
+Skins/Spaceship/@Resources/Data/StartApps.txt
+Skins/Spaceship/@Resources/Data/HWiNFO.txt
+Skins/Spaceship/@Resources/Data/llt.log
+Skins/Spaceship/@Resources/Presets/*/*.inc
+Skins/Spaceship/@Resources/Presets/*/*.ini
+Skins/Spaceship/@Resources/Presets/*/stamp.txt
+dist/
+__pycache__/

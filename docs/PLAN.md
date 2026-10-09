@@ -2,7 +2,14 @@
 
 A Rainmeter desktop for **Black-clover** (Lenovo Legion, Ryzen AI 9 465 + Radeon 880M, RTX 5070 Laptop 12 GB, 32 GB RAM, 954 GB SSD, one monitor). It is modelled closely on the cockpit reference image. Your animated space wallpaper (Lively) stays behind everything; the cockpit and all HUD widgets sit on top of it.
 
-> **Status:** planning only (revision 2). No skins are built yet.
+> **Status: built (v1.0.0).** All 32 modules, the frame art, the Control Center and the installer are in the repo. See the [README](../README.md) for install steps. This document is the design record.
+> Rev 3 (build) changes:
+> - Screen confirmed at 2560x1600.
+> - Slots 1-8 can each be an app or a category; defaults are Chrome and File Explorer as single apps, the rest as categories.
+> - Window tint now follows the theme colour.
+> - Widgets stay above the taskbar band while the hull runs to the screen bottom.
+> - Added: rocket-launch countdown, ISS on the sphere, and the MASTER kill switch.
+>
 > Rev 2 changes:
 > - Target lock moved onto the reference ring.
 > - Side rings removed; their info moved into the settings strip and sysinfo bar.

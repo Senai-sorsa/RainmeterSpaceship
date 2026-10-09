@@ -1,0 +1,125 @@
+SPACESHIP HUD - SETUP GUIDE
+===========================
+
+Built for BLACK-CLOVER (Lenovo Legion, Ryzen AI 9 465 + Radeon 880M, RTX 5070 Laptop,
+2560 x 1600 165 Hz). Works on other screens via Control Center > LAYOUT > AUTO-FIT.
+
+
+1. INSTALL
+----------
+a) Double-click Spaceship_HUD_x.y.z.rmskin and press Install. It loads the "Spaceship"
+   layout with every module in the right order.
+   (Manual alternative: copy the Spaceship folder into Documents\Rainmeter\Skins, then in
+   Rainmeter > Manage > Layouts load "Spaceship", or activate Frame first and then the rest.)
+b) Keep Lively Wallpaper running - your animated space background shows through the
+   cockpit windows. The windows are tinted in the theme colour (Control Center > THEME >
+   WINDOW TINT, 0 = clear glass).
+
+
+2. WINDOWS SETTINGS (do these once)
+-----------------------------------
+- Keep the HUD on the integrated GPU (so it never wakes the RTX 5070):
+  Settings > System > Display > Graphics > Add desktop app > Rainmeter.exe >
+  Options > Power saving.
+- Taskbar: the cockpit art runs to the very bottom of the screen and no widget sits in
+  the taskbar band. Make the taskbar transparent with TranslucentTB (Clear) or turn on
+  auto-hide (Settings > Personalization > Taskbar > Taskbar behaviours).
+- Desktop icons sit under the cockpit. Hide them (right-click desktop > View >
+  Show desktop icons) - the slots, category panels and CARGO drawer replace them.
+
+
+3. SENSORS (HWiNFO) - temperatures, fans, power, battery rate, SSD
+------------------------------------------------------------------
+1. Open HWiNFO64 in "Sensors-only" mode. Settings (cog) > General: tick
+   "Auto Start" and "Minimize Sensors on Startup" if you like.
+2. In the Sensors window press the cog > tab "HWiNFO Gadget".
+3. Tick "Enable reporting to Gadget".
+4. Select each sensor below and tick "Report value in Gadget":
+      CPU (Tctl/Tdie)              GPU Temperature
+      CPU Package Power            GPU Power (or Total Board Power)
+      CPU Fan / Fan1               GPU Fan / Fan2
+      GPU Clock                    Charge Rate
+      Remaining Capacity           Full Charged Capacity
+      Wear Level                   Drive Temperature
+5. Press OK, then Control Center > SENSORS > DETECT. The HUD maps them automatically.
+   Wrong match? Use the - / + buttons on that row to pick another index.
+Without HWiNFO everything else still works; those readouts show "--".
+
+
+4. GPU MODES (Legion Toolkit)
+-----------------------------
+The top console tabs drive Lenovo Legion Toolkit's command line:
+   ECO     = integrated only (RTX powered off)          no reboot
+   HYBRID  = both (RTX wakes when an app needs it)       no reboot
+   AUTO    = hybrid on AC, integrated only on battery    no reboot
+   dGPU    = discrete only through the MUX               REBOOT - click twice to confirm
+   OFF     = hide / show every HUD module
+Setup: Legion Toolkit > Settings > enable the CLI option. Then check names in Terminal:
+   & "C:\Program Files\LenovoLegionToolkit\llt.exe" feature list
+If a feature or value is named differently on your version, edit the Llt... lines at the
+bottom of @Resources\Settings.inc. Every command is logged to @Resources\Data\llt.log.
+The second row: power mode, refresh rate, 80% charge limit (conservation), graphics tier,
+dGPU light, CARGO drawer, MASTER kill switch, CFG (Control Center).
+
+
+5. APPS
+-------
+- The Start menu is scanned automatically on first load and every day.
+- @Resources\Apps.ini decides what every panel shows. Each of the 8 slots and the 2 top
+  panels can be ONE APP or a CATEGORY (categories get a tab line to pick the app).
+  Defaults: Slot1 Chrome and Slot5 File Explorer are single apps, the other six slots are
+  categories, and the top panels are Rocketry & Aero and Engineering & Analysis.
+- Change assignments without editing: Control Center > APPS > < / > on each row.
+- ANSYS is already listed (Engineering). After installing it: Control Center > APPS > RESCAN.
+- Add any app: copy an [App.x] block in Apps.ini, set Target=start:<Start menu name>,
+  add x to a category's Apps= list, RELOAD.
+
+
+6. CONTROLS CHEAT SHEET
+-----------------------
+Category panels   click tab = select, click wireframe/LAUNCH = launch, scroll = next app,
+                  page dots underneath = switch category
+Slots             click = launch, tabs/scroll = pick app (category slots)
+Graphs            middle two: click title = next source, right-click = previous
+Target lock       click = next busiest process, right-click = Task Manager
+Location          click = mask digits (for screenshots), right-click = refresh
+Storage           click ring = open drive, right-click = WinDirStat
+Audio             click device = next output, scroll on VOL = volume, click VOL = mute,
+                  buttons = previous / play-pause / next
+Any module        right-click > Control Center / App drawer / Edit mode / Refresh
+
+
+7. PERFORMANCE TIERS (automatic)
+--------------------------------
+FULL (GPU < 50%)   everything animated, glow on
+LITE (> 50%, or on battery)   sphere 7 fps, waveform 5 fps
+LOW  (> 75%)       glow off, sphere and waveform frozen
+STEALTH (> 90%, or MASTER)    sphere + audio hidden, minimum work
+It steps down 5 s after crossing a line and back up 20 s after the GPU is 15% lower.
+Thresholds and the battery minimum: Control Center > PERF.
+
+
+8. ADJUSTING THE LAYOUT
+-----------------------
+Control Center > LAYOUT: pick a module, nudge it with -10/-1/+1/+10. The layout guard
+refuses any move that would overlap another module, a cockpit strut or the taskbar band.
+EDIT MODE outlines every zone. PRESETS saves / loads complete setups (with UNDO).
+To redesign the layout itself, edit layout/layout.json in the source repo and run
+tools/build.py and tools/frame_art.py.
+
+
+9. PRIVACY
+----------
+Location uses Windows Location Services if allowed, otherwise an approximate position
+from your public IP via ip-api.com (every 10 min). Turn it off with LocationEnabled=0 in
+Settings.inc. Launch data comes from thespacedevs.com (every 30 min) and the ISS position
+from open-notify.org (every minute while the sphere is visible). Nothing else leaves the PC.
+
+
+10. TROUBLESHOOTING
+-------------------
+- Something blank or misplaced: right-click > Refresh HUD, then Rainmeter > About > Log.
+- Fonts look plain: Rainmeter loads them from @Resources\Fonts on refresh; restart
+  Rainmeter once after installing.
+- An app says NOT FOUND: Control Center > APPS > RESCAN, or fix its Target in Apps.ini.
+- GPU buttons do nothing: see section 4 (CLI enabled? names right? check Data\llt.log).

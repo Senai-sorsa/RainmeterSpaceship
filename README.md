@@ -1,5 +1,88 @@
-"# RainmeterSpaceship" 
+# Spaceship HUD for Rainmeter
 
-Spaceship-cockpit Rainmeter HUD. See [docs/PLAN.md](docs/PLAN.md) for the full design and [docs/layout-preview.png](docs/layout-preview.png) for the zone layout.
+A full-screen starship cockpit for the desktop, closely modelled on a Star Citizen-style canopy view. The cockpit hull, struts and dashboard frame the screen, and **tinted windows look out onto your own animated space wallpaper** (Lively). Every instrument is a live widget:
 
-Check the layout: `python tools/check_layout.py --preview docs/layout-preview.png`
+- system telemetry
+- GPU-mode control for the Legion laptop
+- app launchers that hold a single app or a whole category
+- a 3D radar sphere
+- and more.
+
+![Simulated render of the full HUD](docs/preview.jpg)
+
+*Rendered offline by `tools/rmsim.py` with mock sensor data. The background is a stand-in starfield; on your PC it is your Lively wallpaper.*
+
+## Install
+
+1. Install [Rainmeter](https://www.rainmeter.net/) 4.5 or newer.
+2. Download [`release/Spaceship_HUD_1.0.0.rmskin`](release/Spaceship_HUD_1.0.0.rmskin), double-click it and press **Install**. It loads the `Spaceship` layout.
+3. Follow the one-time steps in [`SETUP.txt`](Skins/Spaceship/@Resources/Docs/SETUP.txt). The same guide opens from Control Center → SENSORS → HOW TO. The steps are:
+   - Set Rainmeter to "Power saving" GPU.
+   - Make the taskbar transparent or auto-hide.
+   - Turn on HWiNFO gadget reporting.
+   - Enable the Legion Toolkit CLI.
+
+## What's where
+
+| Area | Shows |
+|---|---|
+| Top-left / top-right bars | Power draw (W) · battery %, with time to the 80% limit or time to empty |
+| Top console | GPU modes **ECO / HYBRID / AUTO / dGPU / OFF**, plus power mode, refresh rate, 80% charge limit, graphics tier, dGPU light, CARGO drawer, MASTER kill switch and Control Center |
+| Four top graphs | CPU (fixed) · two selectable graphs (click the title to change the source) · RAM (fixed) |
+| Side columns, top | Two **category panels** (Rocketry & Aero, Engineering & Analysis): app tabs, a hollow neon wireframe and LAUNCH. Page dots switch the category. |
+| Side columns, middle | Location (LAT/LON) · ship identity card (BLACK-CLOVER specs, uptime, IP) |
+| Side columns, slots 1-8 | Each slot is **one app or a category** with its own tab line. Chrome and File Explorer are single apps; the other six are categories. |
+| Side columns, bottom | Upkeep (Windows Update, winget, antivirus) · dev status (WSL, Ollama, Tailscale) |
+| Centre | Orange target lock on the busiest process · flight HUD (clock, CPU GHz tape, GPU tape, fan/throttle readout, network variometer, **next rocket launch countdown**) · 3D radar sphere (process blips, **ISS position**, your position) |
+| Dash | Storage screen · audio screen (live waveform, volume, media keys) · info strip along the dash arc |
+| Overlays | **CARGO** drawer (every category as a drop-down) · **Control Center** |
+
+![Control Center](docs/preview-control.jpg)
+
+## Adjusting it (Aurum-style)
+
+The Control Center (the CFG button, or right-click any module) has these tabs:
+
+- **MODULES:** turn any module on or off, and make it click-through.
+- **LAYOUT:** nudge modules. A **layout guard** blocks any move that would overlap another module, a strut or the taskbar band. Also: edit mode, scale and auto-fit.
+- **THEME:** colour presets, window tint, glow.
+- **APPS:** reassign the 2 panels and 8 slots, rescan the Start menu, edit the catalog.
+- **SENSORS:** auto-map HWiNFO sensors.
+- **PERF:** performance-tier thresholds and the MASTER switch.
+- **SYSTEM:** lock, sleep, restart and shut down (with confirmation), and Settings shortcuts.
+- **PRESETS:** six save slots, with **undo**.
+
+Apps live in [`Apps.ini`](Skins/Spaceship/@Resources/Apps.ini). Targets resolve against your Start menu, so apps that aren't installed yet stay hidden until they are. **Ansys** is already listed in Engineering and appears after a RESCAN once it's installed.
+
+## Performance
+
+The HUD lowers its own detail as GPU load rises (**FULL → LITE → LOW → STEALTH**), with hysteresis and a minimum tier on battery:
+
+- The sphere and waveform slow down, then freeze, then hide.
+- The glow passes switch off.
+- Each module is its own skin with its own update rate.
+- Hidden modules stop running entirely.
+- Telemetry uses Windows performance counters, which don't wake the sleeping RTX 5070.
+
+## How it's built
+
+```
+layout/layout.json      single source of truth: zones, curves, struts, decor, taskbar band
+tools/check_layout.py   overlap / safe-area / taskbar checks on the curved shapes (+ preview image)
+tools/frame_art.py      renders the cockpit hull + glass tint mask from the layout
+tools/build.py          writes each module's Geometry.inc / Meters.inc and the guard data
+tools/rmsim.py          offline Rainmeter simulator: runs the real Lua, renders, audits alignment
+tools/package.py        builds the .rmskin installer and the Rainmeter layout
+Skins/Spaceship/        the skin set (Lua in @Resources/Scripts, settings in @Resources/*.inc)
+```
+
+After editing the layout, run: `python tools/build.py && python tools/frame_art.py && python tools/rmsim.py && python tools/package.py`.
+`rmsim` needs `pip install lupa pillow`.
+
+The full design rationale is in [`docs/PLAN.md`](docs/PLAN.md).
+
+## Credits
+
+- Fonts: Rajdhani, Share Tech Mono and Orbitron (SIL Open Font License; the licences are in `@Resources/Fonts`).
+- Ideas were drawn from public Rainmeter work: an F/A-18 cockpit skin (gauges as instruments, a kill switch), Sonder (rocket launches and ISS), Cockpit 1.5 (control panel and rotating target) and Aurum (presets, locks and per-module adjustment).
+- Launch data: [The Space Devs](https://thespacedevs.com/). ISS position: [Open Notify](http://open-notify.org/).

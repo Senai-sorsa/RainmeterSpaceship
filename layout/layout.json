@@ -1,79 +1,832 @@
 {
   "_comment": "Master layout for the Spaceship HUD. Base canvas 2560x1600 (16:10); multiply by #Scale# at runtime. Zones are authored flat, then bent by their group's curve (see 'curves') so the whole HUD reads as curved canopy glass. Each zone's bend is one affine transform, which maps 1:1 onto a Rainmeter TransformationMatrix.",
-  "canvas": { "w": 2560, "h": 1600 },
-  "safe_area": { "inset": 24, "corner_radius": 150 },
+  "canvas": {
+    "w": 2560,
+    "h": 1600
+  },
+  "safe_area": {
+    "inset": 24,
+    "corner_radius": 150
+  },
   "min_gap": 12,
   "decor_gap": 2,
-
   "curves": {
-    "top":    { "type": "arc_x", "center_x": 1280, "half_span": 640, "depth": 30,  "_note": "frown: outer ends of the top console sit lower" },
-    "bottom": { "type": "arc_x", "center_x": 1280, "half_span": 480, "depth": -20, "_note": "smile: outer dash screens rise toward the sides" },
-    "left":   { "type": "wrap_y", "center_y": 700, "half_span": 600, "depth": 28,  "dir": 1,  "tilt": 0.06,  "pivot_x": 280,  "_note": "column wraps around the pilot: top and bottom lean inward, rows dip toward centre" },
-    "right":  { "type": "wrap_y", "center_y": 700, "half_span": 600, "depth": 28,  "dir": -1, "tilt": -0.06, "pivot_x": 2280, "_note": "mirror of left" },
-    "center": { "type": "flat" }
+    "top": {
+      "type": "arc_x",
+      "center_x": 1280,
+      "half_span": 640,
+      "depth": 30,
+      "_note": "frown: outer ends of the top console sit lower"
+    },
+    "bottom": {
+      "type": "arc_x",
+      "center_x": 1280,
+      "half_span": 480,
+      "depth": -20,
+      "_note": "smile: outer dash screens rise toward the sides"
+    },
+    "left": {
+      "type": "wrap_y",
+      "center_y": 700,
+      "half_span": 600,
+      "depth": 28,
+      "dir": 1,
+      "tilt": 0.06,
+      "pivot_x": 280,
+      "_note": "column wraps around the pilot: top and bottom lean inward, rows dip toward centre"
+    },
+    "right": {
+      "type": "wrap_y",
+      "center_y": 700,
+      "half_span": 600,
+      "depth": 28,
+      "dir": -1,
+      "tilt": -0.06,
+      "pivot_x": 2280,
+      "_note": "mirror of left"
+    },
+    "center": {
+      "type": "flat"
+    }
   },
-
   "keepouts": [
-    { "id": "pillar_L", "desc": "Left A-pillar strut",       "poly": [[540,280],[640,280],[990,830],[925,850]] },
-    { "id": "pillar_R", "desc": "Right A-pillar strut",      "poly": [[2020,280],[1920,280],[1570,830],[1635,850]] },
-    { "id": "beam_L",   "desc": "Lower-left console beam",   "poly": [[380,1290],[980,880],[990,925],[400,1335]] },
-    { "id": "beam_R",   "desc": "Lower-right console beam",  "poly": [[2180,1290],[1580,880],[1570,925],[2160,1335]] }
+    {
+      "id": "pillar_L",
+      "desc": "Left A-pillar strut",
+      "poly": [
+        [
+          540,
+          280
+        ],
+        [
+          640,
+          280
+        ],
+        [
+          990,
+          830
+        ],
+        [
+          925,
+          850
+        ]
+      ]
+    },
+    {
+      "id": "pillar_R",
+      "desc": "Right A-pillar strut",
+      "poly": [
+        [
+          2020,
+          280
+        ],
+        [
+          1920,
+          280
+        ],
+        [
+          1570,
+          830
+        ],
+        [
+          1635,
+          850
+        ]
+      ]
+    },
+    {
+      "id": "beam_L",
+      "desc": "Lower-left console beam",
+      "poly": [
+        [
+          380,
+          1290
+        ],
+        [
+          980,
+          880
+        ],
+        [
+          990,
+          925
+        ],
+        [
+          400,
+          1335
+        ]
+      ]
+    },
+    {
+      "id": "beam_R",
+      "desc": "Lower-right console beam",
+      "poly": [
+        [
+          2180,
+          1290
+        ],
+        [
+          1580,
+          880
+        ],
+        [
+          1570,
+          925
+        ],
+        [
+          2160,
+          1335
+        ]
+      ]
+    }
   ],
-
   "zones": [
-    { "id": "T_power",    "group": "top", "x": 680,  "y": 50,  "w": 240, "h": 40,  "content": "Power draw bar (W)" },
-    { "id": "T_settings", "group": "top", "x": 990,  "y": 30,  "w": 580, "h": 104, "content": "GPU modes row + quick-settings row (incl. current perf tier and dGPU state)" },
-    { "id": "T_battery",  "group": "top", "x": 1640, "y": 50,  "w": 240, "h": 40,  "content": "Battery % + time to 80% / to empty" },
-    { "id": "T_alert",    "group": "top", "x": 585,  "y": 120, "w": 40,  "h": 40,  "content": "Warning triangle + count" },
-    { "id": "G1_cpu",     "group": "top", "x": 640,  "y": 150, "w": 280, "h": 80,  "content": "FIXED: CPU history" },
-    { "id": "G2_select",  "group": "top", "x": 960,  "y": 150, "w": 300, "h": 80,  "content": "SELECTABLE graph" },
-    { "id": "G3_select",  "group": "top", "x": 1300, "y": 150, "w": 300, "h": 80,  "content": "SELECTABLE graph" },
-    { "id": "G4_ram",     "group": "top", "x": 1640, "y": 150, "w": 280, "h": 80,  "content": "FIXED: RAM history" },
-
-    { "id": "L_category", "group": "left", "x": 60,  "y": 100,  "w": 440, "h": 400, "content": "Category 1: app-name tabs + hollow neon wireframe + LAUNCH" },
-    { "id": "L_location", "group": "left", "x": 60,  "y": 520,  "w": 440, "h": 130, "content": "LAT / LON / ALT bar" },
-    { "id": "L_dots",     "group": "left", "x": 200, "y": 667,  "w": 160, "h": 20,  "content": "Category page dots" },
-    { "id": "L_app1",     "group": "left", "x": 60,  "y": 700,  "w": 420, "h": 104, "content": "Pinned app 1" },
-    { "id": "L_app2",     "group": "left", "x": 60,  "y": 820,  "w": 420, "h": 104, "content": "Pinned app 2" },
-    { "id": "L_app3",     "group": "left", "x": 60,  "y": 940,  "w": 420, "h": 104, "content": "Pinned app 3" },
-    { "id": "L_app4",     "group": "left", "x": 60,  "y": 1060, "w": 420, "h": 104, "content": "Pinned app 4" },
-    { "id": "L_upkeep",   "group": "left", "x": 80,  "y": 1185, "w": 230, "h": 80,  "content": "Ship-and-counters block: Windows Update pending / winget upgrades / Defender" },
-
-    { "id": "R_category", "group": "right", "x": 2060, "y": 100,  "w": 440, "h": 400, "content": "Category 2: same as L_category" },
-    { "id": "R_sysinfo",  "group": "right", "x": 2060, "y": 520,  "w": 440, "h": 130, "content": "BLACK-CLOVER system info" },
-    { "id": "R_dots",     "group": "right", "x": 2200, "y": 667,  "w": 160, "h": 20,  "content": "Category page dots" },
-    { "id": "R_app1",     "group": "right", "x": 2080, "y": 700,  "w": 420, "h": 104, "content": "Pinned app 5" },
-    { "id": "R_app2",     "group": "right", "x": 2080, "y": 820,  "w": 420, "h": 104, "content": "Pinned app 6" },
-    { "id": "R_app3",     "group": "right", "x": 2080, "y": 940,  "w": 420, "h": 104, "content": "Pinned app 7" },
-    { "id": "R_app4",     "group": "right", "x": 2080, "y": 1060, "w": 420, "h": 104, "content": "Pinned app 8" },
-    { "id": "R_dev",      "group": "right", "x": 2250, "y": 1185, "w": 230, "h": 80,  "content": "Ship-and-counter block: Docker containers / WSL / Ollama" },
-
-    { "id": "C_target",   "group": "center", "x": 1185, "y": 350, "w": 260, "h": 205, "content": "Orange target lock (top process)" },
-    { "id": "C_hud",      "group": "center", "x": 1020, "y": 575, "w": 520, "h": 245, "content": "Flight HUD: pipper + clock/date, CPU-clock tape, GPU-clock tape, fan readout" },
-    { "id": "C_sphere",   "group": "center", "x": 1090, "y": 890, "w": 380, "h": 380, "content": "3D radar sphere" },
-
-    { "id": "B_storage",  "group": "bottom", "x": 760,  "y": 1250, "w": 260, "h": 190, "content": "Storage screen" },
-    { "id": "B_audio",    "group": "bottom", "x": 1540, "y": 1250, "w": 260, "h": 190, "content": "Audio screen" },
-    { "id": "B_strip",    "group": "bottom", "x": 800,  "y": 1480, "w": 960, "h": 80,  "content": "General info strip, drawn on the dash arc (network up/down lives here now)" }
+    {
+      "id": "T_power",
+      "group": "top",
+      "x": 680,
+      "y": 50,
+      "w": 240,
+      "h": 40,
+      "content": "Power draw bar (W)"
+    },
+    {
+      "id": "T_settings",
+      "group": "top",
+      "x": 990,
+      "y": 30,
+      "w": 580,
+      "h": 104,
+      "content": "GPU modes row + quick-settings row (incl. current perf tier and dGPU state)"
+    },
+    {
+      "id": "T_battery",
+      "group": "top",
+      "x": 1640,
+      "y": 50,
+      "w": 240,
+      "h": 40,
+      "content": "Battery % + time to 80% / to empty"
+    },
+    {
+      "id": "T_alert",
+      "group": "top",
+      "x": 585,
+      "y": 120,
+      "w": 40,
+      "h": 40,
+      "content": "Warning triangle + count"
+    },
+    {
+      "id": "G1_cpu",
+      "group": "top",
+      "x": 640,
+      "y": 150,
+      "w": 280,
+      "h": 80,
+      "content": "FIXED: CPU history"
+    },
+    {
+      "id": "G2_select",
+      "group": "top",
+      "x": 960,
+      "y": 150,
+      "w": 300,
+      "h": 80,
+      "content": "SELECTABLE graph"
+    },
+    {
+      "id": "G3_select",
+      "group": "top",
+      "x": 1300,
+      "y": 150,
+      "w": 300,
+      "h": 80,
+      "content": "SELECTABLE graph"
+    },
+    {
+      "id": "G4_ram",
+      "group": "top",
+      "x": 1640,
+      "y": 150,
+      "w": 280,
+      "h": 80,
+      "content": "FIXED: RAM history"
+    },
+    {
+      "id": "L_category",
+      "group": "left",
+      "x": 60,
+      "y": 100,
+      "w": 440,
+      "h": 400,
+      "content": "Category 1: app-name tabs + hollow neon wireframe + LAUNCH"
+    },
+    {
+      "id": "L_location",
+      "group": "left",
+      "x": 60,
+      "y": 520,
+      "w": 440,
+      "h": 130,
+      "content": "LAT / LON / ALT bar"
+    },
+    {
+      "id": "L_dots",
+      "group": "left",
+      "x": 200,
+      "y": 667,
+      "w": 160,
+      "h": 20,
+      "content": "Category page dots"
+    },
+    {
+      "id": "L_app1",
+      "group": "left",
+      "x": 60,
+      "y": 700,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 1"
+    },
+    {
+      "id": "L_app2",
+      "group": "left",
+      "x": 60,
+      "y": 820,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 2"
+    },
+    {
+      "id": "L_app3",
+      "group": "left",
+      "x": 60,
+      "y": 940,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 3"
+    },
+    {
+      "id": "L_app4",
+      "group": "left",
+      "x": 60,
+      "y": 1060,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 4"
+    },
+    {
+      "id": "L_upkeep",
+      "group": "left",
+      "x": 80,
+      "y": 1185,
+      "w": 230,
+      "h": 80,
+      "content": "Ship-and-counters block: Windows Update pending / winget upgrades / Defender"
+    },
+    {
+      "id": "R_category",
+      "group": "right",
+      "x": 2060,
+      "y": 100,
+      "w": 440,
+      "h": 400,
+      "content": "Category 2: same as L_category"
+    },
+    {
+      "id": "R_sysinfo",
+      "group": "right",
+      "x": 2060,
+      "y": 520,
+      "w": 440,
+      "h": 130,
+      "content": "BLACK-CLOVER system info"
+    },
+    {
+      "id": "R_dots",
+      "group": "right",
+      "x": 2200,
+      "y": 667,
+      "w": 160,
+      "h": 20,
+      "content": "Category page dots"
+    },
+    {
+      "id": "R_app1",
+      "group": "right",
+      "x": 2080,
+      "y": 700,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 5"
+    },
+    {
+      "id": "R_app2",
+      "group": "right",
+      "x": 2080,
+      "y": 820,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 6"
+    },
+    {
+      "id": "R_app3",
+      "group": "right",
+      "x": 2080,
+      "y": 940,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 7"
+    },
+    {
+      "id": "R_app4",
+      "group": "right",
+      "x": 2080,
+      "y": 1060,
+      "w": 420,
+      "h": 104,
+      "content": "Pinned app 8"
+    },
+    {
+      "id": "R_dev",
+      "group": "right",
+      "x": 2250,
+      "y": 1185,
+      "w": 230,
+      "h": 80,
+      "content": "Ship-and-counter block: Docker containers / WSL / Ollama"
+    },
+    {
+      "id": "C_target",
+      "group": "center",
+      "x": 1185,
+      "y": 350,
+      "w": 260,
+      "h": 205,
+      "content": "Orange target lock (top process)"
+    },
+    {
+      "id": "C_hud",
+      "group": "center",
+      "x": 1020,
+      "y": 575,
+      "w": 520,
+      "h": 245,
+      "content": "Flight HUD: pipper + clock/date, CPU-clock tape, GPU-clock tape, fan readout"
+    },
+    {
+      "id": "C_sphere",
+      "group": "center",
+      "x": 1090,
+      "y": 890,
+      "w": 380,
+      "h": 380,
+      "content": "3D radar sphere"
+    },
+    {
+      "id": "B_storage",
+      "group": "bottom",
+      "x": 760,
+      "y": 1222,
+      "w": 260,
+      "h": 168,
+      "content": "Storage screen"
+    },
+    {
+      "id": "B_audio",
+      "group": "bottom",
+      "x": 1540,
+      "y": 1222,
+      "w": 260,
+      "h": 168,
+      "content": "Audio screen"
+    },
+    {
+      "id": "B_strip",
+      "group": "bottom",
+      "x": 800,
+      "y": 1430,
+      "w": 960,
+      "h": 72,
+      "content": "General info strip, drawn on the dash arc (network up/down lives here now)"
+    }
   ],
-
   "decor": [
-    { "id": "D_divL1",   "group": "left",  "x": 60,   "y": 507,  "w": 440, "h": 4,   "desc": "glowing divider under category panel" },
-    { "id": "D_divL2",   "group": "left",  "x": 60,   "y": 691,  "w": 420, "h": 3,   "desc": "divider under page dots" },
-    { "id": "D_railL",   "group": "left",  "x": 34,   "y": 700,  "w": 10,  "h": 464, "desc": "stepped bracket rail beside slots 1-4" },
-    { "id": "D_divR1",   "group": "right", "x": 2060, "y": 507,  "w": 440, "h": 4,   "desc": "divider with chevron arrow" },
-    { "id": "D_divR2",   "group": "right", "x": 2080, "y": 691,  "w": 420, "h": 3,   "desc": "divider under page dots" },
-    { "id": "D_railR",   "group": "right", "x": 2516, "y": 700,  "w": 10,  "h": 464, "desc": "zig-zag target bracket rail" },
-    { "id": "D_glyphL1", "group": "center", "x": 200,  "y": 1330, "w": 56, "h": 56, "desc": "corner bracket glyph" },
-    { "id": "D_glyphL2", "group": "center", "x": 280,  "y": 1460, "w": 56, "h": 56, "desc": "corner bracket glyph" },
-    { "id": "D_glyphR1", "group": "center", "x": 2304, "y": 1330, "w": 56, "h": 56, "desc": "corner bracket glyph" },
-    { "id": "D_glyphR2", "group": "center", "x": 2224, "y": 1460, "w": 56, "h": 56, "desc": "corner bracket glyph" },
-    { "id": "D_dashL",   "poly": [[600,1410],[700,1385],[715,1545],[615,1565]], "desc": "small tilted dash screen (decorative, faint scan lines)" },
-    { "id": "D_dashR",   "poly": [[1960,1410],[1860,1385],[1845,1545],[1945,1565]], "desc": "small tilted dash screen (decorative)" }
+    {
+      "id": "D_divL1",
+      "group": "left",
+      "x": 60,
+      "y": 507,
+      "w": 440,
+      "h": 4,
+      "desc": "glowing divider under category panel"
+    },
+    {
+      "id": "D_divL2",
+      "group": "left",
+      "x": 60,
+      "y": 691,
+      "w": 420,
+      "h": 3,
+      "desc": "divider under page dots"
+    },
+    {
+      "id": "D_railL",
+      "group": "left",
+      "x": 34,
+      "y": 700,
+      "w": 10,
+      "h": 464,
+      "desc": "stepped bracket rail beside slots 1-4"
+    },
+    {
+      "id": "D_divR1",
+      "group": "right",
+      "x": 2060,
+      "y": 507,
+      "w": 440,
+      "h": 4,
+      "desc": "divider with chevron arrow"
+    },
+    {
+      "id": "D_divR2",
+      "group": "right",
+      "x": 2080,
+      "y": 691,
+      "w": 420,
+      "h": 3,
+      "desc": "divider under page dots"
+    },
+    {
+      "id": "D_railR",
+      "group": "right",
+      "x": 2516,
+      "y": 700,
+      "w": 10,
+      "h": 464,
+      "desc": "zig-zag target bracket rail"
+    },
+    {
+      "id": "D_glyphL1",
+      "group": "center",
+      "x": 200,
+      "y": 1320,
+      "w": 56,
+      "h": 56,
+      "desc": "corner bracket glyph"
+    },
+    {
+      "id": "D_glyphL2",
+      "group": "center",
+      "x": 280,
+      "y": 1440,
+      "w": 56,
+      "h": 56,
+      "desc": "corner bracket glyph"
+    },
+    {
+      "id": "D_glyphR1",
+      "group": "center",
+      "x": 2304,
+      "y": 1320,
+      "w": 56,
+      "h": 56,
+      "desc": "corner bracket glyph"
+    },
+    {
+      "id": "D_glyphR2",
+      "group": "center",
+      "x": 2224,
+      "y": 1440,
+      "w": 56,
+      "h": 56,
+      "desc": "corner bracket glyph"
+    },
+    {
+      "id": "D_dashL",
+      "poly": [
+        [
+          596,
+          1330
+        ],
+        [
+          694,
+          1306
+        ],
+        [
+          708,
+          1452
+        ],
+        [
+          610,
+          1472
+        ]
+      ],
+      "desc": "small tilted dash screen (decorative, faint scan lines)"
+    },
+    {
+      "id": "D_dashR",
+      "poly": [
+        [
+          1964,
+          1330
+        ],
+        [
+          1866,
+          1306
+        ],
+        [
+          1852,
+          1452
+        ],
+        [
+          1950,
+          1472
+        ]
+      ],
+      "desc": "small tilted dash screen (decorative)"
+    }
   ],
-
   "overlays": [
-    { "id": "O_drawer",  "x": 1000, "y": 240, "w": 560, "h": 560, "content": "CARGO drawer (transient; target + HUD fade while open)" },
-    { "id": "O_control", "x": 760,  "y": 300, "w": 1040, "h": 900, "content": "CONTROL CENTER (transient; edit mode, presets, modules, theme)" }
-  ]
+    {
+      "id": "O_drawer",
+      "x": 1000,
+      "y": 240,
+      "w": 560,
+      "h": 560,
+      "content": "CARGO drawer (transient; target + HUD fade while open)"
+    },
+    {
+      "id": "O_control",
+      "x": 760,
+      "y": 300,
+      "w": 1040,
+      "h": 900,
+      "content": "CONTROL CENTER (transient; edit mode, presets, modules, theme)"
+    }
+  ],
+  "skins": {
+    "Frame": {
+      "zones": [],
+      "full": true,
+      "z": -2,
+      "update": -1
+    },
+    "Controller": {
+      "zones": [],
+      "hidden": true
+    },
+    "Top\\Power": {
+      "zones": [
+        "T_power"
+      ]
+    },
+    "Top\\Battery": {
+      "zones": [
+        "T_battery"
+      ]
+    },
+    "Top\\Console": {
+      "zones": [
+        "T_settings"
+      ]
+    },
+    "Top\\Alert": {
+      "zones": [
+        "T_alert"
+      ]
+    },
+    "Top\\GraphCPU": {
+      "zones": [
+        "G1_cpu"
+      ]
+    },
+    "Top\\GraphA": {
+      "zones": [
+        "G2_select"
+      ]
+    },
+    "Top\\GraphB": {
+      "zones": [
+        "G3_select"
+      ]
+    },
+    "Top\\GraphRAM": {
+      "zones": [
+        "G4_ram"
+      ]
+    },
+    "Left\\Category": {
+      "zones": [
+        "L_category",
+        "L_dots"
+      ]
+    },
+    "Left\\Location": {
+      "zones": [
+        "L_location"
+      ]
+    },
+    "Left\\Slot1": {
+      "zones": [
+        "L_app1"
+      ]
+    },
+    "Left\\Slot2": {
+      "zones": [
+        "L_app2"
+      ]
+    },
+    "Left\\Slot3": {
+      "zones": [
+        "L_app3"
+      ]
+    },
+    "Left\\Slot4": {
+      "zones": [
+        "L_app4"
+      ]
+    },
+    "Left\\Upkeep": {
+      "zones": [
+        "L_upkeep"
+      ]
+    },
+    "Right\\Category": {
+      "zones": [
+        "R_category",
+        "R_dots"
+      ]
+    },
+    "Right\\SysInfo": {
+      "zones": [
+        "R_sysinfo"
+      ]
+    },
+    "Right\\Slot5": {
+      "zones": [
+        "R_app1"
+      ]
+    },
+    "Right\\Slot6": {
+      "zones": [
+        "R_app2"
+      ]
+    },
+    "Right\\Slot7": {
+      "zones": [
+        "R_app3"
+      ]
+    },
+    "Right\\Slot8": {
+      "zones": [
+        "R_app4"
+      ]
+    },
+    "Right\\Dev": {
+      "zones": [
+        "R_dev"
+      ]
+    },
+    "Center\\Target": {
+      "zones": [
+        "C_target"
+      ]
+    },
+    "Center\\HUD": {
+      "zones": [
+        "C_hud"
+      ]
+    },
+    "Center\\Sphere": {
+      "zones": [
+        "C_sphere"
+      ]
+    },
+    "Bottom\\Storage": {
+      "zones": [
+        "B_storage"
+      ]
+    },
+    "Bottom\\Audio": {
+      "zones": [
+        "B_audio"
+      ]
+    },
+    "Bottom\\Strip": {
+      "zones": [
+        "B_strip"
+      ]
+    },
+    "Overlay\\Drawer": {
+      "overlay": "O_drawer"
+    },
+    "Overlay\\Control": {
+      "overlay": "O_control"
+    }
+  },
+  "frame": {
+    "_comment": "Geometry for tools/frame_art.py. Everything not covered by hull pieces is glass (fully transparent) so the wallpaper shows through.",
+    "header": {
+      "x0": 528,
+      "x1": 2032,
+      "top": 0,
+      "base_y": 262,
+      "edge_y": 300,
+      "_note": "bottom edge is a frown arc from edge_y at the ends to base_y at centre"
+    },
+    "dash": {
+      "poly": [
+        [
+          0,
+          1290
+        ],
+        [
+          400,
+          1335
+        ],
+        [
+          990,
+          925
+        ],
+        [
+          1040,
+          1060
+        ],
+        [
+          1110,
+          1205
+        ],
+        [
+          1280,
+          1240
+        ],
+        [
+          1450,
+          1205
+        ],
+        [
+          1520,
+          1060
+        ],
+        [
+          1570,
+          925
+        ],
+        [
+          2160,
+          1335
+        ],
+        [
+          2560,
+          1290
+        ],
+        [
+          2560,
+          1600
+        ],
+        [
+          0,
+          1600
+        ]
+      ]
+    },
+    "projector": {
+      "cx": 1280,
+      "cy": 1252,
+      "rx": 170,
+      "ry": 26
+    },
+    "lights": [
+      [
+        760,
+        560
+      ],
+      [
+        1800,
+        560
+      ],
+      [
+        470,
+        1238
+      ],
+      [
+        2090,
+        1238
+      ],
+      [
+        985,
+        876
+      ],
+      [
+        1575,
+        876
+      ]
+    ],
+    "recess_pad": 10
+  },
+  "taskbar": {
+    "height": 72,
+    "_note": "Windows taskbar band (48px at 150% scaling). Widgets stay above it; the frame art still runs to the screen bottom so a transparent taskbar shows the ship."
+  }
 }
