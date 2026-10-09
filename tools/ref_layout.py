@@ -19,7 +19,7 @@ CW, CH = 2560, 1600
 SX, SY = CW / RW, CH / RH
 
 DEVIATIONS = [
-    "Widgets stay above the Windows taskbar band (72 px); the bottom info strip sits ~10 ref px higher.",
+    "Widgets stay above the Windows taskbar band (72 px); the bottom info strip sits 6 ref px higher.",
     "Left column slot 4 shares its block with the upkeep counters (the reference's small 3 / 4 counters).",
     "Right column gets a matching dev-status counter block left of ship 4.",
     "Right category page selector uses the reference's small triangle-and-number glyph.",
@@ -57,18 +57,18 @@ ZONES = [
     zone("G3_select", "top", rect(663, 62, 787, 95), "HULL INTEGRITY plate -> selectable"),
     zone("G4_ram", "top", rect(828, 62, 940, 95), "FUEL LEVEL plate -> RAM (fixed)"),
     # ---------------------------------------------------------------- left column
-    zone("L_tabs", "left", quad((74, 37), (256, 68), (256, 89), (74, 58)), "OVR WEAP AVI... -> category app tabs"),
-    zone("L_category", "left", rect(62, 92, 232, 218), "ship schematic -> app wireframe"),
-    zone("L_location", "left", quad((34, 222), (230, 232), (230, 302), (34, 292)), "LAT / LON / VRT block"),
-    zone("L_dots", "left", rect(92, 304, 164, 318), "page dots -> category pages"),
-    zone("L_app1", "left", rect(34, 324, 230, 388), "weapon 1 -> slot 1"),
-    zone("L_app2", "left", rect(40, 394, 230, 450), "weapon 2 -> slot 2"),
+    zone("L_tabs", "left", quad((74, 39), (256, 70), (256, 91), (74, 60)), "OVR WEAP AVI... -> category app tabs"),
+    zone("L_category", "left", rect(62, 95, 232, 218), "ship schematic -> app wireframe"),
+    zone("L_location", "left", quad((34, 222), (230, 232), (230, 306), (34, 296)), "LAT / LON / VRT block"),
+    zone("L_dots", "left", rect(92, 307, 164, 321), "page dots -> category pages"),
+    zone("L_app1", "left", rect(34, 325, 230, 387), "weapon 1 -> slot 1"),
+    zone("L_app2", "left", rect(40, 390, 230, 450), "weapon 2 -> slot 2"),
     zone("L_app3", "left", rect(52, 455, 158, 510), "weapon 3 -> slot 3"),
     zone("L_app4", "left", rect(68, 516, 136, 574), "ship 4 -> slot 4"),
     zone("L_upkeep", "left", rect(140, 518, 180, 552), "3 / 4 counters -> updates / upgrades"),
     # ---------------------------------------------------------------- right column
-    zone("R_tabs", "right", quad((1004, 70), (1182, 40), (1182, 61), (1004, 91)), "SUBSYS CARGO MAIL -> category app tabs"),
-    zone("R_category", "right", rect(1030, 96, 1202, 212), "ship -> app wireframe"),
+    zone("R_tabs", "right", quad((1004, 72), (1182, 42), (1182, 63), (1004, 93)), "SUBSYS CARGO MAIL -> category app tabs"),
+    zone("R_category", "right", rect(1030, 98, 1202, 212), "ship -> app wireframe"),
     zone("R_dots", "right", rect(1210, 186, 1240, 216), "triangle + 4 glyph -> category page"),
     zone("R_sysinfo", "right", rect(1028, 226, 1228, 302), "VANDUUL SCYTHE card -> BLACK-CLOVER"),
     zone("R_app1", "right", rect(1028, 324, 1228, 388), "card 1 -> slot 5"),
@@ -83,8 +83,8 @@ ZONES = [
     # ---------------------------------------------------------------- dash
     zone("B_storage", "bottom", rect(395, 565, 488, 638), "ENG / ATMOS / DMG screen -> storage"),
     zone("B_audio", "bottom", rect(778, 568, 872, 638), "TARGET SNR screen -> audio"),
-    zone("B_stripL", "bottom", rect(425, 644, 604, 672), "1500 / 7 / 0% / 443 boxed cells"),
-    zone("B_stripR", "bottom", rect(742, 648, 822, 672), "20 / 20 open cells"),
+    zone("B_stripL", "bottom", rect(425, 650, 604, 676), "1500 / 7 / 0% / 443 boxed cells"),
+    zone("B_stripR", "bottom", rect(742, 654, 822, 676), "20 / 20 open cells"),
 ]
 
 # ---------------------------------------------------------------- the ship (reference pixels)
@@ -138,7 +138,7 @@ def main():
         "canvas": {"w": CW, "h": CH},
         "safe_area": {"inset": 10, "corner_radius": 110},
         "taskbar": {"height": 72},
-        "min_gap": 8,
+        "min_gap": 6,
         "decor_gap": 1,
         "curves": {g: {"type": "flat"} for g in ("top", "left", "right", "center", "bottom")},
         "keepouts": [],

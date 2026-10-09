@@ -20,13 +20,13 @@ function Update()
   -- left: boxed cells
   local c = H.canvas(1)
   local function X(rx) return (rx - 425) * SXR end
-  local function Y(ry) return (ry - 644) * SYR end
+  local function Y(ry) return (ry - 650) * SYR end
   local load = H.val('mCPU', 0)
   local cells = {
-    { 429, 655, 'gauge', fmt(H.hw('mHwCpuTemp'), '%.0fC'), 'CPU temperature' },
-    { 474, 650, 'gpu', fmt(H.hw('mHwGpuTemp'), '%.0fC'), 'GPU temperature' },
-    { 519, 648, 'wave', string.format('%d%%', load), 'CPU load', true },
-    { 564, 645, 'gear', fmt(H.hw('mHwFan1'), '%.0f'), 'Fan speed (RPM)' },
+    { 429, 661, 'gauge', fmt(H.hw('mHwCpuTemp'), '%.0fC'), 'CPU temperature' },
+    { 474, 656, 'gpu', fmt(H.hw('mHwGpuTemp'), '%.0fC'), 'GPU temperature' },
+    { 519, 654, 'wave', string.format('%d%%', load), 'CPU load', true },
+    { 564, 651, 'gear', fmt(H.hw('mHwFan1'), '%.0f'), 'Fan speed (RPM)' },
   }
   for i, cl in ipairs(cells) do
     local x0, y0 = X(cl[1]), Y(cl[2])
@@ -41,10 +41,10 @@ function Update()
   -- right: open cells
   local d = H.canvas(2)
   local function X2(rx) return (rx - 742) * SXR end
-  local function Y2(ry) return (ry - 648) * SYR end
+  local function Y2(ry) return (ry - 654) * SYR end
   local open = {
-    { 750, 655, 'cloud', rate(H.val('mNetIn', 0)), 'Download   (ping ' .. string.format('%d', H.val('mPing', 0)) .. ' ms)' },
-    { 792, 663, 'nodes', rate(H.val('mNetOut', 0)), 'Upload   (Wi-Fi ' .. string.format('%d', H.val('mWifi', 0)) .. '%)' },
+    { 750, 661, 'cloud', rate(H.val('mNetIn', 0)), 'Download   (ping ' .. string.format('%d', H.val('mPing', 0)) .. ' ms)' },
+    { 792, 669, 'nodes', rate(H.val('mNetOut', 0)), 'Upload   (Wi-Fi ' .. string.format('%d', H.val('mWifi', 0)) .. '%)' },
   }
   for i, cl in ipairs(open) do
     local x0, y0 = X2(cl[1]), Y2(cl[2])

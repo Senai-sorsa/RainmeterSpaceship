@@ -55,7 +55,7 @@ function Update()
     c:fillCircle(CX, CY, R * (1 - i * 0.075), i < 3 and deep or A1, 16 + i * 2)
   end
   for i = 1, 3 do c:fillCircle(CX - R * 0.22, CY - R * 0.3, R * (0.5 - i * 0.1), W, 9) end
-  c:circle(CX, CY, R, A1, 1.6, 150)
+  c:circle(CX, CY, R, A1, 1.2, 60)
   -- translucent rotating blades (reference: large faint fan planes inside the bubble)
   for i = 0, 2 do
     local pts = H.ellipsePts(CX, CY + 10, R * 0.86, R * 0.2, rot + i * 60, 0, 360, 28)

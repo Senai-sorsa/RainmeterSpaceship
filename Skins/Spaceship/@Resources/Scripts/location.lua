@@ -55,17 +55,19 @@ function Update()
   local rows = { { 'LAT', fmt(lat, 'N', 'S'), H.C.white }, { 'LON', fmt(lon, 'E', 'W'), H.C.hi },
                  { alt and 'ALT' or 'TZ', alt and string.format('%.0fM', alt) or (tz ~= '' and string.upper(string.match(tz, '[^/]+$') or tz) or '--'), H.C.white } }
   for i, r in ipairs(rows) do
-    local y = Y(({ 253, 264, 276 })[i])
+    local y = Y(({ 246.5, 257.8, 269.5 })[i])
     local v = r[2]
     if mask and i < 3 then v = string.gsub(v, '%d', '*') end
     H.text(1, i * 2 - 1, X(152), y, r[1], { size = 8, weight = 700, align = 'RightCenter', color = r[3] })
     H.text(1, i * 2, X(158), y, v, { size = 8, weight = 700, align = 'LeftCenter', color = r[3] })
   end
-  H.text(1, 7, X(158), Y(286), string.upper(place ~= '' and place or 'ACQUIRING') .. (src ~= '' and ('  ' .. src) or ''), { size = 6, weight = 700, color = H.C.dim, clip = X(228) - X(158) })
+  H.hideText(1, 7)
   -- double bottom rail (reference 35,292 -> 222,296)
-  c:line(X(35), z.h - 8, X(222), z.h - 8, A1, 1.3, 220)
-  c:line(X(35), z.h - 3, X(222), z.h - 3, A1, 1, 160)
-  H.hit(1, 1, 0, 0, z.w, z.h, mask and 'Click to show coordinates' or 'Click to mask coordinates   (right-click: refresh)')
+  -- the reference's bottom rails slope less than the panel (292 -> 296 over 187 px)
+  local function ly(rx, base) return base - (10 / 196 - 4 / 187) * (rx - 34) * SYR end
+  c:line(X(35), ly(35, z.h - 9), X(222), ly(222, z.h - 9), A1, 1.3, 220)
+  c:line(X(35), ly(35, z.h - 2.5), X(222), ly(222, z.h - 2.5), A1, 1, 160)
+  H.hit(1, 1, 0, 0, z.w, z.h, (place ~= '' and (string.upper(place) .. ' [' .. src .. ']   ') or '') .. (mask and 'Click to show coordinates' or 'Click to mask coordinates   (right-click: refresh)'))
   c:flush()
   return 0
 end

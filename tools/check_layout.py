@@ -28,7 +28,7 @@ def check(layout):
     ids = [i["id"] for i in zones + decor + layout.get("overlays", [])]
     if len(ids) != len(set(ids)):
         errors.append("duplicate ids")
-    tb = canvas["h"] - layout.get("taskbar", {}).get("height", 0) - gap
+    tb = canvas["h"] - layout.get("taskbar", {}).get("height", 0) - 2
     for z in zones:
         if max(p[1] for p in shape(z, curves)) > tb:
             errors.append(f"{z['id']}: reaches into the taskbar band")

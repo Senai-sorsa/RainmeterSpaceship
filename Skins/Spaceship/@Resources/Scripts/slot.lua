@@ -71,35 +71,48 @@ function Update()
   for k = 1, 7 do H.hideHit(1, k) end
 
   if style == 'row' then
-    if app then c:icon(app.icon, X(0.16), Y(0.44), h * 0.62, icol, 1.7) end
-    H.text(1, 8, X(0.40), Y(0.20), app and app.name or 'UNASSIGNED', { size = 8, weight = 700, align = 'LeftCenter', color = W, clip = X(0.58) })
-    H.text(1, 9, X(0.40), Y(0.36), st .. (isCat and ('   ' .. entry.cat.short) or ''), { size = 6.5, weight = 700, align = 'LeftCenter', color = scol })
-    -- item row: category tabs, or status items for a single app
+    -- anchors measured on the reference (weapon rows 1 and 2), in reference pixels
+    local R = ({
+      [1] = { o = { 34, 325 }, icon = { 65, 352 }, title = { 112, 337 }, status = { 112, 346 }, row = { 112, 364 }, rowEnd = 222,
+              ul = { { 35, 386 }, { 98, 383 }, { 105, 375 }, { 222, 374 } }, dash = { 213, 222, 378 }, num = { 37, 380 } },
+      [2] = { o = { 40, 390 }, icon = { 69, 415 }, title = { 113, 394 }, status = { 113, 403 }, row = { 117, 424 }, rowEnd = 222,
+              ul = { { 42, 447 }, { 105, 445 }, { 112, 437 }, { 222, 435 } }, dash = { 217, 226, 439 }, num = { 43, 441 } },
+    })[slot] or nil
+    local SXR, SYR = 2560 / 1260, 1600 / 709
+    local function RX(x) return (x - (R and R.o[1] or 0)) * SXR end
+    local function RY(y) return (y - (R and R.o[2] or 0)) * SYR end
+    if not R then R = { o = { 0, 0 } } end
+    if app then c:icon(app.icon, RX(R.icon[1]), RY(R.icon[2]), h * 0.62, icol, 1.7) end
+    H.text(1, 8, RX(R.title[1]), RY(R.title[2]), app and app.name or 'UNASSIGNED', { size = 8, weight = 700, align = 'LeftCenter', color = W, clip = RX(R.rowEnd) - RX(R.title[1]) })
+    H.text(1, 9, RX(R.status[1]), RY(R.status[2]), st .. (isCat and ('   ' .. entry.cat.short) or ''), { size = 6.5, weight = 700, align = 'LeftCenter', color = scol })
+    local ry = RY(R.row[2])
     if isCat then
       local vis = math.min(MAXTABS, #list)
-      local step = X(0.56) / MAXTABS
+      local step = (RX(R.rowEnd) - RX(R.row[1])) / MAXTABS
       for t = 1, MAXTABS do
         local i = first + t - 1
         if t <= vis and list[i] then
-          local x = X(0.40) + (t - 1) * step
+          local x = RX(R.row[1]) + (t - 1) * step
           local on = i == sel
-          if on then c:hair(x, Y(0.70), x + step - 6, Y(0.70), A1, 1.6, 230) end
-          H.text(1, t, x, Y(0.61), list[i].short, { size = 6.5, weight = 700, align = 'LeftCenter', color = on and A1 or { 160, 178, 190 }, clip = step - 4 })
-          H.hit(1, t, x, Y(0.50), step, Y(0.22), list[i].name)
+          if on then c:hair(x, ry + 10, x + step - 6, ry + 10, A1, 1.6, 230) end
+          H.text(1, t, x, ry, list[i].short, { size = 6.5, weight = 700, align = 'LeftCenter', color = on and A1 or { 160, 178, 190 }, clip = step - 4 })
+          H.hit(1, t, x, ry - 12, step, 24, list[i].name)
         else H.hideText(1, t) end
       end
     else
-      c:dot(X(0.42), Y(0.61), 3.5, scol)
-      H.text(1, 1, X(0.45), Y(0.61), app and app.short or '', { size = 6.5, weight = 700, align = 'LeftCenter', color = W })
+      c:dot(RX(R.row[1]) + 4, ry, 3.5, scol)
+      H.text(1, 1, RX(R.row[1]) + 12, ry, app and app.short or '', { size = 6.5, weight = 700, align = 'LeftCenter', color = W })
       hideAll(2, 5)
-      -- power + wrench glyphs (reference) -> launch + open location
-      c:circle(X(0.86), Y(0.61), 6, W, 1.3); c:line(X(0.86), Y(0.52), X(0.86), Y(0.60), W, 1.3)
-      c:line(X(0.92), Y(0.68), X(0.96), Y(0.54), W, 1.3)
+      local px = RX(R.rowEnd) - 34
+      c:circle(px, ry, 6, W, 1.3); c:line(px, ry - 9, px, ry - 1, W, 1.3)
+      c:line(px + 16, ry + 7, px + 24, ry - 7, W, 1.3)
     end
-    c:poly({ { X(0.005), Y(0.97) }, { X(0.327), Y(0.92) }, { X(0.362), Y(0.80) }, { X(0.959), Y(0.78) } }, A1, 1.4)
-    c:line(X(0.913), Y(0.85), X(0.959), Y(0.85), W, 2.4)
-    H.text(1, 12, X(0.015), Y(0.86), tostring(slot), { size = 7.5, weight = 700, align = 'LeftCenter', color = W })
-    H.hit(1, 8, 0, 0, w, Y(0.48), app and ('Launch ' .. app.name) or 'Unassigned slot')
+    local ul = {}
+    for i, p in ipairs(R.ul) do ul[i] = { RX(p[1]), RY(p[2]) } end
+    c:poly(ul, A1, 1.4)
+    c:line(RX(R.dash[1]), RY(R.dash[3]), RX(R.dash[2]), RY(R.dash[3]), W, 2.4)
+    H.text(1, 12, RX(R.num[1]), RY(R.num[2]), tostring(slot), { size = 7.5, weight = 700, align = 'LeftCenter', color = W })
+    H.hit(1, 8, 0, 0, w, ry - 14, app and ('Launch ' .. app.name) or 'Unassigned slot')
 
   elseif style == 'card' then
     if app then c:icon(app.icon, X(0.81), Y(0.44), h * 0.62, icol, 1.7) end

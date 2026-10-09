@@ -4,23 +4,23 @@
 Module=BottomStrip
 ModuleConfig=Spaceship\Bottom\Strip
 WX=845
-WY=1435
+WY=1448
 WW=844
-WH=100
+WH=96
 DX=#BottomStrip_DX#
 DY=#BottomStrip_DY#
 ZoneCount=2
 ; zone 1: B_stripL
 Z1=B_stripL
 Z1_X=18.49
-Z1_Y=18.31
+Z1_Y=18.85
 Z1_W=363.68
-Z1_H=63.19
+Z1_H=58.68
 Z1_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)
 ; zone 2: B_stripR
 Z2=B_stripR
 Z2_X=662.56
-Z2_Y=27.34
+Z2_Y=27.88
 Z2_W=162.54
-Z2_H=54.16
+Z2_H=49.65
 Z2_TM=1;0;0;1;(0*#Scale#);(0*#Scale#)

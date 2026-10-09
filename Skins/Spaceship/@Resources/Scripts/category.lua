@@ -133,7 +133,8 @@ local function drawPager()
     local step = z.w / count
     for i = 1, count do
       local x = step * (i - 0.5)
-      if i == idx then c:dot(x, z.h / 2, 4, A1) else c:dot(x, z.h / 2, 3, D, 150) end
+      local dy = z.h * 0.21
+      if i == idx then c:dot(x, dy, 4, A1) else c:dot(x, dy, 3, D, 150) end
       H.hit(3, i, x - step / 2, 0, step, z.h, A.cats[A.catOrder[i]].name)
     end
   end
