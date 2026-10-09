@@ -6,11 +6,11 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
 
 - gunmetal struts with rounded shading;
 - window frames with gaskets, bolts and rim light;
-- lit window sills, and side walls with grab handles and blue LED banks;
+- lit window sills, and side walls with grab handles;
 - a centre console with a hologram projector well;
 - corrugated floor hoses;
 - panel plating and fine scratches;
-- angular visor cut-offs at all four corners, traced from the reference (silver-blue rim, stepped notch);
+- angular visor cut-offs at all four corners, traced from the reference: a trapezoid step in the lower ones, and a double white edge on a bevel that widens toward the screen border for depth;
 - window edges with tube rails, sagging cables, clamps, lamps built like the reference (a grey cylinder with a hole, a black cylinder, a polished ring and a black cone the light shines from) and a red sill strip;
 - smooth A-pillars, lower walls with long reflections, a smooth glossy beam under each side window, a slatted console face and a metal pedestal.
 - small surface detail, mirrored on both sides:
@@ -21,7 +21,7 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
   - silver lower rails and console-side boxes;
   - a silver lip along the dash.
 
-The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, LEDs, strut lights and HUD lines.
+The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, strut lights and HUD lines.
 
 On the glass there are no boxes. Instead:
 - a theme-coloured tint;
@@ -146,7 +146,7 @@ The rendered hull is clean and symmetric, but a photo-quality render has more de
 python tools/image_frame.py my-cockpit.png
 ```
 
-Then pick Control Center → THEME → COCKPIT ART → PICTURE (`UseShipImage=1`). A PNG with its own transparent windows keeps them. The glass tint, glare, scanlines, dark tints and HUD lines stay on top, and the rendered hull, strut lights and LEDs hide.
+Then pick Control Center → THEME → COCKPIT ART → PICTURE (`UseShipImage=1`). A PNG with its own transparent windows keeps them. The glass tint, glare, scanlines, dark tints and HUD lines stay on top, and the rendered hull and strut lights hide.
 
 ## Performance
 

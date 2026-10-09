@@ -116,7 +116,7 @@ The cockpit (Frame) is symmetric left/right and drawn in this order:
    Glass shapes + glass_fx.png       theme tint, smudges and reflections
    scan.png, shade.png               scanlines, soft dark tints behind the HUD
    hull.png  (or your picture)       the textured metal, windows cut out
-   Accents, Spill, Lights, Decor     theme-coloured rim glow + LEDs, HUD light, strut lights, HUD lines
+   Accents, Spill, Lights, Decor     theme-coloured rim glow, HUD light, strut lights, HUD lines
 The images are in @Resources\Images and are made by tools/ship_frame.py (which also writes
 Frame\Parts). Metal tones: HullDark, HullMid, HullLight, HullEdge in Settings.inc - run
 tools/ship_frame.py again after changing them.

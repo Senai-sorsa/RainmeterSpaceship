@@ -523,20 +523,6 @@ def build():
                 greeb.rect(q[0] - 9, q[1] - 6, 18, 16, f"Fill Color {DARK},255 | Stroke Color 0,0,0,200 | StrokeWidth 1.2", 2)
                 greeb.ellipse(q[0], q[1] + 2, 2.4, 2.4, f"Fill Color {LIGHT},160 | StrokeWidth 0")
 
-    def leds(x, y, cols, rows, seed):
-        r = random.Random(seed)
-        for side in (0, 1):
-            ox = x if side == 0 else CW - x - cols * 13
-            greeb.rect(ox - 6, y - 6, cols * 13 + 9, rows * 10 + 9, "Fill Color 0,0,0,150 | Stroke Color 0,0,0,200 | StrokeWidth 1", 2)
-            for i in range(cols):
-                for j in range(rows):
-                    on = r.random()
-                    a = 255 if on > 0.55 else (110 if on > 0.2 else 40)
-                    cx, cy = ox + i * 13, y + j * 10
-                    if a == 255:
-                        lights.rect(cx - 4, cy - 4, 15, 12, f"Fill Color {ACC},34 | StrokeWidth 0", 4)
-                    lights.rect(cx, cy, 7, 4, f"Fill Color {ACC},{a} | StrokeWidth 0", 1)
-
     taken = []
 
     def free(x, y=None, w=None, h=None):
@@ -551,14 +537,6 @@ def build():
             handle(q0, q1)
             taken.append(bar)
             break
-    for along in range(120, 1000, 30):
-        for down in (70, 120, 200, 250):
-            p = wall_point(along, down)
-            cols, rows = rng.choice((4, 5, 6)), rng.choice((1, 2, 3))
-            if len(taken) < 4 and free(p[0] - 8, p[1] - 8, cols * 13 + 14, rows * 10 + 14):
-                leds(p[0], p[1], cols, rows, along * 7 + down)
-                taken.append(box(p[0] - 8, p[1] - 8, p[0] + cols * 13 + 6, p[1] + rows * 10 + 6))
-                break
     # ---------------------------------------------------------------- console: projector well, button banks, hazard edge
     cx, wy = 630 * R.SX, 588 * R.SY
     for rx, ry, spec in ((240, 52, f"Fill Color 0,0,0,200 | Stroke Color {LIGHT},90 | StrokeWidth 2"),
@@ -812,11 +790,6 @@ def build():
         decor.path(C(t), "Fill LinearGradient {G} | StrokeWidth 0", True,
                    grad(90, ("45,115,205,80", 0), ("30,85,170,55", 1)))
         decor.path(C(t), f"Stroke Color {ACC},60 | StrokeWidth 1.2", True)
-    for (x, y) in R.GLYPHS:
-        s = 7
-        neon(C([(x - s, y - 3), (x - s, y - s), (x - 3, y - s)]), 1.5)
-        neon(C([(x + s, y + 3), (x + s, y + s), (x + 3, y + s)]), 1.5)
-        neon(C([(x - 4, y + 2), (x, y - 2), (x + 4, y + 2)]), 1.5)
     gx, gy = R.CIRCLE_GLYPH
     neon(C([(gx + 8 * math.cos(math.radians(a)), gy + 8 * math.sin(math.radians(a))) for a in range(30, 331, 15)]), 1.8)
     neon(C([(gx - 3, gy - 3), (gx + 2, gy), (gx - 3, gy + 3)]), 1.8)

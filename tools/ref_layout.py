@@ -131,7 +131,7 @@ PILLAR_R, STRUT_R = mirror(PILLAR_L), mirror(STRUT_L)
 # side is mirrored). RIMS are the lit edges, BEZELS the hull pieces outside them. The side edges between
 # the corners stay glass (no rim there).
 RIM_TL = [(50, 0), (38, 38), (25, 56), (14, 75), (7, 95), (2, 115), (0, 128)]
-RIM_BL = [(0, 602), (38, 642), (52, 654), (60, 658), (66, 658), (70, 669), (82, 672), (100, 692), (104, 709)]   # stepped notch
+RIM_BL = [(0, 602), (48, 650), (64, 650), (74, 664), (112, 709)]   # diagonal with a trapezoid step (reference)
 RIMS = [RIM_TL, RIM_BL, [(RW - x, y) for x, y in RIM_TL], [(RW - x, y) for x, y in RIM_BL]]
 BEZELS = [[(0, 0)] + RIM_TL, RIM_BL + [(0, RH)], [(RW, 0)] + RIMS[2], RIMS[3] + [(RW, RH)]]
 LIGHTS = [(358, 200), (902, 200), (232, 498), (1028, 498)]

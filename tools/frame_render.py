@@ -272,17 +272,17 @@ def sprites():
 
 
 def corners_png():
-    """the visor corner pieces, drawn over the mist so the mist only spreads inward. Colours sampled from the
-    reference: near-black body, a silver-blue rim band rising to a pale highlight at the glass edge, an inner
-    panel step and small vents."""
-    from shapely.geometry import Point as SPoint, Polygon as SPolygon
+    """the visor corner pieces, drawn over the mist so the mist only spreads inward. Each piece is a near-black
+    body behind a bevelled edge seen in perspective: a double white edge at the glass (bright line, dark sliver,
+    second white line), then the bevel's lit inner face, which widens toward the screen border (closer to the
+    eye) for a 3D depth effect, a pale line where the face meets the body, an inner panel groove and vents."""
+    from shapely.geometry import LineString as SLine, Point as SPoint, Polygon as SPolygon
     img = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    bands = [(0, (150, 172, 184)), (1.2, (104, 128, 142)), (3.5, (62, 82, 96)), (8, (30, 42, 52)),
-             (14, (12, 17, 22)), (22, (5, 6, 9))]
+    cx0, cy0 = CW / 2, CH / 2
     for rim in R.RIMS:
         pts = [(x * R.SX, y * R.SY) for x, y in rim]
-        # close the piece well outside the screen so only the rim side gets bands
+
         def ext(p):
             if p[0] <= 1:
                 return (-400, p[1])
@@ -291,20 +291,56 @@ def corners_png():
             return (p[0], -400) if p[1] <= 1 else (p[0], CH + 400)
         corner = (-400 if pts[0][0] < CW / 2 else CW + 400, -400 if min(p[1] for p in pts) < CH / 2 else CH + 400)
         poly = SPolygon(pts + [ext(pts[-1]), corner, ext(pts[0])]).buffer(0)
-        for k, col in bands:
+        # body: near-black, a touch lighter just behind the bevel
+        for k, col in ((0, (16, 22, 28)), (30, (8, 11, 15)), (48, (5, 6, 9))):
             g = poly.buffer(-k, join_style=2)
             for q in getattr(g, "geoms", [g]):
                 if not q.is_empty:
                     d.polygon([tuple(p) for p in q.exterior.coords], fill=col + (255,))
-        # inner panel step: a groove with a lit lip, 40 px into the piece
-        for k, col in ((40, (2, 3, 4)), (42.5, (40, 56, 66))):
+        # the rim, sampled finely, with the normal pointing into the piece
+        rl = SLine(pts)
+        L, step = rl.length, 2.0
+        samples = []
+        dist = [((x - cx0) ** 2 + (y - cy0) ** 2) ** 0.5 for x, y in pts]
+        dmin, dmax = min(dist), max(dist)
+        t = 0.0
+        while t <= L:
+            p = rl.interpolate(t)
+            q0, q1 = rl.interpolate(max(0, t - 3)), rl.interpolate(min(L, t + 3))
+            tx, ty = q1.x - q0.x, q1.y - q0.y
+            n = max(1e-6, (tx * tx + ty * ty) ** 0.5)
+            nx, ny = -ty / n, tx / n
+            if not poly.contains(SPoint(p.x + nx * 6, p.y + ny * 6)):
+                nx, ny = -nx, -ny
+            dd = ((p.x - cx0) ** 2 + (p.y - cy0) ** 2) ** 0.5
+            k = (dd - dmin) / max(1e-6, dmax - dmin)
+            w = 9 + 17 * k                               # bevel face width: wider nearer the screen border
+            # light from the upper centre: faces turned up / toward the middle catch more of it
+            lit = max(0.0, min(1.0, 0.55 - 0.45 * ny + 0.25 * (nx if p.x < cx0 else -nx)))
+            samples.append((p.x, p.y, nx, ny, w, lit))
+            t += step
+        # bevel face (quads between consecutive samples), shaded by how it faces the light
+        for (x0, y0, nx0, ny0, w0, l0), (x1, y1, nx1, ny1, w1, l1) in zip(samples, samples[1:]):
+            lit = (l0 + l1) / 2
+            col = tuple(int(a + (b - a) * lit) for a, b in zip((26, 36, 46), (92, 112, 128)))
+            quad = [(x0 + nx0 * 5, y0 + ny0 * 5), (x1 + nx1 * 5, y1 + ny1 * 5),
+                    (x1 + nx1 * w1, y1 + ny1 * w1), (x0 + nx0 * w0, y0 + ny0 * w0)]
+            d.polygon(quad, fill=col + (255,))
+        # where the face meets the body: a pale line, then a dark groove
+        inner = [(x + nx * w, y + ny * w) for x, y, nx, ny, w, _ in samples]
+        d.line([(x + nx * 2, y + ny * 2) for (x, y), (_, _, nx, ny, _, _) in zip(inner, samples)], fill=(2, 3, 5, 255), width=3)
+        d.line(inner, fill=(150, 170, 184, 255), width=2)
+        # double white edge at the glass: bright line, dark sliver, second white line
+        d.line([(x + nx * 2.6, y + ny * 2.6) for x, y, nx, ny, _, _ in samples], fill=(10, 14, 18, 255), width=2)
+        d.line([(x + nx * 4.4, y + ny * 4.4) for x, y, nx, ny, _, _ in samples], fill=(205, 218, 228, 255), width=2)
+        d.line([(x + nx * 0.6, y + ny * 0.6) for x, y, nx, ny, _, _ in samples], fill=(240, 246, 250, 255), width=2)
+        # inner panel step: a groove with a lit lip, 46 px into the piece
+        for k, col in ((46, (2, 3, 4)), (48.5, (40, 56, 66))):
             g = poly.buffer(-k, join_style=2)
             for q in getattr(g, "geoms", [g]):
                 if not q.is_empty:
                     d.line([tuple(p) for p in q.exterior.coords], fill=col + (255,), width=2)
         # vents near the corner, along the rim
-        from shapely.geometry import LineString as SLine
-        rl = SLine(pts)
         for f in (0.30, 0.36, 0.42):
             p = rl.interpolate(f, normalized=True)
             q = rl.interpolate(min(1, f + 0.02), normalized=True)
@@ -312,9 +348,9 @@ def corners_png():
             n = max(1e-6, (tx * tx + ty * ty) ** 0.5)
             nx, ny = -ty / n, tx / n
             if not poly.contains(SPoint(p.x + nx * 60, p.y + ny * 60)):
-                nx, ny = -nx, -ny                   # point the vents into the corner piece
-            a = (p.x + nx * 54, p.y + ny * 54)
-            b = (p.x + nx * 54 + tx / n * 26, p.y + ny * 54 + ty / n * 26)
+                nx, ny = -nx, -ny
+            a = (p.x + nx * 60, p.y + ny * 60)
+            b = (p.x + nx * 60 + tx / n * 26, p.y + ny * 60 + ty / n * 26)
             if 4 < a[0] < CW - 4 and 4 < a[1] < CH - 4:
                 d.line([a, b], fill=(1, 1, 2, 255), width=4)
                 d.line([(a[0] - nx * 2, a[1] - ny * 2), (b[0] - nx * 2, b[1] - ny * 2)], fill=(34, 46, 56, 255), width=1)
