@@ -132,16 +132,29 @@ function A.entry(id)
   return nil
 end
 
+-- an app that is not installed, or was uninstalled / moved since the last Start-menu scan: nothing is launched,
+-- the reason goes to the Rainmeter log, and the Controller rescans (at most once a minute) so a program you just
+-- installed is picked up without a manual refresh
+local lastRescan = 0
+function A.notFound(app)
+  print('Spaceship: ' .. tostring(app and app.name or 'app') .. ' was not found (not installed, or moved). '
+    .. 'Install it, or point its Target= in Apps.ini at the right path. Rescanning the Start menu.')
+  if os.time() - lastRescan >= 60 then
+    lastRescan = os.time()
+    SKIN:Bang('!CommandMeasure', 'mScript', 'Rescan()', 'Spaceship\\Controller')
+  end
+end
+
 function A.launch(app)
-  if not app or not app.target then
-    print('Spaceship: no target found for ' .. tostring(app and app.id))
+  if not app then return false end
+  local t = app.target
+  if not t or (t.kind == 'file' and not exists(t.value)) then
+    app.missing = true
+    A.notFound(app)
     return false
   end
-  local t = app.target
   if t.kind == 'start' then
     SKIN:Bang('["explorer.exe" "shell:AppsFolder\\' .. t.value .. '"]')
-  elseif t.kind == 'file' then
-    SKIN:Bang('["' .. t.value .. '"]')
   else
     SKIN:Bang('["' .. t.value .. '"]')
   end

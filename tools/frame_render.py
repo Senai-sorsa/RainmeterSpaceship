@@ -218,21 +218,31 @@ def shade_png():
 
 
 def mist_png():
-    """neon mist: the window edges and the corner cuts, blurred very wide and kept very dim. White with an
-    alpha falloff; the Frame tints it with the theme colour (ImageTint) so it follows colour themes."""
+    """neon mist: light bleeding off every edge of the glass - the window sides, sills (bottom), the windscreen
+    top, the screen border where a window meets it (top / sides) and the corner cuts. Each edge glows with the
+    same strength (overlaps don't add up), in two falloffs: a close glow and a wide haze. White with an alpha
+    falloff; the Frame tints it with the theme colour (ImageTint) so it follows colour themes."""
     m = Image.new("L", (CW, CH), 0)
     d = ImageDraw.Draw(m)
     for w in R.WINDOWS:
         pts = [(x * R.SX, y * R.SY) for x, y in w]
         d.line(pts + [pts[0]], fill=255, width=4)
     for rim in R.RIMS:
-        d.line([(x * R.SX, y * R.SY) for x, y in rim], fill=255, width=6)
+        d.line([(x * R.SX, y * R.SY) for x, y in rim], fill=255, width=4)
     a = np.asarray(m, dtype=np.float32) / 255
-    a[:6, :] = a[-6:, :] = 0                    # window sides lying on the screen border are not edges
-    a[:, :6] = a[:, -6:] = 0
-    near, far = blur(a, 18), blur(a, 130)          # wider spread
-    near /= max(1e-6, near.max()); far /= max(1e-6, far.max())
-    alpha = np.clip(near * 0.055 + far * 0.065, 0, 0.10)   # weaker
+
+    def glow(sigma):
+        # normalised so one straight edge reaches 1 at its centre, then saturating: crossings and corners
+        # glow no brighter than a plain edge
+        probe = np.zeros((8 * int(sigma) + 64, 64), np.float32)
+        probe[probe.shape[0] // 2 - 2: probe.shape[0] // 2 + 2, :] = 1
+        peak = blur(probe, sigma)[probe.shape[0] // 2, 32]
+        return 1 - np.exp(-1.6 * blur(a, sigma) / max(peak, 1e-6))
+
+    near, far = glow(22), glow(150)
+    alpha = near * 0.19 + far * 0.075                           # about 3x the previous mist, reaching further
+    alpha += (np.random.default_rng(7).random(alpha.shape, dtype=np.float32) - 0.5) / 255   # dither: no banding
+    alpha = np.clip(alpha, 0, 0.30)
     img = np.dstack([np.full((CH, CW, 3), 255, np.float32), alpha * 255]).astype(np.uint8)
     return Image.fromarray(img, "RGBA")
 

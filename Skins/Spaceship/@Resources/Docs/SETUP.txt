@@ -160,5 +160,12 @@ from open-notify.org (every minute while the sphere is visible). Nothing else le
 - Something blank or misplaced: right-click > Refresh HUD, then Rainmeter > About > Log.
 - Fonts look plain: Rainmeter loads them from @Resources\Fonts on refresh; restart
   Rainmeter once after installing.
-- An app says NOT FOUND: Control Center > APPS > RESCAN, or fix its Target in Apps.ini.
+- An app says NOT FOUND: it isn't installed, or it moved. Clicking it rescans the Start menu
+  (also Control Center > APPS > RESCAN); otherwise fix its Target in Apps.ini.
+- A folder says NONE INSTALLED: none of its apps were found. Install one, or edit its
+  Apps= list in Apps.ini. HideMissing=0 lists missing apps greyed out instead of hiding them.
+- External monitor: the HUD stays on the laptop's 2560x1600 panel. It hides when that panel isn't
+  connected (lid closed) and comes back with it. HomeMonitor / HomeSize in Settings.inc override it.
+- Errors: each module catches its own errors and keeps running. Look for
+  "Spaceship error in ..." in Rainmeter > Manage > Log.
 - GPU buttons do nothing: see section 4 (CLI enabled? names right? check Data\llt.log).

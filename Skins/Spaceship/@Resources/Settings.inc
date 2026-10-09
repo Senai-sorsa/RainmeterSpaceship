@@ -7,6 +7,13 @@
 Scale=1
 OriginX=0
 OriginY=0
+; which display the HUD lives on. The HUD is drawn for the laptop's own 2560x1600 panel: with an external
+; monitor attached it stays on the laptop panel (wherever Windows places it, primary or not) and never
+; spreads onto the other screen. If no display of HomeSize is connected (lid closed, external only) the
+; HUD hides itself and comes back when the panel returns. HomeMonitor=auto finds it by size; a number
+; (1, 2, ...) pins Rainmeter's monitor of that index instead.
+HomeMonitor=auto
+HomeSize=2560x1600
 
 ; ---------------------------------------------------------------- theme
 ColorAccent=0,210,255

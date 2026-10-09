@@ -1,4 +1,5 @@
--- Controller (invisible): performance tiers, MASTER switch, edit mode, app scan, HWiNFO auto-map.
+-- Controller (invisible): performance tiers, MASTER switch, edit mode, app scan, HWiNFO auto-map, and keeping
+-- the HUD on the laptop's own display when other monitors are connected.
 local H, A
 local RES
 local tier, upSince, downSince = 0, nil, nil
@@ -40,8 +41,51 @@ local function wanted(gpu, ac)
   return math.max(up, minT), math.max(down, minT)
 end
 
+-- the laptop panel on the virtual desktop: HomeMonitor=auto -> the first monitor of HomeSize, a number -> that
+-- monitor. Rainmeter's #SCREENAREA...@n# variables describe each monitor; a missing monitor leaves them unresolved.
+local function findHome()
+  local function mon(n)
+    local function v(k) return tonumber(SKIN:ReplaceVariables('#' .. k .. '@' .. n .. '#')) end
+    local w, h = v('SCREENAREAWIDTH'), v('SCREENAREAHEIGHT')
+    if w and h then return { x = v('SCREENAREAX') or 0, y = v('SCREENAREAY') or 0, w = w, h = h } end
+  end
+  local pin = tonumber(H.str('HomeMonitor', 'auto'))
+  if pin then return mon(pin) end
+  local hw, hh = string.match(H.str('HomeSize', '2560x1600'), '(%d+)%s*[xX]%s*(%d+)')
+  hw, hh = tonumber(hw) or 2560, tonumber(hh) or 1600
+  for n = 1, 16 do
+    local m = mon(n)
+    if m and m.w == hw and m.h == hh then return m end
+  end
+  return nil
+end
+
+local homeHidden = false
+local function checkMonitor()
+  local m = findHome()
+  if not m then
+    -- the laptop panel isn't connected (lid closed / external only): hide rather than draw on the wrong screen
+    if not homeHidden then
+      homeHidden = true
+      print('Spaceship: the ' .. H.str('HomeSize', '2560x1600') .. ' display was not found - HUD hidden until it returns')
+      SKIN:Bang('!HideGroup', 'Spaceship')
+    end
+    return
+  end
+  if m.x ~= H.num('MonX', 0) or m.y ~= H.num('MonY', 0) then
+    -- the panel moved on the virtual desktop (a monitor was added, removed or made primary): follow it
+    H.save('MonX', m.x, RES .. 'State.inc'); H.save('MonY', m.y, RES .. 'State.inc')
+    homeHidden = false
+    SKIN:Bang('!ShowGroup', 'Spaceship'); SKIN:Bang('!RefreshGroup', 'Spaceship')
+  elseif homeHidden then
+    homeHidden = false
+    SKIN:Bang('!ShowGroup', 'Spaceship'); SKIN:Bang('!RefreshGroup', 'Spaceship')
+  end
+end
+
 function Update()
   tick = tick + 1
+  if tick == 1 or tick % 5 == 0 then checkMonitor() end
   local ov = H.num('PerfOverride', -1)
   if ov >= 0 then
     setTier(ov)

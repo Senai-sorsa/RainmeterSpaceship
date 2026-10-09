@@ -318,6 +318,8 @@ def build():
         frames.path(pts, f"Stroke Color {MID},255 | StrokeWidth 11 | StrokeLineJoin Round")
     for wp, ln in rail(4.5):
         frames.path(list(ln.coords), f"Stroke Color {LIGHT},255 | StrokeWidth 2.6 | StrokeLineJoin Round")
+    for wp, ln in rail(8.5):   # crisp silver catch-light on the tube rail (reference: pale glossy rails at every window edge)
+        frames.path(list(ln.coords), "Stroke Color 178,194,210,150 | StrokeWidth 1.3 | StrokeLineJoin Round")
     for wp, ln in rail(2.2):
         frames.path(list(ln.coords), f"Stroke Color {EDGE},70 | StrokeWidth 1 | StrokeLineJoin Round")
     for wp, ln in rail(19):
@@ -352,51 +354,83 @@ def build():
             frames.path([a_, b_], f"Stroke Color {LIGHT},255 | StrokeWidth 3")
             d += 150
     # red accent strip under the side-window rails (second crop)
-    for pts in (C(R.SILL_EDGE_L), mpts(C(R.SILL_EDGE_L))):
+    sill = R.SILL_EDGE_L[:2]                     # the long sill only, not the turn up to the windscreen corner
+    sill = [sill[0], (sill[0][0] + (sill[1][0] - sill[0][0]) * 0.93, sill[0][1] + (sill[1][1] - sill[0][1]) * 0.93)]
+    for pts in (C(sill), mpts(C(sill))):
         strip = LineString([(x, y + 36) for x, y in pts]).difference(excl).intersection(HULL.buffer(-2))
         frames.line(strip, "Stroke Color 150,26,30,210 | StrokeWidth 3")
         frames.line(strip, "Stroke Color 255,90,90,60 | StrokeWidth 1")
-    # lamps (reference): each light is the end of a metal cylinder. On the A-pillar a short collared cylinder
-    # rides the strut beside long glossy tubes; under the side window a long tube runs along the sill toward
-    # the centre with the lamp in its white end cap. Mirrored for the right side.
-    def cylinder_unit(X, Y, ux, uy, length, r, side):
+    # lamps (reference close-ups): each light is a grey cylinder with a round hole through it, running into a
+    # black cylinder that ends in a black cone; the cone's base is narrower than the cylinder, so a polished
+    # ring of the cylinder's end face shows (and reflects the light) around it, and the light shines out of the
+    # cone's tip. One rides the A-pillar pointing down it; one sits on the long tube under each side window
+    # pointing in toward the centre. Mirrored for the right side.
+    def beam(X, Y, ux, uy, length, r, side):
+        # the long beam under the side window that carries the lamp (reference: one smooth, dark, glossy member
+        # with a bright catch-light along its top and a soft reflection underneath - no segments)
         if side:
             X, ux = CW - X, -ux
         nx, ny = -uy, ux
+        if ny > 0:
+            nx, ny = -nx, -ny                                     # n points up the screen (the lit top)
         ex, ey = X + ux * length, Y + uy * length
-        body = [(X - nx * r, Y - ny * r), (ex - nx * r, ey - ny * r), (ex + nx * r, ey + ny * r), (X + nx * r, Y + ny * r)]
-        ang = math.degrees(math.atan2(ny, nx))
+        body = [(X + nx * r, Y + ny * r), (ex + nx * r * 0.8, ey + ny * r * 0.8), (ex - nx * r * 0.8, ey - ny * r * 0.8),
+                (X - nx * r, Y - ny * r)]
+        ang = math.degrees(math.atan2(-ny, -nx))
         frames.path(body, "Fill LinearGradient {G} | Stroke Color 0,0,0,230 | StrokeWidth 2", True,
-                    grad(ang, ("8,10,14,255", 0), ("52,62,74,255", 0.22), ("128,144,160,255", 0.36), ("58,68,80,255", 0.55),
-                         ("20,24,30,255", 0.8), ("6,8,10,255", 1)))
-        # glossy line along the top of the tube, collars along its length
-        frames.path([(X - nx * r * 0.45 + ux * r, Y - ny * r * 0.45 + uy * r), (ex - nx * r * 0.45, ey - ny * r * 0.45)],
-                    "Stroke Color 175,200,220,110 | StrokeWidth 1.6")
-        k = r * 1.6
-        while k < length - r:
-            cx_, cy_ = X + ux * k, Y + uy * k
-            frames.path([(cx_ - nx * r, cy_ - ny * r), (cx_ + nx * r, cy_ + ny * r)], "Stroke Color 0,0,0,200 | StrokeWidth 3")
-            frames.path([(cx_ - nx * r + ux * 3, cy_ - ny * r + uy * 3), (cx_ + nx * r + ux * 3, cy_ + ny * r + uy * 3)],
-                        f"Stroke Color {LIGHT},140 | StrokeWidth 1.2")
-            k += max(60, length / 4)
-        frames.path([(ex - nx * r, ey - ny * r), (ex + nx * r, ey + ny * r)], "Stroke Color 0,0,0,230 | StrokeWidth 4")
-        # the white housing collar just behind the lens (the reference lamps' most visible part)
-        k0, k1 = r * 0.35, r * 1.45
-        band = [(X + ux * k0 - nx * r * 1.06, Y + uy * k0 - ny * r * 1.06), (X + ux * k1 - nx * r * 1.06, Y + uy * k1 - ny * r * 1.06),
-                (X + ux * k1 + nx * r * 1.06, Y + uy * k1 + ny * r * 1.06), (X + ux * k0 + nx * r * 1.06, Y + uy * k0 + ny * r * 1.06)]
-        frames.path(band, "Fill LinearGradient {G} | Stroke Color 0,0,0,200 | StrokeWidth 1.5", True,
-                    grad(ang, ("58,64,72,255", 0), ("170,178,188,255", 0.18), ("236,240,244,255", 0.36), ("214,220,228,255", 0.55),
-                         ("120,128,138,255", 0.8), ("40,44,50,255", 1)))
-        frames.path([(X + ux * k1 - nx * r * 1.06, Y + uy * k1 - ny * r * 1.06), (X + ux * k1 + nx * r * 1.06, Y + uy * k1 + ny * r * 1.06)],
-                    "Stroke Color 0,0,0,230 | StrokeWidth 3")
-        frames.path(H_ellipse(X + ux * (k0 + k1) / 2, Y + uy * (k0 + k1) / 2, r * 0.28, r * 0.22, ang),
-                    "Fill Color 30,34,40,230 | StrokeWidth 0", True)
-        # end cap facing the cabin: white collar ring seen at an angle, dark socket, lens
-        cap = H_ellipse(X, Y, r * 1.25, r * 0.75, ang)
-        frames.path(cap, "Fill Color 18,22,28,255 | Stroke Color 0,0,0,230 | StrokeWidth 2", True)
-        frames.path(H_ellipse(X, Y, r * 1.05, r * 0.62, ang), "Stroke Color 200,208,216,255 | StrokeWidth 6", True)
-        frames.path(H_ellipse(X, Y, r * 1.05, r * 0.62, ang, 200, 330), "Stroke Color 245,248,250,200 | StrokeWidth 2.4")
-        frames.ellipse(X, Y, r * 0.5, r * 0.5, "Fill Color 6,12,24,255 | Stroke Color 70,84,100,255 | StrokeWidth 1.5")
+                    grad(ang, ("62,74,88,255", 0), ("24,29,36,255", 0.12), ("10,12,16,255", 0.45), ("30,37,46,255", 0.72),
+                         ("74,88,104,255", 0.86), ("8,10,13,255", 1)))
+        frames.path([(X + nx * r * 0.82, Y + ny * r * 0.82), (ex + nx * r * 0.66, ey + ny * r * 0.66)],
+                    "Stroke Color 196,214,230,170 | StrokeWidth 1.6")
+        frames.path([(X - nx * r * 0.55, Y - ny * r * 0.55), (ex - nx * r * 0.45, ey - ny * r * 0.45)],
+                    "Stroke Color 120,150,180,60 | StrokeWidth 5")
+        frames.path([(ex + nx * r * 0.8, ey + ny * r * 0.8), (ex - nx * r * 0.8, ey - ny * r * 0.8)], "Stroke Color 0,0,0,230 | StrokeWidth 3")
+
+    def lamp(X, Y, ux, uy, r, side):
+        # (X, Y) = the cone tip the light leaves from; u = the direction the light points
+        if side:
+            X, ux = CW - X, -ux
+        nx, ny = -uy, ux
+        ang = math.degrees(math.atan2(ny, nx))
+        e = 0.38                                                   # how open the round faces look (view angle)
+
+        def P(t, s_):                                              # t: distance back from the tip, s_: across
+            return (X - ux * t + nx * s_, Y - uy * t + ny * s_)
+
+        def ring(t, a, th0, th1, n=24):                            # th in degrees; sin > 0 = further back
+            return [P(t + e * a * math.sin(math.radians(th0 + (th1 - th0) * i / n)),
+                      a * math.cos(math.radians(th0 + (th1 - th0) * i / n))) for i in range(n + 1)]
+
+        def segment(t0, t1, a):                                    # a cylinder between two stations
+            return ring(t0, a, 0, -180) + ring(t1, a, 180, 0)
+
+        Lc, Lb, Lg = r * 0.95, r * 1.25, r * 1.7                   # cone, black cylinder, grey cylinder lengths
+        shade = lambda *st: grad(ang, *st)
+        # grey cylinder (furthest from the light) with a round hole through its side
+        frames.path(segment(Lc + Lb, Lc + Lb + Lg, r * 0.96), "Fill LinearGradient {G} | Stroke Color 0,0,0,220 | StrokeWidth 1.6",
+                    True, shade(("40,44,50,255", 0), ("120,126,134,255", 0.2), ("188,194,200,255", 0.38), ("150,156,164,255", 0.6),
+                                ("78,84,92,255", 0.82), ("30,33,38,255", 1)))
+        hc = P(Lc + Lb + Lg * 0.52, -r * 0.12)
+        hole = H_ellipse(hc[0], hc[1], r * 0.30, r * 0.36, ang)
+        frames.path(hole, "Fill Color 6,7,9,255 | Stroke Color 40,44,50,255 | StrokeWidth 1.2", True)
+        frames.path(H_ellipse(hc[0], hc[1], r * 0.30, r * 0.36, ang, 20, 160, 16), "Stroke Color 220,226,232,170 | StrokeWidth 1.4")
+        # black cylinder, glossy line along it
+        frames.path(segment(Lc, Lc + Lb, r), "Fill LinearGradient {G} | Stroke Color 0,0,0,240 | StrokeWidth 1.6", True,
+                    shade(("4,5,7,255", 0), ("26,30,36,255", 0.25), ("70,80,92,255", 0.36), ("18,21,26,255", 0.5), ("6,7,9,255", 1)))
+        frames.path([P(Lc + r * 0.25, -r * 0.42), P(Lc + Lb - r * 0.1, -r * 0.42)], "Stroke Color 150,175,200,120 | StrokeWidth 1.4")
+        # polished end face of the black cylinder: the ring left showing around the cone's base, catching the light
+        face = ring(Lc, r, 0, 360, 40)
+        frames.path(face, "Fill LinearGradient {G} | Stroke Color 0,0,0,230 | StrokeWidth 1.4", True,
+                    shade(("70,84,100,255", 0), ("210,226,240,255", 0.3), ("120,150,190,255", 0.5), ("235,244,252,255", 0.68),
+                          ("60,72,88,255", 1)))
+        # black cone from that face out to the tip
+        rb, rt = r * 0.70, r * 0.36
+        cone = ring(0, rt, 0, -180) + ring(Lc, rb, 180, 0)
+        frames.path(ring(Lc, rb, 0, 360, 32), "Fill Color 4,5,7,255 | StrokeWidth 0", True)
+        frames.path(cone, "Fill LinearGradient {G} | Stroke Color 0,0,0,240 | StrokeWidth 1.2", True,
+                    shade(("2,3,4,255", 0), ("22,26,32,255", 0.3), ("60,70,84,255", 0.42), ("12,14,18,255", 0.6), ("2,3,4,255", 1)))
+        # the lens at the tip (the light itself is live, in the Lights layer, centred here)
+        frames.path(ring(0, rt, 0, 360, 24), "Fill Color 20,40,70,255 | Stroke Color 120,160,200,200 | StrokeWidth 1.2", True)
 
     def H_ellipse(cx_, cy_, rx, ry, rot, a0=0, a1=360, n=36):
         cr, sr = math.cos(math.radians(rot)), math.sin(math.radians(rot))
@@ -410,15 +444,20 @@ def build():
     pu = norm((500.8 - 342.3) * R.SX, (365.5 - 104) * R.SY)          # down the A-pillar
     su = norm(440.6 * R.SX, -134.5 * R.SY)                            # along the sill, toward the centre
     for side in (0, 1):
-        # long glossy tubes running the length of the A-pillar beside the lamp
-        for off, w in ((12, 5), (20, 4), (27, 3)):
-            ln = LineString(C([(342.3, 104), (500.8, 365.5)])).parallel_offset(off, "left")
-            g = (ln if side == 0 else mirror(ln)).intersection(HULL.buffer(-2))
-            frames.line(g, f"Stroke Color 0,0,0,220 | StrokeWidth {w + 2}")
-            frames.line(g, f"Stroke Color {MID},255 | StrokeWidth {w}")
-            frames.line(shp_translate(g, -0.8 if side == 0 else 0.8, -1), f"Stroke Color 170,198,222,{90 + w * 10} | StrokeWidth 1")
-        cylinder_unit(358 * R.SX, 200 * R.SY, -pu[0], -pu[1], 92, 27, side)     # lens faces down the pillar, body above
-        cylinder_unit(232 * R.SX, 498 * R.SY, su[0], su[1], 330, 27, side)
+        lamp(358 * R.SX, 200 * R.SY, pu[0], pu[1], 26, side)            # points down the pillar, body above it
+        # the side-window lamp points in toward the centre; the long tube runs on behind it
+        bx, by = 232 * R.SX - su[0] * 70, 498 * R.SY - su[1] * 70
+        beam(bx + su[0] * 20, by + su[1] * 20 + 8, su[0], su[1], 360, 24, side)
+        # the second, lower member under it (reference: a broad grey structure with a soft pale reflection)
+        lx, ly = 232 * R.SX + su[0] * 150, 498 * R.SY + su[1] * 150 + 96
+        q0 = (lx if side == 0 else CW - lx, ly)
+        ux_ = su[0] if side == 0 else -su[0]
+        q1 = (q0[0] + ux_ * 470, q0[1] + su[1] * 470)
+        for off, w, al in ((0, 30, 255), (-4, 10, 255), (-7, 3, 255)):
+            col = ("10,12,16", "52,62,74", "150,170,190")[[30, 10, 3].index(w)]
+            a_ = 0.9 if w == 30 else (0.55 if w == 10 else 0.45)
+            frames.path([(q0[0], q0[1] + off), (q1[0], q1[1] + off)], f"Stroke Color {col},{int(al * a_)} | StrokeWidth {w} | StrokeStartCap Round | StrokeEndCap Round")
+        lamp(232 * R.SX, 498 * R.SY, su[0], su[1], 26, side)
         # loose cables looping past the pillar lamp on the outer side
         loop = [(306, 140), (316, 168), (326, 200), (342, 230), (368, 252), (398, 266), (426, 302), (452, 336)]
         pts = C(loop) if side == 0 else mpts(C(loop))
@@ -576,11 +615,12 @@ def build():
     for (x, y) in R.LIGHTS:
         X, Y = x * R.SX, y * R.SY
         # a compact lens glow (reference: a small hot lens, little halo) so the white collar stays readable
-        for r, a in ((120, 3), (74, 6), (44, 11), (27, 24), (17, 55), (11, 110)):
+        for r, a in ((120, 3), (74, 6), (44, 10), (26, 18), (15, 40), (9.5, 95)):
             lights.ellipse(X, Y, r, r, f"Fill Color 50,135,255,{a} | StrokeWidth 0")
         lights.ellipse(X, Y, 85, 1.6, "Fill Color 140,200,255,40 | StrokeWidth 0")
-        lights.ellipse(X, Y, 6, 6, "Fill Color 190,230,255,255 | StrokeWidth 0")
-        lights.ellipse(X, Y, 2.8, 2.8, "Fill Color 255,255,255,255 | StrokeWidth 0")
+        lights.ellipse(X, Y, 2.0, 22, "Fill Color 140,200,255,30 | StrokeWidth 0")
+        lights.ellipse(X, Y, 5, 5, "Fill Color 190,230,255,255 | StrokeWidth 0")
+        lights.ellipse(X, Y, 2.4, 2.4, "Fill Color 255,255,255,255 | StrokeWidth 0")
     for (x0, y0, x1, y1) in R.SCREENS:
         cx_, cy_ = (x0 + x1) / 2 * R.SX, (y0 + y1) / 2 * R.SY
         hw, hh = (x1 - x0) / 2 * R.SX, (y1 - y0) / 2 * R.SY

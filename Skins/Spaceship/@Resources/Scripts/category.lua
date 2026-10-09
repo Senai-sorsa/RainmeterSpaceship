@@ -113,7 +113,12 @@ local function drawSchematic(app)
     end
     H.hit(2, 1, cx - h2, cy - h2, 2 * h2, 2 * h2, 'Launch ' .. app.name .. (app.missing and '  (not found - RESCAN in Control Center)' or '') .. '   scroll: next app')
   else
-    H.text(2, 1, cx, cy, 'NO APPS', { size = 10, weight = 700, align = 'CenterCenter', color = D })
+    -- none of this category's apps are installed: a dim hologram of the category itself and a clear note,
+    -- instead of an empty panel (the page dots still switch to another category)
+    c:icon(cat and cat.icon or 'box', cx, cy - sz * 0.06, sz * 0.62, D, 1.4, 170)
+    H.text(2, 1, cx, cy + sz * 0.36, 'NONE INSTALLED', { size = 7.5, weight = 700, align = 'CenterCenter', color = H.C.warn })
+    H.hit(2, 1, cx - sz / 2, cy - sz / 2, sz, sz, (cat and cat.name or 'This category') ..
+      ': none of its apps are installed. Install one (it appears after the next Start menu scan, or RESCAN in Control Center), add others in Apps.ini, or pick another category with the page dots.')
   end
   c:flush()
 end

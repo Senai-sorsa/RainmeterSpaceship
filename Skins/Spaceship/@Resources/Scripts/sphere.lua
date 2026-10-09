@@ -1,6 +1,6 @@
--- Holographic sphere: one smooth deep-blue sphere (pre-blurred sprite with a brighter limb), flat disks
--- slicing through it (the main one through the centre with its rim, inner ring and orange sweep), a base
--- ring, blips on stalks and the "DSP RNGE" box. Centred on the screen axis.
+-- Holographic sphere: one smooth deep-blue sphere (pre-blurred sprite with a brighter limb), two disks
+-- through its centre - a tilted one with its rim, inner ring and orange sweep, and a level one crossing it -
+-- a base ring, blips on stalks and the "DSP RNGE" box. Centred on the screen axis.
 -- Blips = busiest processes; ISS and your position ride on the rotating globe; the box = network rate.
 local H
 local frame, rot, yaw = 0, 0, 0
@@ -58,11 +58,17 @@ function Update()
   -- one tilted disk through the centre: filled plane, bright rim, inner ring and the orange sweep
   local tilt, TA = 0.17, -9                                  -- disk aspect and tilt (degrees)
   local ey = CY + 6
+  -- plus one flat (level) plane crossing it: its far half is drawn first, behind the tilted disk,
+  -- its near half after, so the two planes visibly pass through each other
+  local ft = 0.22
+  c:fillPoly(H.ellipsePts(CX, ey, R * 0.99, R * 0.99 * ft, 0, 0, 360, 64), A1, 14)
+  c:poly(H.ellipsePts(CX, ey, R * 0.99, R * 0.99 * ft, 0, 180, 360, 32), A1, 1.6, 120)
   local disk = H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, TA, 0, 360, 64)
   c:fillPoly(disk, H.mix(A1, W, 0.4), 30)
   c:poly(disk, W, 2.2, 235)
   c:poly(H.ellipsePts(CX, ey, R * 0.42, R * 0.42 * tilt, TA, 0, 360, 36), W, 1.3, 160)
   c:poly(H.ellipsePts(CX, ey, R * 0.97, R * 0.97 * tilt, TA, rot * 1.5, rot * 1.5 + 55, 14), O, 3, 235)
+  c:poly(H.ellipsePts(CX, ey, R * 0.99, R * 0.99 * ft, 0, 0, 180, 32), H.mix(A1, W, 0.3), 1.8, 215)
   local ct, st = math.cos(rad(TA)), math.sin(rad(TA))
   -- base ring under the sphere (the projector's beam)
   c:poly(H.ellipsePts(CX, CY + R * 0.9, R * 0.55, R * 0.1, 0, 0, 360, 40), A1, 1.6, 200)

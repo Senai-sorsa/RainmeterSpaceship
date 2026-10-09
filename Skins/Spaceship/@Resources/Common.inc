@@ -3,7 +3,7 @@
 AccurateText=1
 DynamicWindowSize=1
 Group=Spaceship
-OnRefreshAction=[!Move "((#WX#+#DX#)*#Scale#+#OriginX#)" "((#WY#+#DY#)*#Scale#+#OriginY#)"][!ZPos -2][!KeepOnScreen 0][!Draggable 0][!SnapEdges 0]
+OnRefreshAction=[!Move "((#WX#+#DX#)*#Scale#+#OriginX#+#MonX#)" "((#WY#+#DY#)*#Scale#+#OriginY#+#MonY#)"][!ZPos -2][!KeepOnScreen 0][!Draggable 0][!SnapEdges 0]
 ContextTitle=Control Center
 ContextAction=[!ToggleConfig "Spaceship\Overlay\Control" "Control.ini"]
 ContextTitle2=App drawer (CARGO)

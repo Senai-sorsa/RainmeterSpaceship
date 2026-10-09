@@ -64,6 +64,90 @@ Hidden=1
 TransformationMatrix=#Z1_TM#
 Group=Zone1 | Text
 
+[T1_7]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_8]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_9]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_10]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_11]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_12]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_13]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_14]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_15]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_16]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_17]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
+[T1_18]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z1_TM#
+Group=Zone1 | Text
+
 [T2_1]
 Meter=String
 MeterStyle=sText
@@ -100,6 +184,90 @@ TransformationMatrix=#Z2_TM#
 Group=Zone2 | Text
 
 [T2_6]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_7]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_8]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_9]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_10]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_11]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_12]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_13]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_14]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_15]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_16]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_17]
+Meter=String
+MeterStyle=sText
+Hidden=1
+TransformationMatrix=#Z2_TM#
+Group=Zone2 | Text
+
+[T2_18]
 Meter=String
 MeterStyle=sText
 Hidden=1

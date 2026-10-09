@@ -11,7 +11,7 @@ The ship is **symmetric**: the left side is designed and mirrored, and so is the
 - corrugated floor hoses;
 - panel plating and fine scratches;
 - angular visor cut-offs at all four corners, traced from the reference (silver-blue rim, stepped notch);
-- window edges with tube rails, sagging cables, clamps, cylindrical lamps with white housing collars and a red sill strip;
+- window edges with tube rails, sagging cables, clamps, lamps built like the reference (a grey cylinder with a hole, a black cylinder, a polished ring and a black cone the light shines from) and a red sill strip;
 - smooth A-pillars with long glossy streaks, lower walls with long reflections, a slatted console face and a metal pedestal.
 
 The neutral metal is **pre-rendered into one textured image** (`Images/hull.png`), with brushed-metal streaks, grime, cavity shading and relief lighting. Its windows are cut out with a mask (`Images/window_mask.png`). Rainmeter draws that in one call. Only the theme-coloured parts stay as live Shape meters, so colour themes still apply: rim glow, LEDs, strut lights and HUD lines.
@@ -51,6 +51,15 @@ If you'd rather use a picture of the ship, an **image mode** cuts the windows ou
    - Turn on HWiNFO gadget reporting.
    - Enable the Legion Toolkit CLI.
 
+## External monitors
+
+The HUD is drawn for the laptop's own 2560x1600 panel, and it stays there:
+
+- **External monitor connected:** nothing breaks. The Controller finds the 2560x1600 panel among Rainmeter's monitors and keeps every module on it, even if Windows makes the external monitor primary or places it to the left.
+- **Nothing on the other screen:** the HUD never spreads onto, or appears on, any other monitor.
+- **Laptop panel not connected** (lid closed, external monitor only): the HUD hides, then returns when the panel comes back.
+- **Pinning a monitor:** `HomeMonitor` and `HomeSize` in `Settings.inc` choose which monitor the HUD uses. The default is `HomeMonitor=auto` with `HomeSize=2560x1600`.
+
 ## What's where
 
 | Area | Shows |
@@ -62,9 +71,9 @@ If you'd rather use a picture of the ship, an **image mode** cuts the windows ou
 | Side columns, middle | Location (LAT/LON) · ship identity card (BLACK-CLOVER specs, uptime, IP) |
 | Side columns, slots 1-8 | Four identical **buttons** per side, mirrored on the right and set in perspective. A single app launches; a category opens a pop-up list of its apps (right-click launches the last one used). A folder button shows one neon emblem for the whole folder, with room around it. Every single-app button shows the app's **own icon in neon**: the real icon is recoloured from the theme colour to white, with a glow. |
 | Side columns, bottom | Upkeep (Windows Update, winget, antivirus) · dev status (WSL, Ollama, Tailscale) |
-| Centre | Orange target lock on the busiest process · flight HUD (clock, CPU GHz tape, GPU tape, fan/throttle readout, network variometer, **next rocket launch countdown**) · 3D radar sphere (process blips, **ISS position**, your position) |
+| Centre | Orange target lock on the busiest process · flight HUD (clock, CPU GHz tape, GPU tape, fan/throttle readout, network variometer, **next rocket launch countdown**) · 3D radar sphere with a tilted disk and a level one crossing it (process blips, **ISS position**, your position) |
 | Dash | Storage screen · audio screen (live waveform, volume, media keys) · four info cells either side of the dash arc (temperatures, load, fan · network, ping, Wi-Fi) |
-| Tilted corner screens | Angled with their panes: pilot (your Windows user), date and live time on the left; host, Windows and display on the right |
+| Tilted corner screens | Nine readouts on each pane, angled with it. Left: pilot (your Windows user), date, live time, week, year progress, UTC offset, boot time, uptime and idle time. Right: host, Windows, display, CPU threads, memory, OS bits, monitors, IP address and Wi-Fi network |
 | Overlays | **CARGO** drawer (every category as a drop-down) · **Control Center** |
 
 ![Control Center](docs/preview-control.jpg)
@@ -82,7 +91,21 @@ The Control Center (the CFG button, or right-click any module) has these tabs:
 - **SYSTEM:** lock, sleep, restart and shut down (with confirmation), and Settings shortcuts.
 - **PRESETS:** six save slots, with **undo**.
 
-Apps live in [`Apps.ini`](Skins/Spaceship/@Resources/Apps.ini). Targets resolve against your Start menu, so apps that aren't installed yet stay hidden until they are. **Ansys** is already listed in Engineering and appears after a RESCAN once it's installed.
+Apps live in [`Apps.ini`](Skins/Spaceship/@Resources/Apps.ini). Targets resolve against your Start menu, so apps that aren't installed yet stay hidden until they are. **Ansys** sits in the Engineering panel next to SolidWorks and MATLAB. It's found by its Start menu name (Workbench, Ansys, Ansys Student, Mechanical or Fluent) or by the default install paths (v241 to v261, including Student).
+
+### Apps that aren't installed
+
+Nothing breaks if some apps in the catalog aren't on your PC:
+
+- **In a folder:** a missing app is left out of the folder's list, the top panels and the CARGO drawer. Set `HideMissing=0` in `Apps.ini` to list it greyed out instead.
+- **Whole folder missing:** if none of a folder's apps are installed, the folder still shows, marked **NONE INSTALLED**. Its top panel shows the folder's hologram dimmed, with the same note.
+- **Single-app slot** (Chrome, Everything): a missing app is marked **NOT FOUND** in orange. Clicking it launches nothing.
+- **What a click on a missing app does:** it writes the reason to the Rainmeter log, then asks the Controller to rescan the Start menu (at most once a minute). An app you just installed appears without a manual refresh.
+- **No real icon:** an app whose icon couldn't be extracted falls back to its line icon.
+
+The Start menu is also rescanned on first run, then daily.
+
+Errors don't freeze the HUD either. Every module's update and mouse handlers run protected: an error is written once to the Rainmeter log (*Manage > Log*, `Spaceship error in ...`), and the module keeps running.
 
 ## Glow and look
 
@@ -105,7 +128,7 @@ Fonts: **Oxanium** for labels, **B612 Mono** for numbers (B612 was designed by A
 | `HudAlpha` (HUD OPACITY) | Opacity of every HUD line and label |
 | `GlassTint` (WINDOW TINT) | Theme-colour tint on the windows |
 | `GlassGlare` (GLASS GLARE) | Smudges and reflections on the glass |
-| `MistAlpha` | The wide, dim neon mist off the window edges and corner cuts (0 turns it off) |
+| `MistAlpha` | The neon mist glowing off every edge of the glass (sides, sills, top, corner cuts); 0 turns it off, lower values soften it |
 | `ScanLines` / `ScanAlpha` (SCANLINES) | Scanlines on the glass |
 
 ### Using a picture of the ship

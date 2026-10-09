@@ -184,7 +184,8 @@ def mock_value(name, opts, scenario, tick):
             return (0.4, "")
         if p == "SysInfo":
             return {"COMPUTER_NAME": (0, "BLACK-CLOVER"), "IP_ADDRESS": (0, "192.168.1.42"), "OS_VERSION": (0, "Windows 11"),
-                    "NUM_PROCESSORS": (20, "20"), "USER_NAME": (0, "Senai")}.get(opts.get("sysinfotype", "").upper(), (0, ""))
+                    "NUM_PROCESSORS": (20, "20"), "USER_NAME": (0, "Senai"),
+                    "IDLE_TIME": (754, "754"), "OS_BITS": (64, "64"), "NUM_MONITORS": (1, "1")}.get(opts.get("sysinfotype", "").upper(), (0, ""))
         if p == "PingPlugin":
             return (18, "18")
         if p == "WiFiStatus":
@@ -357,7 +358,8 @@ class Skin:
         self.vars = {"@": str(RES) + "\\", "CURRENTPATH": str(self.dir) + "\\", "SCREENAREAWIDTH": "2560",
                      "SCREENAREAHEIGHT": "1600", "WORKAREAWIDTH": "2560", "WORKAREAHEIGHT": "1552",
                      "CURRENTCONFIG": config, "ROOTCONFIGPATH": str(SKINS) + "\\", "SKINSPATH": str(SKINS.parent) + "\\",
-                     "SETTINGSPATH": "/tmp/", "CRLF": "\n"}
+                     "SETTINGSPATH": "/tmp/", "CRLF": "\n",
+                     "SCREENAREAX@1": "0", "SCREENAREAY@1": "0", "SCREENAREAWIDTH@1": "2560", "SCREENAREAHEIGHT@1": "1600"}
         self.sections = parse_ini(ini, self.resolve_inc, probs, config)
         self.options = {}
         self.order = []
@@ -394,7 +396,7 @@ class Skin:
         def rep(m):
             v = self.var(m.group(1))
             if v is None:
-                if m.group(1).upper() not in BUILTIN_VARS:
+                if m.group(1).upper() not in BUILTIN_VARS and "@" not in m.group(1):   # NAME@n: monitor n, may not exist
                     self.probs.add(self.config, "variable", f"undefined #{m.group(1)}# in {where}")
                 return m.group(0)
             return v
@@ -499,6 +501,8 @@ class Skin:
             skin = self
 
             def getvar(n, d=None):
+                if str(n) == "SpaceshipStrict":
+                    return "1"      # lib.lua's error guard stays off, so Lua errors still reach the audits
                 v = skin.var(str(n))
                 if v is None:
                     return d
@@ -904,6 +908,7 @@ def static_checks(skin, probs):
 MOCK_START = """7-Zip File Manager|{6D809377-6AF0-444B-8957-A3773F02200E}\\7-Zip\\7zFM.exe
 Adobe Acrobat|{6D809377}\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe
 ArcGIS Pro|{6D809377}\\ArcGIS\\Pro\\bin\\ArcGISPro.exe
+Workbench 2025 R1|{6D809377}\\ANSYS Inc\\v251\\Framework\\bin\\Win64\\RunWB2.exe
 Bitwarden|com.bitwarden.desktop
 Blender 5.2|{6D809377}\\Blender Foundation\\Blender 5.2\\blender-launcher.exe
 Claude|AnthropicPBC.Claude_x!Claude

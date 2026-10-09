@@ -42,7 +42,7 @@ SPEC = {
     "Bottom\\Storage": {"texts": [14], "hits": [3]},
     "Bottom\\Audio": {"texts": [12], "hits": [6]},
     "Bottom\\Strip": {"texts": [4, 4], "hits": [4, 4]},
-    "Bottom\\Panels": {"texts": [6, 6], "hits": [1, 1]},
+    "Bottom\\Panels": {"texts": [18, 18], "hits": [1, 1]},
 }
 SPEC["Overlay\\Drawer"] = {"texts": [44], "hits": [40], "images": [20]}
 SPEC["Overlay\\Control"] = {"texts": [110], "hits": [84]}

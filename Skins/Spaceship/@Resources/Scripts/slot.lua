@@ -99,8 +99,9 @@ function Update()
     H.text(1, 8, MX(0.30), Y(0.24), title, { size = 8, weight = 700, align = LA, color = W, clip = X(0.62) })
     local sub
     if isCat then
-      sub = #list .. ' APPS' .. (app and ('   LAST  ' .. app.short) or '')
-      H.text(1, 9, MX(0.30), Y(0.50), sub, { size = 5.6, weight = 700, align = LA, color = { 160, 178, 190 }, clip = X(0.62) })
+      -- a folder whose apps are all uninstalled stays visible and says so (Apps.ini HideMissing=1 drops them)
+      sub = #list == 0 and 'NONE INSTALLED' or (#list .. ' APPS' .. (app and ('   LAST  ' .. app.short) or ''))
+      H.text(1, 9, MX(0.30), Y(0.50), sub, { size = 5.6, weight = 700, align = LA, color = #list == 0 and H.C.warn or { 160, 178, 190 }, clip = X(0.62) })
     else
       H.text(1, 9, MX(0.30), Y(0.50), st, { size = 5.6, weight = 700, align = LA, color = scol, clip = X(0.62) })
       c:dot(MX(0.30) + (mirror and 6 or -6), Y(0.50), 2.6, scol)
@@ -115,8 +116,16 @@ function Update()
     -- stepped underline (reference weapon rows)
     c:poly({ { MX(0.005), Y(0.98) }, { MX(0.327), Y(0.935) }, { MX(0.362), Y(0.84) }, { MX(0.96), Y(0.83) } }, A1, 1.4)
     for k = 1, 7 do H.hideHit(1, k) end
-    H.hit(1, 8, 0, 0, w, h, isCat and (entry.cat.name .. ' - click: choose an app   right-click: launch ' .. (app and app.name or '') .. '   scroll: change it')
-      or (app and ('Launch ' .. app.name) or 'Unassigned slot'))
+    local tip
+    if isCat then
+      tip = #list == 0 and (entry.cat.name .. ' - none of its apps are installed (edit Apps.ini, or install one and click to rescan)')
+        or (entry.cat.name .. ' - click: choose an app   right-click: launch ' .. (app and app.name or '') .. '   scroll: change it')
+    elseif app and app.missing then
+      tip = app.name .. ' is not installed or was moved - click to rescan the Start menu, or set its Target= in Apps.ini'
+    else
+      tip = app and ('Launch ' .. app.name) or 'Unassigned slot - set Slot' .. slot .. '= in Apps.ini'
+    end
+    H.hit(1, 8, 0, 0, w, h, tip)
 
   elseif style == 'card' then
     if app then c:icon(app.icon, X(0.81), Y(0.44), h * 0.62, icol, 1.7) end
@@ -196,7 +205,9 @@ end
 
 function OnClick(zi, k)
   if style == 'row' and k == 8 then
-    if apps() then openPopup() else local app = current(); if app then A.launch(app) end end
+    local list = apps()
+    if list and #list == 0 then A.notFound({ name = entry.cat.name .. ' apps' })
+    elseif list then openPopup() else local app = current(); if app then A.launch(app) end end
     return
   end
   if k <= 5 then choose(first + k - 1)

@@ -81,7 +81,7 @@ PAIRS = [
     ("L_upkeep", "R_dev", "side", persp(34, 586, 84, 618), "updates / upgrades", "dev status"),
     ("B_storage", "B_audio", "bottom", rq(395, 565, 488, 638), "storage screen", "audio screen"),
     # the tilted side screens: the upper part of each pane (the rest runs into the taskbar band)
-    ("B_panelL", "B_panelR", "bottom", ((305, 648), (348, 632), (353.0, 658.0), (310.5, 673.6)), "pilot / date / time", "host / OS / display"),
+    ("B_panelL", "B_panelR", "bottom", ((297.3, 612), (341.0, 596), (353.4, 659.9), (310.85, 675.45)), "pilot / time / calendar / session (9 rows)", "host / OS / hardware / network (9 rows)"),
     ("B_stripL", "B_stripR", "bottom", ((428, 660.3), (600, 644.4), (600, 654.9), (428, 670.8)), "info readouts", "info readouts"),
 ]
 GROUPS = {"top": ("top", "top"), "side": ("left", "right"), "bottom": ("bottom", "bottom")}
@@ -137,7 +137,7 @@ BEZELS = [[(0, 0)] + RIM_TL, RIM_BL + [(0, RH)], [(RW, 0)] + RIMS[2], RIMS[3] + 
 LIGHTS = [(358, 200), (902, 200), (232, 498), (1028, 498)]
 PLATES = [(330, 52, 450, 93), (490, 52, 610, 93), (660, 52, 790, 93), (825, 52, 943, 93)]
 SCREENS = [(392, 562, 491, 641), (769, 562, 868, 641)]   # dash screens behind storage / audio (mirrored)
-TILTED = [[(305, 648), (348, 632), (360, 694), (318, 709)], [(955, 648), (912, 632), (900, 694), (942, 709)]]
+TILTED = [[(297.3, 612), (341.0, 596), (360, 694), (318, 709)], [(962.7, 612), (919.0, 596), (900, 694), (942, 709)]]   # taller panes (9 rows)
 ARCH = [(383, 709), (419, 659), (500, 648), (560, 643), (630, 641), (700, 643), (760, 648), (841, 659), (877, 709)]
 # lower dash lines (reference: the parallel under the cells and the outer diagonals). The parallel sits 16 px
 # under the arch so the info readouts have a clear lane between the two lines.

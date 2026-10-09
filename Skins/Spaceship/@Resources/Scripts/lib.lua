@@ -68,6 +68,31 @@ function H.init()
       w = num('Z' .. i .. '_W', 0), h = num('Z' .. i .. '_H', 0),
     }
   end
+  H.guard(getfenv and getfenv(2) or _G)
+end
+
+-- error guard: a bug or unexpected data (a missing sensor, an odd app name, a file that vanished) must not
+-- freeze a module. Update and the mouse handlers of the calling script run protected: an error is written
+-- to the Rainmeter log once per message (Manage > Log, "Spaceship error in ...") and the module keeps
+-- running. The offline simulator sets SpaceshipStrict=1 so errors still fail the audits.
+local seenErr = {}
+function H.guard(env)
+  if str('SpaceshipStrict', '0') == '1' or type(env) ~= 'table' then return end
+  for _, name in ipairs({ 'Update', 'OnClick', 'OnRightClick', 'OnScroll', 'OnHover' }) do
+    local f = rawget(env, name)
+    if type(f) == 'function' then
+      env[name] = function(...)
+        local ok, r = pcall(f, ...)
+        if ok then return r end
+        local msg = tostring(r)
+        if not seenErr[msg] then
+          seenErr[msg] = true
+          print('Spaceship error in ' .. str('CURRENTCONFIG', '?') .. ' ' .. name .. ': ' .. msg)
+        end
+        return 0
+      end
+    end
+  end
 end
 
 function H.refreshTier()
