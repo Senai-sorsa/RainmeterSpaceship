@@ -321,3 +321,55 @@ MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(3,8,-1)"]
 MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(3,8,1)"]
 MouseOverAction=[!CommandMeasure mScript "OnHover(3,8,1)"]
 MouseLeaveAction=[!CommandMeasure mScript "OnHover(3,8,0)"]
+
+[H3_9]
+Meter=Shape
+Hidden=1
+Shape=Rectangle 0,0,1,1 | Fill Color 0,0,0,1 | StrokeWidth 0
+TransformationMatrix=#Z3_TM#
+Group=Zone3 | Hit
+LeftMouseUpAction=[!CommandMeasure mScript "OnClick(3,9)"]
+RightMouseUpAction=[!CommandMeasure mScript "OnRightClick(3,9)"]
+MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(3,9,-1)"]
+MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(3,9,1)"]
+MouseOverAction=[!CommandMeasure mScript "OnHover(3,9,1)"]
+MouseLeaveAction=[!CommandMeasure mScript "OnHover(3,9,0)"]
+
+[H3_10]
+Meter=Shape
+Hidden=1
+Shape=Rectangle 0,0,1,1 | Fill Color 0,0,0,1 | StrokeWidth 0
+TransformationMatrix=#Z3_TM#
+Group=Zone3 | Hit
+LeftMouseUpAction=[!CommandMeasure mScript "OnClick(3,10)"]
+RightMouseUpAction=[!CommandMeasure mScript "OnRightClick(3,10)"]
+MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(3,10,-1)"]
+MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(3,10,1)"]
+MouseOverAction=[!CommandMeasure mScript "OnHover(3,10,1)"]
+MouseLeaveAction=[!CommandMeasure mScript "OnHover(3,10,0)"]
+
+[H3_11]
+Meter=Shape
+Hidden=1
+Shape=Rectangle 0,0,1,1 | Fill Color 0,0,0,1 | StrokeWidth 0
+TransformationMatrix=#Z3_TM#
+Group=Zone3 | Hit
+LeftMouseUpAction=[!CommandMeasure mScript "OnClick(3,11)"]
+RightMouseUpAction=[!CommandMeasure mScript "OnRightClick(3,11)"]
+MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(3,11,-1)"]
+MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(3,11,1)"]
+MouseOverAction=[!CommandMeasure mScript "OnHover(3,11,1)"]
+MouseLeaveAction=[!CommandMeasure mScript "OnHover(3,11,0)"]
+
+[H3_12]
+Meter=Shape
+Hidden=1
+Shape=Rectangle 0,0,1,1 | Fill Color 0,0,0,1 | StrokeWidth 0
+TransformationMatrix=#Z3_TM#
+Group=Zone3 | Hit
+LeftMouseUpAction=[!CommandMeasure mScript "OnClick(3,12)"]
+RightMouseUpAction=[!CommandMeasure mScript "OnRightClick(3,12)"]
+MouseScrollUpAction=[!CommandMeasure mScript "OnScroll(3,12,-1)"]
+MouseScrollDownAction=[!CommandMeasure mScript "OnScroll(3,12,1)"]
+MouseOverAction=[!CommandMeasure mScript "OnHover(3,12,1)"]
+MouseLeaveAction=[!CommandMeasure mScript "OnHover(3,12,0)"]

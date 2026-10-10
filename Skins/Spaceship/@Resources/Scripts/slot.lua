@@ -197,10 +197,10 @@ function Update()
 end
 
 local function openPopup()
-  -- the CARGO drawer opens focused on this category (it reads and clears DrawerFocus)
-  A.setState('DrawerFocus', entry.cat.id)
+  -- open the CARGO drawer, then hand it this folder directly (a saved setting was cleared by the drawer's
+  -- first load and lost on the refresh that followed, so every folder opened the same list)
   SKIN:Bang('!ActivateConfig', 'Spaceship\\Overlay\\Drawer', 'Drawer.ini')
-  SKIN:Bang('!Refresh', 'Spaceship\\Overlay\\Drawer')
+  SKIN:Bang('!CommandMeasure', 'mScript', "Focus('" .. entry.cat.id .. "')", 'Spaceship\\Overlay\\Drawer')
 end
 
 function OnClick(zi, k)

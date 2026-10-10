@@ -128,7 +128,7 @@ local function drawPager()
   local c = H.canvas(3)
   local A1, D = H.C.accent, { 170, 185, 195 }
   local idx = catIndex()
-  local count = math.min(#A.catOrder, 8)
+  local count = math.min(#A.catOrder, 12)
   local step = z.w / count
   for i = 1, count do
     local x = step * (i - 0.5)
