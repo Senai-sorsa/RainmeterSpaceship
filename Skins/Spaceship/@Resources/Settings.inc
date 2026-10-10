@@ -4,7 +4,7 @@
 [Variables]
 ; ---------------------------------------------------------------- fit to screen
 ; Designed on a 2560x1600 canvas. Control Center > LAYOUT > AUTO-FIT recomputes these.
-Scale=1
+Scale=0.6668
 OriginX=0
 OriginY=0
 ; which display the HUD lives on. The HUD is drawn for the laptop's own 2560x1600 panel: with an external
@@ -19,7 +19,7 @@ HomeSize=2560x1600
 AutoFit=1
 ; 1 = the cockpit continues behind a transparent taskbar (it can show over the taskbar if Windows reorders
 ; desktop windows); 0 = it stops at the top of the taskbar
-FrameBehindTaskbar=0
+FrameBehindTaskbar=1
 
 ; ---------------------------------------------------------------- theme
 ColorAccent=0,210,255
@@ -35,11 +35,11 @@ ColorPanel=0,30,45,90
 ; transparency: hull picture opacity (255 = solid, lower lets the wallpaper through the metal) and the
 ; soft dark tints behind the HUD (0 = none)
 HullAlpha=255
-ShadeAlpha=255
+ShadeAlpha=180
 ; every HUD line and label (40-255)
-HudAlpha=255
+HudAlpha=220
 ; neon mist off the window edges and corner cuts (0 = off, 255 = full)
-MistAlpha=255
+MistAlpha=0
 ; window tint strength in the theme colour (0 = clear glass, 255 = strongest)
 GlassTint=46
 ; faint diagonal reflections on the glass (0 = off)
@@ -52,13 +52,13 @@ UseShipImage=0
 ; 1 = cockpit art off: no hull, corners, window tint, mist or glows - just the HUD (Control Center > THEME)
 FrameOff=0
 ; hull metal tones baked into Images\hull.png by tools\ship_frame.py: shadow, body, lit ridge, edge highlight
-HullDark=5,7,10
-HullMid=15,19,26
-HullLight=26,33,44
-HullEdge=60,115,170
+HullDark=10,12,15
+HullMid=20,25,30
+HullLight=35,40,50
+HullEdge=60,70,85
 ShipImage=ship.png
 ; neon bloom: glow alpha (0 = off), glow width multiplier, how far line cores whiten (0-1)
-GlowAlpha=52
+GlowAlpha=60
 GlowWidth=3.0
 CoreWhite=0.3
 ; text glow: blur radius (px, 0 = off) and strength
@@ -67,13 +67,13 @@ TextGlowAlpha=150
 ; text size multipliers (small HUD labels / larger titles) relative to the authored sizes
 TextScaleSmall=1.85
 TextScaleLarge=1.45
-FontText=Oxanium
+FontText=B612 Mono
 FontNum=B612 Mono
-FontTitle=Michroma
+FontTitle=B612 Mono
 
 ; ---------------------------------------------------------------- performance tiers
 ; PerfOverride: -1 = automatic, 0 FULL, 1 LITE, 2 LOW, 3 STEALTH
-PerfOverride=-1
+PerfOverride=0
 ; GPU load (%) that pushes the HUD down a tier (held 5 s); steps back up 15 % lower after 20 s
 TierLite=50
 TierLow=75
@@ -89,7 +89,7 @@ EditMode=0
 ; ---------------------------------------------------------------- graphs (top console)
 ; sources: cpu ram gpu vram cputemp gputemp power disk netdown netup battery
 GraphA_Source=gpu
-GraphB_Source=cputemp
+GraphB_Source=netdown
 
 ; ---------------------------------------------------------------- location bar
 ; 1 = look up approximate location from your public IP (ip-api.com) every 10 minutes
