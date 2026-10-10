@@ -1,0 +1,9 @@
+@Resources\Caption.inc
+@Resources\Scripts\core.ps1
+@Resources\Scripts\dial.lua
+@Resources\Scripts\ShipCore.cs
+Bottom\Panels\Extra.inc
+Bottom\Storage\Extra.inc
+Center\HUD\Extra.inc
+Center\Sphere\Extra.inc
+Right\SysInfo\Extra.inc

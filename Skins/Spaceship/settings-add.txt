@@ -1,0 +1,12 @@
+; ---------------------------------------------------------------- update: network, captions, data links
+; your connection (Mbps) from your last speed test - the network block's speed test updates these
+LinkDownMbps=211
+LinkUpMbps=414
+LastSpeedTest=2026-10-10 14:52
+; hover hints: 1 = HUD captions, 0 = Windows tooltips
+CaptionStyle=1
+; Obsidian to-do note for the reticle (Control Center > DATA > BROWSE), and whether the reticle shows it
+ObsidianTodo=
+ReticleTodo=1
+; 1 = mask IP addresses in the network block (click the LAN / WAN rows to toggle)
+IpMask=0

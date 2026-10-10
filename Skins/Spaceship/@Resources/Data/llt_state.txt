@@ -1,0 +1,6 @@
+T 1791669150
+hybrid on
+power balance
+refresh 60
+battery conservation
+llt found

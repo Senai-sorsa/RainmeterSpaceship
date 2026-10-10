@@ -37,11 +37,11 @@ ColorPanel=0,30,45,90
 HullAlpha=255
 ShadeAlpha=180
 ; every HUD line and label (40-255)
-HudAlpha=220
+HudAlpha=255
 ; neon mist off the window edges and corner cuts (0 = off, 255 = full)
-MistAlpha=0
+MistAlpha=255
 ; window tint strength in the theme colour (0 = clear glass, 255 = strongest)
-GlassTint=46
+GlassTint=56
 ; faint diagonal reflections on the glass (0 = off)
 GlassGlare=12
 ; scanlines over the windows (ScanLines 0/1, ScanAlpha = darkness 0-14)
@@ -111,7 +111,7 @@ ChargeLimit=80
 
 ; ---------------------------------------------------------------- Legion Toolkit (LLT) CLI
 ; Enable "CLI" in Legion Toolkit settings first. Check names with:  llt.exe feature list
-LltPath=C:\Program Files\LenovoLegionToolkit\llt.exe
+LltPath=C:\Users\Senai\AppData\Local\Programs\LenovoLegionToolkit\llt.exe
 LltHybridFeature=hybrid-mode
 LltHybridECO=on-igpu-only
 LltHybridHYBRID=on
@@ -128,15 +128,55 @@ LltBatteryNormal=normal
 ; ---------------------------------------------------------------- HWiNFO sensor map
 ; Index of each sensor in HWiNFO's registry gadget (HKCU\Software\HWiNFO64\VSB), -1 = not mapped.
 ; Control Center > SENSORS > DETECT fills these in automatically.
-HW_CpuTemp=-1
-HW_GpuTemp=-1
-HW_CpuPower=-1
-HW_GpuPower=-1
-HW_Fan1=-1
-HW_Fan2=-1
-HW_GpuClock=-1
-HW_ChargeRate=-1
-HW_RemainCap=-1
+HW_CpuTemp=1
+HW_GpuTemp=7
+HW_CpuPower=2
+HW_GpuPower=10
+HW_Fan1=18
+HW_Fan2=19
+HW_GpuClock=8
+HW_ChargeRate=15
+HW_RemainCap=13
 HW_FullCap=-1
-HW_Wear=-1
-HW_SsdTemp=-1
+HW_Wear=16
+HW_SsdTemp=6
+
+; ---------------------------------------------------------------- update: network, captions, data links
+; your connection (Mbps) from your last speed test - the network block's speed test updates these
+LinkDownMbps=245
+LinkUpMbps=408
+LastSpeedTest=2026-10-10 16:49
+; hover hints: 1 = HUD captions, 0 = Windows tooltips
+CaptionStyle=1
+; Obsidian to-do note for the reticle (Control Center > DATA > BROWSE), and whether the reticle shows it
+ObsidianTodo=
+ReticleTodo=1
+; 1 = mask IP addresses in the network block (click the LAN / WAN rows to toggle)
+IpMask=0
+
+; ---------------------------------------------------------------- update: network, captions, data links
+; your connection (Mbps) from your last speed test - the network block's speed test updates these
+; hover hints: 1 = HUD captions, 0 = Windows tooltips
+; Obsidian to-do note for the reticle (Control Center > DATA > BROWSE), and whether the reticle shows it
+; 1 = mask IP addresses in the network block (click the LAN / WAN rows to toggle)
+; startup sequence when Rainmeter starts: 1 = on, 0 = off (replay any time: right-click a panel > Play startup sequence)
+BootAnim=1
+
+; ---------------------------------------------------------------- update: network, captions, data links
+; your connection (Mbps) from your last speed test - the network block's speed test updates these
+; hover hints: 1 = HUD captions, 0 = Windows tooltips
+; Obsidian to-do note for the reticle (Control Center > DATA > BROWSE), and whether the reticle shows it
+; 1 = mask IP addresses in the network block (click the LAN / WAN rows to toggle)
+; startup sequence when Rainmeter starts: 1 = on, 0 = off (replay any time: right-click a panel > Play startup sequence)
+; hull brightness: 0 = black metal, 100 = as rendered (the windows are not affected)
+FrameBrightness=65
+
+; ---------------------------------------------------------------- update: network, captions, data links
+; your connection (Mbps) from your last speed test - the network block's speed test updates these
+; hover hints: 1 = HUD captions, 0 = Windows tooltips
+; Obsidian to-do note for the reticle (Control Center > DATA > BROWSE), and whether the reticle shows it
+; 1 = mask IP addresses in the network block (click the LAN / WAN rows to toggle)
+; startup sequence when Rainmeter starts: 1 = on, 0 = off (replay any time: right-click a panel > Play startup sequence)
+; hull brightness: 0 = black metal, 100 = as rendered (the windows are not affected)
+; automatic speed test every N hours when the network is quiet (0 = off)
+AutoSpeedTestHours=6

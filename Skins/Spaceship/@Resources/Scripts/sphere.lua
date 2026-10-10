@@ -3,6 +3,7 @@
 -- a base ring, blips on stalks and the "DSP RNGE" box. Centred on the screen axis.
 -- Blips = busiest processes; ISS and your position ride on the rotating globe; the box = network rate.
 local H
+local speedTesting = false   -- a speed test is running (Data\speed.txt)
 local frame, rot, yaw = 0, 0, 0
 local iss = nil
 local SXR, SYR = 2560 / 1260, 1600 / 709
@@ -100,19 +101,51 @@ function Update()
   local g = H.sval('mGeo', '')
   local la, lo = tonumber(string.match(g, '"lat":%s*(-?[%d%.]+)')), tonumber(string.match(g, '"lon":%s*(-?[%d%.]+)'))
   if la and lo then marker(la, lo, 'YOU', W) end
-  -- side label box (reference "DSP RNGE" with an orange bar) -> network rate
-  local net = H.val('mNetIn', 0) + H.val('mNetOut', 0)
-  H.text(1, ti, X(700), Y(533), 'NET', { size = 6, weight = 700, color = W }); ti = ti + 1
-  H.text(1, ti, X(712), Y(533), H.rate(net), { size = 5.2, weight = 700, color = W, alpha = 200 }); ti = ti + 1
-  c:hair(X(699), Y(541), X(744), Y(541), W, 1, 120)
-  c:line(X(699), Y(541), X(699) + (X(744) - X(699)) * H.clamp(math.log(1 + net / 1024) / math.log(1 + 50 * 1024), 0, 1), Y(541), O, 2.4)
+  -- side label box (reference "DSP RNGE" with a bar) -> your internet speed: the last speed test's download
+  -- (LinkDownMbps, refreshed automatically every few hours - click to test now). The bar under it lights up with
+  -- how much of that you're using right now.
+  local down, up = H.net()
+  local link = H.num('LinkDownMbps', 0)
+  local testing = false
+  if frame % 20 == 1 then
+    local f = io.open(H.res .. 'Data\\speed.txt', 'r')
+    if f then
+      local st, t = '', 0
+      for line in f:lines() do
+        local k, v = string.match(line, '^(%u+) (.+)$')
+        if k == 'STATE' then st = v elseif k == 'T' then t = tonumber(v) or 0 end
+      end
+      f:close()
+      speedTesting = st == 'testing' and os.time() - t < 180
+    end
+  end
+  testing = speedTesting
+  local bx0, bx1, by = X(687), X(744), Y(541)   -- wide enough for "NET" + the longest value ("999 Mbps")
+  H.text(1, ti, bx0, Y(536), 'NET', { size = 5.4, weight = 700, align = 'LeftBottom', color = H.mix(A1, W, 0.3) }); ti = ti + 1
+  local val = testing and ('TEST' .. string.rep('.', math.floor(frame / 10) % 4)) or (link > 0 and string.format('%d Mbps', link) or 'TEST')
+  H.text(1, ti, bx1, Y(536), val, { size = 5.2, weight = 700, align = 'RightBottom', color = testing and O or W, font = H.fontNum }); ti = ti + 1
+  local use = H.clamp(down * 8 / 1000000 / math.max(1, link > 0 and link or 200), 0, 1)
+  c:hair(bx0, by, bx1, by, W, 1, 120)
+  if use > 0.002 then c:line(bx0, by, bx0 + (bx1 - bx0) * math.max(use, 0.03), by, use > 0.8 and O or A1, 2.4) end
+  if frame < 3 or frame % 20 == 0 then
+    H.hit(1, 2, bx0, Y(526), bx1 - bx0, Y(544) - Y(526), testing and 'Speed test running...' or
+      (link > 0 and string.format('Internet %d down / %d up Mbps (tested %s)   using now %s / %s   click: test again',
+        link, H.num('LinkUpMbps', 0), H.str('LastSpeedTest', '?'), H.mbps(down), H.mbps(up)) or 'Click: run a speed test'))
+  end
   for k = ti, 8 do H.hideText(1, k) end
   if frame < 3 then H.hit(1, 1, CX - R, CY - R, 2 * R, 2 * R, 'Radar: busiest processes, ISS and your position - click: Task Manager') end
   c:flush()
   return 0
 end
 
-function OnClick(z, k) SKIN:Bang('["taskmgr.exe"]') end
+function OnClick(z, k)
+  if k == 2 then
+    if not speedTesting then
+      SKIN:Bang('["' .. H.res .. 'Bin\\ShipCore.exe" speedtest "' .. H.res .. '"]')
+      speedTesting = true
+    end
+  else SKIN:Bang('["taskmgr.exe"]') end
+end
 function OnRightClick(z, k) end
 function OnScroll(z, k, d) end
 function OnHover(z, k, on) end
