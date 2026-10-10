@@ -32,6 +32,17 @@ function Initialize()
   G = dofile(RES .. 'Scripts\\guard.lua')
   H.init()
   A.load()
+  -- reopen on the tab / page / module you were on: most settings refresh every module, this one included
+  tab = math.max(1, math.min(#TABS, math.floor(H.num('CtlTab', 1))))
+  page = math.max(1, math.floor(H.num('CtlPage', 1)))
+  selMod = math.max(1, math.min(#Z.modules, math.floor(H.num('CtlMod', 1))))
+end
+
+-- remember the current view in State.inc so a refresh comes back to it
+local function saveView()
+  for k, v in pairs({ CtlTab = tab, CtlPage = page, CtlMod = selMod }) do
+    SKIN:Bang('!WriteKeyValue', 'Variables', k, v, RES .. 'State.inc')
+  end
 end
 
 local function say(t) msg, msgAt = t, os.time() end
@@ -423,11 +434,13 @@ end
 
 function OnClick(zi, k)
   local fn = actions[k]
+  saveView()                      -- before the action, in case it refreshes this skin
   if fn then fn() end
+  saveView()                      -- and after, for tab / page / module changes
   Update()
 end
 function OnRightClick(zi, k) end
 function OnScroll(zi, k, d)
-  if tab == 1 then page = math.max(1, page + d); Update() end
+  if tab == 1 then page = math.max(1, page + d); saveView(); Update() end
 end
 function OnHover(zi, k, on) end
