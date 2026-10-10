@@ -1,5 +1,5 @@
--- CARGO drawer (O_drawer, 560 x 560): accordion of every category, or - opened from a side slot - a pop-up
--- list of one category's apps (DrawerFocus, set by slot.lua and cleared here once read).
+-- CARGO drawer (O_drawer, 560 x 560): ALL INSTALLED APPS (every app in the Start menu) plus an accordion of
+-- every category; opened from a side slot it shows just that folder's apps (slot.lua calls Focus(id)).
 local H, A
 local open = {}
 local scroll = 0
@@ -13,12 +13,13 @@ function Initialize()
   A = dofile(SKIN:GetVariable('@') .. 'Scripts\\apps.lua')
   H.init()
   A.load()
-  if A.catOrder[1] then open[A.catOrder[1]] = true end
-  local f = A.getState('DrawerFocus', '')
-  if f ~= '' then
-    A.setState('DrawerFocus', '')
-    if A.cats[f] then focus = f end
-  end
+end
+
+-- called by a side slot right after it opens the drawer
+function Focus(id)
+  focus = A.cats[id] and id or nil
+  scroll, idle = 0, 0
+  Update()
 end
 
 local function build()
@@ -28,6 +29,7 @@ local function build()
     rows[#rows + 1] = { kind = 'all' }
     return
   end
+  rows[#rows + 1] = { kind = 'cat', cat = A.cats.all, jump = true }
   for _, id in ipairs(A.catOrder) do
     local cat = A.cats[id]
     rows[#rows + 1] = { kind = 'cat', cat = cat }
@@ -50,8 +52,9 @@ function Update()
   -- panel
   c:chamfer(0, 0, z.w, z.h, 18, A1, 1.6, 255, 230)
   c:fillRect(0, 0, z.w, z.h, { 2, 8, 14 }, 170, 0)
-  H.text(1, 1, 20, 12, focus and string.upper(A.cats[focus].name) or 'CARGO HOLD', { size = 13, font = H.fontTitle, weight = 700, color = A1, clip = z.w - 220 })
-  H.text(1, 2, z.w - 50, 14, focus and (#A.cats[focus].apps .. ' APPS') or (#A.catOrder .. ' CATEGORIES'), { size = 9, align = 'RightTop', color = D })
+  local title = focus and string.upper(A.cats[focus].name) or 'CARGO HOLD'
+  H.text(1, 1, 20, 12, title, { size = #title > 14 and 9.5 or 13, font = H.fontTitle, weight = 700, color = A1, clip = z.w - 190 })
+  H.text(1, 2, z.w - 50, 15, focus and (#A.cats[focus].apps .. ' APPS') or (#A.cats.all.apps .. ' APPS INSTALLED'), { size = 9, align = 'RightTop', color = D })
   c:line(20, 42, z.w - 20, 42, D, 1, 200)
   c:line(z.w - 34, 14, z.w - 18, 30, A1, 1.6); c:line(z.w - 18, 14, z.w - 34, 30, A1, 1.6)
   H.hit(1, 1, z.w - 40, 8, 30, 30, 'Close')
@@ -63,7 +66,7 @@ function Update()
       if row.kind ~= 'app' then H.hideImage(1, r) end
       if row.kind == 'all' then
         c:hair(20, y + 2, z.w - 40, y + 2, D, 1, 80)
-        H.text(1, ti, 54, y + 6, 'ALL CATEGORIES', { size = 9.5, weight = 700, color = A1 })
+        H.text(1, ti, 54, y + 6, 'BACK TO ALL FOLDERS', { size = 9.5, weight = 700, color = A1 })
         H.hideText(1, ti + 1)
         H.hit(1, 1 + r, 20, y, z.w - 40, RH - 3, 'Show every category')
       elseif row.kind == 'cat' then
@@ -73,7 +76,7 @@ function Update()
         c:poly(isOpen and { { z.w - 40, y + 8 }, { z.w - 34, y + 15 }, { z.w - 28, y + 8 } } or { { z.w - 37, y + 6 }, { z.w - 30, y + 12 }, { z.w - 37, y + 18 } }, A1, 1.4)
         H.text(1, ti, 54, y + 3, row.cat.name, { size = 10.5, font = H.fontText, weight = 700, color = T, clip = 330 })
         H.text(1, ti + 1, z.w - 50, y + 4, #row.cat.apps .. ' APPS', { size = 9, align = 'RightTop', color = D })
-        H.hit(1, 1 + r, 20, y, z.w - 40, RH - 3, isOpen and 'Collapse' or 'Expand')
+        H.hit(1, 1 + r, 20, y, z.w - 40, RH - 3, row.jump and 'Show every installed app' or (isOpen and 'Collapse' or 'Expand'))
       else
         local app = row.app
         if app.missing or not H.image(1, r, 68, y + RH / 2 - 1, 24, app.id) then
@@ -104,6 +107,7 @@ function OnClick(zi, k)
   local row = rows[k - 1 + scroll]
   if not row then return end
   if row.kind == 'all' then focus = nil; scroll = 0; Update()
+  elseif row.kind == 'cat' and row.jump then focus = row.cat.id; scroll = 0; Update()
   elseif row.kind == 'cat' then open[row.cat.id] = not open[row.cat.id]; Update()
   else A.launch(row.app); SKIN:Bang('!DeactivateConfig') end
 end

@@ -102,6 +102,16 @@ The Control Center (the CFG button, or right-click any module) has these tabs:
 
 Apps live in [`Apps.ini`](Skins/Spaceship/@Resources/Apps.ini). Targets resolve against your Start menu, so apps that aren't installed yet stay hidden until they are. **Ansys** sits in the Engineering panel next to SolidWorks and MATLAB. It's found by its Start menu name (Workbench, Ansys, Ansys Student, Mechanical or Fluent) or by the default install paths (v241 to v261, including Student).
 
+### Every installed app
+
+Every app in your Start menu is included, not only the ones in the catalog. Uninstallers, readmes and help links are skipped.
+
+- **Catalog apps** sit in folders that follow your Start-menu plan: Rocketry & Aircraft, Engineering & Analysis, CFD & Simulation, Dev Tools, Electronics, Creative, Comms & Notes, Computer Tools, Utilities & Media.
+- **Apps the catalog doesn't know about** appear under **OTHER APPS**.
+- **ALL INSTALLED APPS**, at the top of the CARGO drawer, lists everything A–Z.
+
+Each folder button opens the drawer on its own folder.
+
 ### Apps that aren't installed
 
 Nothing breaks if some apps in the catalog aren't on your PC:

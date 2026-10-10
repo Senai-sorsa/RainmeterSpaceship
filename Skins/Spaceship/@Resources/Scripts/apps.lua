@@ -123,6 +123,67 @@ function A.load()
       A.catOrder[#A.catOrder + 1] = id
     end
   end
+  A.loadAll()
+end
+
+-- Start-menu entries that are not apps
+local JUNK = { 'uninstall', 'readme', 'read me', 'help', 'documentation', 'website', 'release notes', 'license',
+  'manual', 'changelog', "what's new", 'support', 'faq', 'troubleshoot', 'repair' }
+
+-- a line icon guessed from the name, for apps that are not in the catalog
+local GUESS = { { 'code', 'code' }, { 'terminal', 'terminal' }, { 'shell', 'terminal' }, { 'python', 'code' },
+  { 'java', 'code' }, { 'git', 'git' }, { 'docker', 'box' }, { 'camera', 'camera' }, { 'photo', 'camera' },
+  { 'video', 'film' }, { 'player', 'film' }, { 'music', 'music' }, { 'audio', 'music' }, { 'sound', 'music' },
+  { 'mail', 'mail' }, { 'calendar', 'note' }, { 'note', 'note' }, { 'word', 'pen' }, { 'excel', 'matrix' },
+  { 'powerpoint', 'window' }, { 'pdf', 'pdf' }, { 'zip', 'archive' }, { 'drive', 'cloud' }, { 'cloud', 'cloud' },
+  { 'game', 'game' }, { 'steam', 'game' }, { 'xbox', 'game' }, { 'chat', 'chat' }, { 'team', 'chat' },
+  { 'monitor', 'gauge' }, { 'disk', 'disk' }, { 'usb', 'usb' }, { 'nvidia', 'gpu' }, { 'amd', 'gpu' },
+  { 'lenovo', 'gear' }, { 'settings', 'gear' }, { 'paint', 'palette' }, { 'map', 'map' }, { 'browser', 'globe' },
+  { 'edge', 'globe' }, { 'firefox', 'globe' }, { 'store', 'box' }, { 'clock', 'gauge' }, { 'calculator', 'matrix' } }
+
+local function guessIcon(lname)
+  for _, g in ipairs(GUESS) do if string.find(lname, g[1], 1, true) then return g[2] end end
+  return 'window'
+end
+
+-- every installed app (the Start-menu scan) joins the catalog: catalog apps keep their folders, the rest go to
+-- OTHER APPS, and ALL INSTALLED APPS lists them all A-Z
+function A.loadAll()
+  local claimed, used = {}, {}
+  for _, app in pairs(A.apps) do
+    if app.target and app.target.kind == 'start' then claimed[app.target.value] = app end
+  end
+  local all, other = {}, {}
+  for _, e in ipairs(A.start or {}) do
+    local junk = false
+    for _, j in ipairs(JUNK) do if string.find(e.lname, j, 1, true) then junk = true; break end end
+    if not junk and not used[e.id] then
+      used[e.id] = true
+      local app = claimed[e.id]
+      if not app then
+        local base = 's_' .. string.sub(string.gsub(e.lname, '[^%w]', ''), 1, 40)
+        local sid, n = base, 2
+        while A.apps[sid] do sid = base .. n; n = n + 1 end
+        local short = string.upper(string.match(e.name, '^(%S+)') or e.name)
+        app = { id = sid, name = e.name, short = string.sub(short, 1, 10), icon = guessIcon(e.lname), info = '',
+          proc = '', target = { kind = 'start', value = e.id, label = e.name }, missing = false, auto = true }
+        A.apps[sid] = app
+        other[#other + 1] = app
+      end
+      all[#all + 1] = app
+    end
+  end
+  -- catalog apps found by their file path (not in the Start menu) are installed too
+  for _, app in pairs(A.apps) do
+    if app.target and app.target.kind ~= 'start' and app.target.kind ~= 'cmd' then all[#all + 1] = app end
+  end
+  local function byName(a, b) return lower(a.name) < lower(b.name) end
+  table.sort(all, byName); table.sort(other, byName)
+  A.cats.all = { id = 'all', name = 'ALL INSTALLED APPS', short = 'ALL', icon = 'search', apps = all }
+  if #other > 0 then
+    A.cats.other = { id = 'other', name = 'OTHER APPS', short = 'OTHER', icon = 'box', apps = other }
+    A.catOrder[#A.catOrder + 1] = 'other'
+  end
 end
 
 -- what a slot shows: { kind='app', app=... } or { kind='cat', cat=... }
