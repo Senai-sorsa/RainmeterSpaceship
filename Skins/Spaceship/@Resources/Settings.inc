@@ -39,7 +39,7 @@ ShadeAlpha=180
 ; every HUD line and label (40-255)
 HudAlpha=220
 ; neon mist off the window edges and corner cuts (0 = off, 255 = full)
-MistAlpha=0
+MistAlpha=255
 ; window tint strength in the theme colour (0 = clear glass, 255 = strongest)
 GlassTint=46
 ; faint diagonal reflections on the glass (0 = off)
