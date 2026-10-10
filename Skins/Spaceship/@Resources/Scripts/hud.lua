@@ -33,7 +33,7 @@ local function ladder(c, ti, x, side, v, step, ppu, fmt)
   local lx = side < 0 and X(510) or X(750)
   local al = side < 0 and 'RightCenter' or 'LeftCenter'
   H.text(1, ti, lx, Y(268), string.format(fmt, v + step), { size = 7.6, weight = 700, align = al, color = A1 })
-  H.text(1, ti + 1, side < 0 and X(512) or X(748), mid, string.format(fmt, v), { size = 14, weight = 700, align = al, color = A1 })
+  H.text(1, ti + 1, side < 0 and X(512) or X(748), mid, string.format(fmt, v), { size = 12, weight = 700, align = al, color = A1 })
   H.text(1, ti + 2, lx, Y(353), string.format(fmt, math.max(0, v - step)), { size = 7.6, weight = 700, align = al, color = A1 })
   c:line(x - 4, Y(268), x + 4, Y(268), A1, 1.4)
   c:line(x - 4, Y(353), x + 4, Y(353), A1, 1.4)

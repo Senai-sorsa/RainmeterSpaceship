@@ -103,7 +103,7 @@ function Update()
   -- side label box (reference "DSP RNGE" with an orange bar) -> network rate
   local net = H.val('mNetIn', 0) + H.val('mNetOut', 0)
   H.text(1, ti, X(700), Y(533), 'NET', { size = 6, weight = 700, color = W }); ti = ti + 1
-  H.text(1, ti, X(716), Y(533), H.rate(net), { size = 6, weight = 700, color = W, alpha = 200 }); ti = ti + 1
+  H.text(1, ti, X(712), Y(533), H.rate(net), { size = 5.2, weight = 700, color = W, alpha = 200 }); ti = ti + 1
   c:hair(X(699), Y(541), X(744), Y(541), W, 1, 120)
   c:line(X(699), Y(541), X(699) + (X(744) - X(699)) * H.clamp(math.log(1 + net / 1024) / math.log(1 + 50 * 1024), 0, 1), Y(541), O, 2.4)
   for k = ti, 8 do H.hideText(1, k) end
