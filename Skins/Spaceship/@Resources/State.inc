@@ -16,3 +16,7 @@ Sel_engineering=1
 Sel_comms=3
 Off_TopGraphRAM=0
 CT_TopGraphB=0
+; Control Center: the tab, page and module it reopens on
+CtlTab=1
+CtlPage=1
+CtlMod=1
