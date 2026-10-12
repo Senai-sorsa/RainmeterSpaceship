@@ -40,6 +40,10 @@ function Initialize()
   RES = SKIN:GetVariable('@')
   buildOrder()
   bang('!SetTransparencyGroup', '0', 'Spaceship')
+  -- startup sound (BootSound=1): @Resources\Sounds\startup.wav (Rainmeter plays WAV files only)
+  local snd = RES .. 'Sounds\\startup.wav'
+  local fh = io.open(snd, 'rb')
+  if fh then fh:close(); if (tonumber(SKIN:GetVariable('BootSound', '1')) or 1) == 1 then bang('[Play "' .. snd .. '"]') end end
   local last = P0 + math.floor((#order - 1) * PSTEP) + PFADE
   C0 = last + 4
   VERDICT = C0 + 4 + 6 * 5 + 4

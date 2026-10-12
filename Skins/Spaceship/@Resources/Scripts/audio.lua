@@ -4,7 +4,7 @@
 --   top ticks    red segments = live peak meter
 --   thick sweep  lower-left arc = live loudness (RMS)
 --   thin rings   two concentric circles with small gaps
---   waveform     96 analyser bands wrapped into a mirrored radial ring (fine grain, bass at the bottom)
+--   pulse ring   96 even spokes all round + a smooth outline: breathes in and out with the loudness
 --   core         glowing centre that pulses with the sound - click to mute
 --   glass wedge  on the right, holding previous / play / next
 -- Scroll anywhere on it: volume. Click the bottom readout: next output device. Right-click: sound settings.
@@ -13,6 +13,7 @@ local frame, disabled = 0, false
 local NB = 96                 -- analyser bands (Audio.ini: Bands=96, mBand0..mBand95)
 local sm = {}                 -- smoothed band levels
 local rmsS, peakS, quiet = 0, 0, 0
+local breath = 0               -- smoothed overall loudness: the pulse ring's radius
 -- the skin window is 18 px larger than the zone on every side: the dial uses that margin (no box around it)
 local K = 1.16
 local CX, CY = 94.5, 82.5
@@ -133,38 +134,59 @@ function Update()
   -- thin concentric rings with gaps
   for q = 0, 3 do c:arc(CX, CY, R_RING1, q * 90 + 12 + rot * 0.6, q * 90 + 78 + rot * 0.6, A1, 1.5, 220) end
   c:arc(CX, CY, R_RING2, 200 - rot, 340 - rot, W, 1.3, 190); c:arc(CX, CY, R_RING2, 20 - rot, 160 - rot, W, 1.3, 190)
-  -- radial waveform: bass at the bottom, treble at the top, the left half mirrors the right
-  local half = 72
-  local lv = {}
-  for j = 0, half - 1 do
-    local f = j / (half - 1) * (NB - 1)
+  -- pulse ring (reference: an even burst of fine spokes all the way round): the whole ring breathes in and
+  -- out with the loudness, with only a soft, rounded ripple from the spectrum on top - no spikes or corners.
+  local NS = 96                                   -- spokes, evenly spaced all round
+  local raw = {}
+  for k = 0, NS - 1 do
+    -- each spoke takes a band; the spectrum is laid out twice round the ring (mirrored), so it stays balanced
+    local u = k / NS * 2
+    if u > 1 then u = 2 - u end
+    local f = u * (NB - 1)
     local i0 = math.floor(f)
     local i1 = math.min(NB - 1, i0 + 1)
-    local v = (sm[i0] or 0) * (1 - (f - i0)) + (sm[i1] or 0) * (f - i0)
-    lv[j] = math.sqrt(H.clamp(v, 0, 1))
-    -- silence: a low shimmering ring instead of a flat circle (only redrawn at 2 fps while idle)
-    if quiet > 40 or disabled then lv[j] = math.max(lv[j], 0.16 + 0.1 * math.sin(j * 0.55 + frame * 0.05)) end
-    lv[j] = lv[j] * spin
+    raw[k] = math.sqrt(H.clamp((sm[i0] or 0) * (1 - (f - i0)) + (sm[i1] or 0) * (f - i0), 0, 1))
   end
-  local function comb(side)
-    local pts, edge = {}, {}
-    for j = 0, half - 1 do
-      local a = 90 - 180 * j / (half - 1)
-      if side < 0 then a = 180 - a end
-      local r1 = R_W0 + 1 + lv[j] * (R_W1 - R_W0 - 1)
-      local pi, po = P(R_W0, a), P(r1, a)
-      if j % 2 == 0 then pts[#pts + 1] = pi; pts[#pts + 1] = po else pts[#pts + 1] = po; pts[#pts + 1] = pi end
-      edge[#edge + 1] = po
+  -- circular smoothing (wide window) turns the spectrum into gentle rounded swells
+  local soft = {}
+  for k = 0, NS - 1 do
+    local acc, wsum = 0, 0
+    for d = -8, 8 do
+      local w = math.exp(-(d * d) / 18)
+      acc = acc + raw[(k + d) % NS] * w; wsum = wsum + w
     end
-    return pts, edge
+    soft[k] = acc / wsum
   end
-  local cr, er = comb(1)
-  local cl, el = comb(-1)
-  c:hairPoly(cr, H.mix(A1, W, 0.5), 200, 0.9)
-  c:hairPoly(cl, H.mix(A1, W, 0.5), 200, 0.9)
-  c:poly(er, W, 1.1, 235)
-  c:poly(el, W, 1.1, 235)
-  c:hairPoly(H.arcPts(CX, CY, R_W0, R_W0, 0, 360, 48), A1, 190, 1.3)
+  local mean = 0
+  for k = 0, NS - 1 do mean = mean + soft[k] end
+  mean = mean / NS
+  breath = (breath or 0) + (H.clamp(mean * 1.4 + rmsS * 1.2, 0, 1) - (breath or 0)) * 0.35   -- smooth in / out
+  local idle = (quiet > 40 or disabled)
+  local span = R_W1 - R_W0 - 2
+  local tips, ring = {}, {}
+  for k = 0, NS - 1 do
+    local v = 0.7 * breath + 0.3 * soft[k]      -- mostly the even breath, a little shape
+    if idle then v = 0.12 + 0.04 * math.sin(k / NS * 2 * math.pi * 3 + frame * 0.05) end
+    tips[k] = R_W0 + 2 + v * span * spin
+  end
+  -- spokes: eight paths (inner -> tip -> inner, then along the inner circle), cyan at the top left blending to
+  -- violet at the bottom right like the reference
+  local VIOLET = { 150, 100, 255 }
+  local SEG = 8
+  for q = 0, SEG - 1 do
+    local pts = {}
+    for k = q * NS / SEG, (q + 1) * NS / SEG do
+      local a = k / NS * 360 - 90
+      local kk = k % NS
+      pts[#pts + 1] = P(R_W0 + 1, a); pts[#pts + 1] = P(tips[kk], a); pts[#pts + 1] = P(R_W0 + 1, a)
+    end
+    local mid = math.rad(((q + 0.5) / SEG * 360 - 90) - 45)
+    c:hairPoly(pts, H.mix(A1, VIOLET, 0.9 * (0.5 + 0.5 * math.cos(mid))), 175, 1)
+  end
+  -- the outline through the spoke tips: a smooth closed curve
+  for k = 0, NS do ring[#ring + 1] = P(tips[k % NS] + 1.5, k / NS * 360 - 90) end
+  c:poly(ring, H.mix(A1, W, 0.55), 1.2, 235)
+  c:hairPoly(H.arcPts(CX, CY, R_W0, R_W0, 0, 360, 64), A1, 190, 1.3)
   -- glowing core, pulsing with the loudness; red X over it when muted
   local pulse = H.clamp(rmsS * 2.2, 0, 1)
   c:fillCircle(CX, CY, R_W0 - 3, H.C.panel, 170)

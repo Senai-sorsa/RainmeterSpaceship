@@ -1,7 +1,7 @@
 -- Control Center (O_control, 1040 x 900). Aurum-style adjustability for the whole HUD.
 local H, A, Z, G
 local RES
-local TABS = { 'MODULES', 'LAYOUT', 'THEME', 'APPS', 'SENSORS', 'PERF', 'SYSTEM', 'PRESETS', 'DATA' }
+local TABS = { 'MODULES', 'LAYOUT', 'THEME', 'APPS', 'SENSORS', 'PERF', 'SYSTEM', 'PRESETS', 'DATA', 'JARVIS' }
 local tab, page, selMod = 1, 1, 1
 local msg, msgAt = 'READY', 0
 local armed, armedAt = nil, 0
@@ -10,7 +10,8 @@ local slotCursor = {}
 
 -- geometry inside the zone
 local TX, TY, TW, TH = 22, 78, 170, 46
-local CX, CW, RY, RH, NROWS = 214, 804, 78, 46, 16
+local CX, CW, RY, RH, NROWS = 214, 790, 74, 84, 9     -- roomier rows; the list scrolls
+local scroll = {}                                     -- first visible row per tab
 local BW, BG = 92, 8
 
 local THEMES = {
@@ -32,6 +33,9 @@ function Initialize()
   G = dofile(RES .. 'Scripts\\guard.lua')
   H.init()
   A.load()
+  SKIN:Bang('!SetOption', 'Bounds', 'Shape', 'Rectangle 0,0,(#WW#*#Scale#),(#WH#*#Scale#) | Fill Color 0,0,0,1 | StrokeWidth 0')
+  SKIN:Bang('!SetOption', 'Bounds', 'MouseScrollUpAction', '[!CommandMeasure mScript "OnScroll(1,0,-1)"]')
+  SKIN:Bang('!SetOption', 'Bounds', 'MouseScrollDownAction', '[!CommandMeasure mScript "OnScroll(1,0,1)"]')
   -- reopen on the tab / page / module you were on: most settings refresh every module, this one included
   tab = math.max(1, math.min(#TABS, math.floor(H.num('CtlTab', 1))))
   page = math.max(1, math.floor(H.num('CtlPage', 1)))
@@ -180,10 +184,10 @@ end
 -- each row: { label, value, { {text, fn, on}, ... }, swatch }
 local function rowsModules()
   local rows = {}
-  local per = 13
-  local pages = math.ceil(#Z.modules / per)
-  if page > pages then page = 1 end
-  for i = (page - 1) * per + 1, math.min(#Z.modules, page * per) do
+  rows[#rows + 1] = { 'ALL MODULES', 'Scroll for every module. Hold Ctrl and use Rainmeter Manage for anything else.', {
+    { 'ALL ON', function() for _, m in ipairs(Z.modules) do setModule(m, true) end; say('ALL MODULES ON') end },
+  } }
+  for i = 1, #Z.modules do
     local m = Z.modules[i]
     local off = SKIN:GetVariable('Off_' .. m.key, '0') == '1'
     local ct = SKIN:GetVariable('CT_' .. m.key, '0') == '1'
@@ -193,11 +197,6 @@ local function rowsModules()
       { 'ADJUST', function() selMod = i; tab = 2 end },
     } }
   end
-  rows[#rows + 1] = { string.format('PAGE %d / %d', page, pages), 'Hold Ctrl and use Rainmeter Manage for anything else', {
-    { '< PREV', function() page = (page - 2) % pages + 1 end },
-    { 'NEXT >', function() page = page % pages + 1 end },
-    { 'ALL ON', function() for _, m in ipairs(Z.modules) do setModule(m, true) end; say('ALL MODULES ON') end },
-  } }
   return rows
 end
 
@@ -426,7 +425,182 @@ local function rowsData()
   return rows
 end
 
-local BUILD = { rowsModules, rowsLayout, rowsTheme, rowsApps, rowsSensors, rowsPerf, rowsSystem, rowsPresets, rowsData }
+
+-- ---------------------------------------------------------------- JARVIS tab
+local JCOLORS = {
+  { 'THEME', '' }, { 'CYAN', '0,210,255' }, { 'DEEP BLUE', '30,110,255' }, { 'ICE', '200,235,255' }, { 'VIOLET', '170,110,255' },
+  { 'GOLD', '255,190,70' }, { 'EMERALD', '60,255,160' }, { 'CRIMSON', '255,70,90' }, { 'WHITE', '235,245,255' },
+}
+local WHISPERS = { 'tiny.en', 'base.en', 'small.en', 'medium.en' }
+
+local function jset(key, value, quiet)
+  writeVar('Settings.inc', key, value)
+  SKIN:Bang('!SetVariable', key, value, 'Spaceship\\Center\\Sphere')       -- the hologram picks it up live
+  if not quiet then say(key .. ' = ' .. (value == '' and '(default)' or tostring(value))) end
+end
+local function jbump(key, delta, lo, hi, default)
+  local v = H.clamp((tonumber(SKIN:GetVariable(key, '')) or default) + delta, lo, hi)
+  jset(key, math.floor(v * 100 + 0.5) / 100)
+end
+local function jcall(fn) SKIN:Bang('!CommandMeasure', 'mScript', fn, 'Spaceship\\Center\\Sphere') end
+local function cycle(list, cur, d)
+  local idx = 1
+  for i, v in ipairs(list) do if v == cur then idx = i end end
+  return list[(idx - 1 + d) % #list + 1]
+end
+local function models()
+  local out = {}
+  local f = io.open(RES .. 'Data\\jarvis_models.txt', 'r')
+  if f then for line in f:lines() do if line ~= '' then out[#out + 1] = line end end; f:close() end
+  return out
+end
+local function colorRow(label, key, default)
+  local cur = H.str(key, '')
+  local name = 'THEME'
+  for _, c in ipairs(JCOLORS) do if c[2] == cur then name = c[1] end end
+  local idx = 1
+  for i, c in ipairs(JCOLORS) do if c[1] == name then idx = i end end
+  local swatch = cur ~= '' and cur or default
+  return { label, name == 'THEME' and 'follows the HUD theme' or (name .. '  ' .. cur), {
+    { '<', function() jset(key, JCOLORS[(idx - 2) % #JCOLORS + 1][2]) end },
+    { '>', function() jset(key, JCOLORS[idx % #JCOLORS + 1][2]) end },
+    { 'RESET', function() jset(key, '') end, name == 'THEME' } }, swatch }
+end
+
+local function rowsJarvis()
+  local rows = {}
+  local j = dataFile('jarvis.txt')
+  local alive = j and j.age and j.age < 8
+  local status = not alive and 'OFFLINE - START it, or run SETUP first' or
+    (((j.ERR or '') ~= '') and ('PROBLEM: ' .. j.ERR) or ('RUNNING - ' .. string.upper(j.STATE or 'idle')))
+  rows[#rows + 1] = { 'SERVICE', status, {
+    { 'START', function() jcall('StartService()'); say('STARTING JARVIS...') end, alive },
+    { 'STOP', function() jcall('StopService()'); say('STOPPING JARVIS') end },
+    { 'LOG', function() SKIN:Bang('["notepad.exe" "' .. RES .. 'Data\\jarvis.log"]') end } } }
+  local en, au = H.num('JarvisEnabled', 1) == 1, H.num('JarvisAutoStart', 1) == 1
+  rows[#rows + 1] = { 'JARVIS', (en and 'ON' or 'OFF') .. (au and '   starts with the HUD' or '   start it yourself'), {
+    { 'ON', function() jset('JarvisEnabled', 1) end, en },
+    { 'OFF', function() jset('JarvisEnabled', 0); jcall('StopService()') end, not en },
+    { 'AUTO-START', function() jset('JarvisAutoStart', au and 0 or 1) end, au } } }
+  local ms = models()
+  local m, mf = H.str('JarvisModel', 'llama3.1:8b'), H.str('JarvisModelFast', '')
+  rows[#rows + 1] = { 'MODEL', m .. (#ms == 0 and '   - start Jarvis once to list your installed models' or ('   - ' .. #ms .. ' installed, use < > to switch')), {
+    { '<', function() if #ms > 0 then jset('JarvisModel', cycle(ms, m, -1)) end end },
+    { '>', function() if #ms > 0 then jset('JarvisModel', cycle(ms, m, 1)) end end } } }
+  local fl = { '' }
+  for _, x in ipairs(ms) do fl[#fl + 1] = x end
+  rows[#rows + 1] = { 'FAST MODEL', (mf == '' and 'same as MODEL' or mf) .. '   - a smaller model used while the GPU is busy (LITE / LOW tier), so he stays quick while you game', {
+    { '<', function() jset('JarvisModelFast', cycle(fl, mf, -1)) end },
+    { '>', function() jset('JarvisModelFast', cycle(fl, mf, 1)) end } } }
+  -- the notes Jarvis reads: an "about me" note (personalises answers) and the Obsidian to-do note
+  local prof = H.str('JarvisProfile', '')
+  local function newProfile()
+    local dst = RES .. 'Jarvis\\about-me.md'
+    local f = io.open(dst, 'rb')
+    if f then f:close() else
+      local src = io.open(RES .. 'Jarvis\\about-me-template.md', 'rb')
+      local body = src and src:read('*a') or '# About me (for Jarvis)\n'
+      if src then src:close() end
+      local o = io.open(dst, 'wb'); if o then o:write(body); o:close() end
+    end
+    jset('JarvisProfile', dst, true)
+    SKIN:Bang('["' .. dst .. '"]')
+    say('ABOUT-ME NOTE CREATED - WRITE A COUPLE OF PARAGRAPHS AND SAVE')
+  end
+  rows[#rows + 1] = { 'ABOUT ME', prof ~= '' and ('Read on every question: ' .. prof) or
+    'Not set. A short note about you (a couple of paragraphs) that Jarvis reads to personalise his answers.', {
+    { 'BROWSE', function() core('pick-profile'); say('CHOOSE YOUR NOTE IN THE WINDOW') end },
+    { 'NEW', newProfile },
+    { 'EDIT', function() if prof ~= '' then SKIN:Bang('["' .. prof .. '"]') else say('BROWSE OR NEW FIRST') end end },
+    { 'CLEAR', function() jset('JarvisProfile', '') end } } }
+  local todo = H.str('ObsidianTodo', '')
+  rows[#rows + 1] = { 'TO-DO NOTE', todo ~= '' and ('Jarvis reads its open - [ ] items: ' .. todo) or
+    'Not set. Jarvis (and the reticle) read the open - [ ] items of your Obsidian to-do note.', {
+    { 'BROWSE', function() core('pick-todo'); say('CHOOSE YOUR NOTE IN THE WINDOW') end },
+    { 'OPEN', function() if todo ~= '' then SKIN:Bang('["' .. todo .. '"]') end end } } }
+  local vault = H.str('JarvisVault', '')
+  local vshow = vault ~= '' and vault or (todo ~= '' and (string.match(todo, '^(.*)\\[^\\]*$') or '') .. '  (the to-do note\'s folder)' or 'not set')
+  rows[#rows + 1] = { 'NOTES VAULT', 'Searched when you say "search my notes for ...": ' .. vshow, {
+    { 'BROWSE', function() core('pick-vault'); say('CHOOSE YOUR VAULT FOLDER IN THE WINDOW') end },
+    { 'DEFAULT', function() jset('JarvisVault', '') end, vault == '' } } }
+  local smart = H.num('JarvisSmartSearch', 1) == 1
+  rows[#rows + 1] = { 'NOTE SEARCH', smart and 'SMART - ChromaDB finds notes by meaning (keyword search if it is not installed)' or 'KEYWORD - exact words only', {
+    { 'SMART', function() jset('JarvisSmartSearch', 1) end, smart }, { 'KEYWORD', function() jset('JarvisSmartSearch', 0) end, not smart },
+    { 'REINDEX', function() local f = io.open(RES .. 'Data\\jarvis_cmd.txt', 'w'); if f then f:write('REINDEX ', os.time(), '\n'); f:close() end; say('REBUILDING THE NOTES INDEX') end } } }
+  local wm, wd = H.str('JarvisWhisper', 'base.en'), string.lower(H.str('JarvisWhisperDevice', 'auto'))
+  rows[#rows + 1] = { 'SPEECH RECOGNITION', wm .. ' on ' .. string.upper(wd) .. '   - bigger models are more accurate but slower; AUTO uses the GPU when it can', {
+    { '<', function() jset('JarvisWhisper', cycle(WHISPERS, wm, -1)) end },
+    { '>', function() jset('JarvisWhisper', cycle(WHISPERS, wm, 1)) end },
+    { string.upper(wd), function() jset('JarvisWhisperDevice', cycle({ 'auto', 'cpu', 'cuda' }, wd, 1)) end } } }
+  local voice = H.str('JarvisVoice', '')
+  local function find(name)
+    for _, dir in ipairs({ 'Jarvis\\kokoro\\', 'Jarvis\\voices\\' }) do      -- both voice folders
+      local f = io.open(RES .. dir .. name, 'rb')
+      if f then f:close(); return RES .. dir .. name end
+    end
+  end
+  local kokoro = find('kokoro-v1.0.onnx') or find('kokoro-v1.0.int8.onnx')
+  local piper = find('en_GB-alan-medium.onnx')
+  local isKokoro = voice ~= '' and string.find(string.lower(voice), 'kokoro', 1, true) ~= nil
+  local rate = H.num('JarvisVoiceRate', 1)
+  local kv = H.str('JarvisKokoroVoice', 'bm_lewis')
+  local engine = voice == '' and 'WINDOWS built-in' or (isKokoro and ('KOKORO (natural) - ' .. kv) or 'PIPER (natural)')
+  local vbtn = { { 'WINDOWS', function() jset('JarvisVoice', '') end, voice == '' },
+    { 'KOKORO', function() if kokoro then jset('JarvisVoice', kokoro) else say('RUN SETUP TO DOWNLOAD THE KOKORO VOICE FIRST') end end, isKokoro } }
+  if piper then vbtn[#vbtn + 1] = { 'PIPER', function() jset('JarvisVoice', piper) end, voice ~= '' and not isKokoro } end
+  rows[#rows + 1] = { 'VOICE', engine .. '   - if a voice ever fails, that sentence uses the Windows voice', vbtn }
+  local KV = { 'bm_lewis', 'bm_george', 'bm_fable', 'bm_daniel', 'bf_emma', 'am_michael', 'am_adam', 'af_heart' }
+  rows[#rows + 1] = { 'KOKORO VOICE', kv .. '   speed ' .. rate .. '   (bm / bf = British, am / af = American)', {
+    { '<', function() jset('JarvisKokoroVoice', cycle(KV, kv, -1)) end },
+    { '>', function() jset('JarvisKokoroVoice', cycle(KV, kv, 1)) end },
+    { 'SLOWER', function() jbump('JarvisVoiceRate', -1, -5, 5, 1) end },
+    { 'FASTER', function() jbump('JarvisVoiceRate', 1, -5, 5, 1) end } } }
+  local ww, wsens = H.num('JarvisWakeWord', 1) == 1, H.num('JarvisWakeSensitivity', 0.5)
+  rows[#rows + 1] = { 'WAKE WORD', (ww and 'ON - say "Hey Jarvis"' or 'OFF - click the hologram') .. string.format('   threshold %.2f (lower = hears you more easily, higher = fewer false wakes)', wsens), {
+    { 'ON', function() jset('JarvisWakeWord', 1) end, ww }, { 'OFF', function() jset('JarvisWakeWord', 0) end, not ww },
+    { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
+    { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
+  local sil, ctx = H.num('JarvisSilence', 1), H.num('JarvisContext', 2048)
+  rows[#rows + 1] = { 'LISTENING', string.format('answers after %.1f s of silence   - longer lets you pause mid-sentence, shorter answers sooner', sil), {
+    { 'SHORTER', function() jbump('JarvisSilence', -0.5, 0.5, 6, 1) end },
+    { 'LONGER', function() jbump('JarvisSilence', 0.5, 0.5, 6, 1) end } } }
+  rows[#rows + 1] = { 'MODEL MEMORY', ctx .. ' tokens   - smaller uses less RAM and starts answering sooner; older messages are dropped to fit', {
+    { '2048', function() jset('JarvisContext', 2048) end, ctx == 2048 },
+    { '4096', function() jset('JarvisContext', 4096) end, ctx == 4096 },
+    { '8192', function() jset('JarvisContext', 8192) end, ctx == 8192 } } }
+  local ch, bs = H.num('JarvisChime', 1) == 1, H.num('BootSound', 1) == 1
+  rows[#rows + 1] = { 'SOUNDS', 'startup.wav' .. (ch and ': click' or '') .. (bs and (ch and ' + startup' or ': startup') or ''), {
+    { 'CHIME', function() jset('JarvisChime', ch and 0 or 1) end, ch },
+    { 'STARTUP', function() jset('BootSound', bs and 0 or 1) end, bs },
+    { 'TEST', function() SKIN:Bang('[Play "' .. RES .. 'Sounds\\startup.wav"]') end } } }
+  rows[#rows + 1] = colorRow('COLOUR - STANDBY', 'JarvisColorIdle', H.str('ColorAccent', '0,210,255'))
+  rows[#rows + 1] = colorRow('COLOUR - LISTENING', 'JarvisColorListen', '0,140,232')
+  rows[#rows + 1] = colorRow('COLOUR - SPEAKING', 'JarvisColorSpeak', H.str('ColorAccent', '0,210,255'))
+  rows[#rows + 1] = { 'ORB', string.format('brightness %.2f   size %.2f', H.num('JarvisOrbBright', 1), H.num('JarvisOrbSize', 1)), {
+    { 'B-', function() jbump('JarvisOrbBright', -0.1, 0.4, 1.6, 1) end }, { 'B+', function() jbump('JarvisOrbBright', 0.1, 0.4, 1.6, 1) end },
+    { 'S-', function() jbump('JarvisOrbSize', -0.05, 0.8, 1.15, 1) end }, { 'S+', function() jbump('JarvisOrbSize', 0.05, 0.8, 1.15, 1) end } } }
+  rows[#rows + 1] = { 'ORB TINT', string.format('%.2f   - 0 = the animation\'s own colours, higher = more of the state colour', H.num('JarvisTint', 0.22)), {
+    { '-', function() jbump('JarvisTint', -0.05, 0, 0.8, 0.22) end }, { '+', function() jbump('JarvisTint', 0.05, 0, 0.8, 0.22) end },
+    { 'NATURAL', function() jset('JarvisTint', 0) end } } }
+  local sh, ob, dl, br = H.num('JarvisShell', 1) == 1, H.num('JarvisOrbits', 1) == 1, H.num('JarvisDial', 1) == 1, H.num('JarvisBars', 1) == 1
+  rows[#rows + 1] = { 'LAYERS', '3D network shell, tilted orbit rings, dial rings, voice bars - click to turn each on or off', {
+    { 'SHELL', function() jset('JarvisShell', sh and 0 or 1) end, sh }, { 'ORBITS', function() jset('JarvisOrbits', ob and 0 or 1) end, ob },
+    { 'DIAL', function() jset('JarvisDial', dl and 0 or 1) end, dl }, { 'BARS', function() jset('JarvisBars', br and 0 or 1) end, br } } }
+  rows[#rows + 1] = { 'MOTION', string.format('speed %.2f   (spin and animation)', H.num('JarvisSpeed', 1)), {
+    { 'SLOWER', function() jbump('JarvisSpeed', -0.25, 0.25, 3, 1) end }, { 'FASTER', function() jbump('JarvisSpeed', 0.25, 0.25, 3, 1) end },
+    { 'RESET', function() jset('JarvisSpeed', 1) end } } }
+  local mp = H.num('JarvisMutedPopup', 1) == 1
+  rows[#rows + 1] = { 'CONVERSATION', mp and 'With the speakers muted, answers appear in the pop-up. CLEAR forgets the conversation.' or 'With the speakers muted, answers are still spoken (silently). CLEAR forgets the conversation.', {
+    { 'OPEN', function() SKIN:Bang('!ActivateConfig', 'Spaceship\\Overlay\\Jarvis', 'Jarvis.ini') end },
+    { armed == 'jforget' and 'CONFIRM' or 'CLEAR', function() if arm('jforget') then jcall('Forget()'); say('CONVERSATION CLEARED') end end, armed == 'jforget' },
+    { 'MUTED POP-UP', function() jset('JarvisMutedPopup', mp and 0 or 1) end, mp } } }
+  rows[#rows + 1] = { 'SETUP', 'Checks / installs Python packages, the speech model, Ollama + a model and the natural voice, tests your mic', {
+    { 'RUN SETUP', function() SKIN:Bang('["' .. RES .. 'Jarvis\\Run-Setup.cmd"]'); SKIN:Bang('!DeactivateConfig') end },
+    { 'FOLDER', function() SKIN:Bang('["' .. RES .. 'Jarvis"]') end } } }
+  return rows
+end
+
+local BUILD = { rowsModules, rowsLayout, rowsTheme, rowsApps, rowsSensors, rowsPerf, rowsSystem, rowsPresets, rowsData, rowsJarvis }
 
 -- ---------------------------------------------------------------- draw
 function Update()
@@ -453,32 +627,54 @@ function Update()
     c:fillRect(TX, y, TW, TH, on and A1 or H.C.panel, on and 50 or 120)
     if on then c:line(TX, y, TX, y + TH, A1, 3) end
     c:rect(TX, y, TW, TH, on and A1 or D, 1)
-    -- the 9th tab's label uses a spare text slot (T1_11 is the footer)
-    H.text(1, i <= 8 and (2 + i) or 108, TX + 16, y + TH / 2, name, { size = 11, font = H.fontText, weight = 700, align = 'LeftCenter', color = on and T or D })
-    H.hit(1, 1 + i, TX, y, TW, TH, name)
+    -- tabs 9 and 10 use spare text slots (T1_11 is the footer) and tab 10 a spare hit (H1_11.. are the rows)
+    H.text(1, i <= 8 and (2 + i) or (i == 9 and 108 or 109), TX + 16, y + TH / 2, name, { size = 11, font = H.fontText, weight = 700, align = 'LeftCenter', color = on and T or D })
+    local hid = i <= 9 and (1 + i) or 75
+    H.hit(1, hid, TX, y, TW, TH, name)
     local ti = i
-    actions[1 + i] = function() tab = ti; page = 1 end
+    actions[hid] = function() tab = ti; page = 1 end
   end
-  -- rows
+  -- rows: label + buttons on the first line, the description below at full width (wrapped, never clipped);
+  -- the list scrolls (mouse wheel anywhere on the panel) with a bar on the right
   local rows = BUILD[tab]()
+  local maxFirst = math.max(1, #rows - NROWS + 1)
+  scroll[tab] = H.clamp(scroll[tab] or 1, 1, maxFirst)
+  local first = scroll[tab]
+  local DS = 9.5                                                -- description text size
+  local cw = DS * (DS < 9.5 and H.textSmall or H.textLarge) * 96 / 72 * 0.7   -- one character (monospace), with margin
+  local function wrap(text, width)
+    local out, line = {}, ''
+    for word in string.gmatch(text or '', '%S+') do
+      while #word > width do
+        if line ~= '' then out[#out + 1] = line; line = '' end
+        out[#out + 1] = string.sub(word, 1, width); word = string.sub(word, width + 1)
+      end
+      if line == '' then line = word elseif #line + 1 + #word <= width then line = line .. ' ' .. word else out[#out + 1] = line; line = word end
+    end
+    if line ~= '' then out[#out + 1] = line end
+    return out
+  end
   for r = 1, NROWS do
-    local row = rows[r]
+    local row = rows[first + r - 1]
     local y = RY + (r - 1) * RH
-    local tl, tv = 11 + (r - 1) * 2 + 1, 11 + (r - 1) * 2 + 2
+    local tl, td1, td2 = 11 + (r - 1) * 3 + 1, 11 + (r - 1) * 3 + 2, 11 + (r - 1) * 3 + 3
     if row then
       c:hair(CX, y + RH - 4, CX + CW, y + RH - 4, D, 1, 60)
       if row[4] then
         local col = {}
         for v in string.gmatch(row[4], '%d+') do col[#col + 1] = tonumber(v) end
-        c:fillRect(CX, y + 8, 26, 26, col, 255, 4)
+        c:fillRect(CX, y + 8, 22, 22, col, 255, 4)
       end
-      local lx = row[4] and CX + 36 or CX + 8
-      H.text(1, tl, lx, y + 4, row[1], { size = 10.5, font = H.fontText, weight = 700, color = T, clip = 260 })
+      local lx = row[4] and CX + 32 or CX + 8
       -- buttons sized to their labels (right-aligned), so no label is clipped
       local bws, total = {}, 0
       for b, btn in ipairs(row[3]) do bws[b] = math.max(BW, #btn[1] * 11.5 + 22); total = total + bws[b] + BG end
       local bx0 = CX + CW - total
-      H.text(1, tv, lx, y + 23, row[2] or '', { size = 9.5, color = D, clip = bx0 - lx - 10 })
+      H.text(1, tl, lx, y + 6, row[1], { size = 10.5, font = H.fontText, weight = 700, color = T })
+      local lines = wrap(row[2] or '', math.max(20, math.floor((CX + CW - lx - 4) / cw)))
+      if #lines > 2 then lines[2] = string.sub(lines[2], 1, math.max(1, math.floor((CX + CW - lx - 4) / cw) - 3)) .. '...' end
+      H.text(1, td1, lx, y + 37, lines[1] or '', { size = DS, color = D })
+      if lines[2] then H.text(1, td2, lx, y + 60, lines[2], { size = DS, color = D }) else H.hideText(1, td2) end
       for b = 1, 4 do
         local hi = 10 + (r - 1) * 4 + b
         local tb = 43 + (r - 1) * 4 + b
@@ -487,20 +683,31 @@ function Update()
           local bx = bx0
           for q = 1, b - 1 do bx = bx + bws[q] + BG end
           local bw = bws[b]
-          c:fillRect(bx, y + 6, bw, 30, btn[3] and A1 or H.C.panel, btn[3] and 70 or 140)
-          c:rect(bx, y + 6, bw, 30, btn[3] and A1 or D, 1.2)
-          H.text(1, tb, bx + bw / 2, y + 21, btn[1], { size = 9.5, weight = 700, align = 'CenterCenter', color = btn[3] and T or A1, clip = bw - 6 })
-          H.hit(1, hi, bx, y + 6, bw, 30, btn[1])
+          c:fillRect(bx, y + 4, bw, 30, btn[3] and A1 or H.C.panel, btn[3] and 70 or 140)
+          c:rect(bx, y + 4, bw, 30, btn[3] and A1 or D, 1.2)
+          H.text(1, tb, bx + bw / 2, y + 19, btn[1], { size = 9.5, weight = 700, align = 'CenterCenter', color = btn[3] and T or A1 })
+          H.hit(1, hi, bx, y + 4, bw, 30, btn[1])
           actions[hi] = btn[2]
         else
           H.hideText(1, tb); H.hideHit(1, hi)
         end
       end
     else
-      H.hideText(1, tl); H.hideText(1, tv)
+      H.hideText(1, tl); H.hideText(1, td1); H.hideText(1, td2)
       for b = 1, 4 do H.hideText(1, 43 + (r - 1) * 4 + b); H.hideHit(1, 10 + (r - 1) * 4 + b) end
     end
   end
+  -- scroll bar
+  if #rows > NROWS then
+    local top, bot = RY, RY + NROWS * RH - 8
+    local barH = math.max(30, (bot - top) * NROWS / #rows)
+    local pos = (bot - top - barH) * (first - 1) / (maxFirst - 1)
+    c:line(z.w - 16, top, z.w - 16, bot, D, 1, 120)
+    c:line(z.w - 16, top + pos, z.w - 16, top + pos + barH, A1, 3, 230)
+  end
+  for i = 11 + NROWS * 3 + 1, 43 do H.hideText(1, i) end
+  for i = 43 + NROWS * 4 + 1, 107 do H.hideText(1, i) end
+  for i = 10 + NROWS * 4 + 1, 74 do H.hideHit(1, i) end
   -- footer status
   c:line(22, z.h - 50, z.w - 22, z.h - 50, D, 1, 200)
   H.text(1, 11, 28, z.h - 30, msg, { size = 10, font = H.fontNum, align = 'LeftCenter', color = os.time() - msgAt < 6 and H.C.warn or D, clip = z.w - 60 })
@@ -517,6 +724,7 @@ function OnClick(zi, k)
 end
 function OnRightClick(zi, k) end
 function OnScroll(zi, k, d)
-  if tab == 1 then page = math.max(1, page + d); saveView(); Update() end
+  scroll[tab] = (scroll[tab] or 1) + d * 2
+  Update()
 end
 function OnHover(zi, k, on) end

@@ -1,11 +1,8 @@
-T 1791669202
+T 1791745121
 W chrome.exe
-W code.exe
-W everything.exe
 W explorer.exe
-W lenovovantage.exe
-W olk.exe
-W ollama app.exe
+W msiexec.exe
+W taskmgr.exe
 P aggregatorhost.exe
 P aihost.exe
 P aixhost.exe
@@ -22,12 +19,9 @@ P atiesrxx.exe
 P audiodg.exe
 P backgroundtaskhost.exe
 P chrome.exe
-P claude.exe
 P clicktodo.exe
 P cmd.exe
-P code.exe
 P conhost.exe
-P copilot-runtime.exe
 P coretelemetryplugin.exe
 P cowork-svc.exe
 P cptservice.exe
@@ -40,6 +34,7 @@ P discord.exe
 P discordsystemhelper.exe
 P dispatcher.exe
 P ditto.exe
+P dllhost.exe
 P dwm.exe
 P eartrumpet.exe
 P everything.exe
@@ -56,25 +51,17 @@ P fontdrvhost.exe
 P gacontroller.exe
 P gahighlight.exe
 P gaservice.exe
-P hwinfo64.exe
 P hydra_service.exe
 P idle.exe
 P launcherrsxruntime.exe
 P legionspace.exe
-P lenovo legion toolkit.exe
 P lenovolighting.exe
 P lenovolightingservice.exe
 P lenovosmartservice.exe
 P lenovoutilityservice.exe
-P lenovovantage-(consumeraddin).exe
 P lenovovantage-(genericmessagingaddin).exe
-P lenovovantage-(generictelemetryaddin).exe
 P lenovovantage-(lenovoservicebridgeaddin).exe
-P lenovovantage-(lenovosupportaddin).exe
-P lenovovantage-(livewallpaperaddin).exe
-P lenovovantage-(smartcoloraddin).exe
 P lenovovantage-(vantagecoreaddin).exe
-P lenovovantage.exe
 P lenovovantageservice.exe
 P lively.exe
 P lively.watchdog.exe
@@ -92,10 +79,12 @@ P microsoft.cmdpal.ext.powertoys.exe
 P microsoft.cmdpal.ui.exe
 P microsoftstartfeedprovider.exe
 P mixedrealitypairinghelper.exe
+P mousocoreworker.exe
 P mpdefendercoreservice.exe
 P mscopilot.exe
 P msedge.exe
 P msedgewebview2.exe
+P msiexec.exe
 P msmpeng.exe
 P mylivewallpapers.exe
 P nahimic3.exe
@@ -107,14 +96,10 @@ P ngciso.exe
 P nissrv.exe
 P nvcontainer.exe
 P nvdisplay.container.exe
-P nvidia overlay.exe
-P nvsphelper64.exe
 P officeclicktorun.exe
-P olk.exe
 P ollama app.exe
 P ollama.exe
 P onedrive.exe
-P onedrive.sync.service.exe
 P phoneexperiencehost.exe
 P powertoys.alwaysontop.exe
 P powertoys.awake.exe
@@ -124,16 +109,18 @@ P powertoys.fancyzones.exe
 P powertoys.peek.ui.exe
 P powertoys.quickaccess.exe
 P powertoys.shortcutguide.exe
+P pythonw.exe
+P pyw.exe
 P rainmeter.exe
 P readyforservice.exe
 P registry.exe
 P remotesolverdispatcherservice.exe
 P rtkauduservice64.exe
 P rtkbtmanserv.exe
-P rundll32.exe
 P runtimebroker.exe
 P searchhost.exe
 P searchindexer.exe
+P searchprotocolhost.exe
 P secure system.exe
 P securityhealthservice.exe
 P securityhealthsystray.exe
@@ -149,10 +136,10 @@ P sldworks_fs.exe
 P smartenginehostn64.exe
 P smartscreen.exe
 P smss.exe
+P snippingtool.exe
 P spoolsv.exe
 P startmenu.exe
 P startmenuexperiencehost.exe
-P storedesktopextension.exe
 P svchost.exe
 P swvisualize.queue.server.exe
 P system.exe
@@ -160,9 +147,8 @@ P systemsettings.exe
 P tailscaled.exe
 P tailscale-ipn.exe
 P taskhostw.exe
-P tiworker.exe
+P taskmgr.exe
 P translucenttb.exe
-P trustedinstaller.exe
 P twinkle tray.exe
 P udclientservice.exe
 P uihost.exe
@@ -172,10 +158,8 @@ P vmcompute.exe
 P widgetboard.exe
 P widgetservice.exe
 P windhawk.exe
-P windowspackagemanagerserver.exe
 P wininit.exe
 P winlogon.exe
-P winstore.app.exe
 P wmiapsrv.exe
 P wmiprvse.exe
 P workloadssessionhost.exe
@@ -183,5 +167,4 @@ P workloadssessionmanager.exe
 P wslservice.exe
 P wudfcompanionhost.exe
 P wudfhost.exe
-P xboxpcappft.exe
 P xritecolorassistant.exe

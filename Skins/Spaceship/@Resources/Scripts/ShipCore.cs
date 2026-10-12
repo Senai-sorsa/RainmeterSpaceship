@@ -6,6 +6,7 @@
 //   ShipCore.exe setup-gmail     "<@Resources>"   small window: Gmail address + app password (stored encrypted)
 //   ShipCore.exe setup-calendars "<@Resources>"   small window: calendar feed links, labels, on/off (encrypted)
 //   ShipCore.exe pick-todo       "<@Resources>"   file picker for the Obsidian to-do note -> Settings.inc
+//   ShipCore.exe pick-profile    "<@Resources>"   file picker for Jarvis's "about me" note -> Settings.inc
 //   ShipCore.exe speedtest       "<@Resources>"   runs Ookla speedtest, saves LinkDownMbps / LinkUpMbps
 //   ShipCore.exe brightness <0-100>   ShipCore.exe mic <0-100>
 //   ShipCore.exe focus <exe> "<target>"   bring a running app's window to the front (restoring it if
@@ -91,7 +92,17 @@ public static class ShipCore
             if (cmd == "watch") return Watch();
             if (cmd == "setup-gmail") { Application.EnableVisualStyles(); Application.Run(new GmailForm()); return 0; }
             if (cmd == "setup-calendars") { Application.EnableVisualStyles(); Application.Run(new CalendarForm()); return 0; }
-            if (cmd == "pick-todo") { PickTodo(); return 0; }
+            if (cmd == "pick-todo") { PickNote("ObsidianTodo", "choose your Obsidian to-do note", true); return 0; }
+            if (cmd == "pick-vault")
+            {
+                using (var d = new FolderBrowserDialog())
+                {
+                    d.Description = "Spaceship HUD - choose your Obsidian vault folder (Jarvis searches its notes)";
+                    if (d.ShowDialog() == DialogResult.OK) SaveSetting("JarvisVault", d.SelectedPath);
+                }
+                return 0;
+            }
+            if (cmd == "pick-profile") { PickNote("JarvisProfile", "choose your 'about me' note for Jarvis", false); return 0; }
             if (cmd == "speedtest") { SpeedTest(); return 0; }
         }
         catch (Exception e) { Log(cmd + ": " + e); }
@@ -835,16 +846,16 @@ public static class ShipCore
     }
 
     // ------------------------------------------------------------------ to-do note picker
-    static void PickTodo()
+    static void PickNote(string key, string what, bool refresh)
     {
         using (var d = new OpenFileDialog())
         {
-            d.Title = "Spaceship HUD - choose your Obsidian to-do note";
-            d.Filter = "Markdown notes (*.md)|*.md|All files (*.*)|*.*";
+            d.Title = "Spaceship HUD - " + what;
+            d.Filter = "Markdown notes (*.md)|*.md|Text files (*.txt)|*.txt|All files (*.*)|*.*";
             if (d.ShowDialog() == DialogResult.OK)
             {
-                SaveSetting("ObsidianTodo", d.FileName);
-                Bang("[!RefreshGroup Spaceship]");
+                SaveSetting(key, d.FileName);
+                if (refresh) Bang("[!RefreshGroup Spaceship]");
             }
         }
     }
