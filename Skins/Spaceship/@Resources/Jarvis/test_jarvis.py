@@ -5,11 +5,26 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jarvis as j
 
-# no disk, no keyboard: fixed app list, fixed window list, recorded key presses
+# no disk, no sound card, no processes: fixed app list, fixed window list, recorded mute calls and commands
 j.start_apps = lambda: [("Google Chrome", "Chrome"), ("Microsoft Edge", "MSEdge"), ("Notepad", "notepad")]
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
-pressed = []
-j.press_key = pressed.append
+muted_to, ran = [], []
+j.speakers_mute = muted_to.append
+
+
+class _Done:
+    returncode = 0
+
+
+def _run(args, **kw):
+    assert kw.get("timeout"), "every command needs a timeout"
+    ran.append(args)
+    return _Done()
+
+
+j.subprocess.run = _run
+real_sleep = j.time.sleep
+j.time.sleep = lambda s: None
 
 # routing: commands act, questions and dangerous phrases never do
 assert j.route("lock my computer")[:2] == ("act", "lock")
@@ -19,8 +34,12 @@ assert j.route("jarvis, self destruct")[0] == "guard"
 assert j.route("open chrome")[:2] == ("act", "open")
 assert j.route("close chrome")[:3] == ("act", "close", "chrome.exe")
 
-assert j.YES.search("yes") and j.YES.search("Go ahead.")
-assert not j.YES.search("no") and not j.YES.search("")
+# confirmation: the whole reply must be a plain yes, and in time
+due = {"action": "shutdown", "target": None, "expires": 100}
+assert j.confirmed(due, "yes", 99) and j.confirmed(due, " Go ahead. ", 99) and j.confirmed(due, "Yes, please!", 99)
+for no in ("no", "", None, "yes, but don't do it", "yes no", "okay wait", "sure, restart instead", "yesterday"):
+    assert not j.confirmed(due, no, 99), no
+assert not j.confirmed(due, "yes", 100) and not j.confirmed(due, "yes", 500), "expired"
 
 assert j.best_app("chrome") == ("Google Chrome", "Chrome")
 assert j.best_app("") is None
@@ -35,13 +54,46 @@ assert j.running_window("e") is None and j.running_window("ex") is None and j.ru
 assert j.running_window("code") == "Code.exe" and j.running_window("explorer") == "explorer.exe"
 assert j.running_window("plorer") == "explorer.exe" and j.running_window("chr") == "chrome.exe"
 
-# mute / unmute press the toggle key only when the state has to change
+# mute / unmute set the state they name, never a toggle
 assert j.route("mute")[:2] == ("act", "mute") and j.route("unmute the sound")[:2] == ("act", "unmute")
-for state, action, presses in ((False, "unmute", 0), (True, "unmute", 1), (False, "mute", 1), (True, "mute", 0)):
-    pressed.clear()
-    j.muted = lambda: state
-    j.ACTIONS[action](None)
-    assert len(pressed) == presses, (state, action, pressed)
+j.ACTIONS["mute"](None), j.ACTIONS["unmute"](None)
+assert muted_to == [True, False], muted_to
+
+# actions report what really happened: every failure is "not done" plus one problem line
+j.log = lambda *a: None
+failed = []
+j.problem = lambda msg, popup=True: failed.append(msg)
+assert j.run_action("shutdown", None) and ran[-1] == ["shutdown", "/s", "/t", "10"] and not failed
+assert not j.run_action("format disk", None), "only listed actions can run"
+_Done.returncode = 1190                                           # non-zero exit code
+assert not j.run_action("restart", None)
+_Done.returncode = 0
+
+
+def _hang(args, **kw):
+    raise j.subprocess.TimeoutExpired(args, kw["timeout"])
+
+
+j.subprocess.run = _hang                                          # the command never comes back
+assert not j.run_action("shutdown", None)
+j.subprocess.run = _run
+
+
+def _api_down(on):
+    raise OSError("no audio endpoint")
+
+
+j.speakers_mute = _api_down                                       # the Windows call fails
+assert not j.run_action("mute", None)
+ran.clear()
+assert not j.run_action("close", "notepad.exe") and not ran, "missing target: nothing is sent"
+assert not j.run_action("close", "chrome.exe") and ran == [["taskkill", "/IM", "chrome.exe"]], "asked, but it stayed open"
+j.read_kv = lambda name: "W chrome.exe\n" if not ran else "W explorer.exe\n"
+ran.clear()
+assert j.run_action("close", "chrome.exe"), "closed once the window is gone"
+assert len(failed) == 6, failed
+j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
+j.time.sleep = real_sleep
 
 # the model stream: normal replies come through, and a cancel ends it even while the request is still blocked
 import threading
@@ -96,6 +148,6 @@ j.problem = lambda msg, popup=True: said.append((msg, popup))
 j._whisper = None
 j.whisper()
 assert made == [j.cpu_threads()] and 2 <= made[0] <= max(2, (os.cpu_count() or 8) // 4)
-assert len(said) == 1 and said[0][0].startswith("GPU offline") and said[0][1] is False
+assert len(said) == 1 and said[0][0].startswith("CPU in use") and said[0][1] is False
 
 print("test_jarvis: OK")

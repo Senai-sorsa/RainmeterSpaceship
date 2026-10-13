@@ -308,8 +308,8 @@ def ensure_ollama():
     except Exception:
         pass
     try:
-        # with both cards visible Ollama picks the Radeon (more shared memory): hide it while the NVIDIA one is there
-        env = dict(os.environ, ROCR_VISIBLE_DEVICES="-1", HIP_VISIBLE_DEVICES="-1") if gpu() else None
+        # with both cards visible Ollama picks the Radeon (more shared memory): hide it, so it is the NVIDIA card or nothing
+        env = dict(os.environ, ROCR_VISIBLE_DEVICES="-1", HIP_VISIBLE_DEVICES="-1")
         subprocess.Popen(["ollama", "serve"], creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     except OSError:
         return False
@@ -369,6 +369,18 @@ def warm(model):
         except Exception:
             pass
     threading.Thread(target=go, daemon=True).start()
+
+
+def ollama_on_cpu(model):
+    """Warn when Ollama keeps any part of the chat model in ordinary memory instead of on the graphics card."""
+    try:
+        for m in http_json("/api/ps", timeout=2).get("models", []):
+            if m.get("name") == model and m.get("size_vram", 0) < m.get("size", 0):
+                cpu_in_use("the chat model", f"{100 - 100 * m.get('size_vram', 0) // m['size']}% of it is off the GPU")
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def chat_stream(model, messages):
@@ -434,9 +446,9 @@ def cpu_threads():
     return max(2, (os.cpu_count() or 8) // 4)
 
 
-def gpu_offline(what, why):
+def cpu_in_use(what, why):
     """Say so in the log and on the hologram, without opening the pop-up."""
-    problem(f"GPU offline - {what} is on the CPU ({str(why)[:60]})", popup=False)
+    problem(f"CPU in use - {what} is not on the GPU ({str(why)[:60]})", popup=False)
 
 
 # ------------------------------------------------------------------ speech to text
@@ -449,6 +461,7 @@ def whisper():
         from faster_whisper import WhisperModel
         size = setting("JarvisWhisper", "base.en")
         dev = setting("JarvisWhisperDevice", "auto").lower()
+        why = "JarvisWhisperDevice=cpu"
         if dev in ("auto", "cuda"):
             try:
                 # the pip nvidia-* wheels keep cuBLAS / cuDNN in their own bin folders, which Windows does not search
@@ -461,12 +474,9 @@ def whisper():
                 log(f"whisper {size} on GPU")
                 return _whisper
             except Exception as e:
-                if dev == "cuda":
-                    gpu_offline("speech recognition", e)
-                else:
-                    log(f"whisper GPU not used ({e}) - using CPU")
+                why = e
         _whisper = WhisperModel(size, device="cpu", compute_type="int8", cpu_threads=cpu_threads())
-        log(f"whisper {size} on CPU")
+        cpu_in_use("speech recognition", why)
     return _whisper
 
 
@@ -479,7 +489,7 @@ def transcribe(audio):
     except Exception as e:
         if "cuda" in str(e).lower() or "cublas" in str(e).lower() or "cudnn" in str(e).lower():
             global _whisper
-            log(f"whisper GPU error ({e}) - switching to CPU")
+            cpu_in_use("speech recognition", e)
             try:
                 from faster_whisper import WhisperModel
                 _whisper = WhisperModel(setting("JarvisWhisper", "base.en"), device="cpu", compute_type="int8",
@@ -600,6 +610,7 @@ def _kokoro(voice_path, text):
         sess = rt.InferenceSession(voice_path, opts, providers=["CPUExecutionProvider"])
         eng = _engines[voice_path] = Kokoro.from_session(sess, bins[-1])
         log(f"kokoro loaded ({os.path.basename(voice_path)}, {os.path.basename(bins[-1])}), {cpu_threads()} threads")
+        cpu_in_use("the voice", "no GPU build of onnxruntime here")
     name = (setting("JarvisKokoroVoice", "bm_lewis").strip().strip('"').split() or ["bm_lewis"])[0]
     try:
         known = list(eng.get_voices())
@@ -1015,8 +1026,7 @@ def best_app(name):
 def running_window(name):
     """An open app (from the HUD's window list) whose exe matches what you said, e.g. 'chrome' -> chrome.exe."""
     want = re.sub(r"[^a-z0-9]", "", name.lower())
-    stems = [(exe, re.sub(r"[^a-z0-9]", "", os.path.splitext(exe)[0].lower()))
-             for exe in re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M)]
+    stems = [(exe, re.sub(r"[^a-z0-9]", "", os.path.splitext(exe)[0].lower())) for exe in open_windows()]
     # exact name first, then a 3+ letter prefix, then a 4+ letter fragment: "close e" must not pick explorer
     for ok in (lambda s: s == want, lambda s: len(want) >= 3 and s.startswith(want), lambda s: len(want) >= 4 and want in s):
         for exe, stem in stems:
@@ -1025,9 +1035,50 @@ def running_window(name):
     return None
 
 
-def press_key(vk):
-    ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
-    ctypes.windll.user32.keybd_event(vk, 0, 2, 0)
+def _com(obj, slot, *args):
+    """Call method number `slot` of a COM object; a failed HRESULT raises OSError."""
+    fn = ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, *(type(a) for a in args))
+    return fn(ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)))[0][slot])(obj, *args)
+
+
+def speakers_mute(on=None):
+    """Set the default speakers' mute state (Core Audio, IAudioEndpointVolume) and return what Windows then reports.
+    on=None only reads it."""
+    ole, P = ctypes.oledll.ole32, ctypes.c_void_p
+
+    def guid(text):
+        g = ctypes.create_string_buffer(16)
+        ole.CLSIDFromString(ctypes.c_wchar_p(text), g)
+        return ctypes.cast(g, P)
+    ctypes.windll.ole32.CoInitialize(None)                    # once per thread; a repeat is harmless
+    devices, speakers, volume, state = P(), P(), P(), ctypes.c_int()
+    ole.CoCreateInstance(guid("{BCDE0395-E52F-467C-8E3D-C4579291692E}"), None, 23,
+                         guid("{A95664D2-9614-4F35-A746-DE8DB63617E6}"), ctypes.byref(devices))
+    try:
+        _com(devices, 4, ctypes.c_int(0), ctypes.c_int(1), ctypes.pointer(speakers))     # GetDefaultAudioEndpoint
+        _com(speakers, 3, guid("{5CDF2C82-841E-4546-9722-0CF74078229A}"), ctypes.c_uint(23), P(None), ctypes.pointer(volume))
+        if on is not None:
+            _com(volume, 14, ctypes.c_int(bool(on)), P(None))                            # SetMute
+        _com(volume, 15, ctypes.pointer(state))                                          # GetMute
+    finally:
+        for obj in (volume, speakers, devices):
+            if obj:
+                _com(obj, 2)                                                             # Release
+    if on is not None and bool(state.value) != bool(on):
+        raise OSError("Windows did not change the mute state")
+    return bool(state.value)
+
+
+def run_ok(args):
+    """Run one fixed command: anything but exit code 0 within 10 s is a failure (TimeoutExpired / OSError)."""
+    code = subprocess.run(args, creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                          timeout=10).returncode
+    if code:
+        raise OSError(f"{args[0]} ended with code {code}")
+
+
+def open_windows():
+    return re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M)
 
 
 # action handlers: (description for the confirmation, function). Only these can ever run.
@@ -1036,23 +1087,50 @@ def act_open(app):
 
 
 def act_close(exe):
-    subprocess.run(["taskkill", "/IM", exe], creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if exe not in open_windows():                             # it went away while you were being asked
+        raise OSError("it is not open any more")
+    # taskkill only asks the windows to close, and its exit code is non-zero for any helper process without a
+    # window (a browser has many), so the result is read from the HUD's window list instead (rewritten every 1.5 s)
+    subprocess.run(["taskkill", "/IM", exe], creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   timeout=10)
+    for _ in range(10):
+        time.sleep(0.5)
+        if exe not in open_windows():
+            return
+    raise OSError("it is still open (it may be asking to save)")
+
+
+def act_lock(_):
+    if not ctypes.windll.user32.LockWorkStation():
+        raise OSError("Windows refused to lock")
+
+
+def act_sleep(_):
+    # asked directly so the answer comes back (rundll32 always exits 0); it returns once the PC wakes again
+    if not ctypes.windll.powrprof.SetSuspendState(0, 1, 0):
+        raise OSError("Windows refused to sleep")
 
 
 ACTIONS = {
-    "lock": lambda _: ctypes.windll.user32.LockWorkStation(),
-    "sleep": lambda _: subprocess.run(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"], creationflags=NO_WINDOW),
-    "restart": lambda _: subprocess.run(["shutdown", "/r", "/t", "10"], creationflags=NO_WINDOW),
-    "shutdown": lambda _: subprocess.run(["shutdown", "/s", "/t", "10"], creationflags=NO_WINDOW),
+    "lock": act_lock,
+    "sleep": act_sleep,
+    "restart": lambda _: run_ok(["shutdown", "/r", "/t", "10"]),
+    "shutdown": lambda _: run_ok(["shutdown", "/s", "/t", "10"]),
     "close": act_close,
     "open": act_open,
-    # VK_VOLUME_MUTE toggles, so press it only when the state has to change.
-    # shortcut: trusts jarvis_env.txt (up to ~1 s stale, and 0 % volume reads as muted), switch to Core Audio if it proves wrong
-    "mute": lambda _: muted() or press_key(0xAD),
-    "unmute": lambda _: muted() and press_key(0xAD),
+    "mute": lambda _: speakers_mute(True),
+    "unmute": lambda _: speakers_mute(False),
 }
 
-YES = re.compile(r"^\W*(yes|yeah|yep|yup|sure|confirm(ed)?|do it|go ahead|proceed|affirmative|ok(ay)?|please do)\b", re.I)
+# the whole reply has to be one of these: "yes, but don't" is not a yes
+YES = {"yes", "yeah", "yep", "yup", "sure", "confirm", "confirmed", "do it", "go ahead", "proceed", "affirmative", "ok",
+       "okay", "please do", "yes please", "yes do it", "yes go ahead", "yes confirm", "yes i confirm", "i confirm"}
+
+
+def confirmed(pending, answer, now):
+    """True only for a plain yes to this pending action before it expires."""
+    said = " ".join(re.sub(r"[^a-z]+", " ", (answer or "").lower()).split())
+    return said in YES and now < pending["expires"]
 DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)|wipe (my|the)|delete (all|every|my files|windows)|rm -rf|"
                     r"disable (the )?(antivirus|defender|firewall)|hack|brick|destroy|nuke|blow up|kill (all|every)", re.I)
 
@@ -1367,7 +1445,7 @@ def turn(tier):
             answer = transcribe(answer_audio) if answer_audio is not None else ""
             if answer:
                 convo_add("U", answer)
-            if answer and YES.search(answer) and time.time() < pending["expires"] and not cancel.is_set():
+            if confirmed(pending, answer, time.time()) and not cancel.is_set():
                 ok = run_action(pending["action"], pending["target"])
                 reply_line("Done." if ok else "That didn't work.", quiet)
             else:
@@ -1411,6 +1489,7 @@ def turn(tier):
         else:
             speak_all(sentences_from(stream, collected))
         reply = "".join(collected).strip()
+        ollama_on_cpu(model)
         log(f"timing: end of speech -> reply done {time.time() - t_spoke:.2f}s ({model})")
         if not reply and not cancel.is_set():
             problem(f"{model} gave no answer - try again, or pick another model in Control Center > JARVIS")

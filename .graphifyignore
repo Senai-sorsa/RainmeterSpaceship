@@ -1,0 +1,15 @@
+﻿*.onnx
+*.wav
+*.mp3
+*.png
+*.jpg
+*.webp
+**/chroma_vault/**
+**/Data/*.log
+
+# old copies and personal runtime data: keep out of the graph
+**/Backups/**
+Skins/Spaceship/Spaceship/**
+**/Data/**
+.tokenwise/**
+CLAUDE.md.tokenwise-backup-*
