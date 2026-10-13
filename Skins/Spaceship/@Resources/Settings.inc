@@ -229,7 +229,7 @@ JarvisFrameRate=30
 JarvisBlackBackground=0
 ; Jarvis "about me" note (Control Center > JARVIS > ABOUT ME)
 JarvisProfile=
-JarvisVoice=C:\Users\Senai\Rainmeter\Skins\Spaceship\@Resources\Jarvis\kokoro\kokoro-v1.0.onnx
+JarvisVoice=Jarvis\kokoro\kokoro-v1.0.onnx
    JarvisKokoroVoice=bm_lewis
    JarvisSilence=2
    JarvisWakeWord=1

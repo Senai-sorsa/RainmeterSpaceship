@@ -59,6 +59,9 @@ OLLAMA = "http://127.0.0.1:11434"
 NO_WINDOW = 0x08000000
 
 os.makedirs(DATA, exist_ok=True)
+for _name in ("stdout", "stderr"):                              # pyw.exe has no console, and libraries that print crash on None
+    if getattr(sys, _name) is None:
+        setattr(sys, _name, open(os.devnull, "w"))
 
 
 # ------------------------------------------------------------------ logging + settings
@@ -130,7 +133,12 @@ class State:
             try:
                 with open(tmp, "w", encoding="utf-8") as f:
                     f.write(body)
-                os.replace(tmp, STATE_FILE)
+                for _ in range(3):                              # the skin may be reading the file at that instant
+                    try:
+                        os.replace(tmp, STATE_FILE)
+                        break
+                    except OSError:
+                        time.sleep(0.01)
             except OSError:
                 pass
 
@@ -650,7 +658,7 @@ def synth_audio(text):
     """Text -> (samples float32, sample_rate), or None if no voice could speak it."""
     voice = setting("JarvisVoice", "").strip().strip('"')
     if voice:
-        voice = resolve_voice(voice)
+        voice = resolve_voice(os.path.join(RES, voice))        # a relative path is relative to @Resources
     if voice and voice not in _broken:
         if not os.path.exists(voice):
             log(f"voice file not found: {voice} - using the Windows voice")
