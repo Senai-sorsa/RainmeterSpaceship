@@ -383,9 +383,19 @@ You can also right-click the hologram, or use Control Center → JARVIS → CONV
 **Skills:**
 - **"Search my notes for ..."** searches the notes in your vault. "Is MATLAB installed?" and "what apps are installed" check your Start menu. He says a short status line ("Searching your notes.") straight away while he looks.
 - **Actions:**
-  - **"Open ..."** (any installed app) and **"mute"** happen straight away.
+  - **"Open ..."** (any installed app), **"mute"** and **"unmute"** happen straight away.
+  - **Volume:** "set the volume to 30", "volume 30 percent", "turn it up", "turn it down", "louder", "quieter" (steps of 10). He says the level Windows reports back. Say the number as a figure from 0 to 100.
+  - **Music and video:** "pause", "play", "resume", "pause the music", "next song", "skip", "previous track". These press the keyboard's media keys, so they work with whatever player is open. "Play" and "pause" are the same key, and he answers "Sent." because a key press cannot report whether anything was playing.
   - **"Close ..."** (an open app), **"lock my computer"**, **"go to sleep"**, **"restart the computer"** and **"shut down the computer"** need confirming. He asks, then listens for your "yes" (or "go ahead", "do it") for 15 seconds without another click. Anything else cancels.
   - Only commands count, not questions: "should I restart my computer?" just gets an answer.
+- **HUD readings:** ask "what's my GPU temperature?", "how loud is it?", "how much disk space is left?" or "how hard is the CPU working?". He answers from the same sensors the HUD shows (temperatures, power, fans, CPU and GPU load, video memory, volume, brightness, free disk space). A sensor you have not mapped in `Settings.inc` is simply not known to him.
+- **Timers and reminders:**
+  - **Set:** "remind me to cook in 20 minutes", "remind me at 6:30 pm to call mum", "set a timer for 10 minutes", "ten minute timer for the pasta". He repeats what he set, so a mishearing is heard at once. With no time ("remind me to cook") he asks "When?" and listens.
+  - **Times:** "in" takes seconds, minutes or hours, as figures or words ("twenty five minutes", "half an hour", "an hour and a half"). "At" takes a clock time in figures ("at 7", "at 6:30 pm", "at 18:30") and means the next time the clock shows it. From 5 seconds to 7 days ahead, 20 pending at most.
+  - **Check and cancel:** "what reminders do I have", "list my timers", "cancel the cooking reminder", "cancel the timer", "cancel all reminders".
+  - **When it is due:** a ding, then your own words back ("Time to cook."), repeated up to 10 times. Say **"stop"**, **"shush"**, **"shut up"**, "quiet", "enough", "okay" or "thanks" in the pause after the line, or click the core, and it stops.
+  - **Muted, at 0 % or in STEALTH:** no sound. The conversation pop-up opens with the line instead (unless the muted pop-up is switched off).
+  - They are kept in `@Resources\Data\jarvis_reminders.txt` and survive a restart. One that came due while Jarvis was not running is read out as "Missed reminder from ..." when he next starts. They ring only while Jarvis runs: this is not a Windows alarm and will not wake a sleeping PC.
 - **Guardrails:** nothing outside that list can ever run. Destructive or joke requests ("self-destruct", "delete system32") get an in-character reply only.
 
 **Your notes:**
@@ -524,7 +534,7 @@ All inside your skin folder unless noted:
 - `@Resources\Settings.inc`: your settings
 - `@Resources\State.inc`: remembered selections (tabs, slots, dial selection)
 - `@Resources\Offsets.inc`: module position nudges
-- `@Resources\Data\`: live data files (windows, net, speed, sys, mail, calendar, Start-menu scan, icon queue, logs)
+- `@Resources\Data\`: live data files (windows, net, speed, sys, mail, calendar, Start-menu scan, icon queue, logs, Jarvis timers and reminders)
 - `@Resources\Icons\`: extracted app icons
 - `@Resources\Presets\`: saved presets
 - `@Resources\Backups\`: copies made by the update installer

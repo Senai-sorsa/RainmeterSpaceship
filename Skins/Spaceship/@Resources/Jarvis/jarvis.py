@@ -35,6 +35,7 @@ import msvcrt
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -146,6 +147,7 @@ class State:
 S = State()
 cancel = threading.Event()
 busy = threading.Lock()
+mic = threading.Lock()                  # whoever has the microphone open holds this: the wake word or a turn, never both
 
 
 # ------------------------------------------------------------------ what's installed
@@ -208,8 +210,8 @@ def context():
     lines = [f"Now: {datetime.now().strftime('%A %d %B %Y, %H:%M')}"]
     try:
         m = MEMORYSTATUSEX(); m.dwLength = ctypes.sizeof(m)
-        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
-        lines.append(f"Memory in use: {m.dwMemoryLoad}% of {m.ullTotalPhys / 2**30:.0f} GB")
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):   # 0 = the call failed: no line, not "0 %"
+            lines.append(f"Memory in use: {m.dwMemoryLoad}% of {m.ullTotalPhys / 2**30:.0f} GB")
         p = SYSTEM_POWER_STATUS()
         ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(p))
         if p.BatteryLifePercent != -1 and (p.BatteryLifePercent & 0xFF) <= 100:
@@ -246,6 +248,85 @@ def context():
                 lines.append("Open to-dos: " + "; ".join(items[:12]))
         except OSError:
             pass
+    return "\n".join(lines)
+
+
+# the HWiNFO sensors the HUD shows: Settings.inc key (the sensor's number, -1 = not mapped), spoken name, unit
+HW_LINES = (("HW_CpuTemp", "CPU temperature", "C"), ("HW_GpuTemp", "GPU temperature", "C"), ("HW_CpuPower", "CPU power", "W"),
+            ("HW_GpuPower", "GPU power", "W"), ("HW_Fan1", "Fan 1", "RPM"), ("HW_Fan2", "Fan 2", "RPM"),
+            ("HW_SsdTemp", "SSD temperature", "C"))
+
+
+def hw_value(index):
+    """One HWiNFO reading, from the same registry values HWiNFO.inc shows on the HUD. Not there = OSError."""
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\HWiNFO64\VSB") as key:
+        return float(winreg.QueryValueEx(key, f"ValueRaw{index}")[0])
+
+
+def cpu_times():
+    idle, kernel, user = ctypes.c_ulonglong(), ctypes.c_ulonglong(), ctypes.c_ulonglong()
+    if not ctypes.windll.kernel32.GetSystemTimes(ctypes.byref(idle), ctypes.byref(kernel), ctypes.byref(user)):
+        raise OSError("GetSystemTimes failed")
+    return idle.value, kernel.value + user.value              # kernel time includes the idle time
+
+
+def sensors():
+    """Readings the HUD shows that context() leaves out. Takes about 0.2 s (two CPU samples), so a turn reads it on a
+    thread while you speak. Each source stands alone: one that is missing or fails costs its own line only."""
+    lines, st = [], settings()
+
+    def part(fn):
+        try:
+            lines.extend(fn())
+        except Exception:
+            pass
+
+    def hw(key, name, unit):
+        n = int(float(st.get(key, "-1")))
+        return [f"{name}: {hw_value(n):.0f} {unit}"] if n >= 0 else []
+
+    def cpu():
+        idle0, all0 = cpu_times()
+        time.sleep(0.2)
+        idle1, all1 = cpu_times()
+        return [f"CPU load: {100 * (1 - (idle1 - idle0) / (all1 - all0)):.0f}%"]
+
+    def card():
+        if not gpu():                                         # asking a sleeping card for numbers would wake it
+            return []
+        r = subprocess.run(["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total",
+                            "--format=csv,noheader,nounits"], creationflags=NO_WINDOW, capture_output=True, text=True, timeout=2)
+        if r.returncode:
+            return []
+        load, used, total = (float(x) for x in r.stdout.splitlines()[0].split(","))
+        return [f"GPU load: {load:.0f}%, video memory {used / 1024:.1f} of {total / 1024:.0f} GB in use"]
+
+    def sound():
+        is_muted, percent = speakers()
+        return [f"Speaker volume: {percent}%" + (" (muted)" if is_muted else "")]
+
+    def panel():
+        kv = dict(re.findall(r"^(T|BRIGHT|MIC|MICMUTE) (-?\d+)", read_kv("sys.txt"), re.M))
+        if time.time() - int(kv.get("T", 0)) > 30:            # the HUD is off: old numbers are not current numbers
+            return []
+        out = [f"Screen brightness: {kv['BRIGHT']}%"] if int(kv.get("BRIGHT", -1)) >= 0 else []
+        if int(kv.get("MIC", -1)) >= 0:
+            out.append(f"Microphone level: {kv['MIC']}%" + (" (muted)" if kv.get("MICMUTE") == "1" else ""))
+        return out
+
+    def disk():
+        drive = os.environ.get("SystemDrive", "C:")
+        use = shutil.disk_usage(drive + "\\")
+        return [f"Disk {drive} {use.free / 2**30:.0f} GB free of {use.total / 2**30:.0f} GB"]
+
+    def pending():                                            # how many and when, not what: the text stays in its file
+        items = load_reminders()
+        return [f"Timers and reminders pending: {len(items)}, the next at {clock(items[0][0])}"] if items else []
+    for line in HW_LINES:
+        part(lambda: hw(*line))
+    for fn in (cpu, card, sound, panel, disk, pending):
+        part(fn)
     return "\n".join(lines)
 
 
@@ -346,13 +427,14 @@ def pick_model(tier):
     names = installed_models()
     if names is None:
         return want
-    if not names:
-        return None
-    for n in (want, want + ":latest"):
-        if n in names:
+    other = fast if want != fast else setting("JarvisModel", "llama3.1:8b")
+    for n in (want, want + ":latest", other, other + ":latest"):
+        if n in names:                                         # only a model you configured: never an embedding model
+            if n not in (want, want + ":latest"):
+                log(f"model {want} not downloaded - using {n}, the other configured model")
             return n
-    log(f"model {want} not downloaded - using {names[0]} (Control Center > JARVIS > MODEL, or: ollama pull {want})")
-    return names[0]
+    log(f"model {want} not downloaded and no other configured model is installed")
+    return None
 
 
 def keep_alive():
@@ -461,7 +543,7 @@ def whisper():
         from faster_whisper import WhisperModel
         size = setting("JarvisWhisper", "base.en")
         dev = setting("JarvisWhisperDevice", "auto").lower()
-        why = "JarvisWhisperDevice=cpu"
+        why = f"JarvisWhisperDevice={dev}"
         if dev in ("auto", "cuda"):
             try:
                 # the pip nvidia-* wheels keep cuBLAS / cuDNN in their own bin folders, which Windows does not search
@@ -502,9 +584,18 @@ def transcribe(audio):
         raise
 
 
-def listen():
+def listen(wait=3):
     """Record until you stop talking: waits up to 6 s for speech, then stops after JarvisSilence seconds of quiet
     (default 1 s; raise it if he cuts you off mid-sentence), max 25 s."""
+    if not mic.acquire(timeout=wait):                          # the wake word lets go within a second of a turn starting
+        raise RuntimeError("The microphone is busy - try again")
+    try:
+        return _listen()
+    finally:
+        mic.release()
+
+
+def _listen():
     import numpy as np
     import sounddevice as sd
     rate, block = 16000, 480                     # 30 ms blocks
@@ -549,7 +640,7 @@ def listen():
                 if time.time() - t0 > 25:
                     break
     except Exception as e:
-        log(f"listen failed: {e}")
+        problem("The microphone stopped (" + str(e).split("\n")[0][:60] + ")", popup=False)
         return None
     finally:
         if stream is not None:
@@ -725,7 +816,7 @@ def synth_audio(text):
                 if out is not None:
                     return out
             except Exception as e:
-                log(f"voice failed ({e}) - using the Windows voice")
+                problem(f"Voice failed - using the Windows voice ({str(e)[:60]})", popup=False)   # once: it is not retried
                 _broken.add(voice)
                 _engines.pop(voice, None)
     return _windows(text)
@@ -752,36 +843,69 @@ def play_samples(a, rate):
 def speak_all(sentences):
     """Synthesize the next sentence while the current one plays. If speech fails, the words go to the pop-up."""
     q = queue.Queue(maxsize=3)
-    failed = []
+    failed, broke, timed, gone, t0 = [], [], [], threading.Event(), time.time()
+
+    def put(item):
+        while not gone.is_set():                               # the reader left (cancelled): stop, don't wait on a full queue
+            try:
+                return q.put(item, timeout=0.5)
+            except queue.Full:
+                pass
 
     def producer():
-        for s in sentences:
-            if cancel.is_set():
-                break
-            clean = re.sub(r"[*_#`>\[\]]", "", s).strip()
-            if not clean:
-                continue
-            try:
-                audio = synth_audio(clean)
-            except Exception as e:
-                log(f"speech failed: {e}")
-                audio = None
-            if audio is None:
-                failed.append(clean)
-            q.put((audio, clean))
-        q.put(None)
+        try:
+            for s in sentences:
+                if cancel.is_set() or gone.is_set():
+                    break
+                clean = re.sub(r"[*_#`>\[\]]", "", s).strip()
+                if not clean:
+                    continue
+                t1 = time.time()
+                try:
+                    audio = synth_audio(clean)
+                except Exception as e:
+                    log(f"speech failed: {e}")
+                    audio = None
+                if not timed:
+                    timed.append(1)
+                    log(f"timing: reply start -> first sentence {t1 - t0:.2f}s, its voice {time.time() - t1:.2f}s")
+                if audio is None:
+                    failed.append(clean)
+                put((audio, clean))
+        except Exception as e:                                 # the model stream broke: hand it to the turn
+            broke.append(e)
+        finally:
+            put(None)                                          # always: the reader is waiting for this
 
     threading.Thread(target=producer, daemon=True).start()
+    try:
+        _speak_queue(q, t0)
+    finally:
+        gone.set()
+    live("")
+    if broke:
+        raise broke[0]
+    if failed:
+        problem("Couldn't speak (voice failed) - the reply is in the log", popup=False)
+
+
+def _speak_queue(q, t0):
     filler_done()                                              # never talk over a status phrase
     first, spoken, shown = True, "", False
     while True:
-        item = q.get()
+        try:
+            item = q.get(timeout=0.5)
+        except queue.Empty:
+            if cancel.is_set():                                # cancelled while a sentence was still being made
+                break
+            continue
         if item is None:
             break
         audio, said = item
         spoken = (spoken + " " + said).strip()
         if first:
             S.set(state="speaking")
+            log(f"timing: reply start -> first audio {time.time() - t0:.2f}s")
             first = False
         # muted mid-reply, or the voice failed: show the words instead
         if (muted() and setting("JarvisMutedPopup", "1") == "1") or audio is None:
@@ -790,7 +914,7 @@ def speak_all(sentences):
                 shown = True
             live(spoken)
         if audio is None:
-            time.sleep(min(3.0, 0.06 * len(said)))            # reading time instead of speaking time
+            cancel.wait(min(3.0, 0.06 * len(said)))           # reading time instead of speaking time
             continue
         try:
             if not cancel.is_set():
@@ -801,9 +925,6 @@ def speak_all(sentences):
                 S.set(pop="open")
                 shown = True
             live(spoken)
-    live("")
-    if failed:
-        problem("Couldn't speak (voice failed) - the reply is in the log", popup=False)
 
 
 def first_words():
@@ -869,6 +990,10 @@ def live(text):
 
 
 def muted():
+    try:
+        return speakers_mute()                                 # the file below can be seconds old, or left by a HUD that is off
+    except Exception:
+        pass
     try:
         with open(ENV_FILE, "r", encoding="utf-8") as f:
             return "MUTED 1" in f.read()
@@ -955,7 +1080,12 @@ def vault_dir():
     if v and os.path.isdir(v):
         return v
     todo = setting("ObsidianTodo", "").strip().strip('"')
-    return os.path.dirname(todo) if todo and os.path.exists(todo) else ""
+    d = os.path.dirname(todo) if todo and os.path.exists(todo) else ""
+    for _ in range(4):                                         # the to-do note's folder, or up to three folders above it
+        if d and os.path.isdir(os.path.join(d, ".obsidian")):  # only a real vault: a to-do note in Downloads is not one
+            return d
+        d = os.path.dirname(d)
+    return ""
 
 
 def search_notes(query, limit=3):
@@ -993,6 +1123,7 @@ STOP = set("the and for with that this what when where which about from have you
 
 
 def start_apps():
+    """The installed apps the HUD scanned, or None while that list is missing (not the same as no apps)."""
     out = []
     try:
         with open(os.path.join(DATA, "StartApps.txt"), "r", encoding="utf-8", errors="ignore") as f:
@@ -1001,7 +1132,7 @@ def start_apps():
                     name, appid = line.rstrip("\n").split("|", 1)
                     out.append((name.strip(), appid.strip()))
     except OSError:
-        pass
+        return None
     return out
 
 
@@ -1011,7 +1142,7 @@ def best_app(name):
     if not want:
         return None
     best, score = None, 0
-    for disp, appid in start_apps():
+    for disp, appid in start_apps() or []:
         d = disp.lower()
         if any(x in d for x in ("uninstall", "help", "readme", "documentation")):
             continue
@@ -1041,9 +1172,9 @@ def _com(obj, slot, *args):
     return fn(ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)))[0][slot])(obj, *args)
 
 
-def speakers_mute(on=None):
-    """Set the default speakers' mute state (Core Audio, IAudioEndpointVolume) and return what Windows then reports.
-    on=None only reads it."""
+def speakers(mute=None, volume=None):
+    """The default speakers (Core Audio, IAudioEndpointVolume): set mute (True / False) and / or volume (0.0-1.0) when
+    given, then return (muted, percent) as Windows reports them. A value Windows did not take raises OSError."""
     ole, P = ctypes.oledll.ole32, ctypes.c_void_p
 
     def guid(text):
@@ -1051,22 +1182,59 @@ def speakers_mute(on=None):
         ole.CLSIDFromString(ctypes.c_wchar_p(text), g)
         return ctypes.cast(g, P)
     ctypes.windll.ole32.CoInitialize(None)                    # once per thread; a repeat is harmless
-    devices, speakers, volume, state = P(), P(), P(), ctypes.c_int()
+    devices, device, vol, state, level = P(), P(), P(), ctypes.c_int(), ctypes.c_float(1)
     ole.CoCreateInstance(guid("{BCDE0395-E52F-467C-8E3D-C4579291692E}"), None, 23,
                          guid("{A95664D2-9614-4F35-A746-DE8DB63617E6}"), ctypes.byref(devices))
     try:
-        _com(devices, 4, ctypes.c_int(0), ctypes.c_int(1), ctypes.pointer(speakers))     # GetDefaultAudioEndpoint
-        _com(speakers, 3, guid("{5CDF2C82-841E-4546-9722-0CF74078229A}"), ctypes.c_uint(23), P(None), ctypes.pointer(volume))
-        if on is not None:
-            _com(volume, 14, ctypes.c_int(bool(on)), P(None))                            # SetMute
-        _com(volume, 15, ctypes.pointer(state))                                          # GetMute
+        _com(devices, 4, ctypes.c_int(0), ctypes.c_int(1), ctypes.pointer(device))       # GetDefaultAudioEndpoint
+        _com(device, 3, guid("{5CDF2C82-841E-4546-9722-0CF74078229A}"), ctypes.c_uint(23), P(None), ctypes.pointer(vol))
+        if volume is not None:
+            _com(vol, 7, ctypes.c_float(volume), P(None))                                # SetMasterVolumeLevelScalar
+        if mute is not None:
+            _com(vol, 14, ctypes.c_int(bool(mute)), P(None))                             # SetMute
+        _com(vol, 15, ctypes.pointer(state))                                             # GetMute
+        _com(vol, 9, ctypes.pointer(level))                                              # GetMasterVolumeLevelScalar
     finally:
-        for obj in (volume, speakers, devices):
+        for obj in (vol, device, devices):
             if obj:
                 _com(obj, 2)                                                             # Release
-    if on is not None and bool(state.value) != bool(on):
+    if mute is not None and bool(state.value) != bool(mute):
         raise OSError("Windows did not change the mute state")
-    return bool(state.value)
+    if volume is not None and abs(level.value - volume) > 0.01:
+        raise OSError("Windows did not change the volume")
+    return bool(state.value), round(level.value * 100)
+
+
+def speakers_mute(on=None):
+    """Set the mute state and return it. on=None only reads it, and counts a volume of 0 % as muted (nothing would
+    be heard either way)."""
+    is_muted, percent = speakers(mute=on)
+    return is_muted or (on is None and percent <= 0)
+
+
+def act_volume(change):
+    how, n = change                                           # ("set", 30) or ("step", -10)
+    if how == "step":
+        n += speakers()[1]
+    speakers(volume=max(0, min(100, n)) / 100)
+
+
+MEDIA_KEYS = {"playpause": 0xB3, "next": 0xB0, "prev": 0xB1}
+
+
+def press_key(vk):
+    """Press and release one key. Windows gives no result back, so nobody can tell whether a player took it."""
+    for flags in (0, 2):                                      # down, up
+        ctypes.windll.user32.keybd_event(vk, 0, flags, 0)
+
+
+def done_line(action, target):
+    """What to say after an action that worked: the value Windows reports, never the one asked for."""
+    if action == "open":
+        return f"Opening {target[0]}."
+    if action == "volume":
+        return f"Volume at {speakers()[1]} percent."
+    return "Sent." if action == "media" else "Done."
 
 
 def run_ok(args):
@@ -1120,6 +1288,8 @@ ACTIONS = {
     "open": act_open,
     "mute": lambda _: speakers_mute(True),
     "unmute": lambda _: speakers_mute(False),
+    "volume": act_volume,
+    "media": lambda key: press_key(MEDIA_KEYS[key]),
 }
 
 # the whole reply has to be one of these: "yes, but don't" is not a yes
@@ -1136,7 +1306,8 @@ DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)|wipe (my|th
 
 
 def route(text):
-    """Map what you said to (kind, action, target, confirmation prompt). kind: chat | notes | apps | act | guard."""
+    """Map what you said to (kind, action, target, confirmation prompt). kind: chat | notes | apps | act | guard | say |
+    remind (action = list / cancel / set, target = its details)."""
     t = text.strip().lower().rstrip(".!?")
     if DANGER.search(t):
         return ("guard", None, None, None)
@@ -1145,6 +1316,9 @@ def route(text):
     cmd = re.sub(r"^(hey |ok |okay )?(jarvis[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
     if text.strip().endswith("?") and cmd == t:
         cmd = ""
+    op = reminder_cmd(t, cmd, time.time())
+    if op:
+        return ("remind", op[0], op[1:], None)
     m = re.search(r"\b(?:search|check|look (?:through|in)|find|what do)\b.*\b(?:my )?(?:notes?|vault|obsidian)\b(?:.*?\b(?:for|about|on)\b\s+(.+))?", t)
     if m:
         q = m.group(1) or re.sub(r"\b(search|check|look|through|in|find|what|do|my|notes?|vault|obsidian|say)\b", " ", t)
@@ -1163,6 +1337,24 @@ def route(text):
     m = re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd)
     if m:
         return ("act", m.group(1), None, None)
+    # shortcut: the volume number must be digits (speech recognition writes "30", not "thirty"); add words if it does not
+    m = re.match(r"(?:set |turn |change |put )?(?:the )?volume (?:to |at )?(\d{1,3})(?: ?%| percent)?$", cmd)
+    if m:
+        if int(m.group(1)) > 100:
+            return ("say", None, None, "I can set it between 0 and 100.")
+        return ("act", "volume", ("set", int(m.group(1))), None)
+    m = re.match(r"(?:(?:turn |make )?(?:it |(?:the )?(?:volume|sound|music) )(up|down|louder|quieter)|"
+                 r"turn (up|down) (?:it|the (?:volume|sound|music))|(louder|quieter))$", cmd)
+    if m:
+        return ("act", "volume", ("step", 10 if (m.group(1) or m.group(2) or m.group(3)) in ("up", "louder") else -10), None)
+    thing = r"(?: (?:the |my |this )?(?:music|song|track|video|playback))"
+    # shortcut: one play/pause key, so "play" while it plays pauses; Windows has no separate keys worth the code
+    if re.match(rf"(?:(?:pause|play|resume|unpause){thing}?|stop{thing})$", cmd):
+        return ("act", "media", "playpause", None)
+    if re.match(r"(?:(?:play |skip to )?(?:the )?next(?: track| song)?|skip(?: (?:this |the )?(?:track|song))?)$", cmd):
+        return ("act", "media", "next", None)
+    if re.match(r"(?:(?:play |go back to )?(?:the )?(?:previous|last) (?:track|song)|go back a (?:track|song)|previous)$", cmd):
+        return ("act", "media", "prev", None)
     m = re.match(r"(?:close|quit|exit|kill)\s+(?:the\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
     if m and not re.search(r"\b(log|transcript|history|conversation|chat|pop ?up|window)\b", m.group(1)):
         exe = running_window(m.group(1))
@@ -1174,6 +1366,8 @@ def route(text):
         app = best_app(m.group(1))
         if app:
             return ("act", "open", app, None)                       # opening is harmless: no confirmation
+        if start_apps() is None:
+            return ("say", None, None, "The app list isn't ready yet.")
         # not an app ("run a speed test"): let the model answer
     return ("chat", None, None, None)
 
@@ -1200,6 +1394,281 @@ def reply_line(text, quiet):
         live("")
     else:
         speak_all([text])
+
+
+def hear():
+    """Listen once more inside a turn and return the words ("" for silence or a click)."""
+    audio = listen() if not cancel.is_set() else None
+    return transcribe(audio) if audio is not None else ""
+
+
+# ------------------------------------------------------------------ timers and reminders
+# "remind me to cook in 20 minutes", "set a timer for 10 minutes", "what reminders do I have", "cancel the timer".
+# All of it is read by the code below, never by the model. They are kept in Data\jarvis_reminders.txt (so they
+# survive a restart) and ring only while JARVIS runs: a ding and the line, repeated until a stop word or a click.
+REMIND_FILE = os.path.join(DATA, "jarvis_reminders.txt")      # due|created|kind|label  (kind: reminder | timer)
+STOP_WORDS = re.compile(r"\b(stop|shush|shh+|shut ?up|quiet|enough|okay|ok|thanks|thank you|dismiss)\b", re.I)
+RINGS = 10                                                    # each is a ding, the line, and up to 6 s of listening
+ONES = ("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
+        "seventeen eighteen nineteen").split()
+TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60}
+_remind_bad = [False]                                         # the file could not be read: said once, not every second
+
+
+def _num(s):
+    """'12', '1.5', 'twelve', 'twenty five', 'a' -> the number, anything else -> None."""
+    s = s.strip().replace("-", " ")
+    if s in ("a", "an"):
+        return 1
+    if re.fullmatch(r"\d+(\.\d+)?", s):
+        return float(s)
+    if not s or [w for w in s.split() if w not in ONES and w not in TENS]:
+        return None
+    return sum(ONES.index(w) if w in ONES else TENS[w] for w in s.split())
+
+
+def duration(s):
+    """'10 minutes', 'an hour and a half', 'two minutes and 30 seconds' -> seconds, or None if it is not a duration."""
+    s = re.sub(r"\b(an?|one) hour and a half\b", "90 minutes", s.strip()).replace("half an hour", "30 minutes")
+    s = re.sub(r"((?:sec|min|hour|hr)[a-z]*),? (?!and )", r"\1 and ", s)      # "1 hour 30 minutes" has no "and"
+    total = 0
+    for piece in s.split(" and "):
+        m = re.fullmatch(r"(.+?)[ -]?(sec|min|hour|hr)[a-z]*", piece.strip())
+        n = _num(m.group(1)) if m else None
+        if n is None:
+            return None
+        total += n * {"sec": 1, "min": 60}.get(m.group(2), 3600)
+    return total
+
+
+def when(s, now):
+    """'in 20 minutes', 'at 6:30 pm', 'at 18:30', 'at 7' -> the time it is due, or None. A clock time is its next
+    occurrence; with no am / pm, 'at 7' is whichever 7 o'clock comes first."""
+    # shortcut: clock times must be digits ("at 7", not "at seven"), which is how speech recognition writes them
+    s = s.strip()
+    if s.startswith("in "):
+        d = duration(s[3:])
+        return None if d is None else now + d
+    m = re.fullmatch(r"at (\d{1,2})(?:[: .]?(\d{2}))? ?(a\.?m|p\.?m)?\.?", s)
+    if not m:
+        return None
+    hour, minute, half = int(m.group(1)), int(m.group(2) or 0), (m.group(3) or "").replace(".", "")
+    if minute > 59 or hour > 23 or (half and not 1 <= hour <= 12):
+        return None
+    hours = [hour % 12 + (12 if half == "pm" else 0)] if half else [hour, (hour + 12) % 24] if 1 <= hour <= 12 else [hour]
+    day = datetime.fromtimestamp(now).replace(minute=minute, second=0, microsecond=0)
+    return min(t if t > now else t + 86400 for t in (day.replace(hour=h).timestamp() for h in hours))
+
+
+def span(sec, s="s"):
+    """600 -> '10 minutes'; with s='' it is '10 minute' (as in "your 10 minute timer")."""
+    sec = int(round(sec))
+    parts = ((sec // 3600, "hour"), (sec % 3600 // 60, "minute"), (sec % 60, "second"))
+    return " ".join(f"{n} {unit}{s if n != 1 else ''}" for n, unit in parts if n) or "0 seconds"
+
+
+def clock(ts, now=None):
+    d = datetime.fromtimestamp(ts)
+    days = (d.date() - datetime.fromtimestamp(now or time.time()).date()).days
+    return (f"{d.hour % 12 or 12}:{d.minute:02d} {'AM' if d.hour < 12 else 'PM'}"
+            + ("" if days == 0 else " tomorrow" if days == 1 else d.strftime(" on %A")))
+
+
+def split_time(rest, now):
+    """'to cook in 20 minutes' or 'in 20 minutes to cook' -> (due, label, the time as said). No time in it: due is None."""
+    for m in re.finditer(r"\b(?:in|at) ", rest):               # the time comes last
+        due = when(rest[m.start():], now)
+        if due is not None:
+            return due, rest[:m.start()].strip(), rest[m.start():]
+    for m in re.finditer(r" (?=(?:to|about|that|for) )", rest):   # the time comes first
+        due = when(rest[:m.start()], now)
+        if due is not None:
+            return due, rest[m.end():].strip(), rest[:m.start()]
+    return None, rest.strip(), ""
+
+
+def reminder_cmd(t, cmd, now):
+    """A timer or reminder command -> ("list", kind) | ("cancel", kind, words) | ("set", kind, due, label, time as said);
+    anything else -> None. due is None when no time was heard (he then asks)."""
+    m = re.match(r"(?:(?:what|which) (?:are )?(?:my |the )?|(?:list|show|read)(?: me| out)? (?:all )?(?:my |the )?|"
+                 r"do i have (?:any )?|how (?:much time|long) (?:is |do i have )?left on (?:my |the )?)(reminder|timer)s?"
+                 r"(?: (?:do i have|have i (?:got|set)|are (?:set|there|left|pending|running)).*)?$", t)
+    if m:
+        return ("list", m.group(1))
+    m = re.match(r"(?:cancel|delete|remove|clear|stop|forget) (?:(?:all|every|of|the|my|that) )*(?:(.+) )?(reminder|timer)s?"
+                 r"(?: (?:to|about|for) (.+))?$", cmd)
+    if m:
+        return ("cancel", m.group(2), f"{m.group(1) or ''} {m.group(3) or ''}".strip())
+    m = re.match(r"(?:remind me|(?:set|add) (?:a |another )?reminder)(?: (.+))?$", cmd)
+    if m:
+        if re.match(r"(what|who|how|why|where|when|which|whether|if) ", m.group(1) or ""):
+            return None                                        # "remind me what the capital is": a question for the model
+        due, label, said = split_time(m.group(1) or "", now)
+        if label and not re.match(r"(to|about|that) ", label):
+            label = "about " + re.sub(r"^(for|of) ", "", label)
+        return ("set", "reminder", due, re.sub(r"\bmy\b", "your", label), said)
+    m = re.match(r"(set |start |create |put on |give me )?(?:a |an |another |the )?(?:(.+?)[ -])?timer(?: (?:for|of) (.+))?$", cmd)
+    if not m:
+        return None
+    verb, before, after = m.groups()
+    secs, label = (duration(before) if before else None), ""
+    if before and secs is None:
+        if not verb:                                           # "open timer", "what is a timer": not a command for this
+            return None
+        label = before                                         # "set a pasta timer for 10 minutes"
+    for piece in (after or "").split(" for "):           # "the pasta for 10 minutes" or "10 minutes for the pasta"
+        d = duration(piece) if secs is None else None
+        if d is None:
+            label = f"{label} {piece}".strip()
+        else:
+            secs = d
+    return ("set", "timer", None if secs is None else now + secs, re.sub(r"\bmy\b", "your", label), "in")
+
+
+def load_reminders():
+    """[(due, created, kind, label)], soonest first. A file that cannot be read raises OSError / ValueError: an error
+    is not "no reminders", and the caller must then leave the file alone."""
+    if not os.path.exists(REMIND_FILE):
+        return []
+    out = []
+    with open(REMIND_FILE, "r", encoding="utf-8") as f:
+        for line in f.read().splitlines():
+            if line.strip():
+                due, created, kind, label = line.split("|", 3)
+                out.append((float(due), float(created), kind, label))
+    return sorted(out)
+
+
+def save_reminders(items):
+    tmp = REMIND_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("".join(f"{due:.0f}|{created:.0f}|{kind}|{label}\n" for due, created, kind, label in items))
+    os.replace(tmp, REMIND_FILE)
+
+
+def describe(r, now):
+    due, created, kind, label = r
+    if kind == "timer":
+        return f"{span(due - now)} left on the timer" + (f" for {label}" if label else "")
+    return f"{label or 'a reminder'} at {clock(due, now)}"
+
+
+def ring_line(r, now):
+    """What he says when it is due: your own words back ("Time to cook."), not something the model wrote."""
+    due, created, kind, label = r
+    if kind == "timer":
+        line = f"Your timer for {label} is done." if label else f"Your {span(due - created, '')} timer is done."
+    elif label.startswith("to "):
+        line = f"Time {label}."
+    else:
+        line = f"Reminder: {label[5:]}." if label.startswith("that ") else f"Reminder {label}." if label else "This is your reminder."
+    if now - due > 120:                                        # the PC slept, or JARVIS was not running
+        return f"Missed {kind} from {clock(due, now)}: {line[0].lower()}{line[1:]}"
+    return line
+
+
+def remind_reply(op, args, quiet):
+    """Carry out a list / cancel / set and return what to say. Runs inside a turn, so there is one writer at a time."""
+    now, kind = time.time(), args[0]
+    try:
+        items = load_reminders()
+    except (OSError, ValueError):
+        return "I can't read the reminders file, so I left it alone."
+    if op == "list":
+        mine = [describe(r, now) for r in items if r[2] == kind]
+        return f"You have {len(mine)} {kind}{'s' if len(mine) != 1 else ''}: {'; '.join(mine)}." if mine else f"You have no {kind}s."
+    if op == "cancel":
+        # shortcut: a word matches on its first four letters ("cooking" finds "to cook"); fine for a list of 20
+        words = [w for w in args[1].split() if w not in ("the", "my", "a", "an", "one", "to", "about", "for")]
+        gone = [r for r in items if r[2] == kind and all(w[:4] in f"{r[3]} {span(r[0] - r[1], '')}" for w in words)]
+        if not gone:
+            return f"I don't see a {kind} like that."
+        save_reminders([r for r in items if r not in gone])
+        log(f"reminder cancelled ({len(gone)})")
+        return "Cancelled: " + "; ".join(describe(r, now) for r in gone) + "."
+    _, due, label, said = args
+    if due is None:                                            # no time heard: ask once and listen, like a confirmation
+        reply_line("When?" if kind == "reminder" else "How long?", quiet)
+        S.set(state="listening", level=0.0)
+        answer = hear()
+        if answer:
+            convo_add("U", answer)
+        now, answer = time.time(), answer.strip().lower().rstrip(".!?")
+        for said in (answer, "in " + answer, "at " + answer):
+            due = when(said, now)
+            if due is not None:
+                break
+        else:
+            return "I didn't catch the time."
+    if not 5 <= due - now <= 7 * 86400:
+        return "I can set that from 5 seconds to 7 days ahead."
+    if len(items) >= 20:
+        return "You already have 20 pending. Cancel one first."
+    save_reminders(items + [(due, now, kind, re.sub(r"[\s|]+", " ", label))])
+    log(f"reminder set ({kind}, {due - now:.0f}s ahead)")
+    if kind == "timer":
+        return f"Timer set for {span(due - now)}" + (f", for {label}." if label else ".")
+    return f"I'll remind you {label} ".replace("  ", " ") + (f"in {span(due - now)}." if said.startswith("in ") else f"at {clock(due, now)}.")
+
+
+def due_reminders(now):
+    """True when something is due. An unreadable file is reported once, and nothing rings until it can be read."""
+    try:
+        items = load_reminders()
+    except (OSError, ValueError) as e:
+        if not _remind_bad[0]:
+            _remind_bad[0] = True
+            log(f"reminders: the file cannot be read ({type(e).__name__})")
+            problem("Can't read Data\\jarvis_reminders.txt - reminders are paused until it is fixed or deleted", popup=False)
+        return False
+    _remind_bad[0] = False
+    return bool(items) and items[0][0] <= now
+
+
+def ding():
+    """Two falling notes, made here so there is no sound file; played like the voice, so the hologram moves with it."""
+    import numpy as np
+    rate = 24000
+    t = np.arange(int(rate * 0.45)) / rate
+    return np.concatenate([0.4 * np.sin(2 * np.pi * hz * t) * np.exp(-6 * t) for hz in (1318.5, 1046.5)]).astype(np.float32), rate
+
+
+def alarm():
+    """Ring for everything that is due, as one alarm: ding, say it, listen for a stop word, repeat. It holds the turn
+    lock, so it waits for a running turn, the wake word lets go of the microphone, and a click stops it."""
+    with busy:
+        cancel.clear()
+        turn_id[0] = time.time()                               # counts as activity: the voice is not unloaded mid-ring
+        try:
+            now = time.time()
+            items = load_reminders()
+            due = [r for r in items if r[0] <= now]
+            if not due:
+                return
+            save_reminders(items[len(due):])                   # gone before it rings: a crash here cannot ring forever
+            log(f"reminder fired ({len(due)})")
+            log(f"timing: due -> ring {now - due[-1][0]:.1f}s")
+            text = " ".join(ring_line(r, now) for r in due)
+            convo_add("J", text)
+            audio = None if muted() or hud_tier() >= 3 else synth_audio(text)     # made once, replayed each round
+            if audio is None:                                  # muted, STEALTH or no voice: shown like a muted reply
+                if setting("JarvisMutedPopup", "1") == "1":
+                    S.set(pop="open")
+                return
+            for _ in range(RINGS):
+                S.set(state="speaking", say=text)
+                play_samples(*ding())
+                if not cancel.is_set():
+                    play_samples(*audio)
+                S.set(state="listening", level=0.0)
+                if cancel.is_set() or STOP_WORDS.search(hear()):   # what is heard here is matched and dropped, never kept
+                    convo_add("J", "(stopped)")
+                    return
+        except Exception as e:
+            log(f"alarm failed: {type(e).__name__}")
+            problem("A reminder could not ring")
+        finally:
+            S.set(state="idle", level=0.0)
 
 
 # ------------------------------------------------------------------ smart note search (ChromaDB)
@@ -1388,16 +1857,22 @@ def turn(tier):
             return
         model = pick_model(tier)
         if not model:
-            problem("No Ollama model downloaded - run Control Center > JARVIS > SETUP (or: ollama pull llama3.1:8b)")
+            want = setting("JarvisModel", "llama3.1:8b")
+            problem(f"Model {want} is not downloaded (Control Center > JARVIS > MODEL, or: ollama pull {want})")
             return
         warm(model)
         threading.Thread(target=prepare_fillers, daemon=True).start()   # cheap if nothing changed
         time.sleep(chime())                                    # don't record the chime
         log(f"timing: click -> listening {time.time() - t_click:.2f}s")
+        t_listen = time.time()
+        hud = []
+        reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
+        reading.start()                                        # read while you speak, so it costs the reply nothing
         audio = listen()
         if audio is None or cancel.is_set():
             return
         t_spoke = time.time()
+        log(f"timing: listening -> end of speech {t_spoke - t_listen:.2f}s")
         S.set(state="thinking", level=0.0)
         try:
             text = transcribe(audio)
@@ -1431,18 +1906,22 @@ def turn(tier):
         if kind == "say":
             reply_line(prompt, quiet)
             return
+        if kind == "remind":
+            reply_line(remind_reply(action, target, quiet), quiet)
+            return
         if kind == "act":
             if prompt is None:                                 # harmless: do it now
                 ok = run_action(action, target)
-                reply_line((f"Opening {target[0]}." if action == "open" else "Done.") if ok else "That didn't work.", quiet)
+                if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
+                    quiet = muted()
+                reply_line(done_line(action, target) if ok else "That didn't work.", quiet)
                 return
             # two-phase: stage it, ask, and listen for the answer (15 s) without another click
             pending = {"action": action, "target": target}
             reply_line(prompt, quiet)
             pending["expires"] = time.time() + 15              # counted from the end of the spoken prompt
             S.set(state="listening", level=0.0)
-            answer_audio = listen() if not cancel.is_set() else None
-            answer = transcribe(answer_audio) if answer_audio is not None else ""
+            answer = hear()
             if answer:
                 convo_add("U", answer)
             if confirmed(pending, answer, time.time()) and not cancel.is_set():
@@ -1468,8 +1947,11 @@ def turn(tier):
                 extra = f"\nNOTE SEARCH: nothing in the vault matched '{target}'."
         elif kind == "apps":
             filler("apps", quiet)
-            names = sorted({n for n, _ in start_apps()})
-            if target:
+            apps = start_apps()
+            names = sorted({n for n, _ in apps or []})
+            if apps is None:
+                extra = "\nINSTALLED APPS: the app list isn't ready yet (the HUD is still scanning)."
+            elif target:
                 app = best_app(target)
                 extra = f"\nINSTALLED APP CHECK: '{target}' -> " + (f"yes, installed as {app[0]}." if app else "not found in the Start menu.")
             else:
@@ -1481,7 +1963,9 @@ def turn(tier):
             log("guardrail: request handled in persona only")
         if time.time() - last_turn > 600:
             history = []
-        messages = fit_context([{"role": "system", "content": system_prompt() + extra}], history[-8:], {"role": "user", "content": text})
+        reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
+        messages = fit_context([{"role": "system", "content": system_prompt() + "".join("\n" + h for h in hud if h) + extra}],
+                               history[-8:], {"role": "user", "content": text})
         collected = []
         stream = chat_stream(model, messages)
         if quiet and setting("JarvisMutedPopup", "1") == "1":
@@ -1525,13 +2009,22 @@ def hud_tier():
 def wake_loop():
     import numpy as np
     model, stream, warned = None, None, False
+
+    def drop():
+        """Close the microphone and hand it back."""
+        nonlocal stream
+        if stream is not None:
+            try:
+                stream.close()
+            except Exception:
+                pass
+            stream = None
+            mic.release()
     while True:
         try:
             want = setting("JarvisWakeWord", "1") == "1" and setting("JarvisEnabled", "1") == "1" and hud_tier() < 3
             if not want or busy.locked():
-                if stream is not None:
-                    stream.close()
-                    stream = None
+                drop()
                 time.sleep(0.5)
                 continue
             if model is None:
@@ -1545,11 +2038,16 @@ def wake_loop():
                 log("wake word ready - say 'Hey Jarvis'")
             if stream is None:
                 import sounddevice as sd
+                if not mic.acquire(timeout=0.5):               # a turn is recording
+                    continue
                 try:
                     stream = sd.InputStream(samplerate=16000, channels=1, dtype="int16", blocksize=1280)
                     stream.start()
                     model.reset()
                 except Exception as e:
+                    if stream is None:
+                        mic.release()
+                    drop()
                     log(f"wake word: couldn't open microphone - {e}")
                     time.sleep(5)
                     continue
@@ -1561,8 +2059,7 @@ def wake_loop():
                 need = 0.5
             if max(scores.values()) >= need:
                 log(f"wake word heard ({max(scores.values()):.2f})")
-                stream.close()
-                stream = None
+                drop()
                 model.reset()
                 threading.Thread(target=turn, args=(hud_tier(),), daemon=True).start()
                 time.sleep(1.0)                                # let the turn take the microphone
@@ -1575,12 +2072,7 @@ def wake_loop():
             time.sleep(10)
         except Exception as e:
             log(f"wake word: {e!r}")
-            try:
-                if stream is not None:
-                    stream.close()
-            except Exception:
-                pass
-            stream = None
+            drop()
             time.sleep(5)
 
 
@@ -1636,7 +2128,7 @@ def main():
         threading.Thread(target=wake_loop, daemon=True).start()
         threading.Thread(target=index_loop, daemon=True).start()
     last_mtime = os.path.getmtime(CMD_FILE) if os.path.exists(CMD_FILE) else 0
-    beat, missing = 0.0, 0
+    beat, missing, checked, ringing = 0.0, 0, 0.0, None
     while True:
         try:
             time.sleep(0.1)
@@ -1649,6 +2141,11 @@ def main():
                 if missing >= 15:                              # Rainmeter gone for 30 s: quit
                     log("Rainmeter closed - exiting")
                     return
+            if now - checked >= 1 and not (ringing and ringing.is_alive()):   # one alarm at a time
+                checked = now
+                if due_reminders(now):
+                    ringing = threading.Thread(target=alarm, daemon=True)
+                    ringing.start()
             try:
                 mt = os.path.getmtime(CMD_FILE)
             except OSError:

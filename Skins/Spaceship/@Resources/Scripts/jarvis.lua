@@ -367,11 +367,13 @@ function Update()
   return lvl
 end
 
--- python launcher: JarvisPython (full path) or the py launcher that the python.org installer puts in place
+-- python launcher: JarvisPython (full path), else Setup's private copy (the pinned packages: the global Python can hold
+-- other versions, and an old kokoro-onnx there drops him to the Windows voice), else the python.org py launcher
 local function pythonw()
   local p = H.str('JarvisPython', '')
   if p ~= '' then return exists(p) and p or nil end
-  local cands = { (os.getenv('WINDIR') or 'C:\\Windows') .. '\\pyw.exe',
+  local cands = { (os.getenv('LOCALAPPDATA') or '') .. '\\SpaceshipHUD\\venv\\Scripts\\pythonw.exe',
+    (os.getenv('WINDIR') or 'C:\\Windows') .. '\\pyw.exe',
     (os.getenv('LOCALAPPDATA') or '') .. '\\Programs\\Python\\Launcher\\pyw.exe' }
   for _, c in ipairs(cands) do if exists(c) then return c end end
   return nil
