@@ -964,7 +964,10 @@ ACTIONS = {
     "shutdown": lambda _: subprocess.run(["shutdown", "/s", "/t", "10"], creationflags=NO_WINDOW),
     "close": act_close,
     "open": act_open,
-    "mute": lambda _: press_key(0xAD),           # VK_VOLUME_MUTE toggles
+    # VK_VOLUME_MUTE toggles, so press it only when the state has to change.
+    # shortcut: trusts jarvis_env.txt (up to ~1 s stale, and 0 % volume reads as muted), switch to Core Audio if it proves wrong
+    "mute": lambda _: muted() or press_key(0xAD),
+    "unmute": lambda _: muted() and press_key(0xAD),
 }
 
 YES = re.compile(r"^\W*(yes|yeah|yep|yup|sure|confirm(ed)?|do it|go ahead|proceed|affirmative|ok(ay)?|please do)\b", re.I)
@@ -997,8 +1000,9 @@ def route(text):
         return ("act", "restart", None, "You're asking me to restart the PC. Confirm with yes.")
     if re.match(r"(shut ?down|power off|turn off) (the |my )?(pc|computer|laptop|system)\b", cmd):
         return ("act", "shutdown", None, "You're asking me to shut down the PC. Confirm with yes.")
-    if re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd):
-        return ("act", "mute", None, None)
+    m = re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd)
+    if m:
+        return ("act", m.group(1), None, None)
     m = re.match(r"(?:close|quit|exit|kill)\s+(?:the\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
     if m and not re.search(r"\b(log|transcript|history|conversation|chat|pop ?up|window)\b", m.group(1)):
         exe = running_window(m.group(1))

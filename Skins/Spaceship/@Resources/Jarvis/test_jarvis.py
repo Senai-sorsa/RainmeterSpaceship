@@ -27,4 +27,12 @@ assert j.best_app("") is None
 assert j.running_window("chrome") == "chrome.exe"
 assert j.running_window("") is None
 
+# mute / unmute press the toggle key only when the state has to change
+assert j.route("mute")[:2] == ("act", "mute") and j.route("unmute the sound")[:2] == ("act", "unmute")
+for state, action, presses in ((False, "unmute", 0), (True, "unmute", 1), (False, "mute", 1), (True, "mute", 0)):
+    pressed.clear()
+    j.muted = lambda: state
+    j.ACTIONS[action](None)
+    assert len(pressed) == presses, (state, action, pressed)
+
 print("test_jarvis: OK")
