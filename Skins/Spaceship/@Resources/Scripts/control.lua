@@ -24,6 +24,7 @@ local THEMES = {
 }
 local SENSORS = { 'CpuTemp', 'GpuTemp', 'CpuPower', 'GpuPower', 'Fan1', 'Fan2', 'GpuClock', 'ChargeRate', 'RemainCap', 'FullCap', 'Wear', 'SsdTemp' }
 local PRESET_FILES = { 'Settings.inc', 'Offsets.inc', 'State.inc', 'Apps.ini' }
+local saved = {}                  -- what State.inc already holds, so a click writes only what changed
 
 function Initialize()
   RES = SKIN:GetVariable('@')
@@ -40,12 +41,13 @@ function Initialize()
   tab = math.max(1, math.min(#TABS, math.floor(H.num('CtlTab', 1))))
   page = math.max(1, math.floor(H.num('CtlPage', 1)))
   selMod = math.max(1, math.min(#Z.modules, math.floor(H.num('CtlMod', 1))))
+  saved = { CtlTab = tab, CtlPage = page, CtlMod = selMod }
 end
 
 -- remember the current view in State.inc so a refresh comes back to it
 local function saveView()
   for k, v in pairs({ CtlTab = tab, CtlPage = page, CtlMod = selMod }) do
-    SKIN:Bang('!WriteKeyValue', 'Variables', k, v, RES .. 'State.inc')
+    if saved[k] ~= v then saved[k] = v; SKIN:Bang('!WriteKeyValue', 'Variables', k, v, RES .. 'State.inc') end
   end
 end
 
@@ -70,6 +72,17 @@ local function writeVar(file, key, value)
   SKIN:Bang('!SetVariable', key, value)
   SKIN:Bang('!WriteKeyValue', 'Variables', key, value, RES .. file)
 end
+
+-- a HUD-wide setting is saved at once but the HUD reloads later: on RELOAD or when the panel closes
+local pending = false
+local function later() pending = true end
+local function flush()
+  if not pending then return false end
+  pending = false                 -- first, so the reload of this panel cannot repeat it
+  SKIN:Bang('!RefreshGroup', 'Spaceship')
+  return true
+end
+function Flush() flush() end      -- Control.ini OnCloseAction: closed from the menu instead of the X
 
 local function copyFile(src, dst)
   local f = io.open(src, 'rb')
@@ -120,7 +133,7 @@ local function applyTheme(t)
   writeVar('Settings.inc', 'ColorDim', t[3])
   writeVar('Settings.inc', 'ColorText', t[4])
   say('THEME ' .. t[1] .. ' APPLIED')
-  SKIN:Bang('!RefreshGroup', 'Spaceship')
+  later()
 end
 
 local function bump(var, delta, lo, hi, file, refresh)
@@ -128,7 +141,8 @@ local function bump(var, delta, lo, hi, file, refresh)
   v = math.floor(v * 100 + 0.5) / 100
   writeVar(file or 'Settings.inc', var, v)
   say(var .. ' = ' .. v)
-  if refresh then SKIN:Bang('!RefreshGroup', 'Spaceship') end
+  if refresh then later() end
+  return v
 end
 
 local function slotIds()
@@ -177,7 +191,7 @@ local function loadPreset(n)
   if s then s:write(os.date('%Y-%m-%d %H:%M')); s:close() end
   for _, f in ipairs(PRESET_FILES) do copyFile(dir .. f, RES .. f) end
   say('PRESET ' .. n .. ' LOADED')
-  SKIN:Bang('!RefreshGroup', 'Spaceship')
+  SKIN:Bang('!RefreshGroup', 'Spaceship')      -- at once: the files changed under the panel
 end
 
 -- ---------------------------------------------------------------- tab contents
@@ -223,11 +237,11 @@ local function rowsLayout()
         writeVar('Settings.inc', 'Scale', string.format('%.4f', s))
         writeVar('Settings.inc', 'OriginX', math.floor((w - 2560 * s) / 2))
         writeVar('Settings.inc', 'OriginY', math.floor((h - 1600 * s) / 2))
-        say(string.format('FIT TO %dx%d (SCALE %.3f)', w, h, s)); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } },
+        say(string.format('FIT TO %dx%d (SCALE %.3f)', w, h, s)); later() end } } },
     { 'RESET ALL OFFSETS', 'Every module back to the designed layout', { { armed == 'resetall' and 'CONFIRM' or 'RESET ALL', function()
       if arm('resetall') then
         for _, mm in ipairs(Z.modules) do writeVar('Offsets.inc', mm.key .. '_DX', 0); writeVar('Offsets.inc', mm.key .. '_DY', 0) end
-        SKIN:Bang('!RefreshGroup', 'Spaceship'); say('ALL OFFSETS RESET') end end, armed == 'resetall' } } },
+        later(); say('ALL OFFSETS RESET') end end, armed == 'resetall' } } },
   }
 end
 
@@ -237,28 +251,28 @@ local function rowsTheme()
   for _, t in ipairs(THEMES) do
     rows[#rows + 1] = { t[1], t[2], { { cur == t[2] and 'ACTIVE' or 'APPLY', function() applyTheme(t) end, cur == t[2] } }, t[2] }
   end
-  rows[#rows + 1] = { 'WINDOW TINT', tostring(H.num('GlassTint', 46)) .. ' / 255', { { '-10', function() bump('GlassTint', -10, 0, 255, nil, true) end }, { '+10', function() bump('GlassTint', 10, 0, 255, nil, true) end }, { 'CLEAR', function() writeVar('Settings.inc', 'GlassTint', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
+  rows[#rows + 1] = { 'WINDOW TINT', tostring(H.num('GlassTint', 46)) .. ' / 255', { { '-10', function() bump('GlassTint', -10, 0, 255, nil, true) end }, { '+10', function() bump('GlassTint', 10, 0, 255, nil, true) end }, { 'CLEAR', function() writeVar('Settings.inc', 'GlassTint', 0); later() end } } }
   rows[#rows + 1] = { 'GLOW', string.format('strength %d   width %.1f', H.num('GlowAlpha', 52), H.num('GlowWidth', 3)), { { '-', function() bump('GlowAlpha', -8, 0, 160, nil, true) end }, { '+', function() bump('GlowAlpha', 8, 0, 160, nil, true) end }, { 'W-', function() bump('GlowWidth', -0.4, 1, 8, nil, true) end }, { 'W+', function() bump('GlowWidth', 0.4, 1, 8, nil, true) end } } }
   rows[#rows + 1] = { 'CORES / TEXT GLOW', string.format('cores %.1f (1 = white-hot)   text glow %d px', H.num('CoreWhite', 0.3), H.num('TextGlow', 4)), { { 'C-', function() bump('CoreWhite', -0.1, 0, 1, nil, true) end }, { 'C+', function() bump('CoreWhite', 0.1, 0, 1, nil, true) end }, { 'T-', function() bump('TextGlow', -1, 0, 12, nil, true) end }, { 'T+', function() bump('TextGlow', 1, 0, 12, nil, true) end } } }
-  rows[#rows + 1] = { 'GLASS GLARE', tostring(H.num('GlassGlare', 12)) .. '  smudges + reflections', { { '-4', function() bump('GlassGlare', -4, 0, 60, nil, true) end }, { '+4', function() bump('GlassGlare', 4, 0, 60, nil, true) end }, { 'OFF', function() writeVar('Settings.inc', 'GlassGlare', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
+  rows[#rows + 1] = { 'GLASS GLARE', tostring(H.num('GlassGlare', 12)) .. '  smudges + reflections', { { '-4', function() bump('GlassGlare', -4, 0, 60, nil, true) end }, { '+4', function() bump('GlassGlare', 4, 0, 60, nil, true) end }, { 'OFF', function() writeVar('Settings.inc', 'GlassGlare', 0); later() end } } }
   local scan = H.num('ScanLines', 1) == 1
-  rows[#rows + 1] = { 'SCANLINES', (scan and 'ON' or 'OFF') .. '  darkness ' .. tostring(H.num('ScanAlpha', 14)), { { scan and 'OFF' or 'ON', function() writeVar('Settings.inc', 'ScanLines', scan and 0 or 1); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { '-4', function() bump('ScanAlpha', -4, 0, 14, nil, true) end }, { '+4', function() bump('ScanAlpha', 4, 0, 14, nil, true) end } } }
+  rows[#rows + 1] = { 'SCANLINES', (scan and 'ON' or 'OFF') .. '  darkness ' .. tostring(H.num('ScanAlpha', 14)), { { scan and 'OFF' or 'ON', function() writeVar('Settings.inc', 'ScanLines', scan and 0 or 1); later() end }, { '-4', function() bump('ScanAlpha', -4, 0, 14, nil, true) end }, { '+4', function() bump('ScanAlpha', 4, 0, 14, nil, true) end } } }
   -- transparency: the metal, the dark tints behind the HUD, and every HUD element
   -- hull: brightness (0 = black metal, 100 = as rendered) and opacity (lower = wallpaper shows through)
   rows[#rows + 1] = { 'HULL', string.format('brightness %d%%   opacity %d / 255', H.num('FrameBrightness', 25), H.num('HullAlpha', 255)), { { 'B-', function() bump('FrameBrightness', -5, 0, 100, nil, true) end }, { 'B+', function() bump('FrameBrightness', 5, 0, 100, nil, true) end }, { 'O-', function() bump('HullAlpha', -25, 0, 255, nil, true) end }, { 'O+', function() bump('HullAlpha', 25, 0, 255, nil, true) end } } }
-  rows[#rows + 1] = { 'DARK TINTS', tostring(H.num('ShadeAlpha', 255)) .. ' / 255  (shading behind the HUD on the glass)', { { '-25', function() bump('ShadeAlpha', -25, 0, 255, nil, true) end }, { '+25', function() bump('ShadeAlpha', 25, 0, 255, nil, true) end }, { 'OFF', function() writeVar('Settings.inc', 'ShadeAlpha', 0); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
-  rows[#rows + 1] = { 'HUD OPACITY', tostring(H.num('HudAlpha', 255)) .. ' / 255  (every line and label)', { { '-25', function() bump('HudAlpha', -25, 40, 255, nil, true) end }, { '+25', function() bump('HudAlpha', 25, 40, 255, nil, true) end }, { 'FULL', function() writeVar('Settings.inc', 'HudAlpha', 255); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
+  rows[#rows + 1] = { 'DARK TINTS', tostring(H.num('ShadeAlpha', 255)) .. ' / 255  (shading behind the HUD on the glass)', { { '-25', function() bump('ShadeAlpha', -25, 0, 255, nil, true) end }, { '+25', function() bump('ShadeAlpha', 25, 0, 255, nil, true) end }, { 'OFF', function() writeVar('Settings.inc', 'ShadeAlpha', 0); later() end } } }
+  rows[#rows + 1] = { 'HUD OPACITY', tostring(H.num('HudAlpha', 255)) .. ' / 255  (every line and label)', { { '-25', function() bump('HudAlpha', -25, 40, 255, nil, true) end }, { '+25', function() bump('HudAlpha', 25, 40, 255, nil, true) end }, { 'FULL', function() writeVar('Settings.inc', 'HudAlpha', 255); later() end } } }
   local img, off = H.num('UseShipImage', 0) == 1, H.num('FrameOff', 0) == 1
   local function art(useImg, frameOff)
     return function()
       writeVar('Settings.inc', 'UseShipImage', useImg); writeVar('Settings.inc', 'FrameOff', frameOff)
-      SKIN:Bang('!RefreshGroup', 'Spaceship')
+      later()
     end
   end
   rows[#rows + 1] = { 'COCKPIT ART', off and 'OFF  no cockpit, window tint or glow - just the HUD'
       or (img and ('PICTURE  Images\\' .. H.str('ShipImage', 'ship.png')) or 'RENDERED  textured hull (Images\\hull.png)'),
     { { 'RENDERED', art(0, 0), not img and not off }, { 'PICTURE', art(1, 0), img and not off }, { 'OFF', art(0, 1), off } } }
-  rows[#rows + 1] = { 'WARNING COLOUR', H.str('ColorWarn', ''), { { 'ORANGE', function() writeVar('Settings.inc', 'ColorWarn', '255,130,40'); SKIN:Bang('!RefreshGroup', 'Spaceship') end }, { 'YELLOW', function() writeVar('Settings.inc', 'ColorWarn', '255,220,60'); SKIN:Bang('!RefreshGroup', 'Spaceship') end } } }
+  rows[#rows + 1] = { 'WARNING COLOUR', H.str('ColorWarn', ''), { { 'ORANGE', function() writeVar('Settings.inc', 'ColorWarn', '255,130,40'); later() end }, { 'YELLOW', function() writeVar('Settings.inc', 'ColorWarn', '255,220,60'); later() end } } }
   return rows
 end
 
@@ -294,8 +308,15 @@ local function rowsSensors()
     local var = 'HW_' .. s
     local idx = H.num(var, -1)
     local v = H.hw('mHw' .. s)
+    -- repoint the panel's own measure, so the reading beside the buttons follows without a reload
+    local function map(d) return function()
+      local n = bump(var, d, -1, 199, nil, true)
+      SKIN:Bang('!SetOption', 'mHw' .. s, 'RegValue', 'ValueRaw' .. n)
+      SKIN:Bang('!SetOption', 'mHw' .. s, 'Disabled', n < 0 and 1 or 0)
+      SKIN:Bang('!UpdateMeasure', 'mHw' .. s)
+    end end
     rows[#rows + 1] = { string.upper(s), idx < 0 and 'NOT MAPPED' or string.format('#%d   =   %s', idx, v and tostring(v) or '--'), {
-      { '-', function() bump(var, -1, -1, 199, nil, true) end }, { '+', function() bump(var, 1, -1, 199, nil, true) end } } }
+      { '-', map(-1) }, { '+', map(1) } } }
   end
   return rows
 end
@@ -405,7 +426,7 @@ local function rowsData()
   rows[#rows + 1] = { 'TO-DO NOTE', note ~= '' and note or 'not set - BROWSE to your Obsidian to-do note', {
     { 'BROWSE', function() core('pick-todo'); say('CHOOSE YOUR NOTE IN THE WINDOW') end },
     { 'OPEN', function() if note ~= '' then SKIN:Bang('["' .. note .. '"]') end end },
-    { 'CLEAR', function() writeVar('Settings.inc', 'ObsidianTodo', ''); SKIN:Bang('!RefreshGroup', 'Spaceship'); say('TO-DO NOTE CLEARED') end } } }
+    { 'CLEAR', function() writeVar('Settings.inc', 'ObsidianTodo', ''); later(); say('TO-DO NOTE CLEARED') end } } }
   local rt = H.num('ReticleTodo', 1) == 1
   rows[#rows + 1] = { 'RETICLE TO-DOS', rt and 'ON - the reticle locks onto your next to-do (usage when the list is empty)' or 'OFF - the reticle always shows usage', {
     { 'ON', function() writeVar('Settings.inc', 'ReticleTodo', 1); SKIN:Bang('!Refresh', 'Spaceship\\Center\\Target'); say('RETICLE TO-DOS ON') end, rt },
@@ -619,7 +640,7 @@ function Update()
   c:line(22, 62, z.w - 22, 62, D, 1, 200)
   c:line(z.w - 44, 18, z.w - 24, 38, A1, 1.8); c:line(z.w - 24, 18, z.w - 44, 38, A1, 1.8)
   H.hit(1, 1, z.w - 52, 10, 36, 36, 'Close')
-  actions[1] = function() SKIN:Bang('!DeactivateConfig') end
+  actions[1] = function() SKIN:Bang('!DeactivateConfig'); flush() end   -- leave the group first, then reload it
   -- tabs
   for i, name in ipairs(TABS) do
     local y = TY + (i - 1) * (TH + 6)
@@ -710,16 +731,22 @@ function Update()
   for i = 10 + NROWS * 4 + 1, 74 do H.hideHit(1, i) end
   -- footer status
   c:line(22, z.h - 50, z.w - 22, z.h - 50, D, 1, 200)
-  H.text(1, 11, 28, z.h - 30, msg, { size = 10, font = H.fontNum, align = 'LeftCenter', color = os.time() - msgAt < 6 and H.C.warn or D, clip = z.w - 60 })
+  H.text(1, 11, 28, z.h - 30, msg .. (pending and '   -   RELOAD OR CLOSE TO APPLY' or ''), { size = 10, font = H.fontNum, align = 'LeftCenter', color = (pending or os.time() - msgAt < 6) and H.C.warn or D, clip = z.w - 200 })
+  -- RELOAD: lit while saved settings wait for the HUD to reload (spare meters T1_110 / H1_76)
+  local rx = z.w - 132
+  c:fillRect(rx, z.h - 45, 110, 30, pending and A1 or H.C.panel, pending and 70 or 140)
+  c:rect(rx, z.h - 45, 110, 30, pending and A1 or D, 1.2)
+  H.text(1, 110, rx + 55, z.h - 30, 'RELOAD', { size = 9.5, weight = 700, align = 'CenterCenter', color = pending and T or A1 })
+  H.hit(1, 76, rx, z.h - 45, 110, 30, 'Reload the HUD')
+  actions[76] = function() if not flush() then say('NOTHING TO APPLY') end end
   c:flush()
   return 0
 end
 
 function OnClick(zi, k)
   local fn = actions[k]
-  saveView()                      -- before the action, in case it refreshes this skin
   if fn then fn() end
-  saveView()                      -- and after, for tab / page / module changes
+  saveView()                      -- for tab / page / module changes; the view before the click is already saved
   Update()
 end
 function OnRightClick(zi, k) end
