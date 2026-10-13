@@ -61,4 +61,18 @@ t0 = time.time()
 assert list(j.chat_stream("m", [])) == [] and time.time() - t0 < 1.5, time.time() - t0
 j.cancel.clear()
 
+# idle unload: only after the idle time, never during a turn, never when switched off
+j.log = lambda *a: None
+minutes = ["10"]
+j.setting = lambda key, default="": minutes[0] if key == "JarvisIdleUnload" else default
+j._whisper, j._engines["v"] = object(), object()
+assert not j.unload_idle(599, 0) and j._whisper is not None
+minutes[0] = "0"
+assert not j.unload_idle(9999, 0)
+minutes[0] = "10"
+with j.busy:
+    assert not j.unload_idle(9999, 0)
+assert j.unload_idle(601, 0) and j._whisper is None and not j._engines
+assert not j.unload_idle(9999, 0)                                 # nothing left to unload
+
 print("test_jarvis: OK")

@@ -23,12 +23,13 @@ JarvisKokoroVoice, JarvisChime, JarvisMutedPopup, JarvisKeepAlive, JarvisContext
 JarvisSilence (seconds of silence before he answers, default 1), JarvisFirstWords (he starts speaking after this many
 words, default 5; 0 = wait for a whole sentence), ObsidianTodo (open to-dos), JarvisProfile ("about me" note),
 JarvisVault (Obsidian vault folder for "search my notes" - default: the to-do note's folder).
-JarvisSmartSearch (1 = ChromaDB meaning-based note search, falls back to keywords), JarvisWakeWord (default 1 = say "Hey Jarvis" instead of clicking; 0 = off), JarvisWakeSensitivity (0.2-0.9, lower = more sensitive).
+JarvisSmartSearch (1 = ChromaDB meaning-based note search, falls back to keywords), JarvisWakeWord (default 1 = say "Hey Jarvis" instead of clicking; 0 = off), JarvisWakeSensitivity (0.2-0.9, lower = more sensitive), JarvisIdleUnload (minutes without a turn before the speech models are freed, default 10; 0 = keep them loaded).
 Skills: instant status phrases while searching, a whitelist of actions (risky ones need a spoken "yes"), and
 guardrails - nothing outside the whitelist is ever executed.
 Every problem is logged to Data\\jarvis.log, shown on the hologram (ERR) and added to the conversation pop-up.
 """
 import ctypes
+import gc
 import json
 import msvcrt
 import os
@@ -1467,11 +1468,28 @@ def preload_whisper():
         log(f"whisper preload failed: {e!r}")
 
 
+def unload_idle(now, since):
+    """Free the speech models after JarvisIdleUnload minutes without a turn; they load again on the next one."""
+    global _whisper
+    try:
+        mins = float(setting("JarvisIdleUnload", "10"))
+    except ValueError:
+        mins = 10.0
+    if mins <= 0 or busy.locked() or now - since < mins * 60 or not (_whisper or _engines):
+        return False
+    _whisper = None
+    _engines.clear()
+    gc.collect()
+    log(f"idle for {mins:g} min - speech models unloaded")
+    return True
+
+
 def main():
     global owner
     if not single_instance():
         return
     owner = True
+    started = time.time()
     log(f"started ({RES}), Python {sys.version.split()[0]}")
     miss = missing_packages()
     S.set(state="idle", level=0.0, err=("Setup needed - missing " + ", ".join(miss)) if miss else "")
@@ -1490,6 +1508,7 @@ def main():
             if now - beat >= 2:
                 beat = now
                 S.set()                                        # heartbeat
+                unload_idle(now, max(turn_id[0], started))
                 missing = 0 if rainmeter_running() else missing + 1
                 if missing >= 15:                              # Rainmeter gone for 30 s: quit
                     log("Rainmeter closed - exiting")
