@@ -589,6 +589,9 @@ local function rowsJarvis()
     { 'ON', function() jset('JarvisWakeWord', 1) end, ww }, { 'OFF', function() jset('JarvisWakeWord', 0) end, not ww },
     { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
+  local fu = H.num('JarvisFollowUp', 1) == 1
+  rows[#rows + 1] = { 'FOLLOW-UP', fu and 'ON - after a spoken answer he listens a few seconds more, no wake word needed (3 in a row at most)' or 'OFF - every question needs the wake word or a click', {
+    { 'ON', function() jset('JarvisFollowUp', 1) end, fu }, { 'OFF', function() jset('JarvisFollowUp', 0) end, not fu } } }
   local sil, ctx = H.num('JarvisSilence', 1), H.num('JarvisContext', 2048)
   rows[#rows + 1] = { 'LISTENING', string.format('answers after %.1f s of silence   - longer lets you pause mid-sentence, shorter answers sooner', sil), {
     { 'SHORTER', function() jbump('JarvisSilence', -0.5, 0.5, 6, 1) end },

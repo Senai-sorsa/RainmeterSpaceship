@@ -366,6 +366,7 @@ You can also right-click the hologram, or use Control Center → JARVIS → CONV
 | KOKORO VOICE | Which Kokoro voice (British: Lewis or Emma; American: Michael or Heart) and speaking speed |
 | PERSONALITY | How he words his own answers: PLAYFUL (default: funny, matches your banter, still answers real questions properly), PROPER (calm and dry) or BRIEF (one sentence). Fixed lines like "Done." never change |
 | WAKE WORD | "Hey Jarvis" on/off and its threshold |
+| FOLLOW-UP | ON (default): after a spoken answer he listens a few seconds more, so you can reply without "Hey Jarvis". OFF: every question needs the wake word or a click |
 | LISTENING | Seconds of silence before he answers (default 3 s) |
 | MODEL MEMORY | Context size: 2048 (least RAM, fastest), 4096 or 8192 tokens |
 | SOUNDS | Chime on click, startup sound, TEST |
@@ -395,8 +396,14 @@ You can also right-click the hologram, or use Control Center → JARVIS → CONV
   - **Times:** "in" takes seconds, minutes or hours, as figures or words ("twenty five minutes", "half an hour", "an hour and a half"). "At" takes a clock time in figures ("at 7", "at 6:30 pm", "at 18:30") and means the next time the clock shows it. From 5 seconds to 7 days ahead, 20 pending at most.
   - **Check and cancel:** "what reminders do I have", "list my timers", "cancel the cooking reminder", "cancel the timer", "cancel all reminders".
   - **When it is due:** a ding, then your own words back ("Time to cook."), repeated up to 10 times. Say **"stop"**, **"shush"**, **"shut up"**, "quiet", "enough", "okay" or "thanks" in the pause after the line, or click the core, and it stops.
+  - **Snooze:** in the same pause say **"snooze"**, "later" or "not now" and it rings again in 1 minute. Or say how long: "snooze 5 minutes", "ten more minutes", "snooze half an hour" (1 minute to 2 hours). He answers "Snoozed for 5 minutes."
+  - **Repeating:** "remind me every day at 9 am to take vitamins", "remind me every weekday at 8:30 to check mail", "remind me every Monday at 7 to put the bins out". A clock time is needed; say am or pm, or "at 9" means whichever 9 o'clock comes first. "Cancel the vitamins reminder" removes the whole series. Snoozing one delays only that day's ring. After days with the PC off it rings once as missed, then carries on. Timers do not repeat.
   - **Muted, at 0 % or in STEALTH:** no sound. The conversation pop-up opens with the line instead (unless the muted pop-up is switched off).
   - They are kept in `@Resources\Data\jarvis_reminders.txt` and survive a restart. One that came due while Jarvis was not running is read out as "Missed reminder from ..." when he next starts. They ring only while Jarvis runs: this is not a Windows alarm and will not wake a sleeping PC.
+- **Things to remember:** "remember that my dentist is on Fridays" and he answers "Noted: ..." and knows it in every later answer. "What do you remember" reads the list, "forget the dentist" removes every entry with those words, "forget everything" asks first. 50 entries at most. They are kept as plain text in `@Resources\Data\jarvis_memory.txt` and go only to the local model, but he reads them out when asked: do not store passwords there.
+- **Daily briefing:** "good morning" (or "good afternoon", "good evening", "brief me", "daily briefing", "what's my day look like") gets the time, your calendar, unread mail, open to-dos and pending reminders in a few sentences. Only when you ask.
+- **Add a to-do:** "add buy milk to my to-do list", "put call the bank on my to-do list", "add a task: renew passport". He reads it back and asks; only a clear "yes" adds `- [ ] buy milk` at the end of your TO-DO NOTE. He never creates the note, and never ticks off or deletes a task.
+- **Follow-up:** after a spoken answer the hologram goes back to listening for a few seconds, so you can reply without "Hey Jarvis". At most three in a row, not after fixed replies like "Timer set", and not while muted. Switch it off with FOLLOW-UP in the Control Center.
 - **Guardrails:** nothing outside that list can ever run. Destructive or joke requests ("self-destruct", "delete system32") get an in-character reply only.
 
 **Your notes:**

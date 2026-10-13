@@ -44,7 +44,7 @@ import time
 import urllib.error
 import urllib.request
 import wave
-from datetime import datetime
+from datetime import datetime, timedelta
 
 RES = (sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")).strip().strip('"')
 RES = os.path.abspath(RES)
@@ -206,8 +206,14 @@ def read_kv(name):
         return ""
 
 
+def todo_note():
+    """The to-do note (ObsidianTodo) if it is set and exists, else ""."""
+    path = settings().get("ObsidianTodo", "").strip().strip('"')
+    return path if path and os.path.exists(path) else ""
+
+
 def context():
-    lines = [f"Now: {datetime.now().strftime('%A %d %B %Y, %H:%M')}"]
+    lines = [f"Now:{datetime.now().strftime('%A %d %B %Y, %H:%M')}"]
     try:
         m = MEMORYSTATUSEX(); m.dwLength = ctypes.sizeof(m)
         if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):   # 0 = the call failed: no line, not "0 %"
@@ -239,8 +245,8 @@ def context():
     st = settings()
     if st.get("LinkDownMbps"):
         lines.append(f"Internet speed (last test {st.get('LastSpeedTest', '?')}): {st.get('LinkDownMbps')} down / {st.get('LinkUpMbps', '?')} up Mbps")
-    todo = st.get("ObsidianTodo", "").strip().strip('"')
-    if todo and os.path.exists(todo):
+    todo = todo_note()
+    if todo:
         try:
             with open(todo, "r", encoding="utf-8", errors="ignore") as f:
                 items = [re.sub(r"^\s*[-*]\s*\[ \]\s*", "", l).strip() for l in f if re.match(r"^\s*[-*]\s*\[ \]", l)]
@@ -339,6 +345,11 @@ MOODS = {"proper": "Be calm, precise and a little dry.",       # JarvisPersonali
                     "When they ask a real question, answer it helpfully first, then joke if it fits. "
                     "You are on their side: back them up. Never joke about a failed action.",
          "brief": "Answer in one short sentence. No small talk."}
+# "good morning" / "brief me": the model words it, from data the prompt already holds
+# shortcut: if he invents or skips items in practice, build the sentences in code instead
+BRIEFING = ("BRIEFING: greet the user, then say in this order, from LIVE HUD DATA only: the time, today's calendar "
+            "events, unread mail count, open to-dos (at most three, then the count), pending reminders. Skip a part "
+            "that has no data. Five sentences at most.")
 
 
 def ctx_tokens():
@@ -375,6 +386,12 @@ def system_prompt():
     if me:
         out += ("\nABOUT THE USER (from their own note - use it to personalise answers; don't recite it unless "
                 "asked):\n" + me + "\n")
+    try:
+        facts = "\n".join("- " + f for f in load_memory())[:2000]
+    except (OSError, ValueError):
+        facts = ""                                             # unreadable: he says so when asked, the prompt goes on
+    if facts:
+        out += "\nTHINGS THE USER ASKED YOU TO REMEMBER:\n" + facts + "\n"
     return out + "\nLIVE HUD DATA:\n" + context()
 
 
@@ -1295,6 +1312,8 @@ ACTIONS = {
     "unmute": lambda _: speakers_mute(False),
     "volume": act_volume,
     "media": lambda key: press_key(MEDIA_KEYS[key]),
+    "todo": lambda item: act_todo(item),
+    "forget_all": lambda _: save_memory([]),
 }
 
 # the whole reply has to be one of these: "yes, but don't" is not a yes
@@ -1312,18 +1331,47 @@ DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)|wipe (my|th
 
 def route(text):
     """Map what you said to (kind, action, target, confirmation prompt). kind: chat | notes | apps | act | guard | say |
-    remind (action = list / cancel / set, target = its details)."""
+    remind (action = list / cancel / set, target = its details) | memory (action = save / list / forget) | brief."""
     t = text.strip().lower().rstrip(".!?")
     if DANGER.search(t):
         return ("guard", None, None, None)
     # actions only for commands ("lock my computer", "jarvis, could you open chrome"), never for questions about them
     # ("should I restart my computer?", "how do I close a for loop?")
-    cmd = re.sub(r"^(hey |ok |okay )?(jarvis[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
+    whole = cmd = re.sub(r"^(hey |ok |okay )?(jarvis[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
     if text.strip().endswith("?") and cmd == t:
         cmd = ""
     op = reminder_cmd(t, cmd, time.time())
     if op:
         return ("remind", op[0], op[1:], None)
+    if re.fullmatch(r"(?:good (?:morning|afternoon|evening)|brief me|(?:give me )?(?:my |the )?daily briefing|"
+                    r"what.?s my day look(?:ing)? like)(?:,? jarvis)?", whole):
+        return ("brief", None, None, None)
+    # remembered facts. "do you remember that film?" and "remember to buy milk" are not for this
+    if re.fullmatch(r"what do you remember|what have i (?:told|asked) you to remember|"
+                    r"(?:list|show|read)(?: me)? (?:my |your )?memor(?:y|ies)|what.?s in your memory", whole):
+        return ("memory", "list", None, None)
+    m = re.match(r"remember (?:that )?(?!to )(.+)", cmd)
+    if m:
+        return ("memory", "save", as_said(text, m.group(1)), None)
+    if re.match(r"forget (?:everything|all)\b", cmd):
+        try:
+            n = len(load_memory())
+        except (OSError, ValueError):
+            return ("say", None, None, MEMORY_BAD)
+        if not n:
+            return ("say", None, None, "You haven't asked me to remember anything.")
+        return ("act", "forget_all", None, f"Forget all {n} thing{'s' if n != 1 else ''} I remember? Confirm with yes.")
+    m = re.match(r"forget (?:that |about |the )*(.+)", cmd)
+    if m and m.group(1) not in ("it", "that", "this", "about it", "about that"):
+        return ("memory", "forget", m.group(1), None)
+    # "add buy milk to my to-do list", "add a task: renew passport". It writes into your note, so he asks first
+    m = (re.match(r"(?:add|put) (.+?) (?:to|on|in|onto) (?:my |the )?(?:to-do|to do|todo|task)s?(?: list)?$", cmd)
+         or re.match(r"(?:add|new|create|make) (?:a |an )?(?:new )?(?:task|to-do|todo|to do)(?: item)?[:,]? (.+)$", cmd))
+    if m:
+        if not todo_note():
+            return ("say", None, None, "No to-do note is set (Control Center, TO-DO NOTE).")
+        item = " ".join(as_said(text, m.group(1)).split())[:200]
+        return ("act", "todo", item, f"Add '{item}' to your to-do list? Confirm with yes.")
     m = re.search(r"\b(?:search|check|look (?:through|in)|find|what do)\b.*\b(?:my )?(?:notes?|vault|obsidian)\b(?:.*?\b(?:for|about|on)\b\s+(.+))?", t)
     if m:
         q = m.group(1) or re.sub(r"\b(search|check|look|through|in|find|what|do|my|notes?|vault|obsidian|say)\b", " ", t)
@@ -1380,7 +1428,7 @@ def route(text):
 def run_action(action, target):
     try:
         ACTIONS[action](target)
-        log(f"action: {action} {target if target else ''}")
+        log(f"action: {action} {target if target and action != 'todo' else ''}")     # a to-do's text stays out of the log
         return True
     except Exception as e:
         log(f"action {action} failed: {e!r}")
@@ -1407,13 +1455,89 @@ def hear():
     return transcribe(audio) if audio is not None else ""
 
 
+def as_said(text, part):
+    """`part` was found in the lowercased text: give it back with the capitals it was said with."""
+    i = text.lower().find(part)
+    return text[i:i + len(part)] if i >= 0 else part
+
+
+# ------------------------------------------------------------------ to-do by voice and remembered facts
+def act_todo(item):
+    """Add one open task to the to-do note. Appended, never rewritten (safe while Obsidian or a sync tool has the note
+    open), and the note is never created. Errors carry no path: they are logged and shown."""
+    item, note = " ".join(str(item).split())[:200], todo_note()
+    if not item or not note:
+        raise RuntimeError("no to-do note is set")
+    try:
+        with open(note, "rb+") as f:                           # rb+ fails on a missing file instead of making one
+            if f.seek(0, 2):
+                f.seek(-1, 2)
+                last = f.read(1)
+                f.seek(0, 2)
+                if last != b"\n":
+                    f.write(b"\n")
+            f.write(f"- [ ] {item}\n".encode("utf-8"))
+    except OSError as e:
+        raise RuntimeError(f"the to-do note could not be written ({type(e).__name__})") from None
+
+
+# "remember that my dentist is on Fridays": one fact a line in Data\jarvis_memory.txt, added to every prompt.
+# Plain text on this PC and sent only to the local model, but he reads it out when asked: no passwords in it.
+MEMORY_FILE = os.path.join(DATA, "jarvis_memory.txt")
+MEMORY_BAD = "I can't read my memory file, so I left it alone."
+
+
+def load_memory():
+    """The remembered facts. A file that cannot be read raises OSError / ValueError, like load_reminders()."""
+    if not os.path.exists(MEMORY_FILE):
+        return []
+    with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f.read().splitlines() if line.strip()]
+
+
+def save_memory(facts):
+    tmp = MEMORY_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("".join(fact + "\n" for fact in facts))
+    os.replace(tmp, MEMORY_FILE)
+
+
+def memory_reply(op, text):
+    """Carry out a save / list / forget and return what to say. Only counts reach the log, never the facts."""
+    try:
+        facts = load_memory()
+    except (OSError, ValueError):
+        return MEMORY_BAD
+    if op == "list":
+        if not facts:
+            return "You haven't asked me to remember anything."
+        return f"I remember {len(facts)} thing{'s' if len(facts) != 1 else ''}: {'; '.join(facts)}."
+    if op == "forget":                                         # every fact that holds all the words said
+        gone = [f for f in facts if all(w in f.lower() for w in text.split())]
+        if not gone:
+            return "I don't have that."
+        save_memory([f for f in facts if f not in gone])
+        log(f"fact forgotten ({len(gone)})")
+        return "Forgotten: " + "; ".join(gone) + "."
+    fact = " ".join(text.split())[:200]
+    if fact not in facts:
+        if len(facts) >= 50:
+            return "You've told me 50 things. Forget one first."
+        save_memory(facts + [fact])
+        log(f"fact saved ({len(facts) + 1} stored)")
+    return f"Noted: {fact}."
+
+
 # ------------------------------------------------------------------ timers and reminders
 # "remind me to cook in 20 minutes", "set a timer for 10 minutes", "what reminders do I have", "cancel the timer".
 # All of it is read by the code below, never by the model. They are kept in Data\jarvis_reminders.txt (so they
 # survive a restart) and ring only while JARVIS runs: a ding and the line, repeated until a stop word or a click.
-REMIND_FILE = os.path.join(DATA, "jarvis_reminders.txt")      # due|created|kind|label  (kind: reminder | timer)
+# A repeating reminder keeps its rule in the kind field (daily | weekdays | mon ... sun), so the file format is the same.
+REMIND_FILE = os.path.join(DATA, "jarvis_reminders.txt")      # due|created|kind|label  (kind: reminder | timer | a rule)
 STOP_WORDS = re.compile(r"\b(stop|shush|shh+|shut ?up|quiet|enough|okay|ok|thanks|thank you|dismiss)\b", re.I)
 RINGS = 10                                                    # each is a ding, the line, and up to 6 s of listening
+SNOOZE = 60                                                   # seconds, when "snooze" is said with no length
+DAYS = "mon tue wed thu fri sat sun".split()
 ONES = ("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
         "seventeen eighteen nineteen").split()
 TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60}
@@ -1479,6 +1603,35 @@ def clock(ts, now=None):
             + ("" if days == 0 else " tomorrow" if days == 1 else d.strftime(" on %A")))
 
 
+def snooze_for(heard):
+    """What was said while it rang -> None (not a snooze), the seconds to wait, or 0 for a length he cannot use
+    (under a minute, over 2 hours, or not understood: it keeps ringing)."""
+    s = re.sub(r"[^a-z0-9. ]+|\.(?!\d)", " ", heard.lower())
+    if not re.search(r"\b(snooze|later|not now)\b|\bmore (sec|min|hour)", s):
+        return None
+    rest = " ".join(w for w in s.split() if w not in ("snooze", "later", "not", "now", "more", "for", "it", "ok", "okay",
+                                                      "another", "please", "jarvis"))
+    if not rest:
+        return SNOOZE
+    d = duration(rest)
+    return d if d and 60 <= d <= 7200 else 0
+
+
+def next_due(due, kind, now):
+    """The next time a repeating reminder rings after `now`: the same clock time, on a day its rule allows. Stepped on
+    the wall clock, so "9" stays 9 across a daylight-saving change."""
+    d = datetime.fromtimestamp(due)
+    while d.timestamp() <= now or not (kind == "daily" or (d.weekday() < 5 if kind == "weekdays" else DAYS[d.weekday()] == kind)):
+        d += timedelta(days=1)
+    return d.timestamp()
+
+
+def repeats(kind, due):
+    """'every day ' / 'every weekday ' / 'every Monday ' for a repeating kind, '' for a single reminder or a timer."""
+    return {"reminder": "", "timer": "", "daily": "every day ", "weekdays": "every weekday "}.get(
+        kind, datetime.fromtimestamp(due).strftime("every %A "))
+
+
 def split_time(rest, now):
     """'to cook in 20 minutes' or 'in 20 minutes to cook' -> (due, label, the time as said). No time in it: due is None."""
     for m in re.finditer(r"\b(?:in|at) ", rest):               # the time comes last
@@ -1508,10 +1661,17 @@ def reminder_cmd(t, cmd, now):
     if m:
         if re.match(r"(what|who|how|why|where|when|which|whether|if) ", m.group(1) or ""):
             return None                                        # "remind me what the capital is": a question for the model
-        due, label, said = split_time(m.group(1) or "", now)
+        rest, kind = m.group(1) or "", "reminder"
+        rep = re.search(r"\bevery ?(day|week ?day|(?:mon|tues|wednes|thurs|fri|satur|sun)day)s?\b ?", rest)
+        if rep:                                                # "every day at 9", "every weekday", "every Monday"
+            kind = "daily" if rep.group(1) == "day" else "weekdays" if rep.group(1).startswith("week") else rep.group(1)[:3]
+            rest = (rest[:rep.start()] + rest[rep.end():]).strip()
+        due, label, said = split_time(rest, now)
+        if rep and due is not None:
+            due = next_due(due, kind, now)
         if label and not re.match(r"(to|about|that) ", label):
             label = "about " + re.sub(r"^(for|of) ", "", label)
-        return ("set", "reminder", due, re.sub(r"\bmy\b", "your", label), said)
+        return ("set", kind, due, re.sub(r"\bmy\b", "your", label), said)
     m = re.match(r"(set |start |create |put on |give me )?(?:a |an |another |the )?(?:(.+?)[ -])?timer(?: (?:for|of) (.+))?$", cmd)
     if not m:
         return None
@@ -1555,6 +1715,8 @@ def describe(r, now):
     due, created, kind, label = r
     if kind == "timer":
         return f"{span(due - now)} left on the timer" + (f" for {label}" if label else "")
+    if repeats(kind, due):
+        return f"{label or 'a reminder'}, {repeats(kind, due)}at {clock(due, due)}"
     return f"{label or 'a reminder'} at {clock(due, now)}"
 
 
@@ -1568,7 +1730,7 @@ def ring_line(r, now):
     else:
         line = f"Reminder: {label[5:]}." if label.startswith("that ") else f"Reminder {label}." if label else "This is your reminder."
     if now - due > 120:                                        # the PC slept, or JARVIS was not running
-        return f"Missed {kind} from {clock(due, now)}: {line[0].lower()}{line[1:]}"
+        return f"Missed {'timer' if kind == 'timer' else 'reminder'} from {clock(due, now)}: {line[0].lower()}{line[1:]}"
     return line
 
 
@@ -1579,21 +1741,24 @@ def remind_reply(op, args, quiet):
         items = load_reminders()
     except (OSError, ValueError):
         return "I can't read the reminders file, so I left it alone."
+    same = lambda r: (r[2] == "timer") == (kind == "timer")    # every kind that is not a timer is a reminder
     if op == "list":
-        mine = [describe(r, now) for r in items if r[2] == kind]
+        mine = [describe(r, now) for r in items if same(r)]
         return f"You have {len(mine)} {kind}{'s' if len(mine) != 1 else ''}: {'; '.join(mine)}." if mine else f"You have no {kind}s."
     if op == "cancel":
         # shortcut: a word matches on its first four letters ("cooking" finds "to cook"); fine for a list of 20
         words = [w for w in args[1].split() if w not in ("the", "my", "a", "an", "one", "to", "about", "for")]
-        gone = [r for r in items if r[2] == kind and all(w[:4] in f"{r[3]} {span(r[0] - r[1], '')}" for w in words)]
+        gone = [r for r in items if same(r) and all(w[:4] in f"{r[3]} {span(r[0] - r[1], '')}" for w in words)]
         if not gone:
             return f"I don't see a {kind} like that."
         save_reminders([r for r in items if r not in gone])
         log(f"reminder cancelled ({len(gone)})")
         return "Cancelled: " + "; ".join(describe(r, now) for r in gone) + "."
     _, due, label, said = args
+    if repeats(kind, now) and (due is None or said.startswith("in ")):
+        return "A repeating reminder needs a clock time, like every day at 9."
     if due is None:                                            # no time heard: ask once and listen, like a confirmation
-        reply_line("When?" if kind == "reminder" else "How long?", quiet)
+        reply_line("How long?" if kind == "timer" else "When?", quiet)
         S.set(state="listening", level=0.0)
         answer = hear()
         if answer:
@@ -1613,7 +1778,8 @@ def remind_reply(op, args, quiet):
     log(f"reminder set ({kind}, {due - now:.0f}s ahead)")
     if kind == "timer":
         return f"Timer set for {span(due - now)}" + (f", for {label}." if label else ".")
-    return f"I'll remind you {label} ".replace("  ", " ") + (f"in {span(due - now)}." if said.startswith("in ") else f"at {clock(due, now)}.")
+    return f"I'll remind you {label} ".replace("  ", " ") + (
+        f"in {span(due - now)}." if said.startswith("in ") else f"{repeats(kind, due)}at {clock(due, due if repeats(kind, due) else now)}.")
 
 
 def due_reminders(now):
@@ -1650,7 +1816,10 @@ def alarm():
             due = [r for r in items if r[0] <= now]
             if not due:
                 return
-            save_reminders(items[len(due):])                   # gone before it rings: a crash here cannot ring forever
+            # gone before it rings: a crash here cannot ring forever. A repeating one goes back in for its next time
+            # (once, however many were missed while the PC was off)
+            ahead = [(next_due(r[0], r[2], now), now, r[2], r[3]) for r in due if repeats(r[2], now)]
+            save_reminders(sorted(items[len(due):] + ahead))
             log(f"reminder fired ({len(due)})")
             log(f"timing: due -> ring {now - due[-1][0]:.1f}s")
             text = " ".join(ring_line(r, now) for r in due)
@@ -1666,7 +1835,16 @@ def alarm():
                 if not cancel.is_set():
                     play_samples(*audio)
                 S.set(state="listening", level=0.0)
-                if cancel.is_set() or STOP_WORDS.search(hear()):   # what is heard here is matched and dropped, never kept
+                heard = hear()                                 # matched and dropped, never kept
+                nap = snooze_for(heard)                        # before the stop words: "okay, snooze" snoozes
+                if nap and not cancel.is_set():                # rings again once; a repeating one keeps its own series
+                    again = time.time() + nap
+                    save_reminders(sorted(load_reminders() + [
+                        (again, r[1] + again - r[0], "timer" if r[2] == "timer" else "reminder", r[3]) for r in due]))
+                    log(f"reminder snoozed ({nap:.0f}s)")
+                    reply_line(f"Snoozed for {span(nap)}.", False)
+                    return
+                if cancel.is_set() or (nap is None and STOP_WORDS.search(heard)):
                     convo_add("J", "(stopped)")
                     return
         except Exception as e:
@@ -1841,10 +2019,13 @@ def watchdog(started):
 turn_id = [0.0]
 
 
-def turn(tier):
+def turn(tier, follow=0):
+    """One exchange. After a spoken chat answer he listens once more without the wake word (JarvisFollowUp), at most
+    three times in a row: `follow` counts them."""
     global history, last_turn
     if not busy.acquire(blocking=False):
         return
+    again = False
     cancel.clear()
     turn_id[0] = time.time()
     threading.Thread(target=watchdog, args=(turn_id[0],), daemon=True).start()
@@ -1865,9 +2046,12 @@ def turn(tier):
             want = setting("JarvisModel", "llama3.1:8b")
             problem(f"Model {want} is not downloaded (Control Center > JARVIS > MODEL, or: ollama pull {want})")
             return
-        warm(model)
-        threading.Thread(target=prepare_fillers, daemon=True).start()   # cheap if nothing changed
-        time.sleep(chime())                                    # don't record the chime
+        if follow:
+            time.sleep(0.3)                                    # let the last of his own voice fade before the microphone opens
+        else:
+            warm(model)
+            threading.Thread(target=prepare_fillers, daemon=True).start()   # cheap if nothing changed
+            time.sleep(chime())                                # don't record the chime
         log(f"timing: click -> listening {time.time() - t_click:.2f}s")
         t_listen = time.time()
         hud = []
@@ -1914,6 +2098,9 @@ def turn(tier):
         if kind == "remind":
             reply_line(remind_reply(action, target, quiet), quiet)
             return
+        if kind == "memory":
+            reply_line(memory_reply(action, target), quiet)
+            return
         if kind == "act":
             if prompt is None:                                 # harmless: do it now
                 ok = run_action(action, target)
@@ -1931,7 +2118,7 @@ def turn(tier):
                 convo_add("U", answer)
             if confirmed(pending, answer, time.time()) and not cancel.is_set():
                 ok = run_action(pending["action"], pending["target"])
-                reply_line("Done." if ok else "That didn't work.", quiet)
+                reply_line(("Added." if action == "todo" else "Done.") if ok else "That didn't work.", quiet)
             else:
                 log(f"action {action} not confirmed ({answer!r})")
                 reply_line("Cancelled.", quiet)
@@ -1966,6 +2153,8 @@ def turn(tier):
                      "run commands. Play along in character with dry wit if it's clearly playful, or decline politely if "
                      "it's serious. Never claim to have actually done it.")
             log("guardrail: request handled in persona only")
+        elif kind == "brief":
+            extra = "\n" + BRIEFING
         if time.time() - last_turn > 600:
             history = []
         reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
@@ -1988,6 +2177,8 @@ def turn(tier):
         history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
         last_turn = time.time()
         S.set(say=reply)
+        # shortcut: follow-up after spoken chat answers only; fixed replies ("Timer set...") leave above. Widen if missed
+        again = not quiet and not cancel.is_set()
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
         live("")
@@ -1998,6 +2189,9 @@ def turn(tier):
     finally:
         S.set(state="idle", level=0.0)
         busy.release()
+    # the lock is free for an instant: a reminder that came due while he spoke goes first, and this then simply ends
+    if again and follow < 3 and setting("JarvisFollowUp", "1") == "1":
+        turn(tier, follow + 1)
 
 
 # ------------------------------------------------------------------ wake word ("Hey Jarvis")

@@ -1,0 +1,163 @@
+JARVIS: ASSUMED SETTINGS AND HOW TO USE EACH FEATURE
+=====================================================
+
+Covers the features added in October 2026: follow-up without the wake word, snooze, repeating
+reminders, remembered facts, to-do by voice, the daily briefing and the personality setting.
+
+Part 1 lists every choice that was made for you while building them. Nobody asked for these exact
+values; they were picked as sensible defaults. "Change in" says where to change one:
+  CC    = a row in the Control Center
+  code  = a constant in @Resources\Jarvis\jarvis.py (restart JARVIS afterwards)
+Part 2 is the how-to for each feature.
+
+
+PART 1: WHAT WAS ASSUMED
+------------------------
+
+FOLLOW-UP WITHOUT THE WAKE WORD
+  On by default.                                           CC: FOLLOW-UP  ON / OFF  (JarvisFollowUp)
+  At most 3 follow-ups in a row, then "Hey Jarvis" again.  code: "follow < 3" in turn()
+    Why: stops him and a television answering each other for ever.
+  He waits up to about 6 seconds for you to start talking. code: _listen()
+  0.3 second pause before the microphone opens, so he
+    does not hear the end of his own voice.                code: time.sleep(0.3) in turn()
+  Only after an answer the model worded and he SPOKE.
+    No follow-up after fixed replies ("Timer set", "Volume at 30", "Noted: ..."),
+    when muted, at volume 0, in STEALTH, or after a cancelled or failed turn.
+  No chime and no model warm-up before a follow-up. The hologram shows "listening".
+  Privacy: the microphone is open for those seconds after every spoken answer.
+
+SNOOZE
+  "Snooze" with no length = 1 minute.                      code: SNOOZE = 60
+    You asked for 1 minute. This was read as "the default snooze length".
+    NOT built: an alarm that nobody answers does not snooze itself. It rings its 10 times and stops.
+  A spoken length must be between 1 minute and 2 hours. Outside that he keeps ringing.
+  Words that snooze: snooze, later, not now, "<N> more minutes".
+  Snooze is checked before the stop words, so "okay, snooze" snoozes and "okay" stops.
+  Snoozing a repeating reminder only delays that one ring. The series carries on as normal.
+  Muted or STEALTH: there is no listening during an alarm, so no snooze by voice.
+
+ALARMS IN GENERAL (unchanged, listed so you know them)
+  An alarm rings up to 10 times.                           code: RINGS = 10
+  Words that stop it: stop, okay, ok, thanks, thank you, quiet, enough, dismiss, shush, shut up.
+  More than 2 minutes late (PC was off or asleep): he says "Missed reminder from ...".
+  One alarm at a time. Several items due together ring as one alarm.
+  Reminders: 5 seconds to 7 days ahead, 20 pending at most.
+
+REPEATING REMINDERS
+  Three rules only: every day, every weekday (Mon to Fri), every <one weekday>.
+  A clock time is required. "every day in 20 minutes" is refused.
+  "at 9" with no am/pm means whichever 9 o'clock comes first.
+  The next ring is saved BEFORE he rings, so a crash can never make one ring for ever.
+  PC off for several days: it rings once as missed, then carries on from the next real time.
+  "9" stays 9 on the wall clock when the clocks change.
+  Cancelling removes the whole series.
+  Timers never repeat.
+  NOT built: every 2 hours, every month, the first Monday, an end date.
+
+REMEMBERED FACTS
+  50 facts at most, 200 characters each.                   code: memory_reply()
+  At most 2000 characters of them go into each prompt.     code: system_prompt()
+  Kept as plain text in @Resources\Data\jarvis_memory.txt. Git ignores that file.
+  They are sent only to the local Ollama model.
+  He repeats a fact in your own words ("Noted: ..."), the model does not reword it.
+  The same fact is not stored twice.
+  "Forget <words>" removes every fact that holds those words.
+  "Forget everything" asks first and needs a clear yes.
+  "Remember to ..." is NOT a fact. It stays a reminder without a time, as before.
+  If the file cannot be read he says so and never overwrites it.
+  Do not store passwords: anything in the file can be spoken aloud on request.
+
+TO-DO BY VOICE
+  He always asks first: "Add '...' to your to-do list? Confirm with yes."
+  Only a clear yes within 15 seconds writes. Anything else: "Cancelled."
+  The note is the one set in the Control Center (TO-DO NOTE). He never creates a note.
+  The line "- [ ] <item>" is added at the END of the note. Existing lines are never rewritten.
+  200 characters at most. Line breaks are removed. Capitals are kept as you said them.
+  The item text is not written to the diagnostic log.
+  NOT built: ticking off or deleting a task, due dates, choosing a heading in the note.
+
+DAILY BRIEFING
+  Only when you ask. He never starts talking by himself.
+  The model words it, from the data the HUD already shows. Nothing new is read.
+  Order: time, today's calendar, unread mail count, open to-dos (three, then the count),
+  pending reminders. Five sentences at most. A part with no data is skipped.
+  Only whole phrases count: "Good morning, can you open Chrome" is still an app command.
+  No weather (it would need your location).
+
+PERSONALITY
+  PLAYFUL by default.                                      CC: PERSONALITY  PROPER / PLAYFUL / BRIEF
+  It only changes answers the model words. Fixed lines ("Done.", "Time to cook.") never change.
+  Not tied to the voice: you pick the voice and the personality separately.
+
+OLDER DEFAULTS THAT THESE FEATURES RELY ON
+  He answers after 1 second of silence.                    CC: LISTENING  (JarvisSilence)
+  He forgets the conversation after 10 minutes without a turn.
+  Model memory is 2048 tokens.                             Settings.inc: JarvisContext
+  Risky actions (shut down, close an app, forget everything, add a to-do) need a yes within 15 s.
+
+
+PART 2: HOW TO USE EACH FEATURE
+-------------------------------
+Start every first sentence with "Hey Jarvis" or a click on the hologram.
+
+FOLLOW-UP
+  Ask something. When he finishes speaking the hologram goes to "listening" again.
+  Just talk, no wake word. Say nothing and he goes idle after about 6 seconds.
+    You:  Hey Jarvis, how hot is my GPU?
+    He:   (answers, then listens)
+    You:  And the CPU?
+  Turn it off: Control Center, FOLLOW-UP, OFF.
+
+TIMERS AND REMINDERS (as before)
+  "Set a timer for 10 minutes."
+  "Remind me to cook in 20 minutes."      "Remind me at 5 pm to call the bank."
+  "What reminders do I have?"             "What timers do I have?"
+  "Cancel the cooking reminder."          "Cancel all reminders."
+
+SNOOZE (only while an alarm is ringing, in the pause after he speaks)
+  "Snooze."                  rings again in 1 minute
+  "Snooze 5 minutes."        "Ten more minutes."        "Snooze half an hour."
+  "Later." / "Not now."      also 1 minute
+  "Stop." / "Okay." / "Thanks."   ends the alarm
+
+REPEATING REMINDERS
+  "Remind me every day at 9 am to take vitamins."
+  "Remind me every weekday at 8:30 to check mail."
+  "Remind me to put the bins out every Monday at 7 pm."
+  List them:   "What reminders do I have?"   ->  "to take vitamins, every day at 9:00 AM"
+  Stop one:    "Cancel the vitamins reminder."   (removes the whole series)
+
+REMEMBERED FACTS
+  Save:    "Remember that my dentist is on Fridays."      ->  "Noted: my dentist is on Fridays."
+  List:    "What do you remember?"
+  Use:     just ask: "When is my dentist?"  He knows it on every later turn.
+  Remove:  "Forget the dentist."                          ->  "Forgotten: ..."
+  Wipe:    "Forget everything."  then  "Yes."
+
+TO-DO BY VOICE
+  First set the note once: Control Center, TO-DO NOTE.
+  "Add buy milk to my to-do list."        "Put call the bank on my to-do list."
+  "Add a task: renew passport."           "New to-do buy milk."
+  He asks "Add 'buy milk' to your to-do list? Confirm with yes."
+  "Yes."  ->  "Added."     Anything else  ->  "Cancelled."
+  The HUD picks the new line up within a few seconds.
+  Hear the list: "What's on my to-do list?"
+
+DAILY BRIEFING
+  "Good morning."  "Good afternoon."  "Good evening."
+  "Brief me."      "Daily briefing."  "What's my day look like?"
+
+PERSONALITY
+  Control Center, PERSONALITY: PROPER (calm and dry), PLAYFUL (warm, teases a little),
+  BRIEF (one short sentence).
+
+
+UNDO
+----
+  Follow-up:          FOLLOW-UP, OFF.
+  Personality:        PERSONALITY, PROPER.
+  Remembered facts:   "forget everything", or delete @Resources\Data\jarvis_memory.txt.
+  Reminders:          "cancel all reminders", or delete @Resources\Data\jarvis_reminders.txt.
+  A to-do line:       delete it in Obsidian.
+  The code itself:    git revert the commit that added this file.

@@ -10,7 +10,8 @@ real_start_apps = j.start_apps
 j.start_apps = lambda: [("Google Chrome", "Chrome"), ("Microsoft Edge", "MSEdge"), ("Notepad", "notepad")]
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 muted_to, ran = [], []
-j.REMIND_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-reminders")   # never the real one
+j.REMIND_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-reminders")
+j.MEMORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-memory")   # never the real one
 j.speakers_mute = muted_to.append
 
 
@@ -537,6 +538,7 @@ assert played.count("ding") == j.RINGS and j.load_reminders() == [] and not j.bu
 # whole turns: a timer is set from speech, and a confirmation is still heard through the same second listen
 turns = iter(["Set a timer for 10 minutes.", "Lock my computer.", "Yes."])
 j.muted, j.listen, j.transcribe = lambda: False, lambda: "audio", lambda a: next(turns)
+real_run_action = j.run_action
 j.run_action = lambda action, target: acted.append(action) or True
 j.turn(0)
 assert asked[-1] == "Timer set for 10 minutes." and states[-1] == idle and not j.busy.locked()
@@ -549,6 +551,129 @@ try:                                                              # the ding its
 except ImportError:
     pass
 
+# ---- snooze: heard in the same gap as "stop" and checked first; one minute unless a length is said
+assert j.snooze_for("Snooze.") == j.snooze_for("okay, later") == j.snooze_for("Not now!") == j.SNOOZE == 60
+assert j.snooze_for("snooze 5 minutes") == 300 and j.snooze_for("Ten more minutes.") == 600
+assert j.snooze_for("snooze for half an hour") == 1800
+assert j.snooze_for("snooze 5 hours") == 0 and j.snooze_for("snooze 10 seconds") == 0     # out of range: keeps ringing
+assert j.snooze_for("stop") is None and j.snooze_for("") is None and j.snooze_for("no more") is None
+t0 = time.time()
+assert ring(["Snooze."]) == (1, ["reminder", "timer"]) and asked[-1] == "Snoozed for 1 minute."
+assert 55 < j.load_reminders()[0][0] - t0 < 70 and j.load_reminders()[0][3] == "to cook"
+assert ring(["", "okay, snooze 5 minutes"]) == (2, ["reminder", "timer"]) and asked[-1] == "Snoozed for 5 minutes."
+assert ring(["okay"]) == (1, ["timer"])
+assert ring(["snooze 5 hours", "stop"]) == (2, ["timer"])
+
+# ---- repeating reminders: the rule lives in the kind field, and the next time is saved before it rings
+mon9 = datetime(2026, 10, 12, 9, 0).timestamp()                   # a Monday
+day = lambda ts: datetime.fromtimestamp(ts).strftime("%a %d %H:%M")
+assert day(j.next_due(mon9, "daily", mon9)) == "Tue 13 09:00"
+assert day(j.next_due(mon9 + 4 * 86400, "weekdays", mon9 + 4 * 86400)) == "Mon 19 09:00"      # Friday -> Monday
+assert day(j.next_due(mon9, "mon", mon9)) == "Mon 19 09:00"
+assert day(j.next_due(mon9, "daily", mon9 + 3 * 86400 + 60)) == "Fri 16 09:00"               # three missed days: one next time
+op, kind, due, label, said_time = cmd("remind me every day at 9 to take vitamins")
+assert (op, kind, label) == ("set", "daily", "to take vitamins") and due > time.time()
+op, kind, due, label, _ = cmd("Remind me every weekday at 8:30 to check mail.")
+assert (kind, label) == ("weekdays", "to check mail") and datetime.fromtimestamp(due).weekday() < 5
+op, kind, due, label, _ = cmd("remind me to put the bins out every Monday at 7")
+assert (kind, label) == ("mon", "to put the bins out") and datetime.fromtimestamp(due).weekday() == 0
+assert ahead("remind me to cook in 20 minutes") == ("reminder", 1200, "to cook")             # a single one is as before
+j.save_reminders([])
+assert do("remind me every day at 9 am to take vitamins") == "I'll remind you to take vitamins every day at 9:00 AM."
+assert do("remind me every day in 20 minutes to stretch") == "A repeating reminder needs a clock time, like every day at 9."
+assert do("remind me every day to stretch") == "A repeating reminder needs a clock time, like every day at 9."
+assert "to take vitamins, every day at 9:00 AM" in do("what reminders do I have") and do("list my timers") == "You have no timers."
+assert do("cancel the vitamins reminder").startswith("Cancelled: ") and j.load_reminders() == []   # the whole series
+now = time.time()
+j.save_reminders([(now - 1, now - 100, "daily", "to take vitamins")])
+back = iter(["stop"])
+j.muted, j.listen, j.transcribe = lambda: False, lambda: "audio", lambda a: next(back, "")
+convo.clear()
+assert within(5, j.alarm) is None and convo[0] == ("J", "Time to take vitamins.")
+left = j.load_reminders()
+assert len(left) == 1 and left[0][2:] == ("daily", "to take vitamins") and 80000 < left[0][0] - now < 92000
+j.save_reminders([(now - 3 * 86400, now - 4 * 86400, "daily", "to take vitamins")])           # the PC was off for three days
+back = iter(["snooze"])
+convo.clear()
+assert within(5, j.alarm) is None and convo[0][1].startswith("Missed reminder from ")
+assert sorted(r[2] for r in j.load_reminders()) == ["daily", "reminder"]     # the series goes on; the snooze is a single ring
+assert all(r[0] > now for r in j.load_reminders())
+j.save_reminders([])
+
+# ---- remembered facts: kept in a file, said back in your own words, forgotten by word; questions never save
+j.context = lambda: ""
+j.MEMORY_FILE = os.path.join(tmp, "memory.txt")
+
+
+def mem(text):
+    kind, op, target, _ = j.route(text)
+    assert kind == "memory", text
+    return j.memory_reply(op, target)
+
+
+assert mem("What do you remember?") == "You haven't asked me to remember anything."
+assert mem("Remember that my dentist is on Fridays.") == "Noted: my dentist is on Fridays."
+assert mem("Jarvis, remember my bike is in the shed") == "Noted: my bike is in the shed."
+assert mem("remember my bike is in the shed") == "Noted: my bike is in the shed." and len(j.load_memory()) == 2   # not twice
+assert mem("what have I told you to remember") == "I remember 2 things: my dentist is on Fridays; my bike is in the shed."
+for text in ("Do you remember that film?", "do you remember that film", "remember to buy milk", "forget it", "Remember that film?"):
+    assert j.route(text)[0] == "chat", text
+assert j.route("forget the cooking reminder")[0] == "remind"
+assert "THINGS THE USER ASKED YOU TO REMEMBER:\n- my dentist is on Fridays\n- my bike is in the shed" in j.system_prompt()
+assert j.route("forget everything") == ("act", "forget_all", None, "Forget all 2 things I remember? Confirm with yes.")
+assert mem("forget that my dentist is on Fridays") == "Forgotten: my dentist is on Fridays."
+assert mem("forget the dentist") == "I don't have that." and j.load_memory() == ["my bike is in the shed"]
+j.ACTIONS["forget_all"](None)
+assert j.load_memory() == [] and j.route("forget everything")[:2] == ("say", None)
+assert "TO REMEMBER" not in j.system_prompt()
+j.save_memory([f"fact {i}" for i in range(50)])
+assert mem("remember one more thing") == "You've told me 50 things. Forget one first." and len(j.load_memory()) == 50
+j.save_memory([])
+assert mem("remember " + "x" * 300) == "Noted: " + "x" * 200 + "."
+with open(j.MEMORY_FILE, "wb") as f:                              # unreadable: said, left alone, and the prompt still works
+    f.write(b"\xff\xfe\xff")
+assert mem("remember the milk is off") == mem("what do you remember") == "I can't read my memory file, so I left it alone."
+assert j.route("forget everything")[:2] == ("say", None) and "You are JARVIS" in j.system_prompt()
+with open(j.MEMORY_FILE, "rb") as f:
+    assert f.read() == b"\xff\xfe\xff"
+os.remove(j.MEMORY_FILE)
+
+# ---- to-do by voice: asked first, appended to the note (never rewritten, never created), the text kept out of the log
+note = os.path.join(tmp, "todo.md")
+j.todo_note = lambda: note if os.path.exists(note) else ""
+assert j.route("add buy milk to my to-do list")[0] == "say"       # no note set: said, nothing staged
+with open(note, "wb") as f:
+    f.write(b"- [ ] old")                                         # no line break at the end
+assert j.route("Add buy milk to my to-do list.") == ("act", "todo", "buy milk", "Add 'buy milk' to your to-do list? Confirm with yes.")
+for text, item in (("put call the bank on my todo list", "call the bank"), ("Add a task: renew passport.", "renew passport"),
+                   ("new to-do buy milk", "buy milk"), ("Jarvis, add feed the cat to my tasks", "feed the cat"),
+                   ("could you add water the plants to the to do list", "water the plants"),
+                   ("Add call Dr Smith to my to-do list", "call Dr Smith")):
+    assert j.route(text)[1:3] == ("todo", item), text
+for text in ("How do I add a task in Jira?", "what's on my to-do list", "add 2 and 3", "put the kettle on"):
+    assert j.route(text)[0] == "chat", text
+turns = iter(["Add buy milk to my to-do list.", "No, wait.", "Add buy milk to my to-do list.", "Yes."])
+j.listen, j.transcribe = lambda: "audio", lambda a: next(turns)
+acted.clear()
+j.turn(0)
+assert acted == [] and asked[-1] == "Cancelled." and not j.busy.locked()
+j.turn(0)
+assert acted == ["todo"] and asked[-1] == "Added." and not j.busy.locked()
+with open(note, "rb") as f:
+    assert f.read() == b"- [ ] old"                               # run_action is a fake here: the note is untouched
+j.ACTIONS["todo"]("buy milk")
+j.ACTIONS["todo"]("call\nthe   bank")
+with open(note, "rb") as f:
+    assert f.read() == b"- [ ] old\n- [ ] buy milk\n- [ ] call the bank\n"
+logged, keep = [], j.log
+j.log = logged.append
+assert real_run_action("todo", "secret item") is True and "secret" not in "".join(logged)
+os.remove(note)
+n = len(said)
+assert real_run_action("todo", "secret item") is False and not os.path.exists(note)     # a missing note is not created
+assert "secret" not in "".join(logged) + said[-1][0] and tmp not in "".join(logged) + said[-1][0] and len(said) == n + 1
+j.log = keep
+
 # personality: one sentence of the prompt follows JarvisPersonality; an unknown or unset value is the playful one
 j.context = lambda: ""
 for mood, sentence in (("proper", "a little dry"), ("playful", "same spirit"), ("brief", "one short sentence"), ("nonsense", "same spirit")):
@@ -556,5 +681,42 @@ for mood, sentence in (("proper", "a little dry"), ("playful", "same spirit"), (
     assert sentence in j.system_prompt() and j.system_prompt().count("You are JARVIS") == 1, mood
 j.setting = lambda name, default="": default
 assert "same spirit" in j.system_prompt() and "a little dry" not in j.system_prompt()
+
+# ---- briefing and follow-up, as whole turns with a fake model
+for text in ("Good morning.", "good evening jarvis", "Brief me", "Hey Jarvis, daily briefing.", "What's my day look like?"):
+    assert j.route(text)[0] == "brief", text
+for text in ("Good morning, can you open Chrome?", "brief me on quantum physics", "is it a good morning?"):
+    assert j.route(text)[0] == "chat", text
+prompts, heard, speaks = [], [0], [0]
+j.chat_stream = lambda model, messages: prompts.append(messages[0]["content"])
+j.sentences_from = lambda stream, collected: collected.append("Ha.") or iter(["Ha."])
+j.speak_all = j.say_text_only = lambda sentences, *a: list(sentences)
+j.ollama_on_cpu = lambda model: None
+
+
+def _listen():
+    heard[0] += 1
+    return "audio" if heard[0] <= speaks[0] else None
+
+
+def talk(times, mute=False, follow="1", words="Tell me a joke."):
+    """One turn in which you speak up to `times` times in a row: how often the microphone was opened."""
+    heard[0], speaks[0] = 0, times
+    j.muted, j.listen, j.transcribe = lambda: mute, _listen, lambda a: words
+    j.setting = lambda name, default="": follow if name == "JarvisFollowUp" else default
+    j.turn(0)
+    assert states[-1] == idle and not j.busy.locked()
+    return heard[0]
+
+
+assert talk(1) == 2                                               # he answers, then listens once more and hears nothing
+assert talk(99) == 4                                              # three follow-ups in a row, then the wake word again
+assert talk(99, mute=True) == 1 and talk(99, follow="0") == 1     # shown instead of spoken, or switched off: none
+assert talk(99, words="Set a timer for 10 minutes.") == 1         # fixed replies get none
+j.save_reminders([])
+assert "BRIEFING:" not in prompts[-1]
+talk(1, words="Good morning.")
+assert "BRIEFING:" in prompts[-1] and "at most three" in prompts[-1]
+j.setting = lambda name, default="": default
 
 print("test_jarvis: OK")
