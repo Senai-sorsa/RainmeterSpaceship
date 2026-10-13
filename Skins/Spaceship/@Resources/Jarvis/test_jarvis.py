@@ -27,6 +27,14 @@ assert j.best_app("") is None
 assert j.running_window("chrome") == "chrome.exe"
 assert j.running_window("") is None
 
+# short or partial names must not pick an app or a window by accident
+assert j.best_app("e") is None and j.best_app("ch") is None and j.best_app("rome") is None
+assert j.best_app("edge") == ("Microsoft Edge", "MSEdge") and j.best_app("note") == ("Notepad", "notepad")
+assert j.route("open e")[0] == "chat"
+assert j.running_window("e") is None and j.running_window("ex") is None and j.running_window("exe") is None
+assert j.running_window("code") == "Code.exe" and j.running_window("explorer") == "explorer.exe"
+assert j.running_window("plorer") == "explorer.exe" and j.running_window("chr") == "chrome.exe"
+
 # mute / unmute press the toggle key only when the state has to change
 assert j.route("mute")[:2] == ("act", "mute") and j.route("unmute the sound")[:2] == ("act", "unmute")
 for state, action, presses in ((False, "unmute", 0), (True, "unmute", 1), (False, "mute", 1), (True, "mute", 0)):

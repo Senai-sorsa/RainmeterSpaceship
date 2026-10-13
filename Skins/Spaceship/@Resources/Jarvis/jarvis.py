@@ -928,7 +928,9 @@ def best_app(name):
         d = disp.lower()
         if any(x in d for x in ("uninstall", "help", "readme", "documentation")):
             continue
-        sc = 3 if d == want else (2 if d.startswith(want) else (1 if want in d else 0))
+        # a prefix needs 3+ letters and anything looser a whole word, so "open e" matches nothing
+        sc = 3 if d == want else (2 if len(want) >= 3 and d.startswith(want) else
+                                  (1 if re.search(r"\b" + re.escape(want) + r"\b", d) else 0))
         if sc > score or (sc == score and sc and best and len(disp) < len(best[0])):
             best, score = (disp, appid), sc
     return best if score else None
@@ -937,9 +939,13 @@ def best_app(name):
 def running_window(name):
     """An open app (from the HUD's window list) whose exe matches what you said, e.g. 'chrome' -> chrome.exe."""
     want = re.sub(r"[^a-z0-9]", "", name.lower())
-    for exe in re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M):
-        if want and want in re.sub(r"[^a-z0-9]", "", exe.lower()):
-            return exe
+    stems = [(exe, re.sub(r"[^a-z0-9]", "", os.path.splitext(exe)[0].lower()))
+             for exe in re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M)]
+    # exact name first, then a 3+ letter prefix, then a 4+ letter fragment: "close e" must not pick explorer
+    for ok in (lambda s: s == want, lambda s: len(want) >= 3 and s.startswith(want), lambda s: len(want) >= 4 and want in s):
+        for exe, stem in stems:
+            if want and ok(stem):
+                return exe
     return None
 
 
