@@ -1364,7 +1364,7 @@ def wake_loop():
     model, stream, warned = None, None, False
     while True:
         try:
-            want = setting("JarvisWakeWord", "1") == "1" and hud_tier() < 3
+            want = setting("JarvisWakeWord", "1") == "1" and setting("JarvisEnabled", "1") == "1" and hud_tier() < 3
             if not want or busy.locked():
                 if stream is not None:
                     stream.close()
