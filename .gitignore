@@ -34,3 +34,8 @@ Skins/Spaceship/@Resources/Jarvis/**/*.wav
 Skins/Spaceship/@Resources/from kokoro_onnx import Kokoro.py
 Skins/Spaceship/@Resources/testkoroko.py
 *.whl
+
+# tool output and local backups
+graphify-out/
+.tokenwise/
+CLAUDE.md.tokenwise-backup-*
