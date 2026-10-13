@@ -4,7 +4,8 @@
 
   Checks / installs (asks before installing anything):
     1. Python 3 (python.org build, via winget)       - runs the Jarvis service
-    2. faster-whisper, sounddevice, numpy (pip)      - speech recognition + microphone / speaker audio
+    2. The packages in requirements.txt (pip)        - into a private folder (%LOCALAPPDATA%\SpaceshipHUD\venv),
+                                                       exact versions, so your other Python programs are untouched
     3. Ollama + a model                              - the AI brain (runs locally on your GPU)
     4. Optional: Kokoro-82M natural voice (~90 MB)  - otherwise the built-in Windows voice
   Then writes the Jarvis settings into Settings.inc and refreshes the HUD.
@@ -39,13 +40,18 @@ if (-not $py) {
 & py -3 --version
 
 # ------------------------------------------------------------------ 2. Python packages
-Step 'Speech + audio packages (faster-whisper, sounddevice, numpy)'
-& py -3 -m pip install --upgrade --user faster-whisper sounddevice numpy
+Step 'Jarvis packages (private copy, pinned versions - the first time is a large download)'
+$venv = Join-Path $env:LOCALAPPDATA 'SpaceshipHUD\venv'
+$vpy = Join-Path $venv 'Scripts\python.exe'
+if (-not (Test-Path $vpy)) { & py -3 -m venv $venv }
+if (-not (Test-Path $vpy)) { Write-Host "Could not create $venv - see the messages above." -ForegroundColor Yellow; exit 1 }
+& $vpy -m pip install --disable-pip-version-check -r (Join-Path $PSScriptRoot 'requirements.txt')
 if ($LASTEXITCODE -ne 0) { Write-Host 'pip install failed - see the messages above.' -ForegroundColor Yellow; exit 1 }
+Set-Setting 'JarvisPython' (Join-Path $venv 'Scripts\pythonw.exe')
 Write-Host 'Downloading the speech-recognition model (one time, ~150 MB)...'
-& py -3 -c "from faster_whisper import WhisperModel; WhisperModel('base.en', device='cpu', compute_type='int8'); print('speech model ready')"
+& $vpy -c "from faster_whisper import WhisperModel; WhisperModel('base.en', device='cpu', compute_type='int8'); print('speech model ready')"
 Step 'Microphone'
-& py -3 -c "import sounddevice as sd; d = sd.query_devices(kind='input'); print('Microphone:', d['name'])"
+& $vpy -c "import sounddevice as sd; d = sd.query_devices(kind='input'); print('Microphone:', d['name'])"
 if ($LASTEXITCODE -ne 0) { Write-Host 'No microphone found. Plug one in, and check Settings > Privacy & security > Microphone > "Let desktop apps access your microphone".' -ForegroundColor Yellow }
 
 # ------------------------------------------------------------------ 3. Ollama + model
@@ -73,9 +79,7 @@ if ($ollama) {
 # ------------------------------------------------------------------ 4. Natural voice (Kokoro-82M)
 Step 'Voice'
 if (Ask 'Install the natural Kokoro voice (~90 MB download, runs on the CPU)? No = the built-in Windows voice') {
-  & py -3 -m pip install --upgrade --user kokoro-onnx soundfile
-  if ($LASTEXITCODE -ne 0) { Write-Host 'Kokoro install failed - Jarvis will use the Windows voice.' -ForegroundColor Yellow }
-  else {
+  if ($true) {
     $vdir = Join-Path $PSScriptRoot 'voices'
     New-Item -ItemType Directory -Force -Path $vdir | Out-Null
     $base = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0'
@@ -92,7 +96,7 @@ if (Ask 'Install the natural Kokoro voice (~90 MB download, runs on the CPU)? No
       Set-Setting 'JarvisVoice' $model
       Set-Setting 'JarvisKokoroVoice' 'bm_george'
       Write-Host 'Kokoro ready (voice: bm_george - change it in Control Center > JARVIS > KOKORO VOICE).'
-      & py -3 -c "from kokoro_onnx import Kokoro; import sounddevice as sd; k = Kokoro(r'$model', r'$(Join-Path $vdir 'voices-v1.0.bin')'); s, r = k.create('Jarvis online.', voice='bm_george', speed=1.0, lang='en-gb'); sd.play(s, r); sd.wait()"
+      & $vpy -c "from kokoro_onnx import Kokoro; import sounddevice as sd; k = Kokoro(r'$model', r'$(Join-Path $vdir 'voices-v1.0.bin')'); s, r = k.create('Jarvis online.', voice='bm_george', speed=1.0, lang='en-gb'); sd.play(s, r); sd.wait()"
     }
   }
 }
@@ -100,8 +104,7 @@ if (Ask 'Install the natural Kokoro voice (~90 MB download, runs on the CPU)? No
 # ------------------------------------------------------------------ 4b. Wake word
 Step 'Wake word ("Hey Jarvis")'
 if (Ask 'Install the "Hey Jarvis" wake word (openWakeWord, small, runs on the CPU)?') {
-  & py -3 -m pip install --upgrade --user openwakeword
-  & py -3 -c "import openwakeword; openwakeword.utils.download_models(model_names=['hey_jarvis']); print('wake word model ready')"
+  & $vpy -c "import openwakeword; openwakeword.utils.download_models(model_names=['hey_jarvis']); print('wake word model ready')"
   if ($LASTEXITCODE -eq 0) { Set-Setting 'JarvisWakeWord' '1'; Write-Host 'Say "Hey Jarvis" to wake him (turn it off in Control Center > JARVIS > WAKE WORD).' }
   else { Write-Host 'Wake word install failed - clicking the hologram still works.' -ForegroundColor Yellow }
 }
@@ -109,11 +112,9 @@ if (Ask 'Install the "Hey Jarvis" wake word (openWakeWord, small, runs on the CP
 # ------------------------------------------------------------------ 4c. Smart note search (ChromaDB)
 Step 'Smart note search (ChromaDB)'
 if (Ask 'Install smart note search (ChromaDB - finds notes by meaning, ~100 MB first time)?') {
-  & py -3 -m pip install --upgrade --user chromadb
-  if ($LASTEXITCODE -eq 0) {
-    Set-Setting 'JarvisSmartSearch' '1'
-    & py -3 -c "from chromadb.utils import embedding_functions as e; e.DefaultEmbeddingFunction()(['warm up']); print('search model ready')"
-  } else { Write-Host 'ChromaDB install failed - Jarvis uses keyword search instead.' -ForegroundColor Yellow }
+  & $vpy -c "from chromadb.utils import embedding_functions as e; e.DefaultEmbeddingFunction()(['warm up']); print('search model ready')"
+  if ($LASTEXITCODE -eq 0) { Set-Setting 'JarvisSmartSearch' '1' }
+  else { Write-Host 'ChromaDB did not start - Jarvis uses keyword search instead.' -ForegroundColor Yellow }
 }
 
 # ------------------------------------------------------------------ 5. Sounds
@@ -137,8 +138,7 @@ if (-not (Get-Content $Settings -Raw | Select-String -Pattern '(?m)^\s*JarvisVoi
 } else { Write-Host 'Using the natural voice (you should have heard "Jarvis online." above).' }
 
 # ------------------------------------------------------------------ done
-Step 'Starting Jarvis'
-Set-Setting 'JarvisEnabled' '1'
+Step 'Refreshing the HUD'
 $rm = Get-Process Rainmeter -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($rm -and $rm.Path) { Start-Process $rm.Path -ArgumentList '!Refresh "Spaceship\Center\Sphere"' }
-Write-Host "`nDone. Click the hologram in the middle of the HUD and talk. The first answer takes a few extra seconds while the models load." -ForegroundColor Green
+Write-Host "`nDone. If Jarvis is switched off, turn him on in Control Center > JARVIS. Then click the hologram in the middle of the HUD and talk. The first answer takes a few extra seconds while the models load." -ForegroundColor Green
