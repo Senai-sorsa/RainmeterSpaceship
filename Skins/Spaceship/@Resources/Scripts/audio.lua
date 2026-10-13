@@ -13,6 +13,7 @@ local frame, disabled = 0, false
 local NB = 96                 -- analyser bands (Audio.ini: Bands=96, mBand0..mBand95)
 local sm = {}                 -- smoothed band levels
 local rmsS, peakS, quiet = 0, 0, 0
+local lastSig                 -- what the dial showed at the last redraw (volume, device, tier ...)
 local breath = 0               -- smoothed overall loudness: the pulse ring's radius
 -- the skin window is 18 px larger than the zone on every side: the dial uses that margin (no box around it)
 local K = 1.16
@@ -109,6 +110,10 @@ function Update()
     local v = disabled and 0 or H.clamp(H.val('mBand' .. i, 0), 0, 1)
     sm[i] = (sm[i] or 0) * 0.5 + v * 0.5
   end
+  -- silence and nothing on the dial changed: the picture is already right, so skip the redraw
+  local sig = table.concat({ tostring(muted), vol, dev, H.tier, H.edit, tostring(disabled) }, '|')
+  if quiet > 60 and not spinT and peakS < 0.02 and sig == lastSig then return vol end
+  lastSig = sig
   -- soft glow behind the whole reactor, then the glass wedge (right)
   c:halo(CX, CY, 22, A1, 34)
   c:sector(CX, CY, R_RING2 - 2, R_TICK + 4, WEDGE[1], WEDGE[2], A1, 40, 150)

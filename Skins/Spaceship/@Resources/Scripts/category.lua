@@ -5,6 +5,7 @@ local H, A
 local panel, mirror = 1, false
 local cat, sel, first = nil, 1, 1
 local frame, scan = 0, 0
+local scanAt                  -- shape number of the scan line in the schematic (nil: none drawn)
 local MAXTABS = 4
 
 function Initialize()
@@ -100,6 +101,7 @@ local function drawSchematic(app)
   local z = H.zones[2]
   local c = H.canvas(2)
   local A1, D = H.C.accent, H.C.dim
+  scanAt = nil
   local cx, cy = z.w / 2, z.h / 2
   local sz = math.min(z.w, z.h) * 0.94
   if app then
@@ -132,6 +134,7 @@ local function drawSchematic(app)
     if live then c:icon(app.icon, cx, cy, sz * 0.3, H.C.hi, 1.6) end
     -- scan line (FULL tier only)
     if H.tier == 0 then
+      scanAt = #c.base + 1
       local y = (scan % 100) / 100 * z.h
       c:hair(cx - h2, y, cx + h2, y, A1, 1.5, 90)
       c:hair(cx - h2, y - 6, cx + h2, y - 6, A1, 1, 35)
@@ -168,6 +171,20 @@ local function drawPager()
   c:flush()
 end
 
+-- between full redraws only the scan line moves: set its two shapes and leave the wireframe alone
+local function drawScan()
+  local z = H.zones[2]
+  local c = H.canvas(2)
+  local cx, h2 = z.w / 2, math.min(z.w, z.h) * 0.47
+  local y = (scan % 100) / 100 * z.h
+  c:hair(cx - h2, y, cx + h2, y, H.C.accent, 1.5, 90)
+  c:hair(cx - h2, y - 6, cx + h2, y - 6, H.C.accent, 1, 35)
+  for i = 0, 1 do
+    local n = scanAt + i
+    H.set(c.meter, n == 1 and 'Shape' or ('Shape' .. n), c.base[i + 1])
+  end
+end
+
 function Update()
   frame = frame + 1
   if frame % 10 == 1 then H.refreshTier() end
@@ -176,7 +193,7 @@ function Update()
     drawTabs()
     drawPager()
   end
-  if H.tier == 0 or frame % 10 == 1 then drawSchematic(current()) end
+  if frame % 10 == 1 then drawSchematic(current()) elseif H.tier == 0 and scanAt then drawScan() end
   return 0
 end
 
