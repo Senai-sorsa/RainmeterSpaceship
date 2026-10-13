@@ -331,9 +331,14 @@ def sensors():
 
 
 SYSTEM = ("You are JARVIS, the AI built into the user's spaceship-style desktop HUD. You talk out loud, so answer in "
-          "one to three short spoken sentences: no lists, markdown, emoji or code unless asked. Be calm, precise and "
-          "a little dry. Use the live HUD data below when it's relevant; if something isn't in it, say you don't "
+          "one to three short spoken sentences: no lists, markdown, emoji or code unless asked. {mood} "
+          "Use the live HUD data below when it's relevant; if something isn't in it, say you don't "
           "have that rather than guessing.\n")
+MOODS = {"proper": "Be calm, precise and a little dry.",       # JarvisPersonality: how the model words its answers
+         "playful": "Be funny and quick. When the user jokes or banters, dark humor included, answer in the same spirit. "
+                    "When they ask a real question, answer it helpfully first, then joke if it fits. "
+                    "You are on their side: back them up. Never joke about a failed action.",
+         "brief": "Answer in one short sentence. No small talk."}
 
 
 def ctx_tokens():
@@ -366,7 +371,7 @@ def about_me():
 
 def system_prompt():
     me = about_me()
-    out = SYSTEM
+    out = SYSTEM.replace("{mood}", MOODS.get(setting("JarvisPersonality", "playful").strip().lower(), MOODS["playful"]))
     if me:
         out += ("\nABOUT THE USER (from their own note - use it to personalise answers; don't recite it unless "
                 "asked):\n" + me + "\n")

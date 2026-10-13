@@ -549,4 +549,12 @@ try:                                                              # the ding its
 except ImportError:
     pass
 
+# personality: one sentence of the prompt follows JarvisPersonality; an unknown or unset value is the playful one
+j.context = lambda: ""
+for mood, sentence in (("proper", "a little dry"), ("playful", "same spirit"), ("brief", "one short sentence"), ("nonsense", "same spirit")):
+    j.setting = lambda name, default="", mood=mood: mood if name == "JarvisPersonality" else default
+    assert sentence in j.system_prompt() and j.system_prompt().count("You are JARVIS") == 1, mood
+j.setting = lambda name, default="": default
+assert "same spirit" in j.system_prompt() and "a little dry" not in j.system_prompt()
+
 print("test_jarvis: OK")

@@ -570,12 +570,20 @@ local function rowsJarvis()
     { 'KOKORO', function() if kokoro then jset('JarvisVoice', kokoro) else say('RUN SETUP TO DOWNLOAD THE KOKORO VOICE FIRST') end end, isKokoro } }
   if piper then vbtn[#vbtn + 1] = { 'PIPER', function() jset('JarvisVoice', piper) end, voice ~= '' and not isKokoro } end
   rows[#rows + 1] = { 'VOICE', engine .. '   - if a voice ever fails, that sentence uses the Windows voice', vbtn }
-  local KV = { 'bm_lewis', 'bm_george', 'bm_fable', 'bm_daniel', 'bf_emma', 'am_michael', 'am_adam', 'af_heart' }
-  rows[#rows + 1] = { 'KOKORO VOICE', kv .. '   speed ' .. rate .. '   (bm / bf = British, am / af = American)', {
+  local KV = { 'bm_lewis', 'bf_emma', 'am_michael', 'af_heart' }   -- the four to choose from; any other Kokoro name still works in Settings.inc
+  local KVNAME = { bm_lewis = 'LEWIS (British, male)', bf_emma = 'EMMA (British, female)',
+    am_michael = 'MICHAEL (American, male)', af_heart = 'HEART (American, female)' }
+  rows[#rows + 1] = { 'KOKORO VOICE', (KVNAME[kv] or kv) .. '   speed ' .. rate .. '   - < > switches voice', {
     { '<', function() jset('JarvisKokoroVoice', cycle(KV, kv, -1)) end },
     { '>', function() jset('JarvisKokoroVoice', cycle(KV, kv, 1)) end },
     { 'SLOWER', function() jbump('JarvisVoiceRate', -1, -5, 5, 1) end },
     { 'FASTER', function() jbump('JarvisVoiceRate', 1, -5, 5, 1) end } } }
+  local mood = string.lower(H.str('JarvisPersonality', 'playful'))
+  if mood ~= 'proper' and mood ~= 'brief' then mood = 'playful' end
+  rows[#rows + 1] = { 'PERSONALITY', string.upper(mood) .. '   - how he words his own answers; fixed lines like "Done." stay the same', {
+    { 'PROPER', function() jset('JarvisPersonality', 'proper') end, mood == 'proper' },
+    { 'PLAYFUL', function() jset('JarvisPersonality', 'playful') end, mood == 'playful' },
+    { 'BRIEF', function() jset('JarvisPersonality', 'brief') end, mood == 'brief' } } }
   local ww, wsens = H.num('JarvisWakeWord', 1) == 1, H.num('JarvisWakeSensitivity', 0.5)
   rows[#rows + 1] = { 'WAKE WORD', (ww and 'ON - say "Hey Jarvis"' or 'OFF - click the hologram') .. string.format('   threshold %.2f (lower = hears you more easily, higher = fewer false wakes)', wsens), {
     { 'ON', function() jset('JarvisWakeWord', 1) end, ww }, { 'OFF', function() jset('JarvisWakeWord', 0) end, not ww },

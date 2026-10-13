@@ -363,7 +363,8 @@ You can also right-click the hologram, or use Control Center → JARVIS → CONV
 | TO-DO NOTE | The Obsidian note whose open `- [ ]` items Jarvis (and the reticle) read |
 | SPEECH RECOGNITION | tiny / base / small / medium; AUTO / CPU / GPU |
 | VOICE | Windows built-in, Kokoro (natural) or Piper |
-| KOKORO VOICE | Which Kokoro voice (British / American, male / female) and speaking speed |
+| KOKORO VOICE | Which Kokoro voice (British: Lewis or Emma; American: Michael or Heart) and speaking speed |
+| PERSONALITY | How he words his own answers: PLAYFUL (default: funny, matches your banter, still answers real questions properly), PROPER (calm and dry) or BRIEF (one sentence). Fixed lines like "Done." never change |
 | WAKE WORD | "Hey Jarvis" on/off and its threshold |
 | LISTENING | Seconds of silence before he answers (default 3 s) |
 | MODEL MEMORY | Context size: 2048 (least RAM, fastest), 4096 or 8192 tokens |
