@@ -1269,8 +1269,9 @@ def turn(tier):
                 reply_line((f"Opening {target[0]}." if action == "open" else "Done.") if ok else "That didn't work.", quiet)
                 return
             # two-phase: stage it, ask, and listen for the answer (15 s) without another click
-            pending = {"action": action, "target": target, "expires": time.time() + 15}
+            pending = {"action": action, "target": target}
             reply_line(prompt, quiet)
+            pending["expires"] = time.time() + 15              # counted from the end of the spoken prompt
             S.set(state="listening", level=0.0)
             answer_audio = listen() if not cancel.is_set() else None
             answer = transcribe(answer_audio) if answer_audio is not None else ""
