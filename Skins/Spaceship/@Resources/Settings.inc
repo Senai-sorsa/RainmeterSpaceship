@@ -202,7 +202,7 @@ JarvisModelFast=llama3.2:3b
 JarvisKeepAlive=10
 ; speech recognition: tiny.en / base.en / small.en / medium.en, on auto / cpu / cuda
 JarvisWhisper=base.en
-JarvisWhisperDevice=cpu
+JarvisWhisperDevice=cuda
 ; voice: blank = Windows built-in, or the path to a Piper .onnx voice (Setup fills this in); speed -5..5
 JarvisVoiceRate=1
 ; chime on click, answers in the pop-up when the speakers are muted, startup sound with the startup sequence
@@ -224,8 +224,8 @@ JarvisBars=1
 JarvisSpeed=1
 JarvisWakeSensitivity=0.4
 JarvisVault="C:\Users\Senai\Downloads\NotesForSchool\School Notes"
-; orb animation frame rate, and 1 = frames on a black background (key it out)
-JarvisFrameRate=30
+; orb animation speed in frames per second (the animation has 210; lower = slower, every frame still shown), and 1 = frames on a black background (key it out)
+JarvisFrameRate=15
 JarvisBlackBackground=0
 ; Jarvis "about me" note (Control Center > JARVIS > ABOUT ME)
 JarvisProfile=

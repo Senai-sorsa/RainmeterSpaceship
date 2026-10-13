@@ -308,7 +308,9 @@ def ensure_ollama():
     except Exception:
         pass
     try:
-        subprocess.Popen(["ollama", "serve"], creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # with both cards visible Ollama picks the Radeon (more shared memory): hide it while the NVIDIA one is there
+        env = dict(os.environ, ROCR_VISIBLE_DEVICES="-1", HIP_VISIBLE_DEVICES="-1") if gpu() else None
+        subprocess.Popen(["ollama", "serve"], creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     except OSError:
         return False
     # Wait for Ollama to start (up to 10 seconds)
@@ -370,8 +372,11 @@ def warm(model):
 
 
 def chat_stream(model, messages):
+    opts = {"num_ctx": ctx_tokens(), "temperature": 0.5, "num_predict": 160}
+    if not gpu():
+        opts["num_thread"] = cpu_threads()
     body = json.dumps({"model": model, "messages": messages, "stream": True, "keep_alive": keep_alive(),
-                       "options": {"num_ctx": ctx_tokens(), "temperature": 0.5, "num_predict": 160}}).encode()
+                       "options": opts}).encode()
     req = urllib.request.Request(OLLAMA + "/api/chat", data=body, headers={"Content-Type": "application/json"})
     # the blocking network read runs in its own thread, so a cancel is seen within 0.2 s even while the model is
     # still thinking; the abandoned read closes its connection as soon as it wakes, which makes Ollama stop too
@@ -414,6 +419,26 @@ def chat_stream(model, messages):
         gone.set()
 
 
+# ------------------------------------------------------------------ GPU or capped CPU
+def gpu():
+    """True while an NVIDIA card is attached (a hybrid laptop powers it off on battery)."""
+    try:
+        import ctranslate2
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:
+        return False
+
+
+def cpu_threads():
+    """Threads a model may use when it has to run on the CPU: a quarter of the cores, so a turn can't take the PC."""
+    return max(2, (os.cpu_count() or 8) // 4)
+
+
+def gpu_offline(what, why):
+    """Say so in the log and on the hologram, without opening the pop-up."""
+    problem(f"GPU offline - {what} is on the CPU ({str(why)[:60]})", popup=False)
+
+
 # ------------------------------------------------------------------ speech to text
 _whisper = None
 
@@ -437,8 +462,10 @@ def whisper():
                 return _whisper
             except Exception as e:
                 if dev == "cuda":
-                    log(f"whisper GPU failed ({e}) - using CPU")
-        _whisper = WhisperModel(size, device="cpu", compute_type="int8")
+                    gpu_offline("speech recognition", e)
+                else:
+                    log(f"whisper GPU not used ({e}) - using CPU")
+        _whisper = WhisperModel(size, device="cpu", compute_type="int8", cpu_threads=cpu_threads())
         log(f"whisper {size} on CPU")
     return _whisper
 
@@ -455,7 +482,8 @@ def transcribe(audio):
             log(f"whisper GPU error ({e}) - switching to CPU")
             try:
                 from faster_whisper import WhisperModel
-                _whisper = WhisperModel(setting("JarvisWhisper", "base.en"), device="cpu", compute_type="int8")
+                _whisper = WhisperModel(setting("JarvisWhisper", "base.en"), device="cpu", compute_type="int8",
+                                        cpu_threads=cpu_threads())
                 segs, _ = _whisper.transcribe(audio, beam_size=1, language="en", vad_filter=False)
                 return " ".join(s.text for s in segs).strip()
             except Exception as cpu_e:
@@ -563,8 +591,15 @@ def _kokoro(voice_path, text):
         if not bins:
             raise RuntimeError("voices-v1.0.bin is missing next to the Kokoro model - run SETUP")
         from kokoro_onnx import Kokoro
-        eng = _engines[voice_path] = Kokoro(voice_path, bins[-1])
-        log(f"kokoro loaded ({os.path.basename(voice_path)}, {os.path.basename(bins[-1])})")
+        import onnxruntime as rt
+        # our own session, to cap its threads: measured 25% of the machine instead of 50%, 0.6 s slower per sentence
+        # shortcut: CPU only, onnxruntime-gpu 1.31 wants CUDA 13 while Whisper (ctranslate2) loads CUDA 12, and both
+        # ship a cudnn64_9.dll (not tried together); move the voice to the GPU once the two agree on a CUDA version
+        opts = rt.SessionOptions()
+        opts.intra_op_num_threads = cpu_threads()
+        sess = rt.InferenceSession(voice_path, opts, providers=["CPUExecutionProvider"])
+        eng = _engines[voice_path] = Kokoro.from_session(sess, bins[-1])
+        log(f"kokoro loaded ({os.path.basename(voice_path)}, {os.path.basename(bins[-1])}), {cpu_threads()} threads")
     name = (setting("JarvisKokoroVoice", "bm_lewis").strip().strip('"').split() or ["bm_lewis"])[0]
     try:
         known = list(eng.get_voices())

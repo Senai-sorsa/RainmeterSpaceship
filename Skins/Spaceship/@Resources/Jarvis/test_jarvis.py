@@ -82,4 +82,20 @@ with j._reindexing:
     assert j.chroma_index(force=True) == "COL" and not j._chroma_lock.locked()
 assert not j._reindexing.locked()
 
+# GPU asked for but absent: speech recognition lands on a capped CPU model and says so without a pop-up
+import types
+made, said = [], []
+class FakeWhisper:
+    def __init__(self, size, device, compute_type, cpu_threads=0):
+        if device == "cuda":
+            raise RuntimeError("no CUDA device")
+        made.append(cpu_threads)
+sys.modules["faster_whisper"] = types.SimpleNamespace(WhisperModel=FakeWhisper)
+j.setting = lambda name, default: "cuda" if name == "JarvisWhisperDevice" else default
+j.problem = lambda msg, popup=True: said.append((msg, popup))
+j._whisper = None
+j.whisper()
+assert made == [j.cpu_threads()] and 2 <= made[0] <= max(2, (os.cpu_count() or 8) // 4)
+assert len(said) == 1 and said[0][0].startswith("GPU offline") and said[0][1] is False
+
 print("test_jarvis: OK")
