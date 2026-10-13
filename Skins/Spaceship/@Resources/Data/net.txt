@@ -1,4 +1,0 @@
-T 1791745124
-DOWN 0
-UP 0
-IF Wi-Fi

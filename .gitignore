@@ -16,3 +16,21 @@ Skins/Spaceship/@Resources/Data/IconQueue.txt
 
 #large files
 Skins/Spaceship/@Resources/Jarvis/**/*.onnx
+# personal runtime data, old copies, weights and scratch files: never commit
+Skins/Spaceship/@Resources/Data/jarvis*
+Skins/Spaceship/@Resources/Data/*.log
+Skins/Spaceship/@Resources/Data/mail.txt
+Skins/Spaceship/@Resources/Data/calendar.txt
+Skins/Spaceship/@Resources/Data/windows.txt
+Skins/Spaceship/@Resources/Data/net.txt
+Skins/Spaceship/@Resources/Data/sys.txt
+Skins/Spaceship/@Resources/Data/speed.txt
+Skins/Spaceship/@Resources/Data/llt_state.txt
+Skins/Spaceship/@Resources/Data/notes_index/
+Skins/Spaceship/@Resources/Backups/
+Skins/Spaceship/Spaceship/
+Skins/Spaceship/@Resources/Jarvis/**/*.bin
+Skins/Spaceship/@Resources/Jarvis/**/*.wav
+Skins/Spaceship/@Resources/from kokoro_onnx import Kokoro.py
+Skins/Spaceship/@Resources/testkoroko.py
+*.whl

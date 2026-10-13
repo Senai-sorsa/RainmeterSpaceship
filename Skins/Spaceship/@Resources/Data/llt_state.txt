@@ -1,6 +1,0 @@
-T 1791745093
-hybrid 
-power 
-refresh 
-battery 
-llt found

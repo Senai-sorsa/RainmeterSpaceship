@@ -1,6 +1,0 @@
-T 1791840562
-STATE idle
-LEVEL 0.000
-SAY 
-ERR 
-POP 0 none
