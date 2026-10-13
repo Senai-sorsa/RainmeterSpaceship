@@ -75,4 +75,11 @@ with j.busy:
 assert j.unload_idle(601, 0) and j._whisper is None and not j._engines
 assert not j.unload_idle(9999, 0)                                 # nothing left to unload
 
+# note index: while a reindex runs, a second one is skipped and the search lock stays free
+j.vault_dir = lambda: "R"
+j._chroma.update(col="COL", root="R", last=0.0, failed=False)
+with j._reindexing:
+    assert j.chroma_index(force=True) == "COL" and not j._chroma_lock.locked()
+assert not j._reindexing.locked()
+
 print("test_jarvis: OK")
