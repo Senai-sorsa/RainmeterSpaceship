@@ -418,7 +418,13 @@ def whisper():
         dev = setting("JarvisWhisperDevice", "auto").lower()
         if dev in ("auto", "cuda"):
             try:
-                _whisper = WhisperModel(size, device="cuda", compute_type="float16")
+                # the pip nvidia-* wheels keep cuBLAS / cuDNN in their own bin folders, which Windows does not search
+                import glob
+                for d in [d for p in sys.path for d in glob.glob(os.path.join(p, "nvidia", "*", "bin"))]:
+                    if d not in os.environ["PATH"]:
+                        os.add_dll_directory(d)
+                        os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
+                _whisper =WhisperModel(size, device="cuda", compute_type="float16")
                 log(f"whisper {size} on GPU")
                 return _whisper
             except Exception as e:
