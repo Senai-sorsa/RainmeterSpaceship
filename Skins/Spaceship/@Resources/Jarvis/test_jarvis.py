@@ -43,4 +43,22 @@ for state, action, presses in ((False, "unmute", 0), (True, "unmute", 1), (False
     j.ACTIONS[action](None)
     assert len(pressed) == presses, (state, action, pressed)
 
+# the model stream: normal replies come through, and a cancel ends it even while the request is still blocked
+import threading
+import time
+
+
+class _Resp(list):
+    __enter__ = lambda self: self
+    __exit__ = lambda self, *a: False
+
+
+j.urllib.request.urlopen = lambda *a, **k: _Resp([b'{"message":{"content":"hi"}}\n', b'\n', b'{"done":true}\n'])
+assert list(j.chat_stream("m", [])) == ["hi"]
+j.urllib.request.urlopen = lambda *a, **k: time.sleep(3)          # a model that is still loading
+threading.Timer(0.3, j.cancel.set).start()
+t0 = time.time()
+assert list(j.chat_stream("m", [])) == [] and time.time() - t0 < 1.5, time.time() - t0
+j.cancel.clear()
+
 print("test_jarvis: OK")

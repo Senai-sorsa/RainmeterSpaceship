@@ -364,10 +364,34 @@ def chat_stream(model, messages):
     body = json.dumps({"model": model, "messages": messages, "stream": True, "keep_alive": keep_alive(),
                        "options": {"num_ctx": ctx_tokens(), "temperature": 0.5, "num_predict": 160}}).encode()
     req = urllib.request.Request(OLLAMA + "/api/chat", data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        for raw in r:
-            if cancel.is_set():
+    # the blocking network read runs in its own thread, so a cancel is seen within 0.2 s even while the model is
+    # still thinking; the abandoned read closes its connection as soon as it wakes, which makes Ollama stop too
+    lines, gone = queue.Queue(), threading.Event()
+
+    def pump():
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                for raw in r:
+                    if gone.is_set():
+                        return
+                    lines.put(raw)
+            lines.put(None)
+        except Exception as e:
+            lines.put(e)
+
+    threading.Thread(target=pump, daemon=True).start()
+    try:
+        while True:
+            try:
+                raw = lines.get(timeout=0.2)
+            except queue.Empty:
+                if cancel.is_set():
+                    return
+                continue
+            if raw is None or cancel.is_set():
                 return
+            if isinstance(raw, Exception):
+                raise raw
             raw = raw.strip()
             if not raw:
                 continue
@@ -377,6 +401,8 @@ def chat_stream(model, messages):
                 yield piece
             if obj.get("done"):
                 return
+    finally:
+        gone.set()
 
 
 # ------------------------------------------------------------------ speech to text
