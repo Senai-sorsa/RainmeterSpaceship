@@ -272,7 +272,7 @@ def load_meaning():
 def vec(text):
     v = _vecs.get(text)
     if v is None:
-        if len(_vecs) > 500:
+        if len(_vecs) > 1000:                                 # warm-up alone is ~300 + gist lines; ~12 KB each
             _vecs.clear()
         raw = [float(x) for x in _embed[0]([text])[0]]
         n = sum(x * x for x in raw) ** 0.5 or 1.0
@@ -1974,7 +1974,7 @@ def route(text):
     m = re.match(r"forget (?:that |about |the )*(.+)", cmd)
     if m and m.group(1) not in ("it", "that", "this", "about it", "about that"):
         try:
-            gone = [f for f in load_memory() if all(w in f.lower() for w in m.group(1).split())]
+            gone = [f for f in load_memory() if holds_words(f, m.group(1))]
         except (OSError, ValueError):
             return ("say", None, None, MEMORY_BAD)
         if len(gone) > 1:                                      # M4a: more than one: read back, wait for yes
@@ -2334,6 +2334,15 @@ def undo_last():
             return "That didn't work."
         return f"Volume back at {speakers()[1]} percent." if what == "volume" else "Muted." if before[0] else "Unmuted."
     try:
+        if what == "forget":                                   # put back what was forgotten, if not already back
+            facts = load_memory()
+            back = [f for f in before if f not in facts]
+            if not back:
+                return "It's already back."
+            save_memory(facts + back)
+            did_add("undo")
+            log(f"fact put back by undo ({len(back)})")
+            return "Put back: " + "; ".join(back) + "."
         if what == "fact":
             facts = load_memory()
             if before not in facts:
@@ -2463,6 +2472,11 @@ def learnable(text):
     return ""
 
 
+def holds_words(fact, said):
+    """Every word said is a whole word of the fact ("car" is not in "Oscar")."""
+    return set(re.findall(r"[\w']+", said.lower())) <= set(re.findall(r"[\w']+", fact.lower()))
+
+
 def memory_reply(op, text):
     """Carry out a save / list / forget and return what to say. Only counts reach the log, never the facts."""
     try:
@@ -2474,12 +2488,12 @@ def memory_reply(op, text):
             return "You haven't asked me to remember anything."
         return f"I remember {len(facts)} thing{'s' if len(facts) != 1 else ''}: {'; '.join(facts)}."
     if op == "forget":                                         # every fact that holds all the words said
-        gone = [f for f in facts if all(w in f.lower() for w in text.split())]
+        gone = [f for f in facts if holds_words(f, text)]
         if not gone:
             return "I don't have that."
         save_memory([f for f in facts if f not in gone])
         log(f"fact forgotten ({len(gone)})")
-        can_undo("forget")
+        can_undo("forget", gone)
         return "Forgotten: " + "; ".join(gone) + "."
     fact = " ".join(text.split())[:200]
     if fact not in facts:
@@ -3106,8 +3120,11 @@ def chroma_index(force=False):
                         continue
                     if seen.get(path) == mt:
                         continue
-                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                        parts = _chunks(f.read(300_000))
+                    try:
+                        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                            parts = _chunks(f.read(300_000))
+                    except OSError:
+                        continue                               # deleted or locked mid-sync: the next pass gets it
                     with _chroma_lock:                         # per note: a search waits for one note at most
                         col.delete(where={"path": path})
                         if parts:

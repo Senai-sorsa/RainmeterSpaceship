@@ -303,6 +303,18 @@ j.vault_dir = lambda: empty
 j._chroma.update(col=_Col(), root=empty, seen={"old.md": 1.0}, last=0.0, failed=False)
 assert j.chroma_index(force=True) is j._chroma["col"] and dropped == ["old.md"] and not j._chroma["seen"]
 
+# a note locked or deleted mid-sync is skipped, not the end of smart search; the next pass tries it again
+with open(os.path.join(empty, "locked.md"), "w", encoding="utf-8") as f:
+    f.write("x")
+def _locked(*a, **k):
+    raise PermissionError("locked")
+j.open = _locked                                                   # shadows the builtin inside jarvis only
+try:
+    assert j.chroma_index(force=True) is j._chroma["col"] and not j._chroma["failed"] and not j._chroma["seen"]
+finally:
+    del j.open
+os.remove(os.path.join(empty, "locked.md"))
+
 # GPU asked for but absent: speech recognition lands on a capped CPU model and says so without a pop-up
 import types
 made, said = [], []
@@ -904,6 +916,10 @@ assert r == ("act", "forget_facts", ["my bike is in the shed", "my bike is blue"
              "Forget 2 things: my bike is in the shed; my bike is blue? Confirm with yes.")
 j.ACTIONS["forget_facts"](r[2])
 assert j.load_memory() == []
+j.save_memory(["my friend Oscar is tall", "my car is red"])                # whole words only: "car" is not in "Oscar"
+assert mem("forget car") == "Forgotten: my car is red." and j.load_memory() == ["my friend Oscar is tall"]
+assert j.undo_last() == "Put back: my car is red." and j.load_memory() == ["my friend Oscar is tall", "my car is red"]
+assert mem("forget the") == "I don't have that." and len(j.load_memory()) == 2
 j.save_memory(["my dentist is on Fridays"])
 
 # ---- to-do by voice: asked first, appended to the note (never rewritten, never created), the text kept out of the log
