@@ -58,7 +58,7 @@ STATUS (2026-10-14, read this first in a new session)
     to the live kokoro-v1.0.int8.onnx (or re-run Setup), then in Control Center set WHISPER DEVICE=AUTO,
     WHISPER=small.en, MODEL=llama3.1:8b.
   - 2026-10-14: Phase 3 built (3a-3e: Whisper hint/hotword/beam/VAD, autocorrect + "Did you say" on low
-    confidence, wake word reasons/VAD/best score, MICROPHONE and DUCK MUSIC rows). NOT committed, NOT live: the
+    confidence, wake word reasons/VAD/best score, MICROPHONE and DUCK MUSIC rows). Committed in 301c22f, NOT live: the
     user builds Phases 2-4 and live-tests them together. Checks: test_jarvis OK (venv and py -3), check_voice OK,
     old-vs-new route check 0 differences, control.lua/jarvis.lua parse under Lua 5.1. Real check (Kokoro ->
     small.en on the RTX): every command heard right, 100-200 ms each (old 60-400 ms); the hotword made a short
@@ -66,24 +66,28 @@ STATUS (2026-10-14, read this first in a new session)
     JarvisDuck=0, JarvisMic empty.
   - 2026-10-14: Phase 4 built (4a instant stop: stop_now, abort of the sound, Windows voice killed, no late
     "speaking", no follow-up after a stop, quiet/never mind/enough; stop key End, held only while he is busy;
-    4b barge-in off/wake/voice in wake_loop; BARGE-IN and STOP KEY rows). NOT committed, NOT live. Checks:
+    4b barge-in off/wake/voice in wake_loop; BARGE-IN and STOP KEY rows). Committed in 301c22f, NOT live. Checks:
     test_jarvis OK (py -3; venv OK 3 of 4 runs, the one failure is the old Round 4 timer test, see below),
     check_voice OK, route check 0 differences, Lua 5.1 parse OK. Real check: Kokoro cut off 82 ms after cancel;
     Windows accepts End as a hotkey. Known flake, not Phase 4: test_jarvis "add 5 minutes to the timer" can
     fail when the stored, rounded due time makes 899.x s left. Rollback: before_phase4/ (scratchpad); live:
     JarvisBargeIn=off, JarvisStopKey=off. New issues found in Phases 2-4: "Found while building" (N1-N12)
     after Phase 4's RESULT.
+  - 2026-10-14: Phases 3 and 4 and this plan committed together as 301c22f on the user's word (not pushed,
+    not live). Rollback: git revert 301c22f (the scratchpad before_phase3/4 copies are no longer needed).
   - NEXT: the user's live test of everything built so far, then the questions, in "BEFORE PHASE 5" (just
     before PHASE 5 in PART D). Phase 5 does not start until those are reported and answered.
 
 HANDOVER FOR A NEW CONVERSATION (state at the end of 2026-10-14)
   Git
-    - Branch chore/jarvis-baseline-and-performance, HEAD d7386dd (Phase 2, 2e/2f, Rounds 2/4, hologram).
-      Not pushed. main is behind it.
-    - Uncommitted in the working tree: Phase 3 + Phase 4 (jarvis.py, test_jarvis.py, Scripts\control.lua)
-      and this file. "git diff d7386dd -- <file>" shows exactly the Phase 3/4 work.
-    - NEVER "git checkout" / "git restore" / "git stash" those files to undo something: it would wipe
-      Phases 3 and 4. If Q1 is answered yes, commit them first (read the staged list, never "git add .").
+    - Branch chore/jarvis-baseline-and-performance. Not pushed. main is behind it.
+        301c22f  Phase 3 + Phase 4 + this plan's updates (committed 2026-10-14 on the user's word)
+        d7386dd  Phase 2, 2e/2f, Rounds 2/4, status-only hologram
+      "git diff d7386dd 301c22f -- <file>" shows exactly the Phase 3/4 work.
+    - Working tree clean after 301c22f (apart from later edits to this file). Rollback of Phases 3-4:
+      git revert 301c22f. Q1 (commit before Phase 5) is done; it was committed before the live test.
+    - Still: never "git checkout" / "git restore" / "git stash" to undo something uncommitted from a later
+      phase; read the staged list before any commit, never "git add .".
     - Nothing from Phases 2-4 is in the live skin yet. The user's live test (BEFORE PHASE 5) needs a copy to
       live, done only on the user's word, listing the files first and backing up the live ones.
   Scratch folders (session temp dirs: they may be deleted at any time; if gone, use git as above)
@@ -854,7 +858,7 @@ Your live test after Phase 4
 Unverified until the live run: false stops from his own voice on your speakers. Fakes cannot prove this.
 Rollback: JarvisBargeIn=off. Revert the commit.
 
-RESULT (built 2026-10-14, NOT committed, NOT live)
+RESULT (built 2026-10-14, committed in 301c22f, NOT live)
   4a. Instant stop
     - One stop function (stop_now) for the click, the End key and talking over him: it sets the stop flag,
       puts the HUD on idle at once and writes "stop: click / stop key / barge-in" to the log.
@@ -892,10 +896,15 @@ Found while building Phases 2-4 (new issues)
   N5. FIXED (Phase 2). whisper() had no lock, so the preload and a turn could load the model twice.
   N6. FIXED (Phase 3). The "Jarvis" hotword made a short "Yes." come out as "Jarvis Yes."; hear() now
       strips the name.
-  N7. NOT FIXED, test only. test_jarvis "add 5 minutes to the timer" fails about 1 run in 4 under the
-      venv. The timer's due time is saved rounded to the second, so the time left can be 899.x s and
-      the reply says "14 minutes ..." instead of 15. The real effect: he can say one minute less than you
-      expect. Round 4 code, not Phase 4. Fix: about 2 lines (round the time left before saying it).
+  N7. WON'T FIX (user's call 2026-10-14: cosmetic, not cared about). Flaky test, not a code bug.
+      test_jarvis l.1248 "add 5 minutes to the timer" fails about 1 run in 4 under the venv.
+      Cause (re-checked 2026-10-14): save_reminders stores the due time rounded to the second (:.0f),
+      the "add" path computes the new due from that stored value and replies span(due - now) with the
+      real clock. Rounding (up to 0.5 s) plus the time between the two commands can give 899 s, so he
+      says "14 minutes 59 seconds" instead of "15 minutes". The timer still rings at the right second.
+      span() already rounds, so the old idea "round the time left" would not help. If it is ever
+      fixed: freeze time.time in those 3 test lines (test only, about 3 lines). A failure of only this
+      assert in a test run is N7, not a regression.
   N8. NOT A BUG for Rainmeter. control.lua does not parse under Lua 5.5 (a for-loop variable is assigned,
       l.~682). Rainmeter uses Lua 5.1, where it is fine. Already like this before Phase 3.
   N9. LIMIT. At level "wake" a bare "stop" is not heard while he talks; "Hey Jarvis", a click or End is.
@@ -985,7 +994,7 @@ D. ROUNDS 1, 2 AND 4 (commands; built earlier, never live-tested)
   D2. "Undo that": the 7:00 alarm is back. "What alarms do I have?" lists both.
   D3. "Remind me to call mom tomorrow at 9": set for TOMORROW, label "to call mom".
   D4. "Set an alarm for half past six", then "no, PM": it moves to 6:30 PM.
-  D5. "Set a timer for 10 minutes", "add 5 minutes to the timer" (he says 15, or 14 and a bit: see N7),
+  D5. "Set a timer for 10 minutes", "add 5 minutes to the timer" (he says 15, or "14 minutes 59 seconds": see N7),
       "make the timer 2 minutes", "undo that".
   D6. "An alarm for 7 and a timer for 10 minutes" in one sentence: both are set.
   D7. "Set an alarm for 7" twice: the second time "You already have an alarm for 7:00 AM."
@@ -1017,9 +1026,10 @@ DUCK MUSIC = OFF switches off the ducking; WHISPER DEVICE = CPU puts hearing bac
 "roll back the live copy" to restore the backup made at S1.
 
 QUESTIONS TO ANSWER BEFORE PHASE 5 STARTS
-  Q1. After this test passes: commit Phases 2-4 (Phase 2 is committed; Phases 3 and 4 are not) before
+  Q1. DONE 2026-10-14: Phases 3 and 4 committed as 301c22f before the live test (user's call). Original:
+      After this test passes: commit Phases 2-4 (Phase 2 is committed; Phases 3 and 4 are not) before
       Phase 5 starts? Recommended: yes, so Phase 5 has a clean rollback point.
-  Q2. Fix N7 (timer says one minute less) now, as a 2-line change before Phase 5? Recommended: yes.
+  Q2. DONE 2026-10-14: N7 is not fixed (user's call, cosmetic). See N7.
   Q3. "Hey Jarvis" needing two tries (Round 3): fix before Phase 5 if B1 is under 9 of 10? Phase 5 uses
       "Hey Jarvis" to stop a ring, so a weak wake word hurts it.
   Q4. The ring sound: the existing chime, a tone made in code, or a sound file you choose?
