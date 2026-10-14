@@ -1,0 +1,1323 @@
+JARVIS REPAIR PLAN (MASTER COPY)
+================================
+Written 2026-10-13 after the first live test. Nothing in this plan is built yet.
+This file is the single source of truth. It is written so that a brand new chat can pick up any phase
+with no other context. Read PART A first, then only the phase you are about to do.
+
+Contents
+  PART A   How to use this file, where things are, the rules
+  PART B   The 26 reported issues, numbered
+  PART C   What was found in the code and measured on the machine
+  PART D   The phases (0 to 9), each with: issues fixed, cause, steps, tests, your live test, risk, rollback
+  PART E   Checks to run after every phase
+  PART F   New settings this plan adds
+  PART G   Open questions
+  PART H   Research sources
+
+
+========================================================================================================
+PART A   HOW TO USE THIS FILE
+========================================================================================================
+
+A1. HOW WE WORK (agreed with the user)
+  - One phase at a time. Inside a phase, one fix at a time.
+  - After each phase the user tests it live and says whether the issue is gone. Only then the next phase.
+  - Each phase starts with a failing test, then the fix, then the checks in PART E.
+  - Nothing is committed, pushed, merged or copied to the live skin without the user's explicit word.
+  - To start a phase in a new chat, say: "Read JARVIS-Repair-Plan.txt and do Phase N."
+
+A2. WHERE THINGS ARE
+  Repo (edit here only):       C:\Users\Senai\RainmeterSpaceship
+  Live skin (never edit):      C:\Users\Senai\Rainmeter\Skins\Spaceship
+  Private Python copy (venv):  %LOCALAPPDATA%\SpaceshipHUD\venv   (Python 3.12.10)
+  Branch at time of writing:   chore/jarvis-baseline-and-performance, same as main, commit c5ff4a5
+  This file was committed on its own, on top of c5ff4a5. Line numbers below still refer to c5ff4a5.
+
+  Files, all under Skins\Spaceship\@Resources\ :
+    Jarvis\jarvis.py          the daemon: hearing, routing, actions, model, voice, alarms (about 2400 lines)
+    Jarvis\test_jarvis.py     the tests (fakes only)
+    Jarvis\check_voice.py     voice self-check
+    Jarvis\requirements.txt   pinned packages for the venv
+    Scripts\control.lua       Control Center rows. Helpers: jset(name, value), cycle(list, current, step)
+    Scripts\jarvis.lua        hologram, starts the daemon (pythonw() l.372), click handling (OnClick l.398)
+    Scripts\boot.lua          plays Sounds\startup.wav when BootSound=1
+    Sounds\                   chime.wav, startup.wav, README.txt
+    Settings.inc              all settings. HOLDS PERSONAL PATHS: never print it, grep single keys only,
+                              view diffs only with: git diff -U0
+    Docs\                     Spaceship-HUD-Guide.md, Jarvis-Assumed-Settings-and-Guide.txt
+    Data\                     run-time files. PERSONAL. Never read, print or commit anything in here.
+
+  How the HUD and the daemon talk:
+    HUD -> daemon:  Data\jarvis_cmd.txt   one line: WAKE <unix> <tier> | CANCEL <unix> | REINDEX | FORGET
+    daemon -> HUD:  Data\jarvis.txt       state (idle, listening, thinking, speaking), level, error text
+    A click on the hologram: idle -> WAKE, anything else -> CANCEL (jarvis.lua l.403-404).
+
+A3. MAP OF jarvis.py (line numbers at commit c5ff4a5; if they moved, search for the name)
+    context()          215   live HUD data for the prompt: mail count, calendar, apps, network, to-dos
+    sensors()          280   PC readings and pending reminders
+    SYSTEM             339   the fixed system prompt text
+    MOODS              343   personality sentences (proper, playful, brief)
+    about_me()         363   profile text for the prompt
+    system_prompt()    383   builds the whole prompt
+    ensure_ollama()    406   starts Ollama with the Radeon card hidden
+    pick_model()       443   JarvisModel, or JarvisModelFast on a busy tier
+    ollama_on_cpu()    478   warns when the chat model is not fully on the GPU (called at l.2170)
+    chat_stream()      490   talks to Ollama. Options at l.491: num_ctx, temperature 0.5, num_predict 160
+    gpu()              539   True while an NVIDIA card is attached
+    cpu_in_use()       553   writes the "CPU in use" problem line
+    whisper()          562   loads speech recognition. GPU first, CPU on any error
+    transcribe()       587   the Whisper call (l.591: beam_size=1, vad_filter=False)
+    listen()/_listen() 609/620   record one sentence from the microphone (InputStream at l.632)
+    _kokoro()          708   the voice. CPU only by choice, see the comment at l.719
+    _windows()         770   Windows voice fallback (PowerShell)
+    synth_audio()      816   picks the voice engine, marks a failed one as broken
+    play_samples()     847   plays sound, checks the cancel flag
+    speak_all()        865   speaks sentences as the model writes them
+    prepare_fillers()  1058  pre-makes short lines ("Searching your notes.")
+    best_app()         1161  fuzzy match of a spoken app name
+    speakers()         1197  Windows Core Audio through ctypes: mute and volume of the default speakers
+    act_volume()       1237  ("set", 30) or ("step", -10)
+    ACTIONS            1304  the only things that can ever run: lock, sleep, restart, shutdown, close, open,
+                             mute, unmute, volume, media, todo, forget_all
+    YES / confirmed()  1320/1324  the two-step confirmation (15 seconds, one pending action)
+    route()            1332  decides what a sentence is. The name strip is at about l.1340
+    run_action()       1428  runs one ACTIONS entry and reports the real result
+    hear()             1452  listen + transcribe for a short answer
+    memory_reply()     1505  remembered facts (file Data\jarvis_memory.txt)
+    STOP_WORDS, RINGS=10, SNOOZE=60   1537-1539
+    _num(), duration() 1547/1559  number words and lengths ("ten minutes", "half an hour")
+    snooze_for()       1606
+    reminder_cmd()     1648  parses timer and reminder sentences
+    remind_reply()     1737
+    due_reminders()    1785
+    ding()             1799  two notes of 0.45 s
+    alarm()            1807  the ring loop
+    chime()            1992  plays chime.wav with winsound (no volume control)
+    turn(tier, follow) 2022  one whole exchange. Sends history[-8:]. Follow-up re-enters here
+    wake_loop()        2208  wake word. Drops the mic while busy (l.2225). Model at l.2233, threshold l.2256
+    unload_idle()      2298  frees the speech models after JarvisIdleUnload minutes
+    main()             2314  starts five threads at once (l.2323-2328), then watches the command file
+
+A4. RULES THAT ALWAYS HOLD (from the user and the project CLAUDE.md)
+  Safety
+    - "Dont break anything." Smallest change that fully solves the task. No rewrite, no framework change.
+    - Preserve uncommitted work. No destructive git. Never "git add ." without reading the staged list.
+    - No commit, push, merge, release or deploy without explicit approval.
+    - Before each significant change: goal, scope, non-goals, acceptance, validation, risks, rollback.
+  Actions
+    - The model may propose. Plain code owns authorization, confirmation, running, exit codes and the log.
+    - OS actions need an exact confirmation tied to one pending action, and it expires.
+    - No arbitrary shell execution. Only fixed entries in ACTIONS can run.
+    - Tests never really mute audio, close apps, connect devices or shut the machine down. Fakes only.
+    - No destructive or disruptive action on the live Windows session during testing.
+  Privacy
+    - Never read or print: Data\, the log files, calendar, mail, the notes vault, the reminders and memory
+      files, the ChromaDB index, the personal lines of Settings.inc.
+    - New log lines hold numbers and states only. Never the user's words.
+    - Never commit keys, tokens, notes, model weights, recordings, logs, local databases or caches.
+  Packages and models
+    - No new package, model or download before showing the smallest experiment and its disk and memory cost.
+    - Never change the global site-packages. Only the private venv, and only with approval.
+    - Never pick "the first model in the list". Compare and choose by result.
+    - The Windows voice stays as a fallback. One microphone session at a time, always.
+  Reporting
+    - Report the exact commands run and what they printed. Never say a test passed unless it ran.
+    - Anything that needs a real microphone, speaker, GPU or live session is "unverified" until the user
+      asks for a live run.
+  Tools
+    - Context7 for library documentation. No sub-agents unless the user asks. Planning stays on Opus.
+
+
+========================================================================================================
+PART B   THE 26 REPORTED ISSUES
+========================================================================================================
+The user's own words. The phase that fixes each is in brackets.
+
+   1. Turn off the "Jarvis online" noise and make the startup noises way quieter.              [Phase 8]
+   2. The voice broke - look at the log (could it be because I have an older version of numpy?) [Phase 1]
+   3. It tries to be playful even when that is unnecessary or I'm talking about a serious topic. [Phase 6]
+   4. It keeps talking when it's in the middle of a sentence and I say stop or its name.        [Phase 4]
+   5. It keeps bringing up information about my quizzes or schedule even when it is unnecessary
+      and unrelated to my question.                                                             [Phase 6]
+   6. The follow up does work.                                    [keep working: tested in every phase]
+   7. Jarvis doesn't let me interrupt it in any case.                                           [Phase 4]
+   8. Jarvis doesn't remember the alarms it set when I ask it about it.               [Phase 1, Phase 5]
+   9. The ringing from the alarm lasts basically no time, then Jarvis says something. The alarm
+      should be continuous and keep on going.                                                   [Phase 5]
+  10. It needs an autocorrect feature, because it keeps mishearing me and hearing things like
+      "Travis" or me saying different things.                                         [Phase 1, Phase 3]
+  11. It cares too much about previous conversations even when they are completely irrelevant.  [Phase 6]
+  12. The "Hey Jarvis" doesn't work.                                                            [Phase 3]
+  13. It doesn't actually change any settings like changing volume or anything else.  [Phase 1, Phase 7]
+  14. The memory function needs to be improved or relooked.                                     [Phase 6]
+  15. It can think Jarvis is speaking after I stop it.                                          [Phase 4]
+  16. The snooze function doesn't work.                                               [Phase 1, Phase 5]
+  17. The follow up should only work if I respond within the next 3 seconds, or if I say
+      "Jarvis" and then something within 10 seconds after.                                      [Phase 8]
+  18. I want the responses to sound more human.                              [Phase 6, speed in Phase 2]
+  19. It keeps constantly falling back to my CPU, even if my GPU is on. Turning on JARVIS should
+      turn on my GPU too.                                                                       [Phase 2]
+  20. Add additional settings he can change, including microphone settings and Bluetooth settings
+      (if I say "connect to ___" I want it to try and connect to whatever he can).   [Phase 3, Phase 7]
+  21. Give him system logs and Task Manager information, so he can see which processes are
+      overloading the system, to the point where I can just ask him what the issue is.          [Phase 9]
+  22. Access to more settings that are easy to integrate, like airplane mode and more.          [Phase 7]
+  Added on 2026-10-13 from the recommendations the user accepted:
+  23. A stop key on the keyboard, ONLY for interrupting him (it never wakes him).               [Phase 4]
+  24. Time, date, sums and unit conversions answered by code, at once.                          [Phase 1]
+  25. "Undo that" and "what did you hear?"                                                      [Phase 1]
+  26. Turn other sound down while he listens.                                                   [Phase 3]
+  REJECTED by the user: showing what he heard on the hologram. Do not build it. Mishearing is to be
+  handled by autocorrect and by ignoring slight differences (Phase 1a and 3b).
+
+  Facts from the user's test log (safe, no personal content):
+    - Turns were started by a click, never by the wake word.
+    - The name was heard as "Travis" and "droves".
+    - Replies took 15 to 28 seconds.
+    - "Set an alarm for in one minute" went to the chat model, which answered that the alarm was set.
+      Nothing was set. A later "do I have an alarm set" was answered "no".
+    - The model called itself the film character and named a film creator.
+    - Problem lines: speech recognition not on the GPU (JarvisWhisperDevice=cpu); the voice not on the GPU
+      (no GPU build of onnxruntime); voice failed with: module 'numpy' has no attribute 'matrix'.
+
+
+========================================================================================================
+PART C   WHAT WAS FOUND
+========================================================================================================
+
+C1. THE FIVE ROOT CAUSES
+  1. Commands fall through to the chat model, and the chat model lies.
+     - route() strips only the exact name "Jarvis". A misheard "Travis, ..." keeps the name in the command,
+       and every command pattern is anchored on the start, so volume, mute, media, open and timer all miss.
+     - reminder_cmd() knows only the words "timer" and "reminder". "Alarm" is unknown.
+     - Anything unmatched goes to chat. Nothing in SYSTEM tells the model it cannot perform actions.
+     - The volume pattern (about l.1394) needs digits and exact wording.
+     Explains issues 8, 13, part of 10, and most likely 16 (there never was an alarm to snooze).
+  2. Nothing listens while he speaks or rings.
+     - wake_loop() drops the microphone whenever `busy` is held (l.2225).
+     - play_samples() only checks the cancel flag, and only a click sets it.
+     - alarm() listens only in the gap after the ding and the spoken line.
+     Explains issues 4, 7, 9, part of 16.
+  3. Every prompt carries everything.
+     - system_prompt() always adds the profile (up to 2000-4000 characters), all remembered facts (up to
+       2000 characters), context() (mail count, up to 6 calendar events, open apps, network, up to 12
+       to-dos) and sensors(). SYSTEM says "use it when relevant". turn() always sends the last 8 messages
+       and forgets only after 10 minutes.
+     Explains issues 5, 11, part of 14, part of 3.
+  4. Hearing runs on the weakest settings.
+     - base.en, beam 1, no VAD filter, no hint that the name exists, and in the live skin: on the CPU.
+     Explains issue 10 and part of 12.
+  5. The GPU is not used although it works (see C2).
+     Explains issue 19 and a large part of the 15-28 second replies.
+
+C2. THE GPU: MEASURED ON 2026-10-13 (read-only commands, nothing changed)
+  Machine:   Lenovo 83Q6, hybrid laptop. Two graphics cards:
+               AMD Radeon 880M (built in)
+               NVIDIA GeForce RTX 5070 Laptop GPU, 12 GB, driver 592.25 (2.4 GB in use at the time)
+  On mains power at the time of the check.
+
+  What runs where, and why:
+    Part                  Now      Why
+    --------------------  -------  ------------------------------------------------------------------
+    Chat model (Ollama)   GPU      "ollama ps" showed llama3.2:3b at 100% GPU. Ollama starts with
+                                   Windows (Startup folder). The user variables that hide the Radeon
+                                   card (ROCR_VISIBLE_DEVICES, HIP_VISIBLE_DEVICES) are already set.
+    Speech recognition    CPU      The LIVE Settings.inc says JarvisWhisperDevice=cpu. The repo default
+                                   is cuda. That one setting forces the CPU. The GPU libraries (cuBLAS,
+                                   cuDNN 9, CUDA 12) are ALREADY in the venv, and a test in the venv
+                                   loaded base.en on the RTX and ran it in 4.4 seconds. No download needed.
+    Voice (Kokoro)        CPU      By choice in the code (l.719-723). The installed onnxruntime is the
+                                   CPU build. Its GPU build 1.31 wants CUDA 13 while Whisper uses
+                                   CUDA 12, and both ship a file named cudnn64_9.dll. So the warning
+                                   "CPU in use - the voice" appears on EVERY start. It is not a fallback.
+
+  Sticky fallbacks in the code (the real "keeps falling back"):
+    - whisper() loads once. If the card was asleep, off or busy at that moment, it loads on the CPU and
+      stays there until the idle unload (10 minutes without a turn).
+    - transcribe() switches to the CPU for good on any error that mentions cuda, cublas or cudnn.
+    - A chat model that Ollama loaded while the card was off stays off the card until it is unloaded.
+    - ollama_on_cpu() warns but does nothing about it.
+
+  Can JARVIS turn the GPU on?
+    - In hybrid mode: yes, and it already happens by itself. The RTX sleeps when idle and the first CUDA
+      call wakes it. Loading Whisper on the card at start is that call.
+    - If Lenovo's "integrated graphics only" mode is on, Windows no longer sees the card at all. A normal
+      program cannot switch that back. It may be scriptable through Lenovo's own interface (unverified).
+    - The Windows "graphics preference" list has an entry for Rainmeter.exe only. That list steers DirectX
+      programs. CUDA talks to the NVIDIA driver directly, so entries for Python or Ollama would not help.
+
+C3. THE VOICE CRASH (issue 2)
+  - Not an old numpy. The venv has numpy 2.5.4, which has numpy.matrix. Only joblib (numpy_pickle.py:378)
+    refers to it.
+  - Likely cause, NOT yet reproduced: main() starts five threads at once (l.2323-2328) and four of them
+    import numpy, onnxruntime, faster-whisper, openwakeword and the notes index at the same moment. One
+    thread can see a half-loaded numpy.
+  - Second fault, certain: synth_audio() marks the voice broken after ONE failure and never tries again
+    until restart, so one bad moment means the Windows voice for the whole session.
+
+C4. OTHER FINDINGS
+  - Wake word: openWakeWord "hey_jarvis", onnx, threshold JarvisWakeSensitivity (0.5), no speech check.
+    It runs only when JarvisWakeWord=1, JarvisEnabled=1 and the HUD tier is below 3. The wake thread is
+    one of the five that start together, so the same start-up race could kill it. Whether "wake word
+    ready" is in the live log is unknown (the log was not read).
+  - Follow-up: after a spoken chat answer, 0.3 s pause, waits about 6 s, at most 3 in a row.
+  - Alarm: RINGS=10; each ring is ding, spoken line, then up to about 6 s of hear() on the CPU.
+  - Tone: default JarvisPersonality is "playful".
+  - Sounds: chime() uses winsound (full volume, no control). boot.lua plays startup.wav. The words
+    "Jarvis online" are spoken only in Setup-Jarvis.ps1 (l.99, l.136) and check_voice.py (l.19). They are
+    not in the daemon, so the sound is probably recorded inside startup.wav or chime.wav. Not confirmed.
+  - "Thinks he is still speaking after I stop him" (issue 15): not pinned down. Candidates: the audio
+    stream drains its buffer instead of aborting; the Windows-voice helper process keeps running (up to
+    60 s); the HUD state file is written late; the follow-up microphone hears leftover sound.
+  - Installed in the venv: numpy 2.5.4, kokoro-onnx 0.6.1, onnxruntime 1.31.0 (CPU), faster-whisper 1.2.1,
+    ctranslate2 4.8.2, openwakeword 0.6.0, sounddevice 0.5.6, scipy 1.18.1, chromadb 1.5.9,
+    nvidia-cublas-cu12 12.9.2.10, nvidia-cudnn-cu12 9.27.0.42.
+  - Windows reports 8 Bluetooth-class devices and 2 working audio endpoints (counts only).
+
+
+========================================================================================================
+PART D   THE PHASES
+========================================================================================================
+Order: what breaks trust first, then what every later phase depends on, then comfort.
+
+   Phase 0   Measure (read-only)
+   Phase 1   He tells the truth and commands really run     issues 2, 8, 10 (name), 13, 16, 24, 25
+   Phase 2   GPU first                                       issues 19, 18 (speed)
+   Phase 3   Hearing you correctly                           issues 10, 12, 20 (microphone choice), 26
+   Phase 4   Interrupting him                                issues 4, 7, 15, 23
+   Phase 5   Alarms that behave like alarms                  issues 8, 9, 16
+   Phase 6   Relevance, tone, memory, sounding human         issues 3, 5, 11, 14, 18
+   Phase 7   More settings by voice                          issues 13, 20, 22
+   Phase 8   Follow-up timing and sounds                     issues 1, 17
+   Phase 9   Ask him what is wrong (diagnosis)               issue 21
+   Phase 8 is small and independent. It can be done at any point for a quick win.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 0   MEASURE FIRST  (read-only, about an hour)
+--------------------------------------------------------------------------------------------------------
+Fixes: nothing yet. It turns four guesses into facts.
+
+  Question                               How (nothing personal is read)
+  -------------------------------------  ----------------------------------------------------------------
+  Is the voice crash a start-up race?    A scratch script outside the repo starts four threads that import
+                                         numpy, onnxruntime, faster_whisper, openwakeword and sklearn at
+                                         once. 30 runs in the venv. Count the AttributeErrors.
+  Does the wake word thread start?       Count lines in the log that match FIXED status texts only:
+                                         "wake word ready", "wake word:", "problem:". Counts, no content.
+                                         Needs the user's OK because it opens the log.
+  Where do the 15-28 seconds go?         Add one timing line per turn (milliseconds only): heard,
+                                         transcribed, first model word, first sound.
+  Where is "Jarvis online" spoken?       Length in seconds of startup.wav and chime.wav. The user confirms
+                                         by ear which one says it.
+  Why is the live setting "cpu"?         Ask the user. The Control Center row cycles AUTO / CPU / CUDA
+                                         (control.lua l.551-555), so one click can have set it.
+  Is the laptop in hybrid mode?          gpu() already answers it: True means the card is attached.
+
+Output: a short table of numbers at the top of the chat. Phases 1, 2 and 3 use it.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 1   HE TELLS THE TRUTH AND COMMANDS REALLY RUN
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 2  (the voice broke)
+        issue 13 (doesn't actually change settings like volume)
+        issue 8  (doesn't remember the alarms it set: they were never set)
+        issue 10 (the "Travis" half of autocorrect)
+        issue 16 (snooze: there was no alarm to snooze)
+        issue 24 (time, date, sums and conversions answered by code)
+        issue 25 ("undo that" and "what did you hear?")
+Why first: a helper that says "done" when nothing happened cannot be trusted with anything else.
+Size: about 185 lines in jarvis.py plus tests. 1f and 1g can be done as a second step after 1a to 1e.
+
+1a. Name normalisation (about 10 lines)
+  - One table of what Whisper writes for the name: jarvis, travis, jervis, javis, jarvus, service, droves,
+    drovis.
+  - One regex removes an optional "hey / hi / ok / okay" plus one of these, ONLY as the first words of the
+    sentence. "Play Travis Scott" stays untouched.
+  - It runs before route(), so every anchored command works again.
+  - New setting JarvisNameAliases (comma list) to add more. Logged as a count only.
+
+1b. Alarm words (about 15 lines, in reminder_cmd)
+  - "alarm" and "wake me up" become a reminder with a clock time or a length:
+    "set an alarm for in one minute", "alarm at 7 am", "wake me up at 6:30",
+    "do I have an alarm set", "cancel my alarm".
+  - Stored with kind "alarm" in the existing file (due|created|kind|label). No format change. Older code
+    reads an unknown kind as a plain reminder that rings once.
+
+1c. Volume phrases (about 25 lines, near l.1394)
+  - Number words through the existing _num(): "set the volume to thirty".
+  - "a bit / a little / slightly" = 10 steps. "louder / quieter", "turn it up / down", "max", "half",
+    "set it to 30", "volume 30".
+  - The reply keeps coming from done_line(): the value Windows reports, never the one asked for.
+  - More settings (microphone, Bluetooth, brightness and others) are Phase 7.
+
+1d. The model may never claim an action (about 25 lines)
+  Three layers, strongest first:
+  1. Near-miss catch, in code. A sentence that has an action verb (set, turn, change, open, close, mute,
+     cancel, connect, snooze) AND an action noun (volume, alarm, timer, reminder, app, bluetooth,
+     microphone, brightness) that no parser matched does NOT go to the model. Fixed reply:
+     "I heard a command but couldn't work it out. Try: set a timer for one minute."
+     Sentences that start with how, why, what, when, who, can you explain stay chat.
+  2. Claim check, in code. A chat answer that says an action was done ("alarm set", "I've turned",
+     "volume is now", "I have set", "reminder added") is replaced by a fixed line, because no action can
+     run on the chat path.
+  3. One line in SYSTEM: "You cannot set alarms, change settings or open apps. Never say you did."
+  Why three: research on small models says prompt rules alone do not hold. Home Assistant tries fixed
+  commands first and skips the model when one matches. The agent literature calls the fault an
+  "execution hallucination" and says success must be reported from the real result only.
+
+1e. The voice crash (about 12 lines)
+  - Import numpy, onnxruntime, faster_whisper, openwakeword and sounddevice ONCE on the main thread in
+    main(), before any thread starts. (Only if Phase 0 confirms the race. It is harmless either way.)
+  - synth_audio(): one retry at once, then try again after 60 seconds, instead of "broken until restart".
+    Log the error type only.
+  - The Windows voice stays as the fallback.
+
+1f. Answers by code: time, date, sums, conversions (issue 24; about 60 lines, standard library only)
+  Today these go to the chat model: 15 to 28 seconds, and a 3B model gets sums wrong.
+  route() gets a new kind "fact", checked AFTER the action and reminder parsers and before chat:
+    Asked                                         Answered from
+    --------------------------------------------  ------------------------------------------------------
+    "what time is it", "what's the date",         the PC clock
+    "what day is it", "what day is the 3rd"
+    "how many days until Friday / until           date arithmetic (datetime)
+    December 25th", "what's the date in 2 weeks"
+    "what's 12 times 9", "15 percent of 240",     a small calculator: numbers and + - x / percent, power
+    "240 divided by 7", "square root of 81"       and square root ONLY. It parses the words itself and
+                                                  never runs spoken text as code. Limits on size.
+    "how many km in 26 miles", "5 feet 10 in      one fixed table of factors: length, weight, volume,
+    centimetres", "100 fahrenheit in celsius",    temperature, speed, area, time, data sizes
+    "200 grams in ounces", "2 hours in seconds"
+  - Number words go through the existing _num() ("twelve times nine").
+  - The answer is rounded for the ear: "About 41.8 kilometres." "108."
+  - Anything it cannot parse fully falls through to chat exactly as today. No near-miss catch here.
+  - Not built: currency (needs the internet), time zones of other cities, anything with units mixed in
+    a sum ("3 km plus 2 miles").
+  - check_route.py will show "what time is it" changing route. That is on purpose; list it as expected.
+
+1g. "Undo that" and "what did you hear?" (issue 25; about 35 lines)
+  - run_action() keeps ONE record of the last action that changed something, with the value before it.
+    It expires after 2 minutes. "Undo that", "undo", "put it back", "cancel that" reverse it:
+      Last action                       Undo does
+      --------------------------------  ---------------------------------------------------------
+      volume set or stepped             the volume from before
+      mute / unmute                     the other one
+      timer, reminder or alarm set      removes that one item
+      a fact saved to memory            removes that fact
+      power mode changed (7d)           the mode from before
+      microphone level, brightness (7)  the value from before
+    Cannot be undone, and he says so: shut down, restart, sleep, lock, close an app, a media key,
+    an emptied recycle bin, a to-do line (delete it in Obsidian), a fact that was forgotten.
+  - He reports the real result as always: "Volume back at 45 percent."
+  - "What did you hear?" repeats the last sentence as transcribed. "Say that again" / "repeat that"
+    repeats his last answer. Both are kept in memory only, for the session, and never logged.
+  - Nothing to undo, or expired: "There's nothing to undo."
+
+Tests (fakes, in test_jarvis.py)
+  - 1f: 25 phrases give the right spoken answer with the fake model never called; "what's 2 to the
+    power of 9999999" is refused, not computed; text that is not numbers and operators reaches chat.
+  - 1g: volume 45 -> 30 -> undo gives ("set", 45); undo twice says nothing to undo; undo after the
+    fake 2 minutes says nothing to undo; undo after a cancelled "shut down" does nothing.
+  - 20 misheard-name sentences route exactly like the clean ones.
+  - "play Travis Scott" keeps the name.
+  - Alarm: set by length, set by clock, list, cancel.
+  - 15 volume phrases give the right ("set", n) or ("step", n).
+  - A near-miss sentence gives the fixed line and the fake model is never called.
+  - A fake model answer "Alarm set for 5 pm" is replaced.
+  - A fake Kokoro that fails once works on the retry and is not marked broken.
+  - check_route.py: no phrase that worked before changes its route.
+
+Your live test after Phase 1
+  1. Click, say "Travis, set the volume to thirty."       -> volume changes, he says "Volume at 30 percent."
+  2. "Turn it down a bit."                                -> 20 percent.
+  3. "Set an alarm for one minute."                       -> a real alarm rings a minute later.
+  4. "Do I have an alarm set?" (before it rings)          -> he names it.
+  5. "Change the screen colour to blue." (not a feature)  -> he says he couldn't work it out. No false "done".
+  6. Restart JARVIS five times.                           -> the Kokoro voice every time, no Windows voice.
+  7. "What time is it?", "what's 15 percent of 240?", "how many kilometres is 26 miles?"
+                                                          -> each answered within a second or two.
+  8. "Set the volume to 30", then "undo that."            -> back to the volume from before.
+  9. "What did you hear?"                                 -> he repeats your last sentence.
+
+Risk: the near-miss catch could take a real question. The question-word rule limits it.
+Rollback: git checkout of the two files before a commit, git revert after. No data format changed.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 2   GPU FIRST
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 19 (keeps falling back to the CPU even when the GPU is on; JARVIS should turn the GPU on)
+        issue 18 (part: the 15-28 second replies are the biggest reason he does not feel human)
+Why second: it is mostly one setting and about 40 lines, it makes every turn faster, and Phase 3 needs
+the GPU to afford better hearing.
+Read C2 first. The short version: Ollama is already on the RTX. Speech recognition is on the CPU because
+the live setting says so. The voice is on the CPU by design.
+
+2a. Put speech recognition on the RTX (no download)
+  - ANSWERED by the user on 2026-10-13: the "cpu" value was NOT set on purpose. Move it to the GPU.
+  - The user sets WHISPER DEVICE to AUTO in the Control Center (the JARVIS section; it cycles
+    AUTO / CPU / CUDA). This is a click in the live skin, done by the user. I do not edit the live skin.
+  - Proven in the venv on 2026-10-13: base.en loads and runs on the RTX in 4.4 seconds.
+
+2b. Stop the sticky fallbacks (about 25 lines)
+  - A "GPU watch" in the main loop's 2-second heartbeat, only between turns (never while `busy`):
+    if gpu() is True, the setting allows it, and Whisper is on the CPU, load it again on the card.
+  - transcribe(): after a GPU error, use the CPU for THAT sentence only, and let the GPU watch try the
+    card again later. At most one reload a minute, so a broken card cannot cause a loop.
+  - The chat model: when ollama_on_cpu() is True and gpu() is True, unload it (keep_alive 0) and warm it
+    again, once.
+  - Each move is logged with a number and a state only: "whisper moved to GPU (1.9 s)".
+
+2c. "Turning on JARVIS turns on the GPU"
+  - At start, wake the card on purpose: the Whisper preload on the card is that call. On a hybrid laptop
+    the RTX powers up by itself for it.
+  - If the card is not attached at all (gpu() False), the hologram says WHY in plain words:
+    "RTX is off - switch the laptop to hybrid graphics" instead of the general "CPU in use" line. When the
+    card comes back, the GPU watch (2b) moves everything over without a restart.
+  - New setting JarvisGPU = prefer (default) | require.
+      prefer:  use the CPU when the card is away, and say so once.
+      require: never run a turn on the CPU. He says "My graphics card is off" and stops.
+  - Switching Lenovo's graphics mode from code: NOT planned. It changes a hardware mode and may need a
+    restart. Optional experiment, only on the user's word: a read-only look at whether this model exposes
+    the switch. Until then the user switches it in the Lenovo software.
+
+2d. The voice warning (2 lines now, the real fix in 2e)
+  - The voice on the CPU is the designed state, so it stops being a "problem" line on every start. It
+    becomes one plain log line. A real fallback (Whisper or the chat model off the card) stays a warning.
+
+2e. The voice on the GPU (experiment, needs approval before anything is installed)
+  Blocker: onnxruntime-gpu 1.31 wants CUDA 13, Whisper uses CUDA 12, both ship cudnn64_9.dll.
+  Three ways, tried in a COPY of the venv, never the real one:
+    A. onnxruntime-directml instead of onnxruntime. It runs on the graphics card through DirectX, needs no
+       CUDA at all, so it cannot clash with Whisper. Small download. To check: that the int8 Kokoro model
+       runs on it and is faster, and that it picks the RTX, not the Radeon.
+    B. An onnxruntime-gpu version built for CUDA 12, so both use the same libraries.
+    C. Leave the voice on the CPU (today). Measured earlier: capped threads cost about 0.6 s a sentence.
+  Decision by measurement: seconds to first sound for the same three sentences, and VRAM used.
+  Shown before any install: package name, version, size on disk, how to go back.
+
+2f. Use the 12 GB (needs approval, each a small download)
+  - small.en instead of base.en for speech recognition: fewer mishearings, about 0.5 GB.
+  - A stronger chat model than llama3.2:3b: see Phase 6f. The card has room.
+
+Tests (fakes)
+  - Whisper on a fake CPU plus gpu() turning True -> one reload on the card, none while busy, at most one
+    a minute.
+  - A fake cuda error in transcribe() -> that sentence is still answered, the card is tried again later.
+  - JarvisGPU=require with gpu() False -> no model call, the fixed line.
+  - The voice-on-CPU line is no longer a problem line.
+
+Your live test after Phase 2
+  1. Start JARVIS. The log shows "whisper base.en on GPU". No "CPU in use - speech recognition" line.
+  2. Ask a short question. Time from the end of your sentence to his first word. Compare with Phase 0.
+  3. Task Manager, GPU 1 (the RTX): activity while he listens and thinks.
+  4. If you can, start him with the card off, then turn it on: within a minute the log shows the move.
+
+Unverified until the live run: the speed gain, and the behaviour when the card is switched off.
+Risk: more VRAM in use (about 1 GB for Whisper) while a game runs. The HUD tier already moves JARVIS to
+the fast model on a busy GPU; JarvisWhisperDevice=cpu remains the manual override.
+Rollback: set WHISPER DEVICE back to CPU. Revert the commit.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 3   HEARING YOU CORRECTLY
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 10 (autocorrect, mishearing)
+        issue 12 ("Hey Jarvis" doesn't work)
+        issue 20 (part: which microphone he uses)
+        issue 26 (other sound turned down while he listens)
+Why third: Phases 4, 5 and 8 all depend on hearing short words like "stop" and "snooze".
+
+3a. Whisper settings (no new package, about 8 lines in transcribe)
+  - hotwords="Jarvis" and a short initial_prompt in command style, for example
+    "Hey Jarvis, set a timer for ten minutes. Jarvis, turn the volume down."
+    faster-whisper puts hotwords into the prompt of every window. initial_prompt reaches the first window
+    only, which is enough for one short command. (Check in the installed version's docstring whether
+    hotwords is ignored when a prefix is set. We set no prefix.)
+  - beam_size 1 -> 5 (the library default), condition_on_previous_text=False, vad_filter=True (the Silero
+    filter ships inside faster-whisper).
+  - On the GPU (Phase 2) beam 5 costs almost nothing. On the CPU fall back to 3.
+
+3b. Autocorrect layer (standard library only, about 30 lines)
+  1. Name aliases (already in 1a).
+  2. Command words. In a short sentence (8 words or fewer), a word that is nearly a command word is
+     corrected with difflib.get_close_matches, cutoff 0.8, against the FIXED command vocabulary only
+     (volume, mute, timer, alarm, snooze, reminder, bluetooth, microphone, brightness, connect ...).
+     Sentences that go to chat are never rewritten.
+  3. Low confidence. Whisper gives a score per segment (avg_logprob, no_speech_prob). A COMMAND heard
+     with a low score is read back ("Volume to 30?") and needs a yes. Chat questions are not checked.
+  4. Device and app names keep their own fuzzy match (best_app, and the Bluetooth match in Phase 7).
+  5. Ignoring slight differences (the user asked for this instead of showing the heard text):
+     - Filler is removed before matching: please, could you, can you, um, uh, so, like, just, for me,
+       "I want you to", "go ahead and".
+     - A table of sound-alikes for command sentences only: to/too/two, for/four, eight/ate, "won" = one,
+       "the value" = volume, "time are" = timer, "a larm" = alarm.
+     - Small words may be missing or extra: "set volume 30", "set the volume to 30", "volume at 30" and
+       "put volume on 30" are one command.
+     - If a sentence matches no command exactly but is within one corrected word of exactly ONE command,
+       that command is taken. Within reach of two: he asks which. A risky action (shut down, close,
+       forget everything) is never reached by a correction without its normal yes.
+     - The tables live in one place in jarvis.py so a new mishearing is a one-line addition.
+  shortcut: no learned corrections ("when you hear X, I mean Y"). Add a small file if the fixed list is
+  not enough after a week of use.
+
+3c. Wake word (diagnose with Phase 0, then about 20 lines)
+  Possible causes, checked in this order:
+    1. JarvisWakeWord is not 1, or the HUD tier is 3 or higher.
+    2. The wake thread died in the start-up race (fixed by 1e).
+    3. The model file is missing in the venv.
+    4. The wrong microphone, or one that cannot do 16000 Hz.
+    5. The threshold is too high for the room and the voice.
+  Fixes, as far as the cause needs them:
+    - The hologram says why it is off: "WAKE OFF: tier", "WAKE OFF: no model", "WAKE OFF: no microphone".
+    - One log line a minute with the highest score seen (a number). This shows the right threshold.
+    - A Control Center row for JarvisWakeSensitivity.
+    - vad_threshold in openWakeWord (its built-in Silero speech check) against false triggers.
+    - Optional, on the user's word: a custom verifier trained on the user's voice. Needs at least 3 short
+      recordings of "Hey Jarvis" and about 10 seconds of other speech. They stay local; git ignores them.
+    - Speex noise suppression is Linux only, so it is not an option.
+
+3d. Which microphone (about 15 lines)
+  - New setting JarvisMic: empty = the Windows default (today), or part of a device name.
+  - Both input streams (l.632 and l.2243) use it. An unknown name falls back to the default and says so.
+  - A Control Center row that cycles through the input devices sounddevice reports.
+  - By voice, in Phase 7: "which microphone are you using", "use the headset microphone".
+
+3e. Turn other sound down while he listens (issue 26; about 30 lines, no new package)
+  - Music or a video in the room is a likely cause of mishearing. While the microphone is open for a
+    TURN (not during idle wake-word listening), the Windows volume is lowered to JarvisDuckLevel percent
+    of its current value, through the existing speakers() code, and put back before he speaks.
+  - Order in a turn: chime, lower, listen, restore, think, speak.
+  - Crash-safe: the old volume is written to a small file in Data\ before lowering and the file is
+    removed after restoring. At start-up a leftover file means a crash: restore, then remove it.
+  - A volume command in the same turn updates the stored value, so the restore does not undo it.
+  - Not when muted, at volume 0, or when the volume is already below the level.
+  - Settings JarvisDuck = 1 | 0 and JarvisDuckLevel = 30.
+  - shortcut: it lowers the whole Windows volume, not single apps. Lowering per app (so a call stays
+    loud) needs the per-app part of Core Audio, about 60 more lines. Upgrade if this annoys in use.
+  - It does not help the wake word hear you over music. That is the sensitivity row in 3c.
+
+Tests (fakes)
+  - 3b.5: filler and sound-alike sentences route like the clean ones; a sentence between two commands
+    asks; a chat sentence is never rewritten; no correction reaches shut down without a yes.
+  - 3e: the fake volume goes down for the listen and is back before the fake voice; an exception in
+    listen still restores; a leftover file at start restores once; "set volume to 30" in that turn ends
+    at 30, not at the old value; nothing happens when muted.
+  - The transcribe call carries hotwords, the prompt, beam 5 and the VAD filter.
+  - "set the volyum to 30" is corrected; "three volumes of a book" in a chat sentence is not.
+  - A low score on a command asks first; on a chat sentence it does not.
+  - JarvisMic picks the matching fake device; an unknown name gives the default and one log line.
+  - The wake loop reports the right "WAKE OFF" reason for each cause.
+
+Your live test after Phase 3
+  1. Say "Hey Jarvis" ten times from your normal seat. Count how often he wakes. Target: 9 of 10.
+  2. Leave a video running for ten minutes. Count false wakes. Target: none.
+  3. Say ten different commands with his name. Count how often the name is written correctly.
+  4. Mumble a volume command. He should ask "Volume to ...?" instead of guessing.
+  5. Say commands sloppily: "uh could you put volume on thirty please". It still works.
+  6. Play music, wake him: the music drops while he listens and comes back when he answers.
+
+Unverified until the live run: everything above, because it depends on the voice, room and microphone.
+Rollback: each item is a setting or the arguments of one call.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 4   INTERRUPTING HIM
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 4  (keeps talking when I say stop or his name)
+        issue 7  (doesn't let me interrupt in any case)
+        issue 15 (can think Jarvis is speaking after I stop it)
+        issue 23 (a stop key on the keyboard, only for interrupting)
+
+4a. Stopping must be instant (no new package, about 25 lines)
+  - play_samples(): write the sound in blocks of 50 ms and ABORT the stream on cancel, do not drain it.
+  - _windows(): keep the helper process by handle and kill it on cancel (today it can run 60 seconds).
+  - One function sets the HUD state. After a cancel it writes "idle" only when the stream is closed.
+  - A cancelled turn never opens a follow-up.
+  - This alone fixes issue 15 and makes the click stop feel immediate.
+
+4a-2. A stop key on the keyboard (issue 23; about 25 lines, no new package)
+  - ONLY for interruption. The key never wakes him and does nothing when he is idle.
+  - The daemon registers one global hotkey with Windows (RegisterHotKey through ctypes) ONLY while he is
+    speaking, thinking, listening or ringing, and releases it the moment he is idle. So the key keeps its
+    normal meaning in every program the rest of the time.
+  - A press does exactly what CANCEL does today: sound aborted (4a), alarm stopped, no follow-up.
+  - Setting JarvisStopKey = End. CHOSEN by the user on 2026-10-13: the End key next to Home and PgUp on
+    the Lenovo Legion 5i (Windows virtual key VK_END, 0x23). While registered, End does not reach the
+    program in front (for example "jump to end of line" in an editor), but only while he is active.
+  - Check first, read-only: that a press of that key reaches Windows as VK_END and not as an Fn-layer
+    key. If it does not, ask the user before choosing another.
+  - If Windows refuses the key (another program owns it): one log line and a HUD line, and everything
+    else works as before.
+  - Why not Rainmeter's own hotkey support: it would be active all the time and would wake him too.
+  - During an alarm the key stops it. It does not snooze.
+
+4b. Stopping by voice: three levels, the user picks
+
+  The hard part: on speakers the microphone hears his own voice. Every guide found says the same: real
+  barge-in needs echo cancellation with the played sound as the reference; without it, stay half-duplex
+  or accept false stops. Loudness-only detection triggers on his own voice.
+
+  Level                What it does                                        Speakers   New package
+  -------------------  --------------------------------------------------  ---------  -----------------
+  wake (default)       The wake-word model keeps running while he speaks.  yes        no
+                       "Hey Jarvis" stops him and he listens. Threshold
+                       raised during speech. A sentence of his own that
+                       contains his name is ignored.
+  voice                Any speech from you for 0.5 s stops him (Silero     no, head-  no
+                       speech check on the microphone).                    phones only
+  aec                  Echo cancellation first, then "voice" works on      yes        yes: a WebRTC audio
+                       speakers too.                                                  package. Experiment,
+                                                                                      size and Windows
+                                                                                      support shown first.
+
+  - New setting JarvisBargeIn = off | wake | voice. Default wake.
+  - ANSWERED by the user on 2026-10-13: they use both speakers and headphones. So the default stays
+    "wake" (safe on speakers) and the Control Center gets a BARGE-IN row to switch to "voice" when the
+    headphones are on. Optional later: switch by itself when the default output device is a headset
+    (needs the device kind from Windows; unverified). "aec" stays an approval-gated experiment.
+  - One microphone owner stays true: the wake loop owns the microphone during speech; playback never
+    opens it. Change needed: wake_loop() must keep the stream while `busy` is held ONLY in the speaking
+    state, and still drop it while a turn is recording.
+  - After a voice stop: "stop / quiet / never mind / enough" just ends it. Anything else is a new command.
+  - Stated plainly: at level "wake" the bare word "stop" is NOT heard while he speaks. "Hey Jarvis" or a
+    click is. Bare "stop" needs "voice" (headphones) or "aec".
+
+Tests (fakes)
+  - Cancel in mid-sentence: within 200 ms no more sound is written, the state is idle, `busy` is free,
+    no follow-up listen starts.
+  - The fake Windows-voice process is killed on cancel.
+  - The stop key: registered when a fake turn starts, released when it ends; a fake press cancels a
+    fake speech and a fake alarm; a press while idle does nothing and never starts a turn; a refused
+    registration leaves a turn working.
+  - A fake wake score during fake playback aborts it and opens exactly one listen.
+  - His own sentence containing "Jarvis" does not stop him.
+  - Microphone sessions never overlap. Level "off" behaves exactly as today.
+
+Your live test after Phase 4
+  1. Ask for something long ("tell me about black holes"). Click the hologram. He stops within a blink
+     and the hologram goes idle at once.
+  2. Same question. Say "Hey Jarvis" over him. He stops and listens.
+  3. Let him say a sentence with his own name in it ("who are you?"). He must not stop himself.
+  4. With headphones and level "voice": just start talking over him. He stops.
+  5. Press the stop key while he speaks: he stops at once. Press it while he is idle: nothing happens,
+     and the key does its normal job in the program in front.
+  6. Press it while an alarm rings: the alarm ends.
+
+Unverified until the live run: false stops from his own voice on your speakers. Fakes cannot prove this.
+Rollback: JarvisBargeIn=off. Revert the commit.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 5   ALARMS THAT BEHAVE LIKE ALARMS
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 9  (the ring lasts no time; it should be continuous and keep going)
+        issue 16 (snooze doesn't work)
+        issue 8  (asking about alarms that are set)
+
+5a. Continuous ring (about 35 lines, replaces the loop in alarm())
+  - A ring thread plays a phone-style cadence, about 2 s of tone and 0.7 s of gap, until an event stops it.
+  - He says the label once at the start and again every 30 s, not after every ring.
+  - It stops on: a click on the hologram, "Hey Jarvis" (the Phase 4 mechanism), or a stop or snooze word
+    heard in a gap.
+  - The gaps are how "stop" works WITHOUT the wake word. A cheap loudness check runs in each gap. Only if
+    someone speaks is the ring held and the words transcribed. Google does the same in spirit: a bare
+    "stop" works only while an alarm or timer is sounding.
+  - Safety cap: 10 minutes, then it is marked missed and shown on the HUD. (The length is a choice, not
+    taken from a source.)
+  - The next time of a repeating alarm is still saved BEFORE the ring starts, so a crash cannot make one
+    ring for ever.
+  - No follow-up listening while an alarm rings, as Alexa and Google do.
+  - Muted or STEALTH: no sound and no listening, the pop-up line only, as today.
+
+5b. Snooze (about 10 lines)
+  - It works now because the alarm is real (1b) and listening in the gaps is cheap (5a).
+  - Phrases: "snooze", "five more minutes", "ten more minutes", "again in ten", "later", "not now",
+    "snooze half an hour". Default stays 1 minute (SNOOZE = 60). Allowed range 1 minute to 2 hours.
+  - Snooze is checked before the stop words, so "okay, snooze" snoozes.
+  - He confirms with the real new time: "Snoozed until 7:11."
+
+5c. Asking about alarms (about 10 lines)
+  - "Do I have an alarm set", "what alarms are set", "when is my next alarm", "what timers are running"
+    are answered by code from the reminders file, never by the model.
+
+Tests (fake clock, fake sound, fake hear)
+  - The ring continues past 60 fake seconds.
+  - "stop" in a gap ends it. "snooze 5 minutes" saves it again and it rings again at the new time.
+  - Room speech that is not a stop word: the ring resumes.
+  - Silence reaches the cap and the item is marked missed.
+  - A click ends it.
+  - The list answer matches the file. A repeating alarm is back for tomorrow after firing.
+  - The old tests for repeating reminders still pass.
+
+Your live test after Phase 5
+  1. "Set an alarm for one minute." It rings and keeps ringing. Wait 30 seconds: still ringing.
+  2. Say "stop" (no name). It ends.
+  3. Again; say "snooze". He says "Snoozed until ...". It rings again one minute later.
+  4. Again; say "five more minutes". Then ask "do I have an alarm set?" He names the new time.
+  5. Again; click the hologram. It ends.
+
+Risk: room speech in a gap pauses the ring for a second or two. It resumes unless the words are a stop or
+snooze word.
+Rollback: revert the commit. The reminders file format is unchanged.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 6   RELEVANCE, TONE, MEMORY, SOUNDING HUMAN
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
+        issue 11 (cares too much about previous conversations)
+        issue 3  (playful when unnecessary or on a serious topic)
+        issue 14 (the memory function needs a relook)
+        issue 18 (responses should sound more human)
+
+6a. Only send what the question needs (about 40 lines)
+  context() is split into blocks. A block is added only when the question touches it:
+
+    Block           Added when the question has
+    --------------  ----------------------------------------------------------------------------
+    Time and date   always (one line)
+    Calendar        schedule, today, tomorrow, tonight, week, class, quiz, exam, meeting, free, busy,
+                    "when is", "what's on"
+    Mail count      mail, email, inbox, unread, message
+    To-dos          to-do, todo, task, "my list"
+    PC readings     cpu, gpu, temperature, hot, ram, memory, fan, power, battery
+    Network         wifi, network, internet, connection
+    Open apps       open, running, window, app
+    Profile         a question about the user (my, me, I) - and capped at 500 characters
+    Briefing        all blocks, as today
+
+  Plus one line in SYSTEM: "Answer only what was asked. Do not mention the data below unless the question
+  is about it."
+  Research: a 2026 study of models under 7B parameters found that the mere presence of context, relevant
+  or not, pulls answers off course. An earlier study found the effect grows with the amount of irrelevant
+  text. The fix both point to is not to send it.
+
+6b. Conversation history (about 10 lines, in turn())
+  - The last 2 exchanges (4 messages), not 8.
+  - Forgotten after 2 minutes without a turn, not 10, and at the end of a follow-up chain.
+  - "New topic", "never mind" and "forget that" clear it at once.
+  - Not sent at all for briefing and notes turns.
+
+6c. Tone (about 15 lines)
+  - New default "natural": "Sound like a calm, friendly person. Joke only if the user jokes first."
+    playful, proper and brief stay as choices. The Control Center row gets the fourth button.
+  - A fixed word list for serious topics (health, death, grief, money trouble, exams and grades, safety,
+    conflict, fear) forces the "proper" sentence for that turn, whatever the setting.
+  - Identity line in SYSTEM: he is a local assistant on this PC, not the film character, and has no
+    creator to name.
+  - If the live setting already says playful it is NOT changed silently. One click in the Control Center.
+
+6d. Memory relook (about 35 lines)
+  Faults found in the code: all 50 facts go into every prompt; saving works only with the exact words
+  "remember that" at the very start; forgetting matches exact words only; nothing stops two facts that
+  contradict each other.
+  Changes:
+  - Saving accepts "remember that", "note that", "don't forget that", "keep in mind that" (after the name
+    fix, so a misheard name no longer breaks it).
+  - Only facts that share words with the question go into the prompt, 5 at most.
+  - "What do you know about my dentist" lists the matching facts by code.
+  - A new fact about the same thing as an old one asks: "Replace 'dentist on Fridays'?"
+  - "Forget ..." reads back what it will remove and waits for yes when more than one fact matches.
+  - The model can still never write to memory. Only a spoken command does.
+  - Limits stay: 50 facts, 200 characters each, plain text in Data\jarvis_memory.txt, ignored by git.
+  ANSWERED by the user on 2026-10-13. All four bothered them:
+    1. He did not save what was said      -> the wider save phrases above, after the name fix (1a), and
+                                             the "Noted: ..." read-back so a miss is heard at once.
+    2. He brings facts up unasked         -> only matching facts in the prompt (above) plus the 6a line.
+    3. He forgets or changes facts        -> matching facts are placed in the prompt word for word under
+                                             "Facts the user told you. Use them exactly." A question that
+                                             matches one fact closely ("when is my dentist") is answered
+                                             by code with the stored words, not by the model.
+    4. He should learn by himself         -> NEW, about 25 lines. The rule stays that the model never
+                                             writes to memory. Instead: when you state a lasting fact about
+                                             yourself in a chat turn ("my sister's name is ...", "I'm
+                                             allergic to ...", "I work at ..."), fixed patterns in code
+                                             spot it and he asks after his answer: "Want me to remember
+                                             that?" A yes saves your own words. No answer saves nothing.
+                                             At most one offer per turn, none for a fact already stored,
+                                             and never for anything that looks like a password or number
+                                             string. Setting JarvisLearn = ask (default) | off.
+                                             shortcut: patterns, not the model, pick the facts, so he will
+                                             miss unusual wording. Let the model propose candidates (still
+                                             behind the same yes) if the patterns miss too much.
+  Tests for 3 and 4: a close question returns the stored words without the fake model; a fake sentence
+  "my sister's name is Ana" leads to one offer and a save only after yes; a digit string is never offered.
+
+6e. Wording for the ear (about 15 lines)
+  - Prompt rules from voice-agent guides: contractions; one or two short sentences; no lists, headings or
+    symbols; numbers, dates and times written the way they are said; never "as an AI"; at most one short
+    acknowledgement ("Sure.", "Got it.") and not every time.
+  - A small cleaner before the voice removes what slips through: asterisks, bullet marks, "#", and turns
+    "°C" and "%" into words.
+
+6f. A stronger chat model (needs approval; a download only if the chosen model is not installed)
+  - With 12 GB on the RTX an 8B model fits. The code's own default is llama3.1:8b; the live setting is
+    llama3.2:3b.
+  - Compare the models that are already installed with a fixed list of 20 questions: does it mention
+    unasked data, does it claim actions, does it keep to two sentences, seconds to the first word.
+  - Choose by the result. Never the first model in the list. Log the chosen model and the reason.
+
+Tests (fakes)
+  - "what's 12 times 9" builds a prompt with no calendar, mail or to-do text.
+  - "what's on today" has the calendar and nothing else extra.
+  - History holds 4 messages and is gone after the fake 2 minutes.
+  - A serious sentence gets the proper line even under playful.
+  - Fact retrieval picks the right facts, 5 at most. A contradicting fact asks first.
+  - The cleaner output has no symbols.
+
+Your live test after Phase 6
+  1. Ask ten everyday questions with nothing to do with school or mail. Count how often he mentions your
+     schedule, mail or to-dos. Target: zero.
+  2. "What's on today?" He does tell you the calendar.
+  3. Talk about something serious. No jokes.
+  4. Ask about A, wait three minutes, ask about B. He does not bring A back.
+  5. "Remember that ..." in three different wordings, then ask about it tomorrow.
+  6. "Who made you?" No film names.
+
+Unverified until the live run: tone and wording are judged by ear.
+Rollback: revert the commit. JarvisPersonality returns the old tone by setting.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 7   MORE SETTINGS BY VOICE
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 13 ("or anything else")
+        issue 20 (microphone settings, Bluetooth settings, "connect to ___")
+        issue 22 (airplane mode and other easy settings, section 7d)
+Depends on Phase 1 (name fix, near-miss catch, the truth rule) and Phase 3 (hearing).
+
+Rules for every new action
+  - It is a new fixed entry in ACTIONS. Nothing else can run. No shell text is ever built from speech.
+  - He says what Windows reports afterwards, never what was asked for.
+  - Anything that can cut you off (Bluetooth off, Wi-Fi off, microphone mute) asks for a yes first.
+  - Device names are matched against the list Windows gives. They are not written to the log.
+  - Tests use fakes: no real device is connected, muted or switched during a test.
+
+7a. Microphone (about 30 lines, no new package)
+    Say                                         Result
+    ------------------------------------------  ----------------------------------------------------
+    "mute the microphone" / "mute my mic"       asks first, because he cannot hear "unmute" afterwards.
+                                                A click on the hologram unmutes it again.
+    "unmute the microphone"                     unmutes (only useful from a click-started turn)
+    "set the microphone to 80 percent"          sets the input level
+    "turn the microphone up / down a bit"       10 steps
+    "which microphone are you using"            names the device
+    "use the headset microphone"                sets JarvisMic (3d). JARVIS's own choice; Windows' default
+                                                is not changed.
+    "be more sensitive" / "less sensitive"      JarvisWakeSensitivity one step
+    "wait longer" / "answer faster"             JarvisSilence one step
+  How: speakers() (l.1197) already talks to Windows Core Audio. The capture device is the same call with
+  the data-flow argument 1 instead of 0. One shared function, one extra argument.
+
+7b. Bluetooth (about 60 lines; the connect step needs an experiment first)
+    Say                                         Result
+    ------------------------------------------  ----------------------------------------------------
+    "turn Bluetooth on"                         switches the radio on
+    "turn Bluetooth off"                        asks first (it disconnects a Bluetooth mouse or headset)
+    "what's connected" / "Bluetooth devices"    reads the connected devices
+    "connect to <name>"                         finds the best match among PAIRED devices and tries to
+                                                connect. Then checks the real state and says "Connected
+                                                to ..." or "I couldn't connect to ...".
+    "disconnect from <name>"                    the same, the other way
+    "pair a new device"                         opens the Windows Bluetooth page. Pairing needs your
+                                                consent on screen, so it is never done by voice.
+  How, cheapest first:
+    - Radio on / off and the device list: Windows' own interfaces called from one fixed PowerShell line,
+      or through ctypes. No new package.
+    - Matching the spoken name: the same fuzzy scoring best_app() uses. Two close matches: he asks which.
+    - Connecting: Windows has no simple public command for "connect this paired device". For AUDIO devices
+      (headphones, speakers) the method Windows' own Connect button uses can be called through the same
+      COM helper the volume code uses. This is the experiment: try it on one paired headset, with the
+      user present, before it is built in.
+    - If it cannot connect that way: he opens the Windows quick-connect panel and says "I opened the list,
+      pick it there." He never says "connected" unless Windows reports it.
+    - "Whatever he can": paired audio devices first. A device that is off, out of range or never paired
+      gets the plain answer.
+
+7c. Other settings (each about 10 lines; build only the ones the user picks)
+    Setting            Say                                   How                         Asks first
+    -----------------  ------------------------------------  --------------------------  ----------
+    Screen brightness  "brightness to 60", "dim the screen"  Windows' brightness         no
+                                                             interface for the laptop
+                                                             panel. No package.
+    Wi-Fi              "turn Wi-Fi off / on"                 the same radio interface    off: yes
+                                                             as Bluetooth
+    Sound output       "switch sound to the headphones"      Windows has no public       no
+                                                             command. Optional; else
+                                                             he opens the sound panel.
+    Dark / light mode  "dark mode", "light mode"             one Windows user setting    no
+    Settings pages     "open Bluetooth settings",            a fixed table of            no
+                       "open sound settings", "display",     ms-settings: links
+                       "night light", "focus"
+    Night light,       no public Windows command. He opens the right settings page instead.
+    do not disturb
+    JARVIS's own       "be brief", "be playful", "change     the same single writer      no
+    settings           your voice", "turn follow-up off",    the Control Center uses
+                       "stealth mode", "mute yourself"       (check how jset writes
+                                                             before building)
+
+7d. More easy settings (added on request; each about 10 lines; build only the ones the user picks)
+  DECIDED by the user on 2026-10-13. Build now: power mode, the small actions (screenshot, show desktop,
+  recycle bin), the read-only ones (start-up apps, Windows Update / restart pending, storage).
+  NOT now: airplane mode, mobile hotspot, battery saver, screen off, second screen, refresh rate. They
+  stay in the table for later; do not build them unless the user asks again.
+  "Easy" means: Windows offers a fixed, documented switch that needs no new package and no admin rights.
+  Where Windows offers none, he opens the right settings page and says so. He never pretends.
+  Every "How" below is from memory and must be tried once, read-only where possible, before it is built.
+
+    Setting            Say                                   How                              Asks first
+    -----------------  ------------------------------------  -------------------------------  ----------
+    Airplane mode      "airplane mode on / off"              Windows has no public command    on: yes
+                                                             for the real switch. He turns
+                                                             the Wi-Fi and Bluetooth radios
+                                                             off (the 7b interface), remembers
+                                                             which ones HE turned off, and
+                                                             turns only those back on.
+    Mobile hotspot     "turn the hotspot on / off"           Windows' tethering interface.    no
+                                                             Experiment first.
+    Power mode         "best performance", "balanced",       powercfg with a fixed table of   no
+                       "power saver"                         plan ids read from the machine.
+                                                             Lenovo's own modes are separate.
+    Battery saver      "battery saver on"                    no clean command: opens the page no
+    Screen off         "turn the screen off"                 one Windows message, the same    no
+                                                             kind of call as the media keys
+    Second screen      "extend the screen", "duplicate",     DisplaySwitch.exe with one of    no
+                       "laptop screen only"                  four fixed arguments
+    Refresh rate       "set the screen to 60 hertz"          Windows display call; only       yes
+                                                             rates the panel reports
+    Screenshot         "take a screenshot"                   the Windows key press, through   no
+                                                             press_key()
+    Show desktop       "show the desktop", "minimise all"    the Windows key press            no
+    Recycle bin        "empty the recycle bin"               one Windows call. Cannot be      yes
+                                                             undone.
+    Start-up apps      "what starts with Windows"            read-only list; to change it he  no
+                                                             opens the Startup apps page
+    Windows Update     "are there updates",                  reads "restart pending";         no
+                       "open Windows Update"                 opens the page. He never
+                                                             installs or restarts for it.
+    Storage            "how full is my disk",                reads free space (Phase 9);      no
+                       "open storage settings"               opens the page
+
+  Not offered, because Windows gives no safe switch: night light, focus / do not disturb, keyboard
+  backlight, Lenovo fan and performance modes. For these he opens the page or says he cannot.
+  The near-miss catch (1d) learns the new nouns: airplane, hotspot, screen, power, recycle, screenshot.
+
+Tests (fakes)
+  - "airplane mode off" turns back on only the radios the fake recorded as turned off by him.
+  - Recycle bin, refresh rate and airplane mode on do nothing without a yes.
+  - Each phrase routes to the right action with the right argument.
+  - The microphone level uses the capture device, not the speakers.
+  - "connect to" with two close names asks which; with no match says so; a fake failed connect says
+    "couldn't connect" and never "connected".
+  - Bluetooth off, Wi-Fi off and microphone mute do nothing without a yes.
+  - No test touches a real device.
+
+Your live test after Phase 7 (one setting at a time)
+  1. "Mute the microphone." -> "Yes." Then check Windows sound settings. Click the hologram to undo.
+  2. "Set the microphone to 70 percent." Check the level in Windows.
+  3. "Turn Bluetooth off." -> "Yes." Then "turn Bluetooth on." (with a wired or built-in keyboard at hand)
+  4. Headphones switched on: "connect to <their name>". Sound moves to them, or he says he could not.
+  5. "Connect to banana." He says he has no such device.
+  6. "Brightness to 40."
+  7. "Airplane mode on." -> "Yes." Wi-Fi and Bluetooth go off. "Airplane mode off." Both come back.
+  8. "Extend the screen" with a second monitor attached. "Take a screenshot." Check the Pictures folder.
+
+Unverified until the live run: every one of these, because fakes cannot connect a real device.
+Risk: muting the microphone or turning Bluetooth off can cut you off from him. That is why both ask first
+and why the click always works.
+Rollback: revert the commit. Each action is undone by its opposite or in Windows settings.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 8   FOLLOW-UP TIMING AND SOUNDS
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 17 (follow-up only within 3 seconds, or "Jarvis ..." within 10 seconds)
+        issue 1  ("Jarvis online" off, startup noises much quieter)
+Small and independent: it can be done at any point.
+
+8a. Follow-up windows (about 20 lines, in turn() and _listen())
+  - After a spoken answer the microphone stays open for 10 s in total.
+  - Speech that STARTS within 3 s is a follow-up, as today.
+  - Speech that starts between 3 and 10 s counts only if it begins with his name (alias-aware, from 1a).
+    Anything else is dropped and not logged.
+  - Nothing after 10 s. Still at most 3 follow-ups in a row.
+  - Settings JarvisFollowWindow=3 and JarvisFollowNameWindow=10. JarvisFollowUp=0 still turns it all off.
+  - The hologram shows "listening" for the first 3 s, then a dimmer "standby" until 10 s.
+  - For comparison: Alexa keeps listening about 5 s and Google about 8 s, with no name rule.
+  - Stated plainly: room speech in seconds 3 to 10 is transcribed to look for the name, then dropped.
+
+8b. Sounds (about 20 lines)
+  - Phase 0 says where "Jarvis online" lives. If it is inside a wav file, that sound is switched off by
+    default and the file stays in the folder.
+  - The chime is played through the daemon's own sound path with a new setting JarvisChimeVolume
+    (default 25 percent) instead of winsound, which has no volume control.
+  - The boot sound is played by Rainmeter itself, which has no volume control either. Smallest fix: a
+    quieter copy of the wav, made once by a small script, with the original kept beside it.
+  - BootSound=0 turns the boot sound off completely.
+
+Tests (fakes)
+  - Speech at 2 s is taken. Speech at 5 s without the name is dropped; with the name it is taken.
+  - Nothing after 10 s. Three in a row, then no fourth.
+  - The chime samples are scaled by the setting.
+
+Your live test after Phase 8
+  1. Ask something. Answer within 3 seconds without his name: he takes it.
+  2. Ask something. Wait 5 seconds, say a sentence without his name: he ignores it.
+  3. Ask something. Wait 5 seconds, say "Jarvis, and tomorrow?": he takes it.
+  4. Wait 12 seconds, say "Jarvis, hello": nothing (the wake word is needed again).
+  5. Restart JARVIS and Rainmeter: no "Jarvis online", and the sounds are quiet.
+
+Rollback: the settings. The original wav files stay in the folder.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 9   ASK HIM WHAT IS WRONG (DIAGNOSIS)
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 21 (system logs, Task Manager information, which processes overload the system, "I could
+        just ask him what the issue is")
+Depends on: Phase 1 (truth rule, near-miss catch) and Phase 6a (a data block is sent only when the
+question needs it). Best after Phase 2, because a diagnosis answer is longer and needs the speed.
+Everything in this phase is READ-ONLY. It adds no action that changes the system.
+
+What exists today: sensors() (l.280) gives total CPU load, temperatures from the HUD, and GPU load and
+memory from nvidia-smi. Nothing per process, no logs, no disk, no network check.
+The venv has NO psutil, pynvml, wmi or pywin32 (checked 2026-10-13).
+
+9a. The design: code finds, the model words
+  1. A trouble question is recognised by route(): "why is my PC slow", "what's using my CPU", "why is the
+     fan loud", "what crashed", "is something wrong", "my Wi-Fi is slow", "no sound", "what's wrong".
+  2. Code takes ONE snapshot (9b), on demand only. Nothing is polled in the background, so idle cost is 0.
+     While it runs he says a pre-made filler ("Checking the system.") like the notes search does.
+  3. Code turns the snapshot into FINDINGS with fixed rules (9d), ranked by severity.
+  4. Simple questions are answered by code alone: "Chrome is using 71 percent of the CPU."
+  5. For "what's wrong" the findings, never the raw data, go to the model with one instruction: explain
+     these in two sentences, most serious first, invent nothing. No finding: the fixed line
+     "I can't see anything wrong: CPU 12 percent, memory 48 percent, disk fine, no errors today."
+  Why: a 3B model given a raw process list or raw log lines invents causes. Rules cannot.
+
+9b. The snapshot (about 60 lines of Python plus one fixed script; about 1 to 2 seconds)
+    Source                        What is read                                  Windows source
+    ----------------------------  --------------------------------------------  ---------------------------
+    Processes (Task Manager)      top 5 by CPU, by memory, by disk, by GPU;     performance counters
+                                  names and numbers only. Many processes of      (Process, GPU Engine,
+                                  one app are added up ("Chrome, 31 processes").  GPU Process Memory)
+    Totals                        CPU, memory used and committed, page file      the same counters
+    Disks                         free space per drive, busy time                counters, shutil
+    Heat and power                temperatures, fan, battery level, charging,    sensors() today; battery
+                                  battery wear, throttling                       from Windows
+    Network                       connected or not, Wi-Fi signal, time to the    netsh wlan show interfaces,
+                                  router and to one public address               two pings
+    Devices                       devices Windows marks as faulty (count, kind)  the device list
+    Windows                       time since last restart, restart pending,      Windows
+                                  start-up app count
+    JARVIS himself                his own problem lines (fixed texts), which     memory, not the log file
+                                  parts are on the GPU, why the wake word is off
+
+  How it is fetched, to be decided by a small timing experiment before building:
+    A. One fixed PowerShell script in the Jarvis folder (diag.ps1) that prints JSON. No new package.
+       Cost: PowerShell takes about a second to start. Recommended first.
+    B. The psutil package (about 1 MB): faster and less code for processes, but it does not give per-process
+       GPU use or the event log, so A is needed anyway. Only with approval.
+  No spoken text is ever passed to the script. Its only arguments are fixed words chosen by code
+  ("processes", "logs", "network"). Exit code and JSON are checked; bad output = "I couldn't read that."
+  No admin rights are requested. What needs them is reported as "I can't see that without admin rights".
+
+9c. System logs (about 40 lines)
+  - Source: the Windows event log, "System" and "Application", errors and critical events of the last
+    24 hours (or "since the last restart", "this week" when asked). The Security log is never read.
+  - Code groups them by source and event number and counts them. A fixed table turns the known ones into
+    plain words. Examples to verify one by one before building:
+      unexpected shutdown or power loss      the graphics driver stopped and recovered
+      blue screen                            an app crashed or stopped responding (the app's name)
+      disk errors                            a Windows service stopped unexpectedly
+      hardware error reported by the CPU     Windows ran low on memory
+    A short list of known harmless noise is ignored.
+  - An unknown event gives source, number and count only. The free text of an event is NOT sent to the
+    model and not written anywhere: it can hold user names and file paths.
+  - Questions answered by code: "what crashed today", "did the PC shut down badly", "any errors since
+    this morning", "how often did the graphics driver crash this week".
+  - Also read: Windows' reliability history (app and Windows failures per day), if the timing allows.
+
+9d. The rules that make a finding (a fixed table; thresholds are starting values, tune after a week)
+    Finding                                        Rule
+    ---------------------------------------------  ------------------------------------------------------
+    One app is eating the processor                one app above 50 percent CPU over the sample
+    Memory is nearly full                          above 90 percent used; names the largest app
+    A disk is nearly full                          below 10 percent or 10 GB free
+    A disk is the bottleneck                       busy above 90 percent; names the app writing most
+    The GPU is busy / its memory is full           above 90 percent; names the app (JARVIS's own model
+                                                   is named as such)
+    Running hot / being slowed down by heat        temperature near the limit, or throttling reported
+    On battery in a power-saving mode              explains slowness on battery
+    The Wi-Fi signal is weak / the router is slow  signal below 40 percent; router ping above 100 ms
+    Internet down but Wi-Fi up                     router answers, public address does not
+    A device has a problem                         Windows reports a faulty device
+    Something crashed                              from 9c, with the count
+    A restart is pending / up for many days        Windows flag; uptime above 14 days
+    JARVIS is on the CPU                           from Phase 2
+  Each finding is one line of numbers and names. "Why is the fan loud" = heat + top CPU app + top GPU app.
+
+9e. What he may do about it
+  - Nothing by himself. He names the cause and offers the action that already exists:
+    "Chrome is using 71 percent. Want me to close it?" -> the existing close action with its yes.
+  - A fixed list of Windows' own processes can never be closed, whatever is said.
+  - No forced "end task", no service stop, no driver or update action. These stay with the user.
+  - DECIDED by the user on 2026-10-13: he may warn without being asked, but ONLY with the pop-up line on
+    the HUD, never aloud. So: a slow watch, one snapshot a minute (about 15 more lines).
+      - It uses the same rules as 9d. A finding must hold for 3 checks in a row before it is shown, and
+        the same finding is not shown again for 30 minutes.
+      - It shows one line through the existing pop-up path (the one a muted alarm uses). No sound, no
+        chime, no listening, no model call.
+      - It does not run on HUD tier 3 or higher, on battery, or while a turn is busy.
+      - Measure its cost first (CPU percent and milliseconds per check, per CLAUDE.md section 4). If one
+        check costs more than about 1 percent of a core averaged over the minute, lengthen the interval.
+      - Setting JarvisWatch = 1 (0 turns it off).
+
+9f. Privacy
+  - Process names and counts go to the LOCAL model only. Window titles are never read (they hold document
+    and site names). Nothing from a snapshot is written to JARVIS's log except timings and counts.
+  - He can speak app names aloud (the user agreed on 2026-10-13). In STEALTH or muted he shows the line on the HUD only, as today.
+
+Tests (fakes: a fake snapshot, a fake script result, a fake event list)
+  - Each trouble phrase routes to diagnosis; "what's using my CPU" is answered without the fake model.
+  - A fake snapshot with one app at 80 percent gives exactly that finding, ranked first.
+  - 31 fake processes of one app are added up under one name.
+  - A clean fake snapshot gives the fixed "nothing wrong" line and the fake model is never called.
+  - A fake event with free text: the text reaches neither the prompt nor the log.
+  - A script that fails or prints rubbish gives "I couldn't read that", never a guess.
+  - The watch: a finding seen once shows nothing; seen 3 times shows one pop-up and plays no sound;
+    it is not repeated inside 30 fake minutes; nothing runs on tier 3 or on battery.
+  - "close it" after a finding asks for a yes; a Windows system process is refused.
+  - The model prompt holds findings only, and holds none of them for an unrelated question.
+
+Your live test after Phase 9
+  1. Start something heavy (a game or a video export). Ask "why is my PC slow?" He names it.
+  2. "What's using my memory?" Compare with Task Manager's Memory column.
+  3. "What's using the graphics card?" Compare with Task Manager's GPU column.
+  4. "Why is the fan loud?" He gives the temperature and the app behind it.
+  5. "Did anything crash today?" Compare with Event Viewer, Windows Logs.
+  6. Switch the router off for a moment. "Is my internet working?"
+  7. With nothing wrong: "Is anything wrong?" He says no and gives the numbers.
+  8. Leave something heavy running for five minutes without asking. A pop-up line appears, silently.
+  9. Time from the end of your question to his first word. Target: under 4 seconds once on the GPU.
+
+Unverified until built and run: the exact counter names on this machine, per-process GPU numbers on a
+hybrid laptop, which events appear without admin rights, and the script's run time.
+Risk: a wrong rule blames the wrong app. He only names and offers; closing still needs your yes.
+Risk: a game can show high CPU and be fine. The rules say "is using", never "is broken".
+Rollback: revert the commit. Nothing is installed, stored or changed on the system by this phase.
+
+
+========================================================================================================
+PART E   CHECKS AFTER EVERY PHASE
+========================================================================================================
+From Skins\Spaceship\@Resources\Jarvis (Git Bash):
+
+  "$LOCALAPPDATA/SpaceshipHUD/venv/Scripts/python.exe" -B test_jarvis.py; echo "exit $?"
+       expect: test_jarvis: OK, exit 0
+  py -3 -B test_jarvis.py; echo "exit $?"
+       expect: the same (the global Python, to prove the tests need no private package)
+  "$LOCALAPPDATA/SpaceshipHUD/venv/Scripts/python.exe" -B check_voice.py
+       expect: check_voice: OK
+
+  Old routes unchanged: a scratch script (check_route.py, rewrite it if the scratch folder is gone) loads
+  the last committed jarvis.py and the new one with fake settings and compares route() for about 70
+  phrases that worked before. Expect: 0 routed differently, apart from the ones the phase changes on purpose.
+
+  Lua: syntax check of control.lua, jarvis.lua and boot.lua through the lupa package in a scratch folder.
+  Rainmeter has no stand-alone Lua, so behaviour of new Control Center rows is unverified until a live run.
+
+  Then: read the diff, list the changed files, and stop for the user's live test.
+
+  Before a commit:  git status, read the staged list, never "git add .".
+  Rollback:         before a commit: git checkout -- <files>.  After: git revert <commit>.
+
+
+========================================================================================================
+PART F   NEW SETTINGS THIS PLAN ADDS
+========================================================================================================
+  Setting                   Default   Phase   Meaning
+  ------------------------  --------  ------  ----------------------------------------------------------
+  JarvisNameAliases         (list)    1       extra spellings Whisper writes for his name
+  JarvisGPU                 prefer    2       prefer | require
+  JarvisWhisperDevice       auto      2       EXISTS. The live value "cpu" must become auto (user's click)
+  JarvisWhisper             base.en   2       EXISTS. small.en once on the GPU, with approval
+  JarvisDuck                1         3       lower other sound while he listens; 0 = off
+  JarvisDuckLevel           30        3       percent of the current volume while he listens
+  JarvisStopKey             End       4      the keyboard key that stops him; never wakes him
+  JarvisMic                 (empty)   3       part of an input device name; empty = Windows default
+  JarvisWakeSensitivity     0.5       3       EXISTS. Gets a Control Center row
+  JarvisBargeIn             wake      4       off | wake | voice
+  JarvisPersonality         natural   6       EXISTS. New value "natural"; a set value is not changed
+  JarvisFollowWindow        3         8       seconds to start a follow-up without his name
+  JarvisFollowNameWindow    10        8       seconds to start one that begins with his name
+  JarvisChimeVolume         25        8       percent
+  BootSound                 0         8       EXISTS. Off by default after Phase 8
+  JarvisDiagnose            1         9       0 turns the diagnosis questions off (nothing is read)
+  JarvisLogHours            24        9       how far back the system log is read by default
+  JarvisLearn               ask       6       ask | off: offers to remember a fact you state about yourself
+  JarvisWatch               1         9       silent pop-up warnings from a once-a-minute check; 0 = off
+
+  How a new setting reaches Settings.inc: check first whether jset in control.lua can add a key that is
+  not there yet. If not, add default lines to the repo's Settings.inc and view the diff with
+  git diff -U0 only (the file holds personal paths).
+
+
+========================================================================================================
+PART G   OPEN QUESTIONS (none blocks a phase from starting)
+========================================================================================================
+  1. Issue 19 says "turns on my CPU too". This plan reads it as "turns on my GPU too".
+  2. ANSWERED: the live JarvisWhisperDevice=cpu was not on purpose. Switch to the GPU (Phase 2a).
+  3. ANSWERED: both speakers and headphones. Default "wake", a row to switch to "voice" (Phase 4b).
+  4. ANSWERED: all four memory faults, including "learn by himself" (Phase 6d).
+  5. Which of the settings in 7c do you want? Only those get built.
+  6. Is the laptop ever in "integrated graphics only" mode, and do you switch it by hand?
+  7. ANSWERED: blank the personal paths in the repo's Settings.inc going forward (empty defaults; the
+     real values stay only in the live skin). Do it as its own small step with its own approval, view the
+     diff with git diff -U0 only, and check first that an empty path does not break the to-do, notes and
+     profile features. The old commits still show the paths: history is NOT rewritten.
+  8. ANSWERED: from 7d build power mode, the small actions and the read-only ones. The rest not now.
+  9. ANSWERED: app names aloud are fine. Warnings without being asked: pop-up only, never aloud.
+  10. ANSWERED: the stop key is End, next to Home and PgUp on the Legion 5i (4a-2).
+
+
+========================================================================================================
+PART H   RESEARCH SOURCES
+========================================================================================================
+Commands before the model, and never claiming an action
+  https://www.home-assistant.io/voice_control/assist_create_open_ai_personality/
+  https://community.home-assistant.io/t/assist-canonicalizer-improve-voice-assistant-accuracy-for-natural-device-control-with-instant-local-feedback/1014170
+  https://arxiv.org/pdf/2509.18970
+  https://tianpan.co/blog/2026-04-14-phantom-tool-calls-when-ai-agents-invoke-tools-that-dont-exist
+Speech recognition and the GPU
+  https://github.com/systran/faster-whisper/blob/master/README.md
+  https://github.com/openai/whisper/pull/2070
+  https://arxiv.org/html/2309.09552v4
+Wake word
+  https://github.com/dscripka/openwakeword/blob/main/README.md
+  https://github.com/dscripka/openwakeword/blob/main/docs/custom_verifier_models.md
+  https://community.home-assistant.io/t/wake-word-sensitivity/629189
+Interrupting (barge-in) and echo cancellation
+  https://dev.to/vaiu-ai/how-to-build-reliable-barge-in-logic-for-voice-agents-k1a
+  https://vocal.com/echo-cancellation/aec-barge-in/
+  https://pypi.org/project/echoff/
+  https://www.youngju.dev/blog/ai-platform/2026-03-08-ai-platform-realtime-voice-chatbot-barge-in-guide.zh
+Alarms and follow-up windows
+  https://www.androidpolice.com/2019/05/07/you-can-finally-just-say-stop-to-silence-your-google-home-and-smart-display-alarms/
+  https://www.techhive.com/article/578300/how-to-set-alexa-and-google-assistant-to-listen-for-follow-up-questions.html
+  https://venturebeat.com/2019/03/08/google-brings-continued-conversation-to-google-assistant-smart-displays
+Small models and unneeded context
+  https://arxiv.org/pdf/2603.11513
+  https://arxiv.org/pdf/2404.03302
+Wording for the ear
+  https://docs.vapi.ai/prompting-guide
+  https://docs.rime.ai/docs/prompting
+  https://murf.ai/blog/voice-agent-prompt-design
+
+Not researched (stated so nobody assumes otherwise): Bluetooth connection methods on Windows and the
+Lenovo graphics switch. Both are marked as experiments in Phases 7b and 2c. Also not researched: the
+Windows switches in 7d and the counters and event numbers in Phase 9. They are written from memory and
+each one gets a read-only trial on this machine before it is built. The 10-minute alarm cap and
+the 0.5 s speech length in Phase 4 are choices, not sourced values.
