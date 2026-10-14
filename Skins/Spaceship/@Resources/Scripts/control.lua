@@ -469,9 +469,9 @@ local function cycle(list, cur, d)
   for i, v in ipairs(list) do if v == cur then idx = i end end
   return list[(idx - 1 + d) % #list + 1]
 end
-local function models()
+local function models(file)
   local out = {}
-  local f = io.open(RES .. 'Data\\jarvis_models.txt', 'r')
+  local f = io.open(RES .. 'Data\\' .. (file or 'jarvis_models.txt'), 'r')
   if f then for line in f:lines() do if line ~= '' then out[#out + 1] = line end end; f:close() end
   return out
 end
@@ -589,6 +589,28 @@ local function rowsJarvis()
     { 'ON', function() jset('JarvisWakeWord', 1) end, ww }, { 'OFF', function() jset('JarvisWakeWord', 0) end, not ww },
     { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
+  local mic, mics = H.str('JarvisMic', ''), models('jarvis_mics.txt')   -- listed by jarvis.py at start
+  local function nextMic(d)
+    if #mics == 0 then say('START JARVIS ONCE TO LIST THE MICROPHONES') else jset('JarvisMic', cycle(mics, mic, d)) end
+  end
+  rows[#rows + 1] = { 'MICROPHONE', (mic ~= '' and mic or 'WINDOWS DEFAULT') .. '   - used for the wake word and when he listens', {
+    { '<', function() nextMic(-1) end }, { '>', function() nextMic(1) end },
+    { 'DEFAULT', function() jset('JarvisMic', '') end, mic == '' } } }
+  local duck, dlevel = H.num('JarvisDuck', 1) == 1, H.num('JarvisDuckLevel', 30)
+  rows[#rows + 1] = { 'DUCK MUSIC', (duck and 'ON' or 'OFF') .. string.format(' - other sound goes down to %d %% while he listens (the whole Windows volume)', dlevel), {
+    { 'ON', function() jset('JarvisDuck', 1) end, duck }, { 'OFF', function() jset('JarvisDuck', 0) end, not duck },
+    { '-', function() jbump('JarvisDuckLevel', -10, 10, 80, 30) end }, { '+', function() jbump('JarvisDuckLevel', 10, 10, 80, 30) end } } }
+  local barge = string.lower(H.str('JarvisBargeIn', 'wake'))
+  if barge ~= 'off' and barge ~= 'voice' then barge = 'wake' end
+  local bargeText = { off = 'OFF - only a click or the stop key stops him', wake = 'WAKE - "Hey Jarvis" while he talks stops him and he listens',
+    voice = 'VOICE - any speech stops him (HEADPHONES ONLY: on speakers his own voice would)' }
+  rows[#rows + 1] = { 'BARGE-IN', bargeText[barge], {
+    { 'OFF', function() jset('JarvisBargeIn', 'off') end, barge == 'off' },
+    { 'WAKE', function() jset('JarvisBargeIn', 'wake') end, barge == 'wake' },
+    { 'VOICE', function() jset('JarvisBargeIn', 'voice') end, barge == 'voice' } } }
+  local sk = string.lower(H.str('JarvisStopKey', 'end')) ~= 'off'
+  rows[#rows + 1] = { 'STOP KEY', sk and 'END - stops him while he talks, thinks or rings; free for other apps when he is idle' or 'OFF', {
+    { 'END', function() jset('JarvisStopKey', 'end') end, sk }, { 'OFF', function() jset('JarvisStopKey', 'off') end, not sk } } }
   local fu = H.num('JarvisFollowUp', 1) == 1
   rows[#rows + 1] = { 'FOLLOW-UP', fu and 'ON - after a spoken answer he listens a few seconds more, no wake word needed (3 in a row at most)' or 'OFF - every question needs the wake word or a click', {
     { 'ON', function() jset('JarvisFollowUp', 1) end, fu }, { 'OFF', function() jset('JarvisFollowUp', 0) end, not fu } } }

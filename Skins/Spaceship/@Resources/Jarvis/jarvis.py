@@ -24,6 +24,10 @@ JarvisSilence (seconds of silence before he answers, default 1), JarvisFirstWord
 words, default 5; 0 = wait for a whole sentence), ObsidianTodo (open to-dos), JarvisProfile ("about me" note),
 JarvisVault (Obsidian vault folder for "search my notes" - default: the to-do note's folder).
 JarvisSmartSearch (1 = ChromaDB meaning-based note search, falls back to keywords), JarvisWakeWord (default 1 = say "Hey Jarvis" instead of clicking; 0 = off), JarvisWakeSensitivity (0.2-0.9, lower = more sensitive), JarvisIdleUnload (minutes without a turn before the speech models are freed, default 10; 0 = keep them loaded).
+JarvisMic (part of the microphone's name; empty = the Windows default), JarvisDuck (default 1 = other sound goes down
+while he listens; 0 = off), JarvisDuckLevel (how far down, % of the volume it was, 10-80, default 30).
+JarvisBargeIn (off | wake = "Hey Jarvis" stops him mid-sentence, the default | voice = any speech stops him, headphones
+only), JarvisStopKey (end = the End key stops him while he is busy, the default; off).
 Skills: instant status phrases while searching, a whitelist of actions (risky ones need a spoken "yes"), and
 guardrails - nothing outside the whitelist is ever executed.
 Every problem is logged to Data\\jarvis.log, shown on the hologram (ERR) and added to the conversation pop-up.
@@ -57,6 +61,8 @@ CONVO_FILE = os.path.join(DATA, "jarvis_log.txt")    # the conversation the log 
 LIVE_FILE = os.path.join(DATA, "jarvis_live.txt")    # the reply being written right now
 LOG_FILE = os.path.join(DATA, "jarvis.log")
 MODELS_FILE = os.path.join(DATA, "jarvis_models.txt")   # installed Ollama models, for the Control Center
+MICS_FILE = os.path.join(DATA, "jarvis_mics.txt")       # input devices, for the Control Center
+DUCK_FILE = os.path.join(DATA, "jarvis_duck.txt")       # "old lowered" volume while he listens with other sound down
 OLLAMA = "http://127.0.0.1:11434"
 NO_WINDOW = 0x08000000
 
@@ -115,6 +121,8 @@ class State:
 
     def set(self, state=None, level=None, say=None, err=None, force=True, pop=None):
         with self.lock:
+            if state in ("speaking", "thinking", "listening") and cancel.is_set():
+                state = None                                    # stopped: a late write from a dying turn never shows
             if state is not None:
                 self.state = state
             if level is not None:
@@ -149,6 +157,15 @@ S = State()
 cancel = threading.Event()
 busy = threading.Lock()
 mic = threading.Lock()                  # whoever has the microphone open holds this: the wake word or a turn, never both
+JARVIS_WORD = re.compile(r"\bjarvis\b", re.I)
+name_until = [0.0]                      # until then he is saying "Jarvis" himself: the wake word ignores it
+
+
+def stop_now(why):
+    """Stop him at once (a click, the stop key, talking over him): sound, Windows voice and turn end, the HUD is idle."""
+    cancel.set()
+    S.set(state="idle", level=0.0)
+    log(f"stop: {why}")
 
 
 # ------------------------------------------------------------------ what's installed
@@ -778,12 +795,26 @@ def real_words(text):
     return text
 
 
+heard_score = [0.0]            # the lowest segment avg_logprob of the last transcript: below -1.0 Whisper was unsure
+HINT = "Hey Jarvis, set a timer for ten minutes. Jarvis, turn the volume down."   # words he should expect
+
+
+def _decode(model, audio):
+    """Whisper told what to expect. VAD trims the silence; when it leaves nothing (it can cut a short "yes") the audio
+    is decoded once more without it, and without the hint, which Whisper can say back on near-silence."""
+    opts = dict(beam_size=5 if _whisper_dev[0] == "cuda" else 3, language="en", condition_on_previous_text=False)
+    segs = list(model.transcribe(audio, vad_filter=True, hotwords="Jarvis", initial_prompt=HINT, **opts)[0])
+    if not segs:
+        segs = list(model.transcribe(audio, vad_filter=False, **opts)[0])
+    heard_score[0] = min((getattr(s, "avg_logprob", 0.0) for s in segs), default=0.0)
+    return real_words(" ".join(s.text for s in segs).strip())
+
+
 def transcribe(audio):
     if audio is None:
         return ""
     try:
-        segs, _ = whisper().transcribe(audio, beam_size=1, language="en", vad_filter=False)
-        return real_words(" ".join(s.text for s in segs).strip())
+        return _decode(whisper(), audio)
     except Exception as e:
         if "cuda" in str(e).lower() or "cublas" in str(e).lower() or "cudnn" in str(e).lower():
             global _whisper
@@ -792,8 +823,7 @@ def transcribe(audio):
                 with _whisper_lock:                            # gpu_watch() moves it back to the card later
                     m = _whisper = _load_whisper("cpu")
                     _whisper_dev[0], _gpu_try[0] = "cpu", time.time()
-                segs, _ = m.transcribe(audio, beam_size=1, language="en", vad_filter=False)
-                return real_words(" ".join(s.text for s in segs).strip())
+                return _decode(m, audio)
             except Exception as cpu_e:
                 log(f"whisper CPU fallback also failed: {cpu_e}")
                 raise cpu_e
@@ -806,9 +836,81 @@ def listen(wait=3, patience=6):
     if not mic.acquire(timeout=wait):                          # the wake word lets go within a second of a turn starting
         raise RuntimeError("The microphone is busy - try again")
     try:
+        duck()
         return _listen(patience)
     finally:
         mic.release()
+        unduck()                                               # before anything is said or run: a volume command keeps its value
+
+
+_mic_missing = [""]
+
+
+def mic_device():
+    """JarvisMic (Control Center > JARVIS > MICROPHONE): part of an input device's name; empty = the Windows default.
+    MME first: it converts to 16 kHz itself, WASAPI may refuse that rate."""
+    want = setting("JarvisMic", "").strip().lower()
+    if not want:
+        return None
+    import sounddevice as sd
+    apis = sd.query_hostapis()
+    found = [(apis[d["hostapi"]]["name"] != "MME", i) for i, d in enumerate(sd.query_devices())
+             if d["max_input_channels"] > 0 and want in d["name"].lower()]
+    if found:
+        return min(found)[1]
+    if _mic_missing[0] != want:                                # once, not on every listen
+        _mic_missing[0] = want
+        log(f"microphone '{want}' not found - using the Windows default")
+    return None
+
+
+def list_mics():
+    """The input devices (MME names, the ones mic_device() opens first) for the Control Center's MICROPHONE row."""
+    try:
+        import sounddevice as sd
+        apis = sd.query_hostapis()
+        names = sorted({d["name"] for d in sd.query_devices() if d["max_input_channels"] > 0
+                        and apis[d["hostapi"]]["name"] == "MME" and not d["name"].startswith("Microsoft Sound Mapper")})
+        with open(MICS_FILE, "w", encoding="utf-8") as f:
+            f.write("\n".join(names) + "\n")
+    except Exception as e:
+        log(f"microphone list failed ({type(e).__name__})")
+
+
+# shortcut: lowers the whole Windows volume, not single apps; per-app (Core Audio sessions) is ~60 more lines, if it annoys
+def duck():
+    """While he listens, other sound goes down to JarvisDuckLevel % (default 30) of what it was; JarvisDuck=0 = off.
+    What to put back is written to a file first, so a crash meanwhile is put right at the next start."""
+    if setting("JarvisDuck", "1") != "1" or os.path.exists(DUCK_FILE):   # a file left over: its value is the real one
+        return
+    try:
+        level = max(10, min(80, int(float(setting("JarvisDuckLevel", "30")))))
+        is_muted, old = speakers()
+        low = old * level // 100
+        if is_muted or old <= low:
+            return
+        with open(DUCK_FILE, "w", encoding="utf-8") as f:
+            f.write(f"{old} {low}")
+        speakers(volume=low / 100)
+    except (OSError, ValueError) as e:
+        log(f"duck failed ({type(e).__name__})")
+
+
+def unduck():
+    """Put the volume back, unless it was changed meanwhile (yours stays)."""
+    try:
+        with open(DUCK_FILE, encoding="utf-8") as f:
+            old, low = map(int, f.read().split())
+    except FileNotFoundError:
+        return
+    except (OSError, ValueError):
+        old = low = None                                       # unreadable: just remove it
+    try:
+        if old is not None and speakers()[1] == low:
+            speakers(volume=old / 100)
+        os.remove(DUCK_FILE)
+    except OSError as e:
+        log(f"unduck failed ({type(e).__name__})")
 
 
 def follow_wait():
@@ -831,7 +933,7 @@ def _listen(patience=6):
         quiet_blocks = 33
     stream = None
     try:
-        stream = sd.InputStream(samplerate=rate, channels=1, dtype="float32", blocksize=block)
+        stream = sd.InputStream(samplerate=rate, channels=1, dtype="float32", blocksize=block, device=mic_device())
     except Exception as e:
         raise RuntimeError("No microphone available (" + str(e).split("\n")[0][:60] + ") - check Windows Settings > Privacy > Microphone")
     
@@ -1000,8 +1102,21 @@ def _windows(text):
           f"if ($v) {{ $s.SelectVoice($v.VoiceInfo.Name) }}; $s.Rate = {voice_rate()}; "
           f"$s.SetOutputToWaveFile('{safe_path}'); $s.Speak([Console]::In.ReadToEnd()); $s.Dispose()")
     try:
-        subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], input=text.encode("utf-8"),
-                       creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+        p = subprocess.Popen(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], stdin=subprocess.PIPE,
+                             creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        data, end = text.encode("utf-8"), time.time() + 60
+        while True:                                            # a stop kills it at once, not after the whole sentence
+            try:
+                p.communicate(data, timeout=0.1)
+                break
+            except subprocess.TimeoutExpired:
+                data = None                                    # sent once; later calls only wait
+                if cancel.is_set() or time.time() > end:
+                    p.kill()
+                    p.wait()
+                    if cancel.is_set():
+                        return None
+                    raise
         if os.path.exists(path) and os.path.getsize(path) > 100:
             return _wav_to_array(path)
         return None
@@ -1077,6 +1192,7 @@ def play_samples(a, rate):
         with sd.OutputStream(samplerate=rate, channels=ch, dtype="float32") as out:
             for i in range(0, len(a), block):
                 if cancel.is_set():
+                    out.abort()                                # drop what is queued: silent now, not after the buffer
                     break
                 chunk = np.ascontiguousarray(a[i:i + block], dtype=np.float32)
                 out.write(chunk)
@@ -1144,10 +1260,12 @@ def _speak_queue(q, t0):
             if cancel.is_set():                                # cancelled while a sentence was still being made
                 break
             continue
-        if item is None:
+        if item is None or cancel.is_set():                    # stopped: the rest is never said
             break
         audio, said = item
         spoken = (spoken + " " + said).strip()
+        if audio is not None and JARVIS_WORD.search(said):     # his own "Jarvis" must not wake the barge-in
+            name_until[0] = time.time() + len(audio[0]) / audio[1] + 1.0
         if first:
             S.set(state="speaking")
             log(f"timing: reply start -> first audio {time.time() - t0:.2f}s")
@@ -1573,6 +1691,49 @@ def strip_name(text):
     return text[m.end():]
 
 
+# ------------------------------------------------------------------ autocorrect: a command Whisper got slightly wrong
+FILLER = re.compile(r"\b(?:please|could you|can you|would you|um+|uh+|so|like|just|for me|i want you to|go ahead and)\b,?", re.I)
+SOUNDALIKE = [(r"\bthe value\b", "the volume"), (r"\btime are\b", "timer"), (r"\ba larm\b", "alarm"), (r"\bwon\b", "one"),
+              (r"\bate\b", "eight"), (r"\bfor for\b", "for four"), (r"\bto+ (?=(?:minutes|seconds|hours)\b)", "two ")]
+PHRASES = [(r"^(?:make|change) (?:the )?volume (?:to |at )?(\w+(?: \w+)?)$", r"set the volume to \1")]   # what route() misses
+CMD_WORDS = ("volume mute unmute timer alarm reminder snooze cancel pause resume skip next previous track song louder "
+             "quieter remind minutes seconds hours").split()
+KEEP = set("minute second hour alarms timers reminders tracks songs volumes mutes muted music".split())   # already right
+
+
+def tidy(text):
+    """Filler words out, sound-alikes fixed, small-word variants put the way route() reads them."""
+    t = " ".join(FILLER.sub(" ", strip_name(text)).split()).strip(" ,.!?")
+    for pat, rep in SOUNDALIKE + PHRASES:
+        t = re.sub(pat, rep, t, flags=re.I)
+    return t
+
+
+def fix_route(text, routed):
+    """A chat line or near-miss of up to 8 words that becomes exactly one command once tidied or with one word swapped
+    for a close command word (volyum -> volume) is that command; two different ones -> he asks. Otherwise as heard."""
+    if not (routed[0] == "chat" or routed[3] == NEAR_MISS) or len(text.split()) > 8:
+        return routed
+    import difflib
+    base = tidy(text)
+    tries = [base] + [re.sub(rf"\b{w}\b", m, base, flags=re.I) for w in {w.lower() for w in re.findall(r"[A-Za-z]{4,}", base)}
+                      if w not in CMD_WORDS and w not in KEEP for m in difflib.get_close_matches(w, CMD_WORDS, n=2, cutoff=0.8)]
+    found = {}
+    for t in tries:
+        r = route(t)
+        if r[0] in ("act", "remind", "level", "multi") and r[3] != NEAR_MISS:
+            found.setdefault((r[0], r[1], re.sub(r"\.\d+", "", repr(r[2]))), (t, r))   # due times differ by microseconds
+    if len(found) == 1:
+        r = next(iter(found.values()))[1]
+        log(f"autocorrect: {r[0]} {r[1]}")                     # what kind, never the words
+        return r
+    if len(found) > 1:
+        a, b = [t for t, _ in found.values()][:2]
+        log("autocorrect: two readings - asked")
+        return ("say", None, None, f"Did you mean {a} or {b}? Say it once more.")
+    return routed
+
+
 def no_claims(sentences, collected):
     """The chat answer as it is spoken: a sentence that says an action was done is replaced, and the answer ends there."""
     for s in sentences:
@@ -1765,7 +1926,7 @@ def reply_line(text, quiet):
 def hear():
     """Listen once more inside a turn and return the words ("" for silence or a click)."""
     audio = listen() if not cancel.is_set() else None
-    return transcribe(audio) if audio is not None else ""
+    return strip_name(transcribe(audio)) if audio is not None else ""   # the "Jarvis" hotword can put the name before a "yes"
 
 
 def as_said(text, part):
@@ -2750,7 +2911,7 @@ turn_id = [0.0]
 NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left them|Cancelled)\.$")   # he was told to drop it: no follow-up
 # a whole follow-up reply that means "we're done": he stops without answering
 ENDERS = re.compile(r"(?:(?:ok|okay|alright|great|cool|perfect|no|nah) )?(?:thanks|thank you|that's all|that's it|no thanks|"
-                    r"no thank you|nope|no|goodbye|bye|i'm good|i'm fine|nothing|stop|all good|cheers)(?: jarvis)?")
+                    r"no thank you|nope|no|goodbye|bye|i'm good|i'm fine|nothing|stop|all good|cheers|quiet|never mind|enough)(?: jarvis)?")
 
 
 def command_reply(kind, action, target, prompt, quiet):
@@ -2867,7 +3028,7 @@ def turn(tier, follow=0):
             if not quiet:
                 speak_all([reply])
             return
-        kind, action, target, prompt = route(text)
+        kind, action, target, prompt = fix_route(text, route(text))
         if kind == "heard":
             fixed(f"I heard: {recent['you']}" if recent["you"] else "I haven't heard anything yet.")
             return
@@ -2877,6 +3038,11 @@ def turn(tier, follow=0):
         if ask_ai(text, (kind, action, target, prompt)):       # a missed command: the AI's reading, checked, or as before
             filler("confirm_wait", quiet)                      # "One moment." while the model reads it; the answer waits for it
             kind, action, target, prompt = interpret(model, text) or (kind, action, target, prompt)
+        if cancel.is_set():                                    # stopped while the model read it: nothing runs
+            return
+        if kind == "act" and prompt is None and heard_score[0] < -1.0:   # Whisper was unsure: never act on a guess
+            prompt = f"Did you say: {text}?"
+        # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
         recent["you"] = text
         extra = ""
         if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
@@ -2952,6 +3118,7 @@ def turn(tier, follow=0):
         else:
             speak_all(no_claims(sentences_from(stream, collected), collected))
         reply = "".join(collected).strip()
+        S.set(state="idle", level=0.0)                        # done talking: the HUD doesn't wait for the GPU check
         if ollama_on_cpu(model):
             chat_to_gpu(model)
         else:
@@ -2979,7 +3146,7 @@ def turn(tier, follow=0):
         busy.release()
         # in finally, so a fixed reply's `return` gets here too. The lock is free for an instant: a reminder that
         # came due while he spoke goes first, and this then simply ends
-        if again and follow < 3 and setting("JarvisFollowUp", "1") == "1":
+        if again and follow < 3 and setting("JarvisFollowUp", "1") == "1" and not cancel.is_set():
             turn(tier, follow + 1)
 
 
@@ -2994,9 +3161,74 @@ def hud_tier():
         return 0
 
 
+def barge_in():
+    """JarvisBargeIn: off | wake ("Hey Jarvis" stops him mid-sentence, the default) | voice (any speech, headphones only)."""
+    v = setting("JarvisBargeIn", "wake").strip().lower()
+    return v if v in ("off", "wake", "voice") else "wake"
+
+
+def barge_turn(follow):
+    """The turn after he was talked over: waits for the stopped one to let go (up to 5 s), then listens once."""
+    end = time.time() + 5
+    while busy.locked():
+        if time.time() > end:
+            log("barge-in: the stopped turn didn't end - not listening")
+            return
+        time.sleep(0.05)
+    turn(hud_tier(), follow)
+
+
+STOP_KEYS = {"end": 0x23}                                     # VK_END
+
+
+def stop_key_loop():
+    """JarvisStopKey (End, or off): while he is busy the key stops him, like a click; when idle it is not taken, so it
+    never wakes him and other apps keep it. A hotkey belongs to the thread that made it, so all of it runs here."""
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    msg, held, refused = wintypes.MSG(), None, None           # held: the key name now registered; refused: the one Windows said no to
+    while True:
+        try:
+            key = setting("JarvisStopKey", "end").strip().lower()
+            want = key if busy.locked() and key in STOP_KEYS and key != refused else None
+            if held and held != want:
+                user32.UnregisterHotKey(None, 1)
+                held = None
+            if want and not held:
+                if user32.RegisterHotKey(None, 1, 0x4000, STOP_KEYS[want]):   # MOD_NOREPEAT
+                    held = want
+                else:
+                    refused = want                             # not retried until the setting changes
+                    log(f"stop key: Windows refused {want.upper()} (another app has it)")
+                    problem(f"Stop key: {want.upper()} is taken by another app - pick another in Control Center", popup=False)
+            if refused and key != refused:
+                refused = None
+            while user32.PeekMessageW(ctypes.byref(msg), None, 0x0312, 0x0312, 1):   # WM_HOTKEY, PM_REMOVE
+                if held:
+                    stop_now("stop key")
+        except Exception as e:
+            log(f"stop key: {e!r}")
+            time.sleep(5)
+        time.sleep(0.05)
+
+
 def wake_loop():
     import numpy as np
     model, stream, warned = None, None, False
+    off, mic_bad, best, minute = None, False, 0.0, time.time()   # why it is off (logged once per change); top score this minute
+    heard_talk, no_vad = 0, False                              # 80 ms blocks heard while he speaks; "voice" without a VAD logged
+
+    def load(**vad):
+        import openwakeword
+        from openwakeword.model import Model
+        try:
+            return Model(wakeword_models=["hey_jarvis"], inference_framework="onnx", **vad)
+        except ImportError:
+            raise
+        except Exception:
+            openwakeword.utils.download_models(model_names=["hey_jarvis"])   # first run: fetch the model
+            return Model(wakeword_models=["hey_jarvis"], inference_framework="onnx", **vad)
 
     def drop():
         """Close the microphone and hand it back."""
@@ -3010,33 +3242,44 @@ def wake_loop():
             mic.release()
     while True:
         try:
-            want = setting("JarvisWakeWord", "1") == "1" and setting("JarvisEnabled", "1") == "1" and hud_tier() < 3
-            if not want or busy.locked():
+            tier = hud_tier()
+            why = ("turned off" if setting("JarvisWakeWord", "1") != "1" else "Jarvis off"
+                   if setting("JarvisEnabled", "1") != "1" else f"HUD tier {tier}" if tier >= 3 else None)
+            if why != off:
+                off = why
+                log(f"wake off: {why}" if why else "wake on")
+            barge = barge_in()
+            talking = busy.locked() and getattr(S, "state", "") == "speaking" and barge != "off"
+            heard_talk = heard_talk if talking else 0
+            if why or (busy.locked() and not talking):         # mic kept only while he speaks: listen() gets it at once
                 drop()
-                time.sleep(0.5)
+                time.sleep(0.05 if barge != "off" and busy.locked() and not why else 0.5)   # catch him starting to speak
                 continue
             if model is None:
-                import openwakeword
-                from openwakeword.model import Model
                 try:
-                    model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
-                except Exception:
-                    openwakeword.utils.download_models(model_names=["hey_jarvis"])   # first run: fetch the model
-                    model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+                    model = load(vad_threshold=0.5)                # Silero VAD: no wake on music or a TV without speech
+                except ImportError:
+                    raise
+                except Exception as e:
+                    log(f"wake word: without the speech filter ({type(e).__name__})")
+                    model = load()
                 log("wake word ready - say 'Hey Jarvis'")
             if stream is None:
                 import sounddevice as sd
                 if not mic.acquire(timeout=0.5):               # a turn is recording
                     continue
                 try:
-                    stream = sd.InputStream(samplerate=16000, channels=1, dtype="int16", blocksize=1280)
+                    stream = sd.InputStream(samplerate=16000, channels=1, dtype="int16", blocksize=1280, device=mic_device())
                     stream.start()
                     model.reset()
+                    mic_bad = False
                 except Exception as e:
                     if stream is None:
                         mic.release()
                     drop()
-                    log(f"wake word: couldn't open microphone - {e}")
+                    if not mic_bad:                            # once per outage, not every 5 s
+                        mic_bad = True
+                        problem(f"Wake word: no microphone ({str(e).splitlines()[0][:60]})", popup=False)
                     time.sleep(5)
                     continue
             data, _ = stream.read(1280)
@@ -3045,11 +3288,35 @@ def wake_loop():
                 need = max(0.2, min(0.9, float(setting("JarvisWakeSensitivity", "0.5"))))
             except ValueError:
                 need = 0.5
-            if max(scores.values()) >= need:
-                log(f"wake word heard ({max(scores.values()):.2f})")
+            best = max(best, max(scores.values()))
+            if time.time() - minute >= 60:                     # a near miss shows what sensitivity would have worked
+                if best >= 0.1:
+                    log(f"wake: best {best:.2f} this minute")
+                best, minute = 0.0, time.time()
+            follow = None                                      # set when he is talked over: 0 = "Hey Jarvis", 1 = any voice
+            if talking:
+                heard_talk += 1
+                if barge == "voice" and getattr(model, "vad", None) is None and not no_vad:
+                    no_vad = True
+                    log("barge-in: no speech filter loaded - only 'Hey Jarvis' stops him")
+                vad = list(getattr(getattr(model, "vad", None), "prediction_buffer", []))[-7:]
+                if barge == "voice" and heard_talk >= 7 and len(vad) == 7 and min(vad) >= 0.5:   # 0.56 s of speech
+                    follow = 1                                 # a follow-up: "stop" ends it, anything else is a command
+                need = min(need + 0.2, 0.95)                   # his own voice is in the room too
+                if follow is None and time.time() < name_until[0]:   # he is saying "Jarvis" himself
+                    continue
+            if follow is None and max(scores.values()) >= need:
+                follow = 0
+            if follow is not None:
+                log(f"wake word heard ({max(scores.values()):.2f})" if not talking else f"barge-in ({'voice' if follow else 'wake'})")
+                if talking:
+                    stop_now("barge-in")
                 drop()
                 model.reset()
-                threading.Thread(target=turn, args=(hud_tier(),), daemon=True).start()
+                if talking:
+                    threading.Thread(target=barge_turn, args=(follow,), daemon=True).start()
+                else:
+                    threading.Thread(target=turn, args=(hud_tier(),), daemon=True).start()
                 time.sleep(1.0)                                # let the turn take the microphone
         except ImportError as e:
             if not warned:
@@ -3059,8 +3326,12 @@ def wake_loop():
                 warned = True
             time.sleep(10)
         except Exception as e:
-            log(f"wake word: {e!r}")
             drop()
+            if model is None and not warned:                   # no model: shown in the Control Center, once
+                warned = True
+                problem(f"Wake word: the model didn't load ({type(e).__name__})", popup=False)
+            else:
+                log(f"wake word: {e!r}")
             time.sleep(5)
 
 
@@ -3107,9 +3378,11 @@ def main():
     owner = True
     started = time.time()
     log(f"started ({RES}), Python {sys.version.split()[0]}")
+    unduck()                                                   # a crash while he listened left the volume down
     miss = missing_packages()
     S.set(state="idle", level=0.0, err=("Setup needed - missing " + ", ".join(miss)) if miss else "")
     threading.Thread(target=preload_ollama, daemon=True).start()
+    threading.Thread(target=stop_key_loop, daemon=True).start()
     if not miss:
         # one at a time, here: imported at once by the threads below, numpy half-loaded broke the others (wake word, voice)
         for name in ("numpy", "onnxruntime", "faster_whisper", "openwakeword", "sounddevice"):
@@ -3117,6 +3390,7 @@ def main():
                 __import__(name)
             except Exception as e:
                 log(f"start-up import of {name} failed ({type(e).__name__})")
+        list_mics()
         threading.Thread(target=preload_whisper, daemon=True).start()
         threading.Thread(target=prepare_fillers, daemon=True).start()
         threading.Thread(target=wake_loop, daemon=True).start()
@@ -3156,7 +3430,7 @@ def main():
                 tier = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
                 threading.Thread(target=turn, args=(tier,), daemon=True).start()
             elif parts[0] == "CANCEL":
-                cancel.set()
+                stop_now("click")
             elif parts[0] == "REINDEX":
                 _chroma.update(seen={}, last=0.0, failed=False)
                 threading.Thread(target=chroma_index, kwargs={"force": True}, daemon=True).start()

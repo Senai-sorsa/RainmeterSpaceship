@@ -1,12 +1,15 @@
 """Self-check for jarvis.py: plain asserts, no test framework.  Run:  py -3 -B test_jarvis.py"""
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jarvis as j
+j.DUCK_FILE = os.path.join(tempfile.mkdtemp(), "duck.txt")       # never the real Data folder
+j.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
 
 # no disk, no sound card, no processes: fixed app list, fixed window list, recorded mute calls and commands
-real_start_apps, real_transcribe = j.start_apps, j.transcribe
+real_start_apps, real_transcribe, mic_listen = j.start_apps, j.transcribe, j.listen
 j.start_apps =lambda: [("Google Chrome", "Chrome"), ("Microsoft Edge", "MSEdge"), ("Notepad", "notepad")]
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 muted_to, ran = [], []
@@ -437,7 +440,7 @@ def within(seconds, fn, *args):
 
 j.S, j.muted, j.live, j.filler_done = _S(), lambda: False, words.append, lambda: None
 j.setting = lambda name, default="": default
-real_synth_audio = j.synth_audio
+real_synth_audio, real_play_samples, real_speak_all, real_windows = j.synth_audio, j.play_samples, j.speak_all, j._windows
 j.synth_audio = lambda text: (text, 1)
 j.play_samples = lambda a, rate: played.append(a)
 many =[str(i) for i in range(20)]
@@ -1271,5 +1274,514 @@ for phrase, want in (("Thanks for watching!", ""), (" you", ""), ("Subtitles by 
     j.whisper = lambda: types.SimpleNamespace(transcribe=lambda a, **k: ([types.SimpleNamespace(text=phrase)], None))
     assert real_transcribe("audio") == want, phrase
 j.whisper = real_whisper                                          # an empty transcript is already silence in turn()
+
+# ---- Phase 3: hearing you correctly
+# 3a: Whisper is told what to expect; VAD trims the silence, and an empty result is decoded once more without it
+calls = []
+S_ = types.SimpleNamespace
+
+
+class OptWhisper:
+    def __init__(self, segs):
+        self.segs = segs
+
+    def transcribe(self, audio, **k):
+        calls.append(k)
+        return (self.segs if k["vad_filter"] else [S_(text="yes", avg_logprob=-0.2)]), None
+
+
+for dev, beam in (("cuda", 5), ("cpu", 3)):
+    calls.clear()
+    j._whisper_dev[0] = dev
+    j.whisper = lambda: OptWhisper([S_(text="set a timer", avg_logprob=-0.3), S_(text="for ten minutes", avg_logprob=-1.4)])
+    assert real_transcribe("audio") == "set a timer for ten minutes" and len(calls) == 1, calls
+    k = calls[0]
+    assert k["beam_size"] == beam and k["vad_filter"] is True and k["hotwords"] == "Jarvis" and k["language"] == "en", k
+    assert "Jarvis" in k["initial_prompt"] and k["condition_on_previous_text"] is False, k
+    assert j.heard_score[0] == -1.4, j.heard_score
+calls.clear()
+j.whisper = lambda: OptWhisper([])                                # VAD cut a short "yes"
+assert real_transcribe("audio") == "yes" and [c["vad_filter"] for c in calls] == [True, False]
+assert "initial_prompt" not in calls[1], "no prompt without VAD: on near-silence Whisper can say the prompt back"
+assert j.heard_score[0] == -0.2
+j.whisper, j._whisper_dev[0], j.heard_score[0] = real_whisper, None, 0.0
+# the "Jarvis" hotword made real Whisper hear a short "Yes." as "Jarvis Yes." (bench, small.en on the RTX)
+real_listen, real_tr = j.listen, j.transcribe
+j.listen, j.transcribe = lambda: "audio", lambda audio: "Jarvis Yes."
+assert j.hear() == "Yes." and j.confirmed({"expires": 2}, j.hear(), 1)
+j.transcribe = lambda audio: "Jarvis"                             # the name alone stays as said
+assert j.hear() == "Jarvis"
+j.listen, j.transcribe = real_listen, real_tr
+
+# 3b: a command Whisper got slightly wrong is corrected; chat is never rewritten
+j.setting = lambda name, default="": default
+same = lambda a, b: j.fix_route(a, j.route(a))[:3] == j.route(b)[:3]
+assert same("uh could you put volume on thirty please", "set the volume to 30")    # route() reads this one itself
+for heard, meant in (("set the volyum to 30", "set the volume to 30"), ("make the volume 30", "set the volume to 30"),
+                     ("set the value to 30", "set the volume to 30"), ("Jarvis, valume up", "volume up")):
+    assert j.route(heard)[0] != "act" and same(heard, meant), (heard, j.fix_route(heard, j.route(heard)))
+for heard in ("set a tymer for 5 minutes", "set a time are for 5 minutes", "set an alarn for ate"):
+    assert j.route(heard)[0] != "remind" and j.fix_route(heard, j.route(heard))[:2] == ("remind", "set"), heard
+for heard in ("three volumes of a book", "tell me a joke", "what is the value of pi", "I like the music",
+              "please set the volyum to 30 and then tell me a long story about it"):      # over 8 words: as said
+    r = j.route(heard)
+    assert j.fix_route(heard, r) is r, heard
+r = j.fix_route("enmute the sound", j.route("enmute the sound"))
+assert r[0] == "say" and r[3].startswith("Did you mean ") and r[3].endswith("? Say it once more."), r
+assert "unmute" in r[3] and " mute" in r[3], r
+r = j.fix_route("um lock my computer please", ("chat", None, None, None))
+assert r[:2] == ("act", "lock") and r[3], "a correction never skips the yes"
+# 3b.3: Whisper unsure + a command that acts at once -> he asks first; chat is never asked about
+j.speakers, j.muted, vol[0] = _speakers, lambda: False, 40
+asked.clear()
+back = iter(["set the volume to 30", "no"])
+j.listen, j.transcribe = lambda: "audio", lambda a: next(back, "")
+j.setting = lambda name, default="": "0" if name == "JarvisFollowUp" else default
+j.heard_score[0] = -1.5
+j.turn(0)
+assert asked[0] == "Did you say: set the volume to 30?" and asked[-1] == "Cancelled." and vol[0] == 40, asked
+asked.clear()
+back = iter(["set the volume to 30"])
+j.heard_score[0] = 0.0
+j.turn(0)
+assert vol[0] == 30 and not any(a.startswith("Did you say") for a in asked), asked
+n, asked[:] = len(prompts), []
+back = iter(["Tell me a joke."])
+j.heard_score[0] = -1.5
+j.turn(0)
+assert len(prompts) == n + 1 and not any(a.startswith("Did you say") for a in asked), asked
+j.heard_score[0] = 0.0
+j.setting = lambda name, default="": default
+
+# 3d: the microphone you picked, MME first; unknown or empty = the Windows default
+lines = []
+j.log = lines.append
+real_sd = sys.modules.get("sounddevice")
+sys.modules["sounddevice"] = S_(
+    query_hostapis=lambda: [{"name": "MME"}, {"name": "Windows WASAPI"}],
+    query_devices=lambda: [{"name": "Microphone (USB Mic)", "hostapi": 1, "max_input_channels": 1},
+                           {"name": "Microsoft Sound Mapper - Input", "hostapi": 0, "max_input_channels": 2},
+                           {"name": "Microphone (USB Mic)", "hostapi": 0, "max_input_channels": 1},
+                           {"name": "Speakers (USB Mic)", "hostapi": 0, "max_input_channels": 0}])
+for want, dev in (("usb MIC", 2), ("", None), ("Studio", None), ("Studio", None)):
+    j.setting = lambda name, default="", want=want: want if name == "JarvisMic" else default
+    assert j.mic_device() == dev, (want, j.mic_device())
+assert len([x for x in lines if "studio" in x]) == 1, lines               # unknown: one line, not one per listen
+j.list_mics()
+with open(j.MICS_FILE, encoding="utf-8") as f:
+    assert f.read().split("\n")[:-1] == ["Microphone (USB Mic)"]
+j.setting = lambda name, default="": default
+
+# 3e: other sound down while he listens, put back after; yours wins if you changed it meanwhile
+heard_at = []
+j.listen, j.speakers, vol[0] = mic_listen, _speakers, 50
+j._listen = lambda patience: heard_at.append(vol[0]) or "audio"
+assert j.listen() == "audio" and heard_at == [15] and vol[0] == 50 and not os.path.exists(j.DUCK_FILE)
+j._listen = lambda patience: _no_voice("")
+assert isinstance(within(2, j.listen), RuntimeError) and vol[0] == 50 and not j.mic.locked()
+j._listen = lambda patience: vol.__setitem__(0, 70) or "audio"
+j.listen()
+assert vol[0] == 70 and not os.path.exists(j.DUCK_FILE)
+heard_at.clear()
+j._listen = lambda patience: heard_at.append(vol[0]) or "audio"
+j.setting = lambda name, default="": "0" if name == "JarvisDuck" else default
+j.listen()
+assert heard_at == [70] and vol[0] == 70                          # turned off
+j.setting = lambda name, default="": "50" if name == "JarvisDuckLevel" else default
+j.listen()
+assert heard_at[-1] == 35 and vol[0] == 70                        # the level is yours
+j.setting = lambda name, default="": default
+vol[0] = 0
+j.listen()
+assert heard_at[-1] == 0 and vol[0] == 0                          # nothing to lower
+set_to = []
+j.speakers = lambda mute=None, volume=None: set_to.append(volume) or (True, 60)
+j.listen()
+assert set_to == [None] * len(set_to), "muted: left alone"
+j.speakers, vol[0] = _speakers, 15
+with open(j.DUCK_FILE, "w", encoding="utf-8") as f:              # a crash while he listened
+    f.write("60 15")
+j.unduck()
+assert vol[0] == 60 and not os.path.exists(j.DUCK_FILE)
+vol[0] = 15
+j.unduck()
+assert vol[0] == 15, "put back once"
+
+# 3c: why the wake word is off goes to the log; a model or microphone failure to the Control Center
+class Stop(BaseException):
+    pass
+
+
+def stop(s):
+    raise Stop
+
+
+class WakeModel:
+    def __init__(self, **k):
+        if wake_fail[0]:
+            raise RuntimeError("no model file")
+
+
+def run_wake(conf):
+    lines.clear()
+    j.problem = lambda msg, popup=True: lines.append(("problem", msg, popup))
+    j.setting = lambda name, default="": conf.get(name, default)
+    j.time.sleep = stop
+    try:
+        j.wake_loop()
+    except Stop:
+        pass
+    j.time.sleep = lambda s: None
+    return lines
+
+
+def _no_mic(**k):
+    raise OSError("no input device")
+
+
+wake_fail = [False]
+real_oww = {m: sys.modules.get(m) for m in ("openwakeword", "openwakeword.model")}
+sys.modules["openwakeword"] = S_(utils=S_(download_models=lambda model_names: None))
+sys.modules["openwakeword.model"] = S_(Model=WakeModel)
+sys.modules["sounddevice"].InputStream = _no_mic
+assert "wake off: turned off" in run_wake({"JarvisWakeWord": "0"})
+j.hud_tier = lambda: 3
+assert "wake off: HUD tier 3" in run_wake({})
+j.hud_tier = lambda: 0
+assert "wake off: Jarvis off" in run_wake({"JarvisEnabled": "0"})
+assert any(x[0] == "problem" and x[1].startswith("Wake word") and x[2] is False for x in run_wake({}) if type(x) is tuple), lines
+wake_fail[0] = True
+assert any(x[0] == "problem" and x[1].startswith("Wake word") and x[2] is False for x in run_wake({}) if type(x) is tuple), lines
+for m, mod in list(real_oww.items()) + [("sounddevice", real_sd)]:
+    if mod is None:
+        sys.modules.pop(m, None)
+    else:
+        sys.modules[m] = mod
+j.log, j.setting = (lambda *a: None), (lambda name, default="": default)
+
+# ---- Phase 4: stopping him, and talking over him
+import ctypes
+import subprocess
+import numpy as np
+j.S = _S()
+default_setting = lambda name, default="": default
+# 4a: one stop: cancel set, the HUD idle at once
+states.clear()
+j.stop_now("test")
+assert j.cancel.is_set() and states[-1] == idle
+j.cancel.clear()
+# a late "speaking" from a dying turn never shows after a stop; once a new turn clears it, it shows again
+real_state_file, j.STATE_FILE = j.STATE_FILE, os.path.join(tempfile.mkdtemp(), "state.txt")
+st = j.State()
+j.cancel.set()
+st.set(state="speaking")
+assert st.state == "idle"
+j.cancel.clear()
+st.set(state="speaking")
+assert st.state == "speaking"
+j.STATE_FILE = real_state_file
+# the sound stops mid-sentence: the stream is aborted (queued audio dropped), nothing more is written
+out_log = []
+
+
+class _Out:
+    def __init__(self, **k):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        out_log.append("closed")
+
+    def write(self, chunk):
+        out_log.append("w")
+        if out_log.count("w") == 3:
+            j.cancel.set()
+
+    def abort(self):
+        out_log.append("abort")
+
+
+sys.modules["sounddevice"] = S_(OutputStream=_Out)
+states.clear()
+real_play_samples(np.zeros(24000, np.float32), 24000)
+assert out_log == ["w", "w", "w", "abort", "closed"] and states[-1] == {"level": 0.0}, out_log
+j.cancel.clear()
+out_log.clear()
+real_play_samples(np.zeros(1920, np.float32), 24000)               # not stopped: played to the end, never aborted
+assert out_log == ["w", "w", "closed"], out_log
+if real_sd is None:
+    sys.modules.pop("sounddevice", None)
+else:
+    sys.modules["sounddevice"] = real_sd
+# stopped while the first sentence was made: he never shows "speaking" and plays nothing
+played.clear(), states.clear()
+j.play_samples = lambda a, rate: played.append(a)
+j.synth_audio = lambda text: (j.cancel.set(), (text, 1))[1]
+assert within(5, real_speak_all, ["one", "two"]) is None and played == [] and not any(s.get("state") == "speaking" for s in states), states
+j.cancel.clear()
+# his own "Jarvis": the wake word ignores it for that sentence and a second after
+j.synth_audio = lambda text: (text, 1)
+j.name_until[0] = 0.0
+within(5, real_speak_all, ["I am Jarvis."])
+assert j.name_until[0] > time.time() + 5
+j.name_until[0] = 0.0
+within(5, real_speak_all, ["Hello there."])
+assert j.name_until[0] == 0.0
+# the Windows voice: killed on a stop, killed after 60 s, and a normal run as before
+procs = []
+
+
+class _Proc:
+    hang = False
+
+    def __init__(self, args, **kw):
+        assert "timeout" not in kw and kw.get("stdin") == subprocess.PIPE
+        self.n, self.killed = 0, False
+        procs.append(self)
+
+    def communicate(self, data=None, timeout=None):
+        self.n += 1
+        assert (data is not None) == (self.n == 1), "the text is sent once"
+        if _Proc.hang:
+            if self.n == 3:
+                j.cancel.set()
+            raise subprocess.TimeoutExpired("powershell", timeout)
+
+    def kill(self):
+        self.killed = True
+
+    def wait(self):
+        return 1
+
+
+real_popen, j.subprocess.Popen = j.subprocess.Popen, _Proc
+assert real_windows("hello") is None and not procs[-1].killed        # ran, made no file (fake): no audio
+_Proc.hang = True
+t0 = time.time()
+assert real_windows("hello") is None and procs[-1].killed and procs[-1].n == 3 and time.time() - t0 < 1
+j.cancel.clear()
+clock = [real_time()]
+j.time.time = lambda: clock.__setitem__(0, clock[0] + 10) or clock[0]
+j.cancel.set = lambda: None                                        # never stopped: only the 60 s limit ends it
+assert real_windows("hello") is None and procs[-1].killed
+j.time.time = real_time
+del j.cancel.set
+_Proc.hang, j.subprocess.Popen = False, real_popen
+# a click while the model reads a missed command: it never runs, and no follow-up opens
+acts, listens = [], [0]
+real_ask_ai, real_interpret, real_filler = j.ask_ai, j.interpret, j.filler
+j.ask_ai, j.filler = (lambda text, r: True), (lambda *a: None)
+j.interpret = lambda model, text: (j.stop_now("click"), ("act", "volume", "30", None))[1]
+j.run_action = lambda action, target: acts.append(action) or True
+j.muted, j.transcribe = (lambda: False), (lambda a: "make it louder")
+j.listen = lambda **k: listens.__setitem__(0, listens[0] + 1) or "audio"
+j.setting = default_setting
+states.clear()
+j.turn(0)
+assert acts == [] and listens[0] == 1 and states[-1] == idle and not j.busy.locked(), (acts, listens)
+j.ask_ai, j.interpret, j.filler = real_ask_ai, real_interpret, real_filler
+# stopped mid-reply: no follow-up; and the HUD is idle before the slow GPU check, not after it
+j.transcribe = lambda a: "Tell me a joke."
+j.speak_all = lambda sentences, *a: (list(sentences), j.stop_now("click"))
+listens[0] = 0
+j.turn(0)
+assert listens[0] == 1 and states[-1] == idle and not j.busy.locked()
+j.speak_all = lambda sentences, *a: list(sentences)
+j.ollama_on_cpu = lambda model: states.append("gpu check")
+states.clear()
+j.listen = lambda **k: listens.__setitem__(0, 9) or "audio" if listens[0] < 9 else None
+listens[0] = 0
+j.turn(0)
+assert states.index(idle) < states.index("gpu check"), states
+j.ollama_on_cpu = lambda model: None
+# "never mind" / "quiet" / "enough" end a follow-up; a command with the word in it does not
+for text in ("never mind", "quiet", "enough", "okay never mind", "stop jarvis"):
+    assert j.ENDERS.fullmatch(text), text
+for text in ("quiet the music", "enough of this song", "never mind the timer, set an alarm"):
+    assert not j.ENDERS.fullmatch(text), text
+# a stop while an alarm rings (the stop key calls stop_now): it ends, no snooze
+j.ding, j.synth_audio = lambda: ("ding", 1), lambda text: (text, 1)
+j.play_samples = lambda a, rate: (played.append(a), j.stop_now("stop key"))
+assert ring([]) == (1, ["timer"]) and convo[-1] == ("J", "(stopped)")
+j.play_samples = lambda a, rate: played.append(a)
+
+
+# 4a-2: the stop key, registered only while he is busy, with a fake Windows
+class _U32:
+    def __init__(self, ok=True):
+        self.calls, self.ok, self.msgs = [], ok, 0
+
+    def RegisterHotKey(self, hwnd, n, mods, vk):
+        self.calls.append(("reg", mods, vk))
+        return 1 if self.ok else 0
+
+    def UnregisterHotKey(self, hwnd, n):
+        self.calls.append(("unreg",))
+        return 1
+
+    def PeekMessageW(self, *a):
+        if self.msgs:
+            self.msgs -= 1
+            return 1
+        return 0
+
+
+def run_key(u32, steps, conf={}):
+    """Runs stop_key_loop; after each pass the next step runs, and after the last one the loop ends."""
+    j.setting = lambda name, default="": conf.get(name, default)
+    real_windll, ctypes.windll, it = ctypes.windll, S_(user32=u32), iter(steps)
+
+    def sleep(s):
+        step = next(it, None)
+        if step is None:
+            raise Stop
+        step()
+    j.time.sleep = sleep
+    try:
+        j.stop_key_loop()
+    except Stop:
+        pass
+    finally:
+        ctypes.windll, j.time.sleep, j.setting = real_windll, (lambda s: None), default_setting
+    return u32.calls
+
+
+u = _U32()
+lines.clear()
+j.problem = lambda msg, popup=True: lines.append(("problem", msg, popup))
+states.clear()
+calls = run_key(u, [j.busy.acquire, lambda: None, lambda: setattr(u, "msgs", 1),
+                    lambda: (lines.append(("cancelled", j.cancel.is_set())), j.busy.release())])
+assert calls == [("reg", 0x4000, 0x23), ("unreg",)] and ("cancelled", True) in lines and states[-1] == idle, (calls, lines)
+j.cancel.clear()
+u = _U32()                                                         # idle: not registered, a stray message does nothing
+assert run_key(u, [lambda: setattr(u, "msgs", 1), lambda: None]) == [] and not j.cancel.is_set()
+lines.clear()
+with j.busy:
+    assert run_key(_U32(), [lambda: None] * 3, {"JarvisStopKey": "off"}) == []          # switched off
+    assert run_key(_U32(ok=False), [lambda: None] * 3) == [("reg", 0x4000, 0x23)]       # refused once, not retried
+assert [x for x in lines if x[0] == "problem"] == [("problem", "Stop key: END is taken by another app - pick another in Control Center", False)]
+j.listen = lambda **k: None
+j.turn(0)                                                          # a refused key changes nothing for a turn
+assert states[-1] == idle and not j.busy.locked()
+
+
+# 4b: talking over him, in the wake loop (fake openWakeWord and microphone)
+class BargeModel:
+    def __init__(self, **k):
+        self.vad = S_(prediction_buffer=[]) if k.get("vad_threshold") and with_vad[0] else None
+        if self.vad is None:
+            del self.vad
+
+    def reset(self):
+        pass
+
+    def predict(self, data):
+        if hasattr(self, "vad"):
+            self.vad.prediction_buffer.append(vad_score[0])
+        return {"hey_jarvis": score[0]}
+
+
+class BargeMic:
+    def __init__(self, **k):
+        assert j.mic.locked(), "the wake word holds the microphone while it reads"
+        mic_opens.append(1)
+
+    def start(self):
+        pass
+
+    def close(self):
+        pass
+
+    def read(self, n):
+        reads[0] -= 1
+        if reads[0] < 0:
+            raise Stop
+        return np.zeros((n, 1), np.int16), False
+
+
+class _BS:
+    """The HUD state, keeping the last state like the real one."""
+    state = "speaking"
+
+    def set(self, **kw):
+        states.append(kw)
+        self.state = kw.get("state", self.state)
+
+
+barges, mic_opens, score, vad_score, with_vad, reads = [], [], [0.0], [0.0], [True], [0]
+real_turn, real_thread = j.turn, threading.Thread
+j.barge_turn = lambda follow: barges.append(follow)
+j.turn = lambda tier, follow=0: barges.append(("turn", follow))
+sys.modules["openwakeword"] = S_(utils=S_(download_models=lambda model_names: None))
+sys.modules["openwakeword.model"] = S_(Model=BargeModel)
+sys.modules["sounddevice"] = S_(InputStream=BargeMic)
+j.threading.Thread = lambda target, args=(), daemon=None: S_(start=lambda: target(*args))
+j.S, j.log = _BS(), lines.append
+
+
+def barge(conf, passes, speaking=True):
+    """The wake loop while he speaks (holding the turn lock), for `passes` microphone reads (3 idle sleeps at most):
+    what it started."""
+    barges.clear(), mic_opens.clear()
+    j.S.state, reads[0], n = ("speaking" if speaking else "thinking"), passes, [0]
+
+    def sleep(s):
+        n[0] += 1
+        if n[0] > 3:
+            raise Stop
+    j.setting = lambda name, default="": conf.get(name, default)
+    j.time.sleep = sleep
+    with j.busy:
+        try:
+            j.wake_loop()
+        except Stop:
+            pass
+    j.time.sleep, j.setting = (lambda s: None), default_setting
+    if j.mic.locked():                                             # Stop came mid-read: hand the microphone back
+        j.mic.release()
+    return barges
+
+
+score[0] = 0.8                                                     # "Hey Jarvis" over him: stopped, then one normal turn
+assert barge({}, 1) == [0] and j.cancel.is_set() and len(mic_opens) == 1
+j.cancel.clear()
+score[0] = 0.6                                                     # over the default 0.5, but not 0.5 + 0.2 while he talks
+assert barge({}, 1) == [] and not j.cancel.is_set()
+score[0] = 0.8
+j.name_until[0] = time.time() + 60                                 # he is saying "Jarvis" himself
+assert barge({}, 1) == [] and not j.cancel.is_set()
+j.name_until[0] = 0.0
+assert barge({"JarvisBargeIn": "off"}, 1) == [] and mic_opens == []          # off: the microphone is dropped, as before
+assert barge({}, 1, speaking=False) == [] and mic_opens == []                # busy but not talking (thinking, listening)
+score[0], vad_score[0] = 0.0, 0.9                                  # voice: 0.56 s of speech, then a follow-up turn
+assert barge({"JarvisBargeIn": "voice"}, 9) == [1] and j.cancel.is_set()
+j.cancel.clear()
+vad_score[0] = 0.9
+assert barge({"JarvisBargeIn": "wake"}, 9) == []                   # wake: speech alone never stops him
+with_vad[0] = False                                                # voice without the speech filter: acts as wake
+lines.clear()
+assert barge({"JarvisBargeIn": "voice"}, 9) == [] and any("no speech filter" in str(x) for x in lines)
+score[0] = 0.8
+assert barge({"JarvisBargeIn": "voice"}, 1) == [0]
+j.cancel.clear()
+j.S.state = "idle"                                                 # idle: a wake starts a normal turn, as before
+score[0], barges[:], reads[0] = 0.8, [], 5
+j.time.sleep = lambda s: (_ for _ in ()).throw(Stop())
+try:
+    j.wake_loop()
+except Stop:
+    pass
+assert barges == [("turn", 0)] and not j.cancel.is_set()
+j.time.sleep = lambda s: None
+for m, mod in list(real_oww.items()) + [("sounddevice", real_sd)]:
+    if mod is None:
+        sys.modules.pop(m, None)
+    else:
+        sys.modules[m] = mod
+j.threading.Thread, j.turn, j.S = real_thread, real_turn, _S()
+j.log, j.setting = (lambda *a: None), default_setting
 
 print("test_jarvis: OK")

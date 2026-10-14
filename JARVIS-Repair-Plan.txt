@@ -4,6 +4,37 @@ Written 2026-10-13 after the first live test. Nothing in this plan is built yet.
 This file is the single source of truth. It is written so that a brand new chat can pick up any phase
 with no other context. Read PART A first, then only the phase you are about to do.
 
+TO ANY AI READING THIS FILE: FIRST CHECK THE TOOLS (added 2026-10-14)
+  Before any work, check that each item below is present, then LIST for the user what you found: present,
+  missing, or a different version. Do not install, update or configure anything missing without the user's
+  approval (project CLAUDE.md). These are what the session that built Phases 2-4 had:
+
+  Claude Code plugins (user scope; check ~/.claude/plugins/installed_plugins.json or /plugin):
+    - context7          (anthropic-plugin-directory)  current library docs; the rule is in
+                         ~/.claude/rules/context7.md. Also a user-scope MCP server "context7" in ~/.claude.json.
+    - agent-skills 0.6.12 (addy-agent-skills)  structure for big tasks; agents code-reviewer,
+                         security-auditor, test-engineer.
+    - ponytail 5.2.0     (ponytail)  "lazy senior developer" mode, level full: smallest complete change,
+                         and every reply ends with 1-2 lines on what was skipped and the risks.
+    - tokenwise 0.2.0    (tokenwise)  model routing for sub-agents (block in the project CLAUDE.md); each
+                         routed sub-agent adds one line to .tokenwise/log.ndjson (gitignored).
+  User skills (~/.claude/skills): graphify (see below), context7-mcp.
+  Python: the private venv %LOCALAPPDATA%\SpaceshipHUD\venv (3.12.10) and the global "py -3" (3.12.10).
+  Lua check: the lupa package in a scratch folder (see "HANDOVER" below). Not installed globally.
+  The account also has claude.ai connectors (Gmail, Google Calendar, Drive, Docs). This project does NOT use
+  them. Never open the user's mail, calendar or files through them (privacy rule in A4).
+
+  GRAPHIFY (a knowledge graph of this repo). USE IT.
+    - Output: graphify-out\ in the repo root (gitignored, commit c5ff4a5). GRAPH_REPORT.md is the summary:
+      god nodes, communities, surprising links. graph.html is the browsable map.
+    - Interpreter: the path stored in graphify-out\.graphify_python (a uv tool install of graphifyy).
+    - Use it to find cross-file links before reading code, e.g. /graphify query "how does alarm() stop"
+      or /graphify path "alarm()" "wake_loop()". The graph is a map, not the truth: confirm in the code.
+    - After a phase changes files, refresh it with /graphify update . (it re-reads only changed files).
+    - .graphifyignore keeps Data\, logs, Backups\, model and sound files out of the graph. Keep it that way.
+    - Known gap (2026-10-14): Docs\Spaceship-HUD-Guide.md was only partly re-read, so its nodes are from an
+      older version. "graphify extract --force" rebuilds it in full (costs tokens; ask the user first).
+
 STATUS (2026-10-14, read this first in a new session)
   - Built since the plan was written: "FIX ROUND 3" (end of PART D), Rounds 1, 2 and 4. Round 3 is not built.
   - Rounds 2 and 4 are in jarvis.py / test_jarvis.py on branch chore/jarvis-baseline-and-performance, NOT
@@ -26,12 +57,83 @@ STATUS (2026-10-14, read this first in a new session)
     2e/2f, NOT pushed, NOT in the live skin. For the live test: copy the skin files, put kokoro-v1.0.onnx next
     to the live kokoro-v1.0.int8.onnx (or re-run Setup), then in Control Center set WHISPER DEVICE=AUTO,
     WHISPER=small.en, MODEL=llama3.1:8b.
+  - 2026-10-14: Phase 3 built (3a-3e: Whisper hint/hotword/beam/VAD, autocorrect + "Did you say" on low
+    confidence, wake word reasons/VAD/best score, MICROPHONE and DUCK MUSIC rows). NOT committed, NOT live: the
+    user builds Phases 2-4 and live-tests them together. Checks: test_jarvis OK (venv and py -3), check_voice OK,
+    old-vs-new route check 0 differences, control.lua/jarvis.lua parse under Lua 5.1. Real check (Kokoro ->
+    small.en on the RTX): every command heard right, 100-200 ms each (old 60-400 ms); the hotword made a short
+    "Yes." come out "Jarvis Yes.", so hear() now strips the name. Rollback: before_phase3/ (scratchpad); live:
+    JarvisDuck=0, JarvisMic empty.
+  - 2026-10-14: Phase 4 built (4a instant stop: stop_now, abort of the sound, Windows voice killed, no late
+    "speaking", no follow-up after a stop, quiet/never mind/enough; stop key End, held only while he is busy;
+    4b barge-in off/wake/voice in wake_loop; BARGE-IN and STOP KEY rows). NOT committed, NOT live. Checks:
+    test_jarvis OK (py -3; venv OK 3 of 4 runs, the one failure is the old Round 4 timer test, see below),
+    check_voice OK, route check 0 differences, Lua 5.1 parse OK. Real check: Kokoro cut off 82 ms after cancel;
+    Windows accepts End as a hotkey. Known flake, not Phase 4: test_jarvis "add 5 minutes to the timer" can
+    fail when the stored, rounded due time makes 899.x s left. Rollback: before_phase4/ (scratchpad); live:
+    JarvisBargeIn=off, JarvisStopKey=off. New issues found in Phases 2-4: "Found while building" (N1-N12)
+    after Phase 4's RESULT.
+  - NEXT: the user's live test of everything built so far, then the questions, in "BEFORE PHASE 5" (just
+    before PHASE 5 in PART D). Phase 5 does not start until those are reported and answered.
+
+HANDOVER FOR A NEW CONVERSATION (state at the end of 2026-10-14)
+  Git
+    - Branch chore/jarvis-baseline-and-performance, HEAD d7386dd (Phase 2, 2e/2f, Rounds 2/4, hologram).
+      Not pushed. main is behind it.
+    - Uncommitted in the working tree: Phase 3 + Phase 4 (jarvis.py, test_jarvis.py, Scripts\control.lua)
+      and this file. "git diff d7386dd -- <file>" shows exactly the Phase 3/4 work.
+    - NEVER "git checkout" / "git restore" / "git stash" those files to undo something: it would wipe
+      Phases 3 and 4. If Q1 is answered yes, commit them first (read the staged list, never "git add .").
+    - Nothing from Phases 2-4 is in the live skin yet. The user's live test (BEFORE PHASE 5) needs a copy to
+      live, done only on the user's word, listing the files first and backing up the live ones.
+  Scratch folders (session temp dirs: they may be deleted at any time; if gone, use git as above)
+    This session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
+                  0636710a-9b2d-427d-a83f-3ccf1e10411d\scratchpad
+      before_phase2\ before_phase3\ before_phase4\ before_hologram\ before_2e2f\   rollback copies
+      oldj\jarvis_head.py   jarvis.py at d7386dd, for the route check
+      bench\phase3_hear.py, bench\phase4_stop.py   real-device checks (Kokoro -> Whisper; stop timing)
+      vtest\   Kokoro int8 model + voices, for benches only
+    Older session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
+                   d775d96e-50f0-4512-ad84-96309ffb7bba\scratchpad
+      check_route.py   (PART E route check: compares route() of two jarvis.py files over ~65 phrases)
+      lupa\            Lua 5.1 for the syntax check (PART E)
+  Bench warning: importing jarvis.py in a bench writes the HUD state file Data\jarvis.txt through S.set.
+    Patch the paths / S first, and delete any Data\ file a bench creates (never read it).
+  Last verified (after the final Phase 4 edit): test_jarvis OK with py -3; venv 3 of 4 runs OK (the 4th is
+    flake N7); check_voice OK; route check 0 differences; control.lua + jarvis.lua parse under Lua 5.1.
+
+  MAP FOR PHASE 5 (jarvis.py line numbers in the working tree on 2026-10-14; 3462 lines; search by name
+  if they moved. The A3 map below is from the older commit c5ff4a5.)
+    stop_now(why)   164   cancel + HUD idle + log line; used by CANCEL, the End key and barge-in
+    play_samples   1185   plays sound; on cancel calls out.abort() (silent within ~80 ms)
+    _speak_queue   1253   speaking; marks his own "Jarvis" so barge-in ignores it
+    muted()        1355
+    route()        1748
+    hear()         1926   listen + transcribe a short answer; strips "Jarvis" from the front
+    STOP_WORDS 2228, RINGS = 10 2229, SNOOZE = 60 2230
+    _num 2238, duration 2250, snooze_for 2348, reminder_cmd 2394
+    load_reminders 2483, save_reminders 2497, remind_reply 2558, due_reminders 2674
+    ding()         2688   the ring tone today
+    alarm()        2696   the loop Phase 5a replaces. Holds busy; clears cancel; per ring: ding, says the
+                          label (state "speaking"), then hear() (state "listening"); snooze/stop/cancel
+    chime()        2883
+    ENDERS         2913   (quiet / never mind / enough added in Phase 4)
+    turn()         2935
+    barge_turn     3170   stop_key_loop 3184   wake_loop 3216   main 3374
+  How Phase 4 already touches alarms (Phase 5 must keep or decide these):
+    - End (JarvisStopKey) stops a ringing alarm: cancel, no snooze (question Q14).
+    - Barge-in only listens while state is "speaking". In today's alarm that is only while he says the
+      label; during the tone and the hear() gap, wake_loop drops the mic (alarm holds busy). So "Hey Jarvis
+      stops a ring" in 5a is NOT free: it needs the gap listening (or a wake check in the ring loop), and
+      it must stay one microphone session at a time (question Q15, issue N9).
+    - STOP_WORDS also matches "okay", "thanks", "thank you" (question Q12).
 
 Contents
   PART A   How to use this file, where things are, the rules
   PART B   The 26 reported issues, numbered
   PART C   What was found in the code and measured on the machine
   PART D   The phases (0 to 9), each with: issues fixed, cause, steps, tests, your live test, risk, rollback
+           (and "BEFORE PHASE 5": the full live test of Rounds 1-4 and Phases 2-4, and the Phase 5 questions)
   PART E   Checks to run after every phase
   PART F   New settings this plan adds
   PART G   Open questions
@@ -55,6 +157,7 @@ A2. WHERE THINGS ARE
   Private Python copy (venv):  %LOCALAPPDATA%\SpaceshipHUD\venv   (Python 3.12.10)
   Branch at time of writing:   chore/jarvis-baseline-and-performance, same as main, commit c5ff4a5
   This file was committed on its own, on top of c5ff4a5. Line numbers below still refer to c5ff4a5.
+  (Out of date: for the current branch state see "HANDOVER FOR A NEW CONVERSATION" near the top.)
 
   Files, all under Skins\Spaceship\@Resources\ :
     Jarvis\jarvis.py          the daemon: hearing, routing, actions, model, voice, alarms (about 2400 lines)
@@ -149,6 +252,7 @@ A4. RULES THAT ALWAYS HOLD (from the user and the project CLAUDE.md)
       asks for a live run.
   Tools
     - Context7 for library documentation. No sub-agents unless the user asks. Planning stays on Opus.
+    - Graphify (graphify-out\) for cross-file links; refresh it after a phase. See the TOOLS block at the top.
 
 
 ========================================================================================================
@@ -740,12 +844,200 @@ Your live test after Phase 4
   3. Let him say a sentence with his own name in it ("who are you?"). He must not stop himself.
   4. With headphones and level "voice": just start talking over him. He stops.
   5. Press the stop key while he speaks: he stops at once. Press it while he is idle: nothing happens,
-     and the key does its normal job in the program in front.
+     and the key does its normal job in the program in front. If nothing happens while he speaks, the
+     End key may be on an Fn layer on your keyboard (or another app holds it: Control Center shows "Stop
+     key: END is taken"). Tell Claude before another key is picked.
   6. Press it while an alarm rings: the alarm ends.
+  7. On speakers, level "wake": let him talk for a while. His own voice must not stop him. If it does,
+     set BARGE-IN to OFF and report it.
 
 Unverified until the live run: false stops from his own voice on your speakers. Fakes cannot prove this.
 Rollback: JarvisBargeIn=off. Revert the commit.
 
+RESULT (built 2026-10-14, NOT committed, NOT live)
+  4a. Instant stop
+    - One stop function (stop_now) for the click, the End key and talking over him: it sets the stop flag,
+      puts the HUD on idle at once and writes "stop: click / stop key / barge-in" to the log.
+    - The sound is aborted, not drained. Measured on this laptop: silent 82 ms after the stop (Kokoro, 1 s
+      into a 5.4 s sentence). Target was under 200 ms.
+    - The Windows voice helper (PowerShell) is killed at the stop. Before, it could run up to 60 s.
+    - Sentences already made are no longer spoken after a stop.
+    - A late "speaking" / "thinking" / "listening" from a turn that is ending can no longer show after a stop.
+    - The HUD goes idle as soon as he finishes talking. Before, it waited for the GPU check after the reply
+      (the likely cause of issue 15).
+    - No follow-up listen after a stop (issue 23's "a stop opens a follow-up anyway").
+    - "Quiet", "never mind" and "enough" now end a follow-up, like "stop" and "thanks".
+  4a-2. Stop key: End, held only while he is busy (talking, thinking, listening or ringing). Windows
+    accepted End as a hotkey on this laptop (registered and released once, no key press). A refused key
+    gives one log line and a Control Center line, and everything else keeps working.
+  4b. Barge-in, in the wake-word loop (one microphone owner, as before):
+    - wake (default): "Hey Jarvis" over him stops him and he listens once. While he talks the wake
+      threshold is raised by 0.2 (at most 0.95), and for the length of his own sentence that has "Jarvis"
+      in it (+1 s) the wake word is ignored.
+    - voice: about 0.56 s of speech (7 blocks of 80 ms, speech score 0.5 or more) stops him. He then
+      listens as a follow-up, so "stop / quiet / never mind / enough" just ends it. With no speech filter
+      loaded it acts like "wake" and logs that once.
+    - off: the wake word drops the microphone while he is busy, exactly as before.
+  Control Center: BARGE-IN (OFF / WAKE / VOICE) and STOP KEY (END / OFF) rows.
+  Checks: test_jarvis OK (py -3 and venv), check_voice OK, route check 0 differences of 65, Lua 5.1 parse
+  OK. Mutation check: undoing each of the 11 fixes, one at a time, made the tests fail.
+  Rollback: JarvisBargeIn=off, JarvisStopKey=off; before a commit the before_phase4/ copies (scratchpad).
+
+Found while building Phases 2-4 (new issues)
+  N1. FIXED. A click-stop while the AI fallback ("One moment.") was still reading the request let the
+      command run anyway. Now nothing runs after a stop.
+  N2. FIXED. The HUD showed "speaking" while the GPU check ran after the reply (cause of issue 15).
+  N3. FIXED. Sentences already made were still spoken after a stop, one by one.
+  N4. FIXED. The Windows voice kept going up to 60 s after a stop.
+  N5. FIXED (Phase 2). whisper() had no lock, so the preload and a turn could load the model twice.
+  N6. FIXED (Phase 3). The "Jarvis" hotword made a short "Yes." come out as "Jarvis Yes."; hear() now
+      strips the name.
+  N7. NOT FIXED, test only. test_jarvis "add 5 minutes to the timer" fails about 1 run in 4 under the
+      venv. The timer's due time is saved rounded to the second, so the time left can be 899.x s and
+      the reply says "14 minutes ..." instead of 15. The real effect: he can say one minute less than you
+      expect. Round 4 code, not Phase 4. Fix: about 2 lines (round the time left before saying it).
+  N8. NOT A BUG for Rainmeter. control.lua does not parse under Lua 5.5 (a for-loop variable is assigned,
+      l.~682). Rainmeter uses Lua 5.1, where it is fine. Already like this before Phase 3.
+  N9. LIMIT. At level "wake" a bare "stop" is not heard while he talks; "Hey Jarvis", a click or End is.
+      Bare "stop" needs level "voice" (headphones).
+  N10. LIMIT. If the AI fallback is reading when you stop him, its call finishes in the background (at most
+      8 s) and the answer is thrown away. Nothing runs, but the GPU is busy that long.
+  N11. LIMIT. After talking over him, the new turn waits for the stopped one to finish (at most 5 s, it is
+      usually the GPU check). If it takes longer, he logs "barge-in: the stopped turn didn't end" and does
+      not listen. Say "Hey Jarvis" again.
+  N12. LIMIT. The STOP KEY row offers END or OFF only. A hand-typed other value in Settings.inc shows END in
+      the row but registers nothing.
+
+
+========================================================================================================
+BEFORE PHASE 5   THE USER'S LIVE TEST OF EVERYTHING BUILT SO FAR (added 2026-10-14)
+========================================================================================================
+Nothing of Rounds 1, 2, 4 or Phases 2, 3, 4 has been heard on the real microphone and speakers yet. Phase 5
+changes the alarm loop, the stop path and the wake word's role while ringing, so these tests come first: a
+problem found now is cheaper to fix than one found under Phase 5.
+
+S. SET-UP (once)
+  S1. Tell Claude "copy to live". Claude lists every file it will copy into the live skin first, keeps a
+      backup of the live files, and copies only on your word. (Claude never copies without it.)
+  S2. Put kokoro-v1.0.onnx next to kokoro-v1.0.int8.onnx in the live voices folder, or re-run Setup.
+  S3. Control Center > JARVIS: WHISPER DEVICE = AUTO, WHISPER = small.en, MODEL = llama3.1:8b.
+      Leave BARGE-IN = WAKE, STOP KEY = END, DUCK MUSIC = ON, MICROPHONE = your usual one.
+  S4. Restart JARVIS (or Rainmeter). Wait until the hologram says STANDBY.
+  S5. Speakers for every test, unless the test says headphones.
+
+How to report: for each test write its number, PASS or FAIL, and for a FAIL what you said, what he said
+or did, and roughly when. Claude does not read the log or Data\ (privacy rule), so if a test asks for log
+lines, copy just those lines from Data\jarvis.log yourself. They hold numbers and states, not your words,
+except "you: ..." lines: leave those out if you prefer.
+
+A. START-UP AND THE GPU (Phase 2, 2e, 2f)
+  A1. Start JARVIS. Log: "whisper small.en on GPU"; no "CPU in use - speech recognition" line.
+      Report: the whisper line and any "CPU" line.
+  A2. Ask "what's the capital of France?". Time from the end of your sentence to his first word (a phone
+      stopwatch is fine). Do it 3 times. Report the 3 times and the "timing: reply start -> first audio"
+      log lines. Phase 0 baseline was 15-28 s for chat replies.
+  A3. Task Manager > Performance > GPU 1 (the RTX): activity while he listens, thinks and speaks.
+      Report: yes / no for each, and the dedicated memory in use (about 6 GB expected).
+  A4. Ask something that needs a longer reply. The voice sounds like before (Kokoro, the voice you picked),
+      no Windows voice. Report any Windows voice or crackle.
+  A5. Optional: start him with the laptop in a mode where the RTX is off, then switch it on. Within about a
+      minute the log shows Whisper moving to the GPU. Report the line, or "not tried".
+  A6. Hologram: only J.A.R.V.I.S plus STANDBY / LISTENING / THINKING / SPEAKING. No reply text, no error
+      text on it. Report anything else you see on it.
+
+B. HEARING YOU (Phase 3)
+  B1. "Hey Jarvis" 10 times from your normal seat, normal voice, about 10 s apart. Report: how many woke
+      him (target 9 of 10). Also the "wake: best 0.xx this minute" log lines.
+  B2. Leave a video or music playing for 10 minutes without talking. Report: false wakes (target 0).
+  B3. 10 commands with his name ("Jarvis, set the volume to 30", "Jarvis, pause the music", ...).
+      Report: how many he did right.
+  B4. Mumble a volume command on purpose. He should ask "Did you say ...?" instead of acting. Answer "yes"
+      once and "no" once. Report what he did.
+  B5. Sloppy: "uh could you put volume on thirty please". Report: did it work.
+  B6. Play music, wake him: the music goes down while he listens and comes back before he answers.
+      Report: did it duck, did it come back to the same level.
+  B7. Play music, wake him, say "set the volume to 50". Afterwards the volume is 50, not the old level.
+  B8. Control Center > MICROPHONE: step through it once. Each name is one of your devices; set it back to
+      your usual one. Report any name that is wrong or missing.
+  B9. Say just "Yes." after "Hey Jarvis". He must not hear "Jarvis Yes.". Report what he answered.
+
+C. STOPPING HIM (Phase 4)
+  C1. "Tell me about black holes." Click the hologram mid-sentence. He stops within a blink; the hologram
+      shows STANDBY at once; no follow-up listen starts (no chime).
+  C2. Same question. Say "Hey Jarvis" over him. He stops, chimes and listens. Ask something short.
+  C3. "Who are you?" (his answer has "Jarvis" in it). He must not stop himself.
+  C4. Speakers, BARGE-IN = WAKE: let him give a long answer to the end, 3 times. Report any time he stopped
+      by himself (a false barge-in). If it happens: set BARGE-IN = OFF and report the "barge-in" log lines.
+  C5. Headphones, BARGE-IN = VOICE: start talking over him (no "Hey Jarvis"). He stops and listens. Say
+      "never mind": he ends silently. Then again, and ask a new question instead: he answers it.
+      Set BARGE-IN back to WAKE afterwards.
+  C6. Press End while he speaks: he stops at once. Press End while he is idle: nothing happens, and in an
+      editor End still jumps to the end of the line. If End does nothing while he speaks: report it (it may
+      be on the Fn layer, or Control Center shows "Stop key: END is taken"). Do not pick another key yet.
+  C7. Press End while he is thinking (right after you ask a long question): he stops, says nothing.
+  C8. "Set a timer for 1 minute." When it rings, press End: it ends, no snooze.
+  C9. Ask a question so he answers and listens for a follow-up; say "quiet" / "enough": he ends silently.
+  C10. Click while he says "One moment." (a sloppy command that needs the AI fallback, e.g. "could you make
+      it a bit louder for me"): nothing runs afterwards (the volume does not change).
+
+D. ROUNDS 1, 2 AND 4 (commands; built earlier, never live-tested)
+  D1. "Set an alarm for 7 and 8 am", then "turn off my alarm": he asks "Which one?". Say "the 7".
+  D2. "Undo that": the 7:00 alarm is back. "What alarms do I have?" lists both.
+  D3. "Remind me to call mom tomorrow at 9": set for TOMORROW, label "to call mom".
+  D4. "Set an alarm for half past six", then "no, PM": it moves to 6:30 PM.
+  D5. "Set a timer for 10 minutes", "add 5 minutes to the timer" (he says 15, or 14 and a bit: see N7),
+      "make the timer 2 minutes", "undo that".
+  D6. "An alarm for 7 and a timer for 10 minutes" in one sentence: both are set.
+  D7. "Set an alarm for 7" twice: the second time "You already have an alarm for 7:00 AM."
+  D8. After a reply, in the follow-up: "thanks" ends it silently. On a turn you started, "thanks" gets
+      a reply.
+  D9. "Turn it up by 20", then "lower the volume by 5 percent".
+  D10. "Snooze" when nothing rang: "Nothing is ringing right now."
+  D11. "What reminders do I have?" lists alarms and reminders together, nothing invented.
+  D12. Let a 1-minute alarm ring; say "stop" (no name) in it: it stops (today's ring; Phase 5 replaces it).
+
+E. OLD FEATURES STILL WORK (regressions)
+  E1. "What time is it?", "what's 15 percent of 240?", "how many kilometres is 26 miles?": quick and right.
+  E2. Media: "pause the music", "next song", "play".
+  E3. To-do: "add milk to my to-do list", "what's on my to-do list?".
+  E4. "Remember that my favourite colour is blue", then later "what's my favourite colour?".
+  E5. The daily briefing (if you use it) and the HUD readings (CPU / GPU / network) still update.
+  E6. Control Center: every JARVIS row still clicks and saves (PERSONALITY, VOICE, FOLLOW-UP, WAKE ...).
+  E7. Leave it idle 15 minutes: the speech models unload (JarvisIdleUnload), the next "Hey Jarvis"
+      still works.
+  E8. Mute Windows and let a 1-minute alarm come due: a pop-up only, as you chose.
+
+F. NUMBERS TO SEND (for the Phase 0 comparison)
+  F1. Task Manager, with JARVIS idle for 5 minutes: CPU % and memory of the JARVIS python process,
+      and GPU 1 dedicated memory.
+  F2. The same while he answers a long question.
+
+If something is bad during the test: BARGE-IN = OFF and STOP KEY = OFF switch off Phase 4's new parts;
+DUCK MUSIC = OFF switches off the ducking; WHISPER DEVICE = CPU puts hearing back on the CPU. Tell Claude
+"roll back the live copy" to restore the backup made at S1.
+
+QUESTIONS TO ANSWER BEFORE PHASE 5 STARTS
+  Q1. After this test passes: commit Phases 2-4 (Phase 2 is committed; Phases 3 and 4 are not) before
+      Phase 5 starts? Recommended: yes, so Phase 5 has a clean rollback point.
+  Q2. Fix N7 (timer says one minute less) now, as a 2-line change before Phase 5? Recommended: yes.
+  Q3. "Hey Jarvis" needing two tries (Round 3): fix before Phase 5 if B1 is under 9 of 10? Phase 5 uses
+      "Hey Jarvis" to stop a ring, so a weak wake word hurts it.
+  Q4. The ring sound: the existing chime, a tone made in code, or a sound file you choose?
+  Q5. The cadence (about 2 s of ring, 0.7 s of gap) and how loud: fixed, or follow the Windows volume?
+  Q6. The 10-minute cap: OK, or longer / shorter?
+  Q7. He says the label at the start and every 30 s: OK, or only once?
+  Q8. Snooze length when you just say "snooze": 1 minute (today), 5 or 9?
+  Q9. When Windows is muted: still a pop-up only (your choice in Round 4), or should an ALARM (not a
+      reminder) ring anyway?
+  Q10. A missed alarm (cap reached): the hologram shows status only now, so where should it show? Options:
+      a pop-up line, a Control Center line, or he says it at your next turn.
+  Q11. Timers and reminders: ring like an alarm, or just speak once (today)?
+  Q12. "Thank you" heard during a ring stops it today. Keep, or only stop / snooze words?
+  Q13. Headphones on: should the ring play on the headphones (the default device), or always on the
+      speakers?
+  Q14. End during a ring stops it (no snooze), as planned. Keep, or should End snooze?
+  Q15. Depends on C4: if his own voice set off false barge-ins on speakers, should Phase 5 still use the
+      wake word to stop a ring, or only the stop/snooze words in the gaps and the click / End?
 
 --------------------------------------------------------------------------------------------------------
 PHASE 5   ALARMS THAT BEHAVE LIKE ALARMS
@@ -1317,7 +1609,8 @@ FIX ROUND 3   FROM THE THIRD LIVE TEST (added 2026-10-14)
     - "Turn it up by 20" / "lower the volume by 5 percent".
     Known limits:
     - Muted Windows: the alarm is a pop-up only (the user chose to keep this).
-    - No barge-in (talking over him); a click stops him. No "mute for 10 minutes". No dates past 7 days.
+    - No barge-in (talking over him); a click stops him. (Barge-in and the End key came in Phase 4.)
+      No "mute for 10 minutes". No dates past 7 days.
     - The log keeps "you: <what you said>". The user decided to keep it (2026-10-14): no change.
     - A real "Thank you." heard while an alarm rings still stops it (STOP_WORDS), as before.
     - Moving a weekly repeating reminder to another weekday keeps its old weekday.
@@ -1347,7 +1640,9 @@ From Skins\Spaceship\@Resources\Jarvis (Git Bash):
   Then: read the diff, list the changed files, and stop for the user's live test.
 
   Before a commit:  git status, read the staged list, never "git add .".
-  Rollback:         before a commit: git checkout -- <files>.  After: git revert <commit>.
+  Rollback:         before a commit: the phase's before_phaseN\ copies in the scratch folder (NOT
+                    git checkout while earlier phases are still uncommitted: it wipes them too).
+                    After a commit: git revert <commit>.
 
 
 ========================================================================================================
