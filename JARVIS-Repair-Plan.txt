@@ -75,8 +75,10 @@ STATUS (2026-10-14, read this first in a new session)
     after Phase 4's RESULT.
   - 2026-10-14: Phases 3 and 4 and this plan committed together as 301c22f on the user's word (not pushed,
     not live). Rollback: git revert 301c22f (the scratchpad before_phase3/4 copies are no longer needed).
-  - NEXT: the user's live test of everything built so far, then the questions, in "BEFORE PHASE 5" (just
-    before PHASE 5 in PART D). Phase 5 does not start until those are reported and answered.
+  - 2026-10-14: live test done. Findings L1-L6 and the fixes are in "BEFORE ROUND 5:
+    FIXING PREVIOUS ISSUES" (just before PHASE 5 in PART D).
+  - NEXT: R5-0 done (7 of 10). Then R5-6 (wake word, user's order), R5-5 if needed, then R5-1, R5-2, R5-3
+    one at a time, then Phase 5. Q4-Q14 still open for Phase 5.
 
 HANDOVER FOR A NEW CONVERSATION (state at the end of 2026-10-14)
   Git
@@ -1082,6 +1084,169 @@ QUESTIONS TO ANSWER BEFORE PHASE 5 STARTS
   Q14. End during a ring stops it (no snooze), as planned. Keep, or should End snooze?
   Q15. Depends on C4: if his own voice set off false barge-ins on speakers, should Phase 5 still use the
       wake word to stop a ring, or only the stop/snooze words in the gaps and the click / End?
+      ANSWERED 2026-10-14: yes, the wake word stops a ring, and he must ignore his own voice (see L1).
+  Q3 ANSWERED 2026-10-14: yes, fix the wake word first (B1 was 5 of 10). See R5-0 / R5-5 below.
+
+
+BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live test; NOTHING BUILT YET)
+  Done one step at a time. After each step: PART E checks, copy to live only on the user's word (with /XO,
+  see COPY TO LIVE), the user's live test, one commit only on the user's word. Phase 5 starts after this.
+
+  What the live test found (user's words, in short)
+    L1. During an alarm he can't be interrupted; he only listens after it. He should listen while it rings,
+        ignoring his own voice.
+    L2. "Hey Jarvis" works about 5 of 10 times, and only when said loud and clear. Lower the threshold.
+    L3. He takes things as commands that aren't. Unclear: he should ask. Very unclear: don't take it.
+    L4. He lied about changing the volume (it worked before, now it doesn't).
+    L5. Normal commands work, reinterpreted ones don't. Both must go through the same code and work the
+        same way. No extra pipelines; efficient and clean.
+    L6. Follow-up stops at random.
+    Fine: GPU use and the display; videos are not misheard; the other alarm functions mostly work.
+
+  Cause of L4, confirmed from the user's log (2026-10-14 09:44:30)
+    - Heard right: "Okay Jarvis, um, just be quiet, turn up." No "interpreter:" line follows, so the line never
+      reached interpret(): ask_ai() needs a word from AI_WORDS (jarvis.py 590), which has "quieter" but not
+      "quiet", and nothing for a bare "turn up". So it went to chat.
+    - Chat said "Making it a bit more lively ... Speaker volume upped to 90%." CLAIM (1675) has no "upped",
+      so the guard missed it (checked by running the regex on both sentences). Nothing ran; the volume did
+      not change. The next line, "set the volume to 20%", matched route() directly and worked.
+    - Other holes found in the code (not seen in the log yet):
+      * interpret() fails (8 s timeout, or a check: "not what was said", "no preset", "volume not said") ->
+        the line goes to chat, and chat can claim. CLAIM also misses "I've lowered the volume", "Volume
+        lowered to 20 percent", "Turning the volume down now", "Sure, I'll turn it down", "Done, the
+        volume's lowered" (checked).
+      * interpret()'s volume_step (667) is "down" only for down/lower/quieter/decrease/reduce/softer, else UP:
+        "the music is too loud" -> turn it up. A said step ("down 20") is dropped (always 10).
+      * The "Did you say ...?" gate (3043) is only for kind "act": alarms, timers, reminders and multi run on
+        a guess when Whisper was unsure.
+    - L5 answer: there is already ONE execution path (route -> command_reply / run_action). The reinterpreted
+      ones fail BEFORE it: they fall into chat, or the AI's sentence loses the direction or amount.
+
+  User's decisions (2026-10-14)
+    D1. He asks "Did you say ...?" only when Whisper was unsure (heard_score < -1.0), for EVERY command kind,
+        AI reading or not. A confident AI reading runs without asking.
+    D2. Follow-up: no cap. He keeps listening after each answer until you stop answering (silence), say an
+        ender ("thanks", "that's all"), or stop him.
+    D3. Chat that sounds like a command is sent to the interpreter instead of lying, AND the guards stay.
+
+  R5-0  Wake word, user only, no code (L2)
+    - Control Center > JARVIS > WAKE WORD > EASIER three times (0.50 -> 0.35). Check the microphone input level
+      in Windows Settings > Sound (having to be loud points at it too).
+    - Redo B1 (10x "Hey Jarvis" at normal voice) and B2 (10 min of video). Send the "wake: best 0.xx" lines.
+    - Rollback: STRICTER back to 0.50.
+
+  R5-1  One command path; never a claim from chat (L3, L4, L5; D1, D3). In turn() and its helpers.
+    a. Wider AI_WORDS: add quiet, loud, softer, lively, "turn (it|that|this) up/down", "crank". So "just be
+       quiet, turn up" reaches interpret().
+    b. interpret() tells "the model said chat" (None, as today) from "it looked like a command but failed"
+       (timeout / a check failed). The failed case gets a fixed line, never chat: "That sounded like a
+       command but I couldn't work it out, so nothing changed. Say it like: turn the volume down." Nothing runs.
+    c. The command block in turn() (3043-3075: the gate, multi, command_reply, the two-phase confirm) becomes
+       one nested function run_command(...). It is the only place a command runs: route() hits, autocorrect,
+       interpret() and the chat redirect (d) all call it. (L5: one pipeline.)
+    d. Chat redirect (D3): when no_claims() catches a claim and interpret() was NOT already tried on this
+       line, the chat stream stops and the line goes to interpret(), then run_command(). If it was tried, or
+       interpret() finds nothing: CLAIM_LINE as today ("nothing changed").
+       Limit: a sentence chat spoke BEFORE the claim was already heard ("Making it a bit more lively...").
+       (a) makes this rare, because such lines go to interpret() first.
+    e. Wider CLAIM (backstop): an action noun (volume, sound, alarm, timer, reminder, music, song, track) with
+       a change word in any tense (up, down, upped, raised, lowered, increased, decreased, reduced, set,
+       turned, turning, setting, changed, muted, paused, skipped, a percent), plus "I'll turn/set/...".
+       Risk: a harmless "you could turn the volume down" is replaced too. A false "nothing changed" beats
+       a false "done".
+    f. The gate (D1): Whisper unsure -> "Did you say: <what was heard>?" for act, remind (set / cancel / flip)
+       and multi; "yes" runs it through run_command, anything else -> "Cancelled." Lists and the volume
+       level (read only) are not asked.
+    Tests: the 09:44:30 line reaches interpret(); "Speaker volume upped to 90%." and the 5 claim phrases above
+    are caught; a failed interpret() never streams chat; a redirect runs the same route as the direct
+    sentence; unsure + "set a timer for 50 minutes" asks; confident runs; a "no" never runs.
+    Live test: (1) "Okay Jarvis, just be quiet, turn up" -> he asks (both directions, see R5-2) or turns it
+    up, never claims. (2) "the music is way too loud" -> down. (3) Mumble "set a timer for fifteen minutes"
+    -> "Did you say ...?". (4) "what's the volume", "set the volume to 30", "pause": unchanged.
+    Rollback: git revert of the step's commit.
+
+  R5-2  Volume direction and amount from the AI (L4). In interpret() line 667.
+    - Down words: down, lower, quiet(er), soft(er), less, too loud, decrease, reduce. Up words: up, louder,
+      raise, more, too quiet, can't hear, increase, boost, lively.
+    - Only one side matches -> that way. Both or neither -> the failed case of R5-1b (nothing runs, he says
+      how to say it). A number that was said -> "turn it down by N" (route() already reads "by 20").
+    Tests: "the music is too loud" -> step -10; "knock it down 20" -> -20; "be quiet, turn up" -> nothing runs.
+    Live test: the three sentences above. Rollback: git revert.
+
+  R5-3  Follow-up without a cap, and every end says why (L6; D2). In turn().
+    - The cap "follow < 3" (3149) goes. The recursion turn() -> turn() becomes a loop, so endless follow-ups
+      cannot grow the stack.
+    - One log line per end: "follow-up: ended (silence | empty | ender | muted | no-follow reply | cancelled |
+      busy)". "busy" = a reminder took the lock in the gap.
+    - An empty / phantom transcript on a follow-up (a cough, the tail of his voice) listens again for the
+      rest of the window instead of ending. The window does not restart, so noise cannot keep it open.
+    - Also the HIDE_LOG / SHOW_LOG copies (3017-3030) become S.set(pop=...) + fixed(...): -8 lines, and they
+      get history and a follow-up like every other reply.
+    Tests (fakes): 5 follow-ups in a row; silence ends it with "silence"; an empty transcript then speech
+    keeps it going; "thanks" ends it.
+    Live test: talk back and forth 6+ times; when it ends unexpectedly, send the "follow-up: ended" line.
+    Risk: with no cap, a TV that talks right after each answer keeps the follow-up going until you stop it
+    (End, click, or "that's all"). Rollback: git revert; JarvisFollowUp=0 turns follow-ups off.
+
+  R5-4  Whisper hears the end of you sooner? Not planned. "listening -> end of speech" was 6-8 s, but it
+    counts from the microphone opening, so it includes the time before you speak. Only look at it if replies
+    feel slow to start after you stop talking.
+
+  R5-5  Only if R5-0 is still under 9 of 10: the wake model's VAD threshold 0.5 -> 0.3 (one number in
+    wake_loop, 3260). The openWakeWord docs (Context7): a wake fires only while the VAD is also above it.
+    Tests: B1 and B2 again (0 false wakes in 10 min of video). Rollback: git revert.
+
+  R5-0 RESULT (2026-10-14): sensitivity 0.35 -> about 7 of 10 (user). Log: "wake word heard (0.45)", "wake: best
+    0.45 this minute". So R5-5 goes ahead. Also seen: "whisper base.en on GPU", not small.en as planned for the live
+    test: check Control Center > WHISPER.
+
+  R5-6  Wake word: the normal filter plus three trained checks (user's design 2026-10-14; it replaces the
+    earlier ideas). Built BEFORE R5-1 (user's order). In wake_loop() plus a training step.
+    How openWakeWord 0.6.0 really works (read in the installed library, model.py / custom_verifier_model.py):
+      - hey_jarvis gives ONE score per 80 ms for the whole phrase. There is no separate "Hey" or "Jarvis" model.
+      - A "custom verifier" is a tiny logistic-regression model (scikit-learn, already in the venv) on the
+        audio features openWakeWord already computes. Its built-in use REPLACES the score, so we call our
+        verifiers ourselves next to the normal score: model.preprocessor.get_features(...) ->
+        verifier.predict_proba(...). One small sum per candidate; no Whisper, no GPU.
+      - The library's own training keeps only clip moments scoring >= 0.5, so a soft or bare "Jarvis" would
+        give no examples. Our training uses its helpers with a low floor instead.
+      - With vad_threshold set, the library zeroes every score unless its speech filter saw speech 0.4-0.56 s
+        earlier. So all paths still need real speech.
+    The four ways to wake (any one is enough):
+      W0. Normal (as today): score >= JarvisWakeSensitivity (0.35).
+      W1. "Hey Jarvis" said softly: score >= 0.1 AND your "Hey Jarvis" check >= 0.5. No silence rule.
+      W2. "Hey ... Jarvis" (a pause between): score >= 0.1 AND your "Hey ... Jarvis" check >= 0.5. No silence rule.
+      W3. A bare "Jarvis": score >= 0.1 AND your "Jarvis" check >= 0.5 AND no speech for 2 s BEFORE AND no
+          speech for 1 s AFTER (the speech filter, so music or a fan does not count). So a bare "Jarvis"
+          wakes him about 1 s later than "Hey Jarvis", and "Jarvis" inside a sentence never does.
+      The floor 0.1 and the 0.5 checks become settings (JarvisWakeEasy, 0 = W1-W3 off; JarvisWakeCheck).
+      Log: "wake word heard (0.xx, W0|W1|W2|W3)", so we see which way woke him.
+    Training (6a): WAKE WORD > TRAIN in Control Center (or "train the wake word"). He says what to do and you
+      say: "Hey Jarvis" 6 times, "Hey ... Jarvis" 6 times, a bare "Jarvis" 6 times (each 3 s window, with a
+      ding), then talk normally for 15 s (the "not Jarvis" examples). Three check files are saved in Data\
+      (wake_hey_jarvis.pkl, wake_hey_pause.pkl, wake_jarvis.pkl); the recordings are DELETED. The log shows the
+      highest normal score per style, e.g. "train: bare Jarvis peaks 0.04": if a style never reaches the 0.1
+      floor, its check is not made and he says so (that way stays off; the others still work).
+    Order: 6a training + the measurement first (no wake change yet). You train once and send the "train:"
+      lines. Then 6b (W1-W3 in wake_loop), with the floor set from those numbers. Then R5-5 only if needed.
+    Risks / limits
+      - Tuned to YOUR voice and room. Anyone else, or a new mic, gets W0 only. Retrain after a mic change. The
+        docs: a verifier is "not intended to perform the task of speaker verification" - not a lock.
+      - A .pkl file can run code when loaded. Only the three files the training made, in the private Data\
+        folder, are ever loaded; nothing from elsewhere.
+      - W3 can still fire on a video that says just "Jarvis" with a pause each side (rare).
+      - Unverified until the training runs: whether a bare "Jarvis" scores above 0.1 at all, and how much
+        W1-W3 raise 7 of 10.
+    Tests (fakes): each of W0-W3 wakes; W3 with speech 1 s before or 0.5 s after does not; a check at 0.3 does
+      not; no .pkl -> only W0; JarvisWakeEasy=0 -> only W0; training deletes its clips; a style that never
+      reaches the floor makes no file.
+    Live test: train; B1 for each style (10x at a normal voice, aim 9+ each); B2 (10 min of video, 0 false
+      wakes); someone else / a video saying "Hey Jarvis" softly should NOT wake him through W1-W3.
+    Rollback: git revert; delete the three Data\wake_*.pkl; JarvisWakeEasy=0.
+
+  Into Phase 5a (L1): while only the ring tone plays (no voice), the wake word keeps its normal threshold
+    (no +0.2); +0.2 only while he says the label. "Hey Jarvis" stops the ring (Q15). Phase 8a's "at most 3
+    follow-ups" is replaced by D2.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 5   ALARMS THAT BEHAVE LIKE ALARMS
@@ -1475,7 +1640,7 @@ Small and independent: it can be done at any point.
   - Speech that STARTS within 3 s is a follow-up, as today.
   - Speech that starts between 3 and 10 s counts only if it begins with his name (alias-aware, from 1a).
     Anything else is dropped and not logged.
-  - Nothing after 10 s. Still at most 3 follow-ups in a row.
+  - Nothing after 10 s. No cap on follow-ups in a row (user, 2026-10-14; built in R5-3).
   - Settings JarvisFollowWindow=3 and JarvisFollowNameWindow=10. JarvisFollowUp=0 still turns it all off.
   - The hologram shows "listening" for the first 3 s, then a dimmer "standby" until 10 s.
   - For comparison: Alexa keeps listening about 5 s and Google about 8 s, with no name rule.
@@ -1492,7 +1657,7 @@ Small and independent: it can be done at any point.
 
 Tests (fakes)
   - Speech at 2 s is taken. Speech at 5 s without the name is dropped; with the name it is taken.
-  - Nothing after 10 s. Three in a row, then no fourth.
+  - Nothing after 10 s. Many in a row, no cap (R5-3).
   - The chime samples are scaled by the setting.
 
 Your live test after Phase 8
