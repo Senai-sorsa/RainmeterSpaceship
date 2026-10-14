@@ -134,7 +134,7 @@ HANDOVER FOR A NEW CONVERSATION (state at the end of 2026-10-14)
 
 Contents
   PART A   How to use this file, where things are, the rules
-  PART B   The 26 reported issues, numbered
+  PART B   The 28 reported issues, numbered
   PART C   What was found in the code and measured on the machine
   PART D   The phases (0 to 9), each with: issues fixed, cause, steps, tests, your live test, risk, rollback
            (and "BEFORE PHASE 5": the full live test of Rounds 1-4 and Phases 2-4, and the Phase 5 questions)
@@ -260,7 +260,7 @@ A4. RULES THAT ALWAYS HOLD (from the user and the project CLAUDE.md)
 
 
 ========================================================================================================
-PART B   THE 26 REPORTED ISSUES
+PART B   THE 28 REPORTED ISSUES
 ========================================================================================================
 The user's own words. The phase that fixes each is in brackets.
 
@@ -298,6 +298,11 @@ The user's own words. The phase that fixes each is in brackets.
   24. Time, date, sums and unit conversions answered by code, at once.                          [Phase 1]
   25. "Undo that" and "what did you hear?"                                                      [Phase 1]
   26. Turn other sound down while he listens.                                                   [Phase 3]
+  Added on 2026-10-14 from the user's use of the Phase 1-4 build:
+  27. The GPU usage can spike to 100% whenever Jarvis is clicked on (started), starts thinking,
+      or starts speaking.                                                                       [Phase 6]
+  28. He can lie about important things when trying to be playful, and lied about the GPU spikes
+      (talked about running simulations he never ran). A personality issue.                     [Phase 6]
   REJECTED by the user: showing what he heard on the hologram. Do not build it. Mishearing is to be
   handled by autocorrect and by ignoring slight differences (Phase 1a and 3b).
 
@@ -928,6 +933,35 @@ problem found now is cheaper to fix than one found under Phase 5.
 S. SET-UP (once)
   S1. Tell Claude "copy to live". Claude lists every file it will copy into the live skin first, keeps a
       backup of the live files, and copies only on your word. (Claude never copies without it.)
+      Or do it yourself with the "COPY TO LIVE" commands just below.
+
+  COPY TO LIVE (PowerShell, run yourself; one block at a time, all in the SAME window)
+    Repo skin: C:\Users\Senai\RainmeterSpaceship\Skins\Spaceship
+    Live skin: C:\Users\Senai\Rainmeter\Skins\Spaceship
+    Skipped on purpose: @Resources\Data\ (memory, reminders, logs), @Resources\Backups\, Settings.inc
+    (your personal values; new settings use the code defaults) and State.inc (runtime UI state Rainmeter
+    writes; only its values differ). /E without /MIR only adds and overwrites, it never deletes live files.
+    Untracked repo files (e.g. the two stray test .py files in @Resources) are copied too if present.
+    On 2026-10-14 these tracked files differed from live: Jarvis\Setup-Jarvis.ps1, jarvis.py,
+    test_jarvis.py, requirements-gpu.txt (new), Scripts\control.lua, Scripts\jarvis.lua, State.inc (skipped).
+
+    1. Back up the live skin (outside Skins\, so Rainmeter does not load it as a skin):
+         $src  = "C:\Users\Senai\RainmeterSpaceship\Skins\Spaceship"
+         $live = "C:\Users\Senai\Rainmeter\Skins\Spaceship"
+         $bak  = "C:\Users\Senai\Rainmeter\Spaceship-backup-$(Get-Date -Format yyyyMMdd-HHmmss)"
+         robocopy $live $bak /E /R:1 /W:1 /NFL /NDL
+         "robocopy exit $LASTEXITCODE  (0-7 = OK, 8+ = failed)"
+    2. Copy the repo over live (only if step 1 said OK):
+         robocopy $src $live /E /XO /R:1 /W:1 /XD "$src\@Resources\Data" "$src\@Resources\Backups" /XF Settings.inc State.inc
+         "robocopy exit $LASTEXITCODE  (0-7 = OK, 8+ = failed)"
+       /XO skips repo files older than the live copy: the skin rewrites some icons and Icons\_index.txt
+       at runtime, and without /XO the copy would put the older repo versions back.
+    3. Reload: & "C:\Program Files\Rainmeter\Rainmeter.exe" !RefreshApp
+       then restart JARVIS and wait for STANDBY.
+    UNDO (same window, or set $bak/$live again to the backup folder's name first):
+         robocopy $bak $live /E /R:1 /W:1
+       then refresh Rainmeter and restart JARVIS. Undo puts old files back but does not delete files the
+       copy added (e.g. requirements-gpu.txt); they are harmless.
   S2. Put kokoro-v1.0.onnx next to kokoro-v1.0.int8.onnx in the live voices folder, or re-run Setup.
   S3. Control Center > JARVIS: WHISPER DEVICE = AUTO, WHISPER = small.en, MODEL = llama3.1:8b.
       Leave BARGE-IN = WAKE, STOP KEY = END, DUCK MUSIC = ON, MICROPHONE = your usual one.
@@ -1111,6 +1145,8 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
         issue 3  (playful when unnecessary or on a serious topic)
         issue 14 (the memory function needs a relook)
         issue 18 (responses should sound more human)
+        issue 28 (lies about important things when playful; invented "simulations")   -> 6h
+        issue 27 (GPU spikes to 100% on click, thinking, speaking)                     -> 6i
 
 6a. Only send what the question needs (about 40 lines)
   context() is split into blocks. A block is added only when the question touches it:
@@ -1213,6 +1249,44 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     - Pace: a JarvisVoiceSpeed setting (Kokoro speed, default 1.0, kept to 0.8-1.2).
   Judged by ear by the user; the logged gaps are the number that must go down. Best after Phase 2e.
 
+6h. Honest even when playful (issue 28; added 2026-10-14; about 25 lines)
+  Seen by the user: playful answers bend important facts, and asked about the GPU spikes he said he had
+  been "running simulations", which he never did. He cannot run anything the code does not run.
+  Builds on 1d (the model may never claim an action) and 6c (tone). Changes:
+  - SYSTEM line above the tone line, for every personality: "Never invent facts, numbers or things you
+    did. If you don't know, say so. Jokes never change a fact."
+  - Questions about himself or the PC (gpu, cpu, slow, fan, hot, "what are you doing", "why is ...")
+    get the PC readings block (6a) and are answered from those numbers; no numbers -> "I can't see that
+    right now", never a guess. The full answer to "what is wrong" is Phase 9 (code finds, model words).
+  - Widen 1d's action-claim check to self-activity claims: "I ran / was running / I tested / I
+    simulated / I checked / I scanned ..." when the code ran nothing that turn -> the sentence is dropped
+    and replaced by "I didn't run anything; that was made up." Logged with a count only.
+  - Serious-topic list (6c) also covers: health, money, deadlines, alarms, the PC's state: no playful
+    line there.
+  Tests (fakes): a fake reply "I was running simulations" with no command run is replaced; a real
+  command turn keeps its own confirmation; "why is the GPU at 100%" with fake readings answers from them;
+  with no readings he says he can't see it.
+  Unverified until the live run: how often the model still bends facts. Rollback: the SYSTEM line and
+  the check are each one block; remove them.
+
+6i. GPU spikes to 100% on click, thinking and speaking (issue 27; added 2026-10-14)
+  Likely causes (UNVERIFIED, from the Phase 2 design): click -> Whisper wakes on the RTX and listens;
+  thinking -> Ollama generates on the RTX (near 100% while it writes is normal for a local model);
+  speaking -> Kokoro on the GPU if 2e is in use, and the hologram's level updates. The question is
+  whether a short spike is a problem (fan noise, heat, other apps or games stuttering) or just the card
+  doing the work fast.
+  Measure first (no change, no install): log GPU % and VRAM once a second with nvidia-smi during 5 click
+  turns, 5 wake-word turns and idle, marked with the state (listening / thinking / speaking / idle).
+  Report: peak, how long it stays high, and what is still loaded at idle. Also check the HUD's own GPU
+  use with JARVIS off, so the skin's animation is not blamed on him.
+  Then fix only what the numbers show, smallest first:
+    - High while idle or listening: Whisper or the model staying busy -> find the loop.
+    - Long high after he stops: shorter Ollama keep_alive or unload after the follow-up window.
+    - Spikes that bother the user: a setting JarvisGPULimit = off (default) | gentle, where gentle uses
+      the smaller model / fewer GPU layers (num_gpu) and keeps the voice on the CPU (slower replies).
+  Judged by the user (does it bother you: noise, heat, stutter?) and by the logged numbers.
+  Ties to Phase 2 (GPU first) and Phase 9 (he can explain a spike from real readings, see 6h).
+
 Tests (fakes)
   - "what's 12 times 9" builds a prompt with no calendar, mail or to-do text.
   - "what's on today" has the calendar and nothing else extra.
@@ -1231,6 +1305,9 @@ Your live test after Phase 6
   4. Ask about A, wait three minutes, ask about B. He does not bring A back.
   5. "Remember that ..." in three different wordings, then ask about it tomorrow.
   6. "Who made you?" No film names.
+  7. (6h) Under playful, ask "why is the GPU at 100%?" and a factual question. He answers from real
+     numbers or says he can't see it; no made-up activity.
+  8. (6i) Watch Task Manager > GPU during a few turns and compare with the 6i measurements.
 
 Unverified until the live run: tone and wording are judged by ear.
 Rollback: revert the commit. JarvisPersonality returns the old tone by setting.
