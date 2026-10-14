@@ -1784,4 +1784,63 @@ for m, mod in list(real_oww.items()) + [("sounddevice", real_sd)]:
 j.threading.Thread, j.turn, j.S = real_thread, real_turn, _S()
 j.log, j.setting = (lambda *a: None), default_setting
 
+# ---- R5-6 6a: wake word training. Fake clips carry their score as the sample value (500 = 0.5)
+try:
+    import numpy as np
+except ImportError:
+    np = None
+if np is not None:
+    class TrainOww:
+        def __init__(self, **k):
+            pass
+
+        def reset(self):
+            pass
+
+        def predict(self, chunk):
+            return {"hey_jarvis": float(chunk.max()) / 1000}
+
+    def _feats(clip, oww, name, threshold=0.5, N=3):
+        return np.ones((1 if clip.max() / 1000 >= threshold else 0, 2, 2))
+
+    level = {"hey_jarvis": 400, "hey_pause": 200, "jarvis": 50}      # a bare "Jarvis" never reaches the 0.1 floor
+    said = []
+
+    def _record(sec):
+        style = WAKE_ORDER[min(len(said) // 6, 2)] if sec == 3 else None
+        said.append(sec)
+        return np.full(int(16000 * sec), level[style] if style else 0, dtype=np.int16)
+
+    real_oww = {m: sys.modules.get(m) for m in ("openwakeword.model", "openwakeword.custom_verifier_model")}
+    sys.modules["openwakeword.model"] = S_(Model=TrainOww)
+    sys.modules["openwakeword.custom_verifier_model"] = S_(get_reference_clip_features=_feats,
+                                                           train_verifier_model=lambda f, y: {"pos": int(sum(y)), "all": len(y)})
+    WAKE_ORDER = [s[0] for s in j.WAKE_STYLES]
+    real_data, j.DATA = j.DATA, tempfile.mkdtemp()
+    with open(os.path.join(j.DATA, "wake_jarvis.pkl"), "wb") as f:   # left from an older training
+        f.write(b"old")
+    j.record, j.play_samples, j.reply_line = _record, (lambda *a: None), (lambda text, quiet: lines.append(text))
+    j.log, j.S, lines[:] = lines.append, _S(), []
+    assert within(5, j.train_wake) is None and not j.busy.locked() and said == [3] * 18 + [15]
+    files = sorted(os.listdir(j.DATA))
+    assert files == ["wake_hey_jarvis.pkl", "wake_hey_pause.pkl"], files   # no recording is ever written
+    import pickle
+    with open(os.path.join(j.DATA, "wake_hey_jarvis.pkl"), "rb") as f:
+        assert pickle.load(f)["pos"] == 6
+    assert "train: Hey Jarvis peaks 0.40 (6 examples)" in lines and "train: bare Jarvis peaks 0.05 (0 examples)" in lines
+    assert lines[-1] == "Done. I learned 2 of the 3 ways. The log says which." and states[-1]["state"] == "idle"
+    for name in files:                                                 # a click part-way: nothing new saved
+        os.remove(os.path.join(j.DATA, name))
+    said[:] = []
+    j.play_samples = lambda *a: j.cancel.set() if len(said) == 6 else None
+    assert within(5, j.train_wake) is None and os.listdir(j.DATA) == [] and not j.busy.locked()
+    j.cancel.clear()
+    j.DATA = real_data
+    for m, mod in real_oww.items():
+        if mod is None:
+            sys.modules.pop(m, None)
+        else:
+            sys.modules[m] = mod
+    j.log = lambda *a: None
+
 print("test_jarvis: OK")

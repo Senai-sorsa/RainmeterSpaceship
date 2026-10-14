@@ -8,7 +8,7 @@ battery, memory, network) -> it speaks the answer sentence by sentence while the
 Talks to the HUD through two small files in @Resources\\Data (no network port, so nothing else can trigger it):
   jarvis.txt      written here:   T <unix> | STATE idle|listening|thinking|speaking | LEVEL <0-1> | SAY | ERR |
                                   POP <n> open|close  (ask the HUD to open / close the conversation pop-up)
-  jarvis_cmd.txt  written by HUD: WAKE <unix> <tier>  |  CANCEL <unix>  |  FORGET <unix>  |  QUIT <unix>
+  jarvis_cmd.txt  written by HUD: WAKE <unix> <tier>  |  CANCEL <unix>  |  FORGET <unix>  |  TRAINWAKE <unix>  |  QUIT <unix>
   jarvis_env.txt  written by HUD: MUTED 0|1  - with the speakers muted Jarvis answers in the pop-up, not out loud
   jarvis_log.txt / jarvis_live.txt  the conversation (and the reply in progress) for the pop-up
 
@@ -3213,6 +3213,88 @@ def stop_key_loop():
         time.sleep(0.05)
 
 
+# ------------------------------------------------------------------ wake word training (plan R5-6, step 6a)
+# Your own "Hey Jarvis", "Hey ... Jarvis" and bare "Jarvis" become small checks next to the normal score (step 6b).
+# The recordings stay in memory and are never written; only the checks are saved, as Data\wake_<style>.pkl.
+WAKE_STYLES = (("hey_jarvis", "Hey Jarvis", 'say "Hey Jarvis"'),
+               ("hey_pause", "Hey ... Jarvis", 'say "Hey", wait a moment, then "Jarvis"'),
+               ("jarvis", "bare Jarvis", 'say just "Jarvis"'))
+WAKE_FLOOR = 0.1                       # the lowest normal score a moment needs to count as an example
+
+
+# shortcut: a click stops it only between clips (at most 15 s late); a stoppable recorder if that ever matters
+def record(sec):
+    """`sec` seconds from the microphone as 16 kHz int16, the form openWakeWord reads."""
+    import sounddevice as sd
+    if not mic.acquire(timeout=3):
+        raise RuntimeError("The microphone is busy - try again")
+    try:
+        a = sd.rec(int(16000 * sec), samplerate=16000, channels=1, dtype="int16", device=mic_device())
+        sd.wait()
+        return a[:, 0]
+    finally:
+        mic.release()
+
+
+def train_wake():
+    """Control Center WAKE WORD > TRAIN: each style six times after a ding, then 15 s of normal talk as the
+    "not Jarvis" examples. Holds the turn lock, so the wake word lets go of the microphone; a click stops it."""
+    import pickle
+    import numpy as np
+    from openwakeword.model import Model
+    from openwakeword.custom_verifier_model import get_reference_clip_features, train_verifier_model
+    with busy:
+        cancel.clear()
+        turn_id[0] = time.time()
+        try:
+            clips = {}
+            for name, _, how in WAKE_STYLES:
+                reply_line(f"After each ding, {how}. Six times.", False)
+                clips[name] = []
+                for _ in range(6):
+                    S.set(state="listening", level=0.0)        # not "speaking": the wake word would keep the microphone
+                    play_samples(*ding())
+                    if cancel.is_set():
+                        return
+                    clips[name].append(record(3))
+            reply_line("Now talk normally for fifteen seconds, about anything, without my name.", False)
+            S.set(state="listening", level=0.0)
+            neg = record(15)
+            if cancel.is_set():
+                return
+            oww = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+            pad = np.zeros(16000, dtype=np.int16)              # the model scores 0 for its first frames
+            oww.reset()
+            negf = get_reference_clip_features(np.concatenate([pad, neg]), oww, "hey_jarvis", threshold=0.0, N=1)
+            made = 0
+            for name, label, _ in WAKE_STYLES:
+                path = os.path.join(DATA, f"wake_{name}.pkl")
+                peak, pos = 0.0, []
+                for c in clips[name]:
+                    c = np.concatenate([pad, c])
+                    oww.reset()
+                    peak = max([peak] + [oww.predict(c[i:i + 1280])["hey_jarvis"] for i in range(0, len(c) - 1280, 1280)])
+                    oww.reset()
+                    pos.append(get_reference_clip_features(c, oww, "hey_jarvis", threshold=WAKE_FLOOR, N=3))
+                pos = np.vstack(pos)
+                log(f"train: {label} peaks {peak:.2f} ({len(pos)} examples)")
+                if len(pos) == 0:                              # never reached the floor: that way stays off
+                    if os.path.exists(path):
+                        os.remove(path)                        # an older check must not outlive this training
+                    continue
+                check = train_verifier_model(np.vstack([pos, negf]), np.array([1] * len(pos) + [0] * len(negf)))
+                with open(path + ".tmp", "wb") as f:
+                    pickle.dump(check, f)
+                os.replace(path + ".tmp", path)
+                made += 1
+            reply_line(f"Done. I learned {made} of the 3 ways." + ("" if made == 3 else " The log says which."), False)
+        except Exception as e:
+            log(f"wake training failed: {e!r}")
+            problem("Wake word training failed")
+        finally:
+            S.set(state="idle", level=0.0)
+
+
 def wake_loop():
     import numpy as np
     model, stream, warned = None, None, False
@@ -3438,6 +3520,8 @@ def main():
             elif parts[0] == "FORGET":
                 history.clear()
                 log("conversation memory cleared")
+            elif parts[0] == "TRAINWAKE":
+                threading.Thread(target=train_wake, daemon=True).start()
             elif parts[0] == "QUIT":
                 log("stopped from the Control Center")
                 cancel.set()

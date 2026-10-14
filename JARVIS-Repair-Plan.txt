@@ -77,8 +77,15 @@ STATUS (2026-10-14, read this first in a new session)
     not live). Rollback: git revert 301c22f (the scratchpad before_phase3/4 copies are no longer needed).
   - 2026-10-14: live test done. Findings L1-L6 and the fixes are in "BEFORE ROUND 5:
     FIXING PREVIOUS ISSUES" (just before PHASE 5 in PART D).
+  - 2026-10-14: R5-6 step 6a built, NOT committed, NOT live (jarvis.py train_wake/record + TRAINWAKE
+    command, control.lua WAKE TRAINING > TRAIN row, tests). Checks: test_jarvis OK under venv and py -3 only
+    with TZ=ABC+12 (N13); check_voice OK; route check 1 "difference" that prints identical (N14); Lua 5.1
+    parse OK; real openWakeWord bench on noise OK. Rollback: reverse the uncommitted diff, delete
+    Data\wake_*.pkl. Waiting for: the user's word to copy to live, then TRAIN and the three "train:" lines.
   - NEXT: R5-0 done (7 of 10). Then R5-6 (wake word, user's order), R5-5 if needed, then R5-1, R5-2, R5-3
     one at a time, then Phase 5. Q4-Q14 still open for Phase 5.
+  - 2026-10-14: Q4-Q14 answered (see PART D "Q4-Q14 ANSWERED"); the user moved Phase 5 BEFORE 6b and
+    R5-1/2/3. 6a committed on the user's word (not live yet). NEXT: Phase 5a/5b/5c as written below.
 
 HANDOVER FOR A NEW CONVERSATION (state at the end of 2026-10-14)
   Git
@@ -923,6 +930,19 @@ Found while building Phases 2-4 (new issues)
       not listen. Say "Hey Jarvis" again.
   N12. LIMIT. The STOP KEY row offers END or OFF only. A hand-typed other value in Settings.inc shows END in
       the row but registers nothing.
+  N13. TEST BUG (found 2026-10-14 while building 6a; not fixed). test_jarvis l.1238 "set an alarm for 7 am"
+      expects "You already have an alarm for 7:00 AM." and the "move my alarm" line after it expects no
+      "tomorrow". After 7 AM local time the reply adds "tomorrow", so the run stops there and every test
+      after it (Phase 4 barge-in, 6a training) is skipped. Fails at commit 8494cee too, so not a regression.
+      Workaround used: run with TZ=ABC+12 (local time before 7 AM). Fix if wanted: freeze the clock or
+      accept "tomorrow" in those lines (test only, about 3 lines).
+  N14. CHECK SCRIPT. check_route.py flags "remind me to cook in 20 minutes" as different although both
+      sides print the same tuple (a time-based due value). route() was not touched in 6a. Treat this one
+      line as noise until the script compares without the timestamp.
+  N15. LIMIT (control.lua, the row drawer `for b = 1, 4`). A Control Center row shows at most 4 buttons; a
+      5th is silently not drawn. That is why TRAIN got its own WAKE TRAINING row. New buttons: new row.
+  N16. LIMIT (6a). A click or End stops the training only between clips, so up to 15 s late (the 15 s
+      "talk normally" clip). The "train the wake word" voice phrase is not built; the button only.
 
 
 ========================================================================================================
@@ -1086,6 +1106,12 @@ QUESTIONS TO ANSWER BEFORE PHASE 5 STARTS
       wake word to stop a ring, or only the stop/snooze words in the gaps and the click / End?
       ANSWERED 2026-10-14: yes, the wake word stops a ring, and he must ignore his own voice (see L1).
   Q3 ANSWERED 2026-10-14: yes, fix the wake word first (B1 was 5 of 10). See R5-0 / R5-5 below.
+  Q4-Q14 ANSWERED 2026-10-14:
+    Q4 today's ding(), repeated. Q5 loudness follows the Windows volume (no code). Q6 cap 5 minutes.
+    Q7 label at the start and every 30 s. Q8 plain "snooze" = 5 minutes (SNOOZE = 300). Q9 muted or
+    STEALTH: pop-up only (today). Q10 a missed alarm: a pop-up line. Q11 continuous ring for ALARMS only;
+    timers and reminders keep today's RINGS loop. Q12 keep STOP_WORDS; snooze checked first. Q13 the
+    default device (no code). Q14 End stops the ring (no snooze).
 
 
 BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live test; NOTHING BUILT YET)
@@ -1224,7 +1250,8 @@ BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live 
     Training (6a): WAKE WORD > TRAIN in Control Center (or "train the wake word"). He says what to do and you
       say: "Hey Jarvis" 6 times, "Hey ... Jarvis" 6 times, a bare "Jarvis" 6 times (each 3 s window, with a
       ding), then talk normally for 15 s (the "not Jarvis" examples). Three check files are saved in Data\
-      (wake_hey_jarvis.pkl, wake_hey_pause.pkl, wake_jarvis.pkl); the recordings are DELETED. The log shows the
+      (wake_hey_jarvis.pkl, wake_hey_pause.pkl, wake_jarvis.pkl). As built: the recordings stay in
+      memory and are never written to disk (nothing to delete). Voice phrase not built (N16). The log shows the
       highest normal score per style, e.g. "train: bare Jarvis peaks 0.04": if a style never reaches the 0.1
       floor, its check is not made and he says so (that way stays off; the others still work).
     Order: 6a training + the measurement first (no wake change yet). You train once and send the "train:"
@@ -1244,8 +1271,9 @@ BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live 
       wakes); someone else / a video saying "Hey Jarvis" softly should NOT wake him through W1-W3.
     Rollback: git revert; delete the three Data\wake_*.pkl; JarvisWakeEasy=0.
 
-  Into Phase 5a (L1): while only the ring tone plays (no voice), the wake word keeps its normal threshold
-    (no +0.2); +0.2 only while he says the label. "Hey Jarvis" stops the ring (Q15). Phase 8a's "at most 3
+  Into Phase 5a (L1): REPLACED 2026-10-14. In the gaps the gap listener holds the microphone, not the wake
+    word, and "Jarvis" / "Hey Jarvis" heard there stops the ring; while the ding or the label plays the
+    state is "speaking" and barge-in works as today. No wake_loop change. Phase 8a's "at most 3
     follow-ups" is replaced by D2.
 
 --------------------------------------------------------------------------------------------------------
@@ -1255,16 +1283,16 @@ Fixes:  issue 9  (the ring lasts no time; it should be continuous and keep going
         issue 16 (snooze doesn't work)
         issue 8  (asking about alarms that are set)
 
-5a. Continuous ring (about 35 lines, replaces the loop in alarm())
-  - A ring thread plays a phone-style cadence, about 2 s of tone and 0.7 s of gap, until an event stops it.
-  - He says the label once at the start and again every 30 s, not after every ring.
-  - It stops on: a click on the hologram, "Hey Jarvis" (the Phase 4 mechanism), or a stop or snooze word
-    heard in a gap.
-  - The gaps are how "stop" works WITHOUT the wake word. A cheap loudness check runs in each gap. Only if
-    someone speaks is the ring held and the words transcribed. Google does the same in spirit: a bare
-    "stop" works only while an alarm or timer is sounding.
-  - Safety cap: 10 minutes, then it is marked missed and shown on the HUD. (The length is a choice, not
-    taken from a source.)
+5a. Continuous ring (about 35 lines, a second loop in alarm(), for ALARMS only - Q11)
+  - If any due item is an alarm, the batch rings continuously: today's ding(), then 1.5 s of gap
+    listening, repeated (a ding about every 2 s). Timers and reminders keep the RINGS loop unchanged.
+  - He says the label at the start and again every 30 s (ALARM_SAY), not after every ding.
+  - It stops on: a click, End, barge-in while the ding/label plays, a stop or snooze word in a gap, or the
+    name alone ("Jarvis", "Hey Jarvis") heard in a gap.
+  - The gaps are how "stop" works WITHOUT the wake word. _listen's loudness check runs in each gap; only
+    if someone speaks are the words transcribed (hear(patience=1.5)).
+  - Safety cap: 5 minutes (ALARM_CAP, Q6), then "alarm missed" is logged and a pop-up line
+    "Missed alarm from <time>." is shown (Q10); "snooze" in the next 5 minutes still works.
   - The next time of a repeating alarm is still saved BEFORE the ring starts, so a crash cannot make one
     ring for ever.
   - No follow-up listening while an alarm rings, as Alexa and Google do.
@@ -1273,11 +1301,11 @@ Fixes:  issue 9  (the ring lasts no time; it should be continuous and keep going
 5b. Snooze (about 10 lines)
   - It works now because the alarm is real (1b) and listening in the gaps is cheap (5a).
   - Phrases: "snooze", "five more minutes", "ten more minutes", "again in ten", "later", "not now",
-    "snooze half an hour". Default stays 1 minute (SNOOZE = 60). Allowed range 1 minute to 2 hours.
+    "snooze half an hour". Default 5 minutes (SNOOZE = 300, Q8). Allowed range 1 minute to 2 hours.
   - Snooze is checked before the stop words, so "okay, snooze" snoozes.
-  - He confirms with the real new time: "Snoozed until 7:11."
+  - An alarm confirms with the real new time: "Snoozed until 7:11 AM." Timers keep "Snoozed for ...".
 
-5c. Asking about alarms (about 10 lines)
+5c. Asking about alarms (no code: reminder_cmd already does it; checked by a test)
   - "Do I have an alarm set", "what alarms are set", "when is my next alarm", "what timers are running"
     are answered by code from the reminders file, never by the model.
 
@@ -1285,17 +1313,21 @@ Tests (fake clock, fake sound, fake hear)
   - The ring continues past 60 fake seconds.
   - "stop" in a gap ends it. "snooze 5 minutes" saves it again and it rings again at the new time.
   - Room speech that is not a stop word: the ring resumes.
-  - Silence reaches the cap and the item is marked missed.
-  - A click ends it.
+  - Silence reaches the 5-minute cap: "alarm missed" logged, the pop-up line shown; the label is said
+    every 30 s.
+  - A click ends it. "Hey Jarvis" in a gap ends it; "what time is it" does not.
+  - A timer still rings RINGS rounds and says "Snoozed for". A mixed batch with an alarm rings long.
   - The list answer matches the file. A repeating alarm is back for tomorrow after firing.
   - The old tests for repeating reminders still pass.
 
 Your live test after Phase 5
   1. "Set an alarm for one minute." It rings and keeps ringing. Wait 30 seconds: still ringing.
   2. Say "stop" (no name). It ends.
-  3. Again; say "snooze". He says "Snoozed until ...". It rings again one minute later.
+  3. Again; say "snooze". He says "Snoozed until ...". It rings again five minutes later.
   4. Again; say "five more minutes". Then ask "do I have an alarm set?" He names the new time.
-  5. Again; click the hologram. It ends.
+  5. Again; click the hologram. It ends. Again; say "Hey Jarvis" in a gap. It ends.
+  6. Again; leave it. It stops after 5 minutes and the pop-up shows "Missed alarm from ...".
+  7. A 1-minute timer behaves exactly as before.
 
 Risk: room speech in a gap pauses the ring for a second or two. It resumes unless the words are a stop or
 snooze word.

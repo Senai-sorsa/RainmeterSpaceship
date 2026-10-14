@@ -589,6 +589,8 @@ local function rowsJarvis()
     { 'ON', function() jset('JarvisWakeWord', 1) end, ww }, { 'OFF', function() jset('JarvisWakeWord', 0) end, not ww },
     { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
+  rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey Jarvis", "Hey ... Jarvis" and "Jarvis" (about 2 minutes; he says what to do)', {
+    { 'TRAIN', function() local f = io.open(RES .. 'Data\\jarvis_cmd.txt', 'w'); if f then f:write('TRAINWAKE ', os.time(), '\n'); f:close() end; say('JARVIS WILL TELL YOU WHAT TO SAY') end } } }
   local mic, mics = H.str('JarvisMic', ''), models('jarvis_mics.txt')   -- listed by jarvis.py at start
   local function nextMic(d)
     if #mics == 0 then say('START JARVIS ONCE TO LIST THE MICROPHONES') else jset('JarvisMic', cycle(mics, mic, d)) end
