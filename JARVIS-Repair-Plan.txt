@@ -1,6 +1,7 @@
 JARVIS REPAIR PLAN (MASTER COPY)
 ================================
-Written 2026-10-13 after the first live test. Nothing in this plan is built yet.
+Written 2026-10-13 after the first live test. Since then Phases 0-5 have been built and committed, and
+Phase 6 has started (6a done). See "CURRENT STATE" just below for where things stand.
 This file is the single source of truth. It is written so that a brand new chat can pick up any phase
 with no other context. Read PART A first, then only the phase you are about to do.
 
@@ -35,7 +36,34 @@ TO ANY AI READING THIS FILE: FIRST CHECK THE TOOLS (added 2026-10-14)
     - Known gap (2026-10-14): Docs\Spaceship-HUD-Guide.md was only partly re-read, so its nodes are from an
       older version. "graphify extract --force" rebuilds it in full (costs tokens; ask the user first).
 
-STATUS (2026-10-14, read this first in a new session)
+CURRENT STATE (end of the 2026-10-14 session that built Phase 5 and Phase 6a; READ THIS FIRST)
+  Done (built, tested by test_jarvis + route check, committed on branch chore/jarvis-baseline-and-performance,
+  NOT pushed, main is behind):
+    - Fix Rounds 1, 2, 4 (Round 3 not built), Phase 1-4, status-only hologram          d7386dd, 301c22f
+    - The user's live test of Phases 2-4 ("BEFORE PHASE 5") was DONE; its findings L1-L6 became
+      "BEFORE ROUND 5" (R5-0 .. R5-6).
+    - R5-0 (wake sensitivity 0.35, user's click) done. R5-6 step 6a (wake word training) built   123d829
+    - PHASE 5 COMPLETE: 5a continuous alarm ring, 5b snooze, 5c alarm questions                   23b290c
+    - PHASE 6a (called "S1" in tasks/): only the HUD data a question needs goes to the model, plus the
+      Phase 6 re-plan (6b memory system, PHASE 10)                       the commit after 23b290c
+  Not live yet: everything from 123d829 on (R5-6 6a, Phase 5, Phase 6a). The live skin has the state the
+    user tested in "BEFORE PHASE 5". Copy to live only on the user's word (COPY TO LIVE in PART D).
+  Waiting on the user (in this order, unless the user changes it):
+    1. Copy to live, then the Phase 5 live test ("Your live test after Phase 5") and the 6a live test
+       (PHASE 6 > 6a > "Live test"). Paste log lines; Claude never reads Data\.
+    2. In Control Center: check WHISPER = small.en (the R5-0 log showed base.en) and train the wake word
+       (WAKE TRAINING > TRAIN), then send the three "train:" lines.
+  NEXT TO BUILD: Phase 6 M1 (active window), then M2, Checkpoint A (PHASE 6 > 6b, "Slices"). The user
+    chose Phase 6 before the Phase 5 live test and before R5-1/2/3.
+  Still open, not scheduled: R5-1, R5-2, R5-3 (command path, volume direction, follow-up), R5-6 step 6b
+    (W1-W3, needs the "train:" numbers), R5-5 (only if needed), Fix Round 3, N13 (test clock bug: run tests
+    with TZ=ABC+12), N19 ("again in ten" snooze phrase). Phases 7-10 not started; PHASE 10 is parked.
+  Naming trap: "6a" in R5-6 and N13/N14/N16 means R5-6 step 6a (wake training). "Phase 6a" / "S1" is the
+    relevance fix. M1-M4b are the slices of Phase 6b.
+  The STATUS list below is the history, oldest first. A "NEXT:" in an older entry is superseded by this
+  block.
+
+STATUS (2026-10-14, history log; newest at the bottom)
   - Built since the plan was written: "FIX ROUND 3" (end of PART D), Rounds 1, 2 and 4. Round 3 is not built.
   - Rounds 2 and 4 are in jarvis.py / test_jarvis.py on branch chore/jarvis-baseline-and-performance, NOT
     committed and NOT copied to the live skin. All checks passed (test_jarvis OK under the venv and py -3,
@@ -82,11 +110,12 @@ STATUS (2026-10-14, read this first in a new session)
     with TZ=ABC+12 (N13); check_voice OK; route check 1 "difference" that prints identical (N14); Lua 5.1
     parse OK; real openWakeWord bench on noise OK. Rollback: reverse the uncommitted diff, delete
     Data\wake_*.pkl. Waiting for: the user's word to copy to live, then TRAIN and the three "train:" lines.
-  - NEXT: R5-0 done (7 of 10). Then R5-6 (wake word, user's order), R5-5 if needed, then R5-1, R5-2, R5-3
-    one at a time, then Phase 5. Q4-Q14 still open for Phase 5.
+  - (superseded) NEXT: R5-0 done (7 of 10). Then R5-6 (wake word, user's order), R5-5 if needed, then R5-1,
+    R5-2, R5-3 one at a time, then Phase 5. Q4-Q14 still open for Phase 5.
   - 2026-10-14: Q4-Q14 answered (see PART D "Q4-Q14 ANSWERED"); the user moved Phase 5 BEFORE 6b and
-    R5-1/2/3. 6a committed on the user's word (not live yet). NEXT: Phase 5a/5b/5c as written below.
-  - 2026-10-14: Phase 5a/5b/5c built and committed, NOT live. jarvis.py: alarm() rings an alarm (any
+    R5-1/2/3. R5-6 step 6a committed on the user's word as 123d829 (not live yet). NEXT (done since):
+    Phase 5a/5b/5c.
+  - 2026-10-14: PHASE 5 COMPLETE. 5a/5b/5c built and committed as 23b290c, NOT live. jarvis.py: alarm() rings an alarm (any
     alarm in the batch) with a ding about every 2 s and 1.5 s gaps (hear(patience=1.5)), the line every
     ALARM_SAY=30 s, cap ALARM_CAP=300 s then "alarm missed" + pop-up line "Missed alarm from <time>.";
     the name alone (NAME_ONLY) stops it in a gap; alarm snooze says "Snoozed until <time>."; SNOOZE=300.
@@ -94,66 +123,83 @@ STATUS (2026-10-14, read this first in a new session)
     TZ=ABC+12 for N13); route check 65 phrases, 2 differences (snooze 60 -> 300 intended; N14 noise).
     check_voice not run (synth_audio untouched). Waiting for: the user's word to copy to live (6a + 5),
     then the Phase 5 live test.
+  - 2026-10-14: Phase 6 REVISED by the user before building: 6b is now one memory system (active window,
+    topic memory, compaction into checked tiny facts, your facts = old 6d, what he really did); 6c and 6h
+    moved to the new PHASE 10 PERSONALITY (no output cuts). Working plan: tasks/plan.md, tasks/todo.md
+    (committed with 6a). The approved revision is written out in PHASE 6 > "PLAN CHANGES".
+  - 2026-10-14: S1 (6a) BUILT and committed on the user's word (the commit after 23b290c), not live. Beyond the table below, from the build: "me" after
+    tell/give/show/help/let is not "about you" (else "tell me a joke" sent the profile); a briefing keeps the
+    whole profile; the Pending line goes in on its own for time / setting questions, labelled "don't bring it
+    up unless asked", and is left out of unrelated chat; calendar words widened (day names, weekend, due...).
+    The user chose to keep "only matching memory facts" as M4a (not pulled forward). Checks: test_jarvis OK
+    (py -3 and venv, TZ=ABC+12); route check 65 phrases, 0 real differences (1 N14 timestamp line).
+    Waiting for: the user's word to copy to live and the S1 live test. NEXT: M1.
 
-HANDOVER FOR A NEW CONVERSATION (state at the end of 2026-10-14)
+HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 5 / 6a session)
   Git
-    - Branch chore/jarvis-baseline-and-performance. Not pushed. main is behind it.
-        301c22f  Phase 3 + Phase 4 + this plan's updates (committed 2026-10-14 on the user's word)
+    - Branch chore/jarvis-baseline-and-performance. Not pushed. main (c5ff4a5) is behind it.
+        <6a commit> JARVIS: Phase 6a (only send what the question needs), Phase 6 re-plan   (git log -1)
+        23b290c  Phase 5: an alarm rings until answered (5 min cap), snooze 5 min
+        123d829  R5-6 step 6a (wake word training), answers Q4-Q14 for Phase 5
+        8494cee  plan: "Before Round 5" fixes from the live test, wake word triple check
+        9e73f54  plan: issues 27/28 (6h, 6i), copy-to-live commands with /XO
+        1d4b106  plan: record 301c22f, N7 timer flake won't fix
+        301c22f  Phase 3 + Phase 4 + plan handover
         d7386dd  Phase 2, 2e/2f, Rounds 2/4, status-only hologram
-      "git diff d7386dd 301c22f -- <file>" shows exactly the Phase 3/4 work.
-    - Working tree clean after 301c22f (apart from later edits to this file). Rollback of Phases 3-4:
-      git revert 301c22f. Q1 (commit before Phase 5) is done; it was committed before the live test.
-    - Still: never "git checkout" / "git restore" / "git stash" to undo something uncommitted from a later
-      phase; read the staged list before any commit, never "git add .".
-    - Nothing from Phases 2-4 is in the live skin yet. The user's live test (BEFORE PHASE 5) needs a copy to
-      live, done only on the user's word, listing the files first and backing up the live ones.
-  Scratch folders (session temp dirs: they may be deleted at any time; if gone, use git as above)
-    This session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
-                  0636710a-9b2d-427d-a83f-3ccf1e10411d\scratchpad
-      before_phase2\ before_phase3\ before_phase4\ before_hologram\ before_2e2f\   rollback copies
-      oldj\jarvis_head.py   jarvis.py at d7386dd, for the route check
-      bench\phase3_hear.py, bench\phase4_stop.py   real-device checks (Kokoro -> Whisper; stop timing)
-      vtest\   Kokoro int8 model + voices, for benches only
-    Older session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
-                   d775d96e-50f0-4512-ad84-96309ffb7bba\scratchpad
-      check_route.py   (PART E route check: compares route() of two jarvis.py files over ~65 phrases)
-      lupa\            Lua 5.1 for the syntax check (PART E)
-  Bench warning: importing jarvis.py in a bench writes the HUD state file Data\jarvis.txt through S.set.
-    Patch the paths / S first, and delete any Data\ file a bench creates (never read it).
-  Last verified (after the final Phase 4 edit): test_jarvis OK with py -3; venv 3 of 4 runs OK (the 4th is
-    flake N7); check_voice OK; route check 0 differences; control.lua + jarvis.lua parse under Lua 5.1.
+        7bf9e14  this plan (first version)
+    - Working tree clean after the 6a commit. Rollback of any step: git revert <its commit>.
+    - Never "git checkout" / "git restore" / "git stash" to undo something; never "git add ."; read the
+      staged list before every commit; commit only on the user's word.
+  Where the work is
+    - Code: Skins\Spaceship\@Resources\Jarvis\jarvis.py (3600 lines) and test_jarvis.py.
+    - Phase 6 working notes: tasks\plan.md (the approved plan + S1) and tasks\todo.md (the checklist).
+      This file stays the master; keep the three in step.
+  How to check a change (PART E has the full list)
+    - Copy jarvis.py and test_jarvis.py to a scratch folder and run there, never in the repo (importing
+      jarvis.py writes Data\jarvis.txt):  TZ=ABC+12 py -3 -I test_jarvis.py   and the same with
+      %LOCALAPPDATA%\SpaceshipHUD\venv\Scripts\python.exe. Both must print "test_jarvis: OK", exit 0.
+      TZ=ABC+12 works around N13.
+    - Route check: py -3 -I check_route.py <old jarvis.py> <new jarvis.py> (65 phrases). Expect no
+      differences except the N14 timestamp line (old and new print the same tuple).
+    - In bash on this PC, long Python heredocs fail ("unexpected EOF"): write a script file, then run it.
+    - This file uses LF line endings; write it with newline="\n".
+  Scratch folders (session temp dirs; they may be deleted at any time; if gone, use git)
+    Phase 5 / 6a session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
+                          6701ccf6-4c51-4d5b-96c2-a1d1a3782d7e\scratchpad
+      p5\Jarvis\        scratch copy where the tests run
+      before_s1\         jarvis.py + test_jarvis.py before Phase 6a (now also: git revert of the 6a commit)
+      rc_old\, rc_new\   the two jarvis.py files for the route check
+      patch_*.py        the scripts that made the 6a and plan edits
+    Phase 2-4 session:    ...\0636710a-9b2d-427d-a83f-3ccf1e10411d\scratchpad (before_phase2..4\, bench\, vtest\)
+    Older session:        ...\d775d96e-50f0-4512-ad84-96309ffb7bba\scratchpad
+      check_route.py   the route check;  lupa\  Lua 5.1 for the control.lua syntax check
+  Bench warning: importing jarvis.py writes the HUD state file Data\jarvis.txt through S.set. Patch the
+    paths / S first, and delete any Data\ file a bench creates (never read it).
+  Privacy: Claude does not read Data\jarvis.log or anything in Data\. The user pastes the lines needed.
 
-  MAP FOR PHASE 5 (jarvis.py line numbers in the working tree on 2026-10-14; 3462 lines; search by name
-  if they moved. The A3 map below is from the older commit c5ff4a5.)
-    stop_now(why)   164   cancel + HUD idle + log line; used by CANCEL, the End key and barge-in
-    play_samples   1185   plays sound; on cancel calls out.abort() (silent within ~80 ms)
-    _speak_queue   1253   speaking; marks his own "Jarvis" so barge-in ignores it
-    muted()        1355
-    route()        1748
-    hear()         1926   listen + transcribe a short answer; strips "Jarvis" from the front
-    STOP_WORDS 2228, RINGS = 10 2229, SNOOZE = 60 2230
-    _num 2238, duration 2250, snooze_for 2348, reminder_cmd 2394
-    load_reminders 2483, save_reminders 2497, remind_reply 2558, due_reminders 2674
-    ding()         2688   the ring tone today
-    alarm()        2696   the loop Phase 5a replaces. Holds busy; clears cancel; per ring: ding, says the
-                          label (state "speaking"), then hear() (state "listening"); snooze/stop/cancel
-    chime()        2883
-    ENDERS         2913   (quiet / never mind / enough added in Phase 4)
-    turn()         2935
-    barge_turn     3170   stop_key_loop 3184   wake_loop 3216   main 3374
-  How Phase 4 already touches alarms (Phase 5 must keep or decide these):
-    - End (JarvisStopKey) stops a ringing alarm: cancel, no snooze (question Q14).
-    - Barge-in only listens while state is "speaking". In today's alarm that is only while he says the
-      label; during the tone and the hear() gap, wake_loop drops the mic (alarm holds busy). So "Hey Jarvis
-      stops a ring" in 5a is NOT free: it needs the gap listening (or a wake check in the ring loop), and
-      it must stay one microphone session at a time (question Q15, issue N9).
-    - STOP_WORDS also matches "okay", "thanks", "thank you" (question Q12).
+  MAP FOR PHASE 6 (jarvis.py in the working tree after the 6a commit; search by name if lines moved)
+    BLOCKS 234, ABOUT_ME 248, wants() 251, context() 258   6a: blocks by keyword (+ "pending")
+    sensors() 326 (Pending line in its pending())            read on a thread while you speak
+    SYSTEM 387 ("Answer only what was asked..."), system_prompt() 433, http_json() 452, AI_SCHEMA 625
+    CLAIM_LINE / CLAIM 1705                                    the Phase 1 action-claim guard (stays)
+    route() 1780, hear() 1958, can_undo() 2129                 can_undo: a hook for M4b
+    load_memory() 2211, save_memory() 2219                     L4 facts; the atomic write to reuse in M2
+    SNOOZE / ALARM_CAP / ALARM_SAY 2262-2264, alarm() 2731     Phase 5
+    ENDERS 2960, turn() 2982 (fixed() is inside it)
+      "last_turn > 600" 3055 and 3155                          M1: both become ACTIVE_TTL = 120
+      the readings filter (6a Pending rule) ~3160, history[-8:] 3166   M1: history[-4:] + linking
+    wake_loop() 3352, main() 3510
+
+  DECIDED IN PHASE 5 (was "how Phase 4 touches alarms")
+    - End stops a ringing alarm (no snooze). Barge-in works while the ding or the label plays; in the gaps
+      the gap listener (hear(patience=1.5)) holds the microphone and the name alone stops it. No wake_loop
+      change. STOP_WORDS were left as they were.
 
 Contents
   PART A   How to use this file, where things are, the rules
   PART B   The 28 reported issues, numbered
   PART C   What was found in the code and measured on the machine
-  PART D   The phases (0 to 9), each with: issues fixed, cause, steps, tests, your live test, risk, rollback
+  PART D   The phases (0 to 10), each with: issues fixed, cause, steps, tests, your live test, risk, rollback
            (and "BEFORE PHASE 5": the full live test of Rounds 1-4 and Phases 2-4, and the Phase 5 questions)
   PART E   Checks to run after every phase
   PART F   New settings this plan adds
@@ -439,10 +485,11 @@ Order: what breaks trust first, then what every later phase depends on, then com
    Phase 3   Hearing you correctly                           issues 10, 12, 20 (microphone choice), 26
    Phase 4   Interrupting him                                issues 4, 7, 15, 23
    Phase 5   Alarms that behave like alarms                  issues 8, 9, 16
-   Phase 6   Relevance, tone, memory, sounding human         issues 3, 5, 11, 14, 18
+   Phase 6   Relevance, memory, sounding human               issues 5, 11, 14, 18, 27
    Phase 7   More settings by voice                          issues 13, 20, 22
    Phase 8   Follow-up timing and sounds                     issues 1, 17
    Phase 9   Ask him what is wrong (diagnosis)               issue 21
+   Phase 10  Personality (tone and honesty)                  issues 3, 28
    Phase 8 is small and independent. It can be done at any point for a quick win.
 
 
@@ -951,6 +998,14 @@ Found while building Phases 2-4 (new issues)
       5th is silently not drawn. That is why TRAIN got its own WAKE TRAINING row. New buttons: new row.
   N16. LIMIT (6a). A click or End stops the training only between clips, so up to 15 s late (the 15 s
       "talk normally" clip). The "train the wake word" voice phrase is not built; the button only.
+  N17. LIMIT (Phase 6a). Blocks are picked by keywords: false hits ("speed test" adds the calendar, "hotel"
+      the PC readings) only add data; misses ("anything Friday" before the widening) leave data out and he
+      says he doesn't have it. A follow-up with no keyword relies on the question before it.
+  N18. LIMIT (Phase 6a). The Pending line goes in only for time / setting words (or a PC question). A
+      question about alarms with none of them reaches the model without the schedule; the Phase 1 CLAIM
+      guard is then the only check.
+  N19. OPEN (Phase 5b). "again in ten" is listed as a snooze phrase in 5b but is not recognised as one.
+      Not fixed; the other snooze phrases work in test_jarvis.
 
 
 ========================================================================================================
@@ -1122,7 +1177,10 @@ QUESTIONS TO ANSWER BEFORE PHASE 5 STARTS
     default device (no code). Q14 End stops the ring (no snooze).
 
 
-BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live test; NOTHING BUILT YET)
+BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live test)
+  STATE (end of 2026-10-14): R5-0 done (0.35, about 7 of 10). R5-6 step 6a (training) built, 123d829, not
+  live, not trained yet. NOT built: R5-1, R5-2, R5-3, R5-5, R5-6 step 6b. The user moved Phase 5 and then
+  Phase 6 ahead of them.
   Done one step at a time. After each step: PART E checks, copy to live only on the user's word (with /XO,
   see COPY TO LIVE), the user's live test, one commit only on the user's word. Phase 5 starts after this.
 
@@ -1285,8 +1343,17 @@ BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live 
     follow-ups" is replaced by D2.
 
 --------------------------------------------------------------------------------------------------------
-PHASE 5   ALARMS THAT BEHAVE LIKE ALARMS
+PHASE 5   ALARMS THAT BEHAVE LIKE ALARMS   COMPLETE: built and committed 2026-10-14 (23b290c), NOT live
 --------------------------------------------------------------------------------------------------------
+RESULT (as built; the spec below is what was asked for)
+  - alarm() rings an alarm (any alarm in the batch): a ding about every 2 s with 1.5 s listening gaps
+    (hear(patience=1.5)); the line again every ALARM_SAY = 30 s; ALARM_CAP = 300 s, then "alarm missed" in the
+    log and the pop-up line "Missed alarm from <time>."; the name alone (NAME_ONLY) stops it in a gap.
+  - Alarm snooze says "Snoozed until <time>."; SNOOZE = 300. Timers and reminders keep the RINGS loop.
+  - 5c needed no code; a test checks the answers come from the reminders file.
+  - Checks: test_jarvis OK (py -3 and venv, TZ=ABC+12 for N13); route check 65 phrases, 2 differences
+    (snooze 60 -> 300, intended; N14 noise). check_voice not run (synth_audio untouched).
+  - Open: N19 ("again in ten"). Waiting for: copy to live and "Your live test after Phase 5" below.
 Fixes:  issue 9  (the ring lasts no time; it should be continuous and keep going)
         issue 16 (snooze doesn't work)
         issue 8  (asking about alarms that are set)
@@ -1343,45 +1410,187 @@ Rollback: revert the commit. The reminders file format is unchanged.
 
 
 --------------------------------------------------------------------------------------------------------
-PHASE 6   RELEVANCE, TONE, MEMORY, SOUNDING HUMAN
+PHASE 6   RELEVANCE, MEMORY, SOUNDING HUMAN   (revised 2026-10-14: 6b rewritten; 6c, 6h -> PHASE 10)
 --------------------------------------------------------------------------------------------------------
+STATE: 6a BUILT and committed (not live). Next: 6b slice M1. 6c, 6h moved to PHASE 10; 6d folded into 6b.
+
+PLAN CHANGES (what changed in this phase's plan, in order; 2026-10-14)
+  1. First plan (from this file, broken into tasks/plan.md): 6a relevance, 6b history (last 2 exchanges,
+     2 minutes, then thrown away), 6c tone, 6d memory relook, 6e ear wording, 6f-6i measure first, 6h
+     honesty (cut sentences that claim things he did not do).
+  2. The user rejected two parts before anything was built:
+       - 6b threw talk away. Wanted: keep it longer, sorted by topic, brought back only when the question
+         is about that topic; plus an active memory of the last 2 replies for 2 minutes.
+       - 6h cut his sentences, which would make him sound odd. Wanted: honesty through personality, later.
+       - 6c is personality too, so it moves with 6h.
+  3. The user's answers: topics kept 7 days / 100 max, stored by topic not by conversation; old topics
+     compacted into tiny facts, not deleted; facts never expire (monthly re-compaction only if needed);
+     "new topic" or an unrelated question clears the active memory, "never mind" does NOT.
+  4. Approved revision (plan file C:\Users\Senai\.claude\plans\declarative-finding-bee.md, copied into
+     tasks/plan.md): 6b = one memory system, four layers (L1 active, L2 topics, L3 gist, L4 facts + what he
+     really did), built as slices M1, M2, Checkpoint A, M4a, M4b, M3, then 6e, Checkpoint B. 6d becomes
+     M4a. 6c and 6h become PHASE 10. The Phase 1 CLAIM guard stays (safety, not personality). No
+     control.lua change in Phase 6 (the NATURAL button moves to PHASE 10).
+  5. While building 6a (S1), found and changed (all in the 6a table and RESULT below):
+       - "Tell me a joke" counted as a question about the user ("me") and sent the profile. Fixed.
+       - The first version cut the profile in briefings too. Fixed: briefings keep the whole profile.
+       - The Pending line (alarms / timers) sits in the sensor readings, so 6a dropped it from non-PC
+         questions and the model lost the true schedule. Fixed: it goes in alone for time / setting
+         questions, labelled "don't bring it up unless asked"; unrelated chat gets none (user's choice).
+       - Calendar misses ("anything Friday?"): the calendar words were widened (user's choice).
+       - A claim that the sensor read slowed each turn was wrong: it runs while you speak. Nothing changed.
+  6. The user's choice: "only matching memory facts in the prompt" stays in M4a, not pulled forward.
+     Until M4a, all saved facts still go into every prompt (the main remaining cause of issue 5).
+
 Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
         issue 11 (cares too much about previous conversations)
-        issue 3  (playful when unnecessary or on a serious topic)
+        issue 3  (playful when unnecessary or on a serious topic)                       -> PHASE 10
         issue 14 (the memory function needs a relook)
         issue 18 (responses should sound more human)
-        issue 28 (lies about important things when playful; invented "simulations")   -> 6h
+        issue 28 (lies about important things when playful; invented "simulations")   -> PHASE 10
         issue 27 (GPU spikes to 100% on click, thinking, speaking)                     -> 6i
 
-6a. Only send what the question needs (about 40 lines)
+6a. Only send what the question needs (about 40 lines)   BUILT 2026-10-14 (S1), not live
   context() is split into blocks. A block is added only when the question touches it:
 
     Block           Added when the question has
     --------------  ----------------------------------------------------------------------------
     Time and date   always (one line)
     Calendar        schedule, today, tomorrow, tonight, week, class, quiz, exam, meeting, free, busy,
-                    "when is", "what's on"
+                    "when is", "what's on"; added in the build: day names, weekend, month, morning,
+                    afternoon, evening, later, due, deadline, "anything on / for / happening"
     Mail count      mail, email, inbox, unread, message
     To-dos          to-do, todo, task, "my list"
-    PC readings     cpu, gpu, temperature, hot, ram, memory, fan, power, battery
+    PC readings     cpu, gpu, temperature, hot, ram, memory, fan, power, battery (and the sensor lines:
+                    HWiNFO values, CPU and GPU load, volume, brightness, mic, disk, Pending)
+    Pending line    alarm, timer, remind, wake, snooze, cancel, set, "did you", o'clock, "7 am", minutes,
+                    hours, morning, tonight, later. Without a PC word it goes in alone, labelled "don't
+                    bring it up unless asked about alarms, reminders or timers", so a claim can be checked
     Network         wifi, network, internet, connection
     Open apps       open, running, window, app
-    Profile         a question about the user (my, me, I) - and capped at 500 characters
-    Briefing        all blocks, as today
+    Profile         a question about the user (my, me, I; not "me" after tell/give/show/help/let) -
+                    capped at 500 characters
+    Briefing        all blocks and the whole profile, as today
 
   Plus one line in SYSTEM: "Answer only what was asked. Do not mention the data below unless the question
   is about it."
   Research: a 2026 study of models under 7B parameters found that the mere presence of context, relevant
   or not, pulls answers off course. An earlier study found the effect grows with the amount of irrelevant
   text. The fix both point to is not to send it.
+  RESULT (built 2026-10-14, committed after 23b290c, NOT live)
+    - jarvis.py: BLOCKS + wants(text, kind) pick the blocks; context(text, kind) and system_prompt(text,
+      kind) take the question (None = everything, so any other caller is unchanged; turn() is the only
+      caller). turn() passes the question plus the previous user line, so "and Friday?" keeps the calendar.
+    - Sensor readings: all of them for a PC question or a briefing; otherwise only the Pending line, for
+      time / setting words, under the "don't bring it up" label; otherwise none.
+    - test_jarvis: block choice per question, profile in / out / capped, turn-level checks of the
+      readings and the Pending line. Checks: OK under py -3 and venv (TZ=ABC+12); route check 0 real
+      differences (one N14 line).
+    - Limits: N17, N18. Rollback: git revert of the 6a commit.
+    Live test (after copy to live): "Tell me a joke" (no alarms, calendar, PC numbers, profile); "What's
+    on tomorrow?" then "and Friday?" (calendar both times); "Anything Friday?"; "How hot is my GPU?" (real
+    numbers); with an alarm set, "did you set my alarm?" (the real time); "Good morning" (same briefing as
+    before).
 
-6b. Conversation history (about 10 lines, in turn())
-  - The last 2 exchanges (4 messages), not 8.
-  - Forgotten after 2 minutes without a turn, not 10, and at the end of a follow-up chain.
-  - "New topic", "never mind" and "forget that" clear it at once.
-  - Not sent at all for briefing and notes turns.
+6b. One memory system (REWRITTEN 2026-10-14 by the user; replaces the old 6b and folds in 6d; ~190 lines)
+  The user: keep talk longer, but sorted by topic and brought back only when the question is about that
+  topic; old topics compacted into tiny facts, not deleted. Ideas from MemGPT/Letta (small working
+  context, older talk moved out and summarised), Generative Agents (recall by relevance + recency), Mem0
+  (add / update / ignore a fact, never stack contradictions), ChatGPT memory (saved facts you can list and
+  delete, plus chat history used only when relevant). Ideas only; no new package.
+  Four layers, one path:
+    L1 ACTIVE  last 2 exchanges, 2 minutes (ACTIVE_TTL=120). Kept while the question links to them (a
+               shared keyword, or a follow-up start: it, that, this, he, she, they, and, but, so, what
+               about, how about, why, then, also; or 3 words or fewer). Unlinked, timed out or "new topic"
+               -> filed into L2 and emptied. "Never mind" does NOT clear it (the user, 2026-10-14).
+    L2 TOPICS  Data\jarvis_topics.json: a topic = keywords + its last 6 exchanges + last used. Filed talk
+               joins the topic it shares 2 keywords (or 1 rare one) with, else starts a new one. Recalled
+               only when the question shares keywords with it (a floor, so "time" or "day" alone never
+               pulls one in); top 2, about 600 characters, under "From earlier talks (only if it helps)".
+               Only chat exchanges, never commands or briefings. Digit runs of 6+ and password-like words
+               stored as "[number]". JarvisRecall = on | off. "Forget what we said about X" reads back and
+               waits for yes; "what do you remember about X" is answered by code. 7 days, 100 topics max.
+    L3 GIST    after 7 days unused, or over 100 topics (oldest first): once a day while idle, the local
+               model turns a topic into up to 3 tiny facts (JSON schema, like the AI fallback). CODE CHECKS
+               every one: each number, name and content word must be in that topic's saved talk, else it is
+               dropped. Model down or all dropped -> the topic stays and is tried tomorrow (removed without a
+               gist after 3 failures, logged as a count). Data\jarvis_gist.txt, never expires; monthly,
+               only if over 200 lines, the oldest lines sharing a topic are re-compacted under the same check.
+    L4 FACTS   Data\jarvis_memory.txt: what YOU told him (6d below, unchanged as its spec). Word for word,
+               never reworded or compacted by the model. Plus "what he actually did": code keeps the last 20
+               actions it really ran (time, what, worked or not); questions about him get that list, or "You
+               ran nothing in this session." This is how issue 28 is met by memory, without cutting his
+               sentences.
+  Prompt per turn: L1 (if linked), matching L4 facts (5 at most), at most 2 L2 topics + matching L3 lines,
+  the action list only for questions about him. Nothing matches -> nothing is added.
+  Order: 6a -> M1 (L1) -> M2 (L2) -> Checkpoint A -> M4a (6d) -> M4b (actions) -> M3 (L3) -> 6e -> Checkpoint B.
+  Each slice: its own tests, test_jarvis OK (py -3 and venv), route check, commit and live copy on the
+  user's word.
 
-6c. Tone (about 15 lines)
+  M1. Active window (about 25 lines, turn() and fixed())
+    - keywords(text): lowercase words, stop-words and filler removed, a trailing "s" cut. Shared by L1, L2,
+      L4. 6a's block table stays separate.
+    - history[-4:] instead of history[-8:]; ACTIVE_TTL = 120 replaces both 600s (~3022 and the
+      "time.time() - last_turn > 600" in turn()).
+    - Linked = a shared keyword with the window, a follow-up start, or 3 words or fewer.
+    - Unlinked, timed out, or "new topic" -> file_active() (L2; until M2 exists it only empties), then
+      empty. "New topic" gets the fixed reply "Okay." "Never mind" is left as it is.
+    - Briefing and notes turns neither send nor file the window. The FORGET pipe still empties it.
+    Tests: linked / unlinked; "never mind" keeps it; "new topic" files it; a question 3 minutes later gets
+    no window.
+
+  M2. Topic memory (about 60 lines)
+    - Data\jarvis_topics.json, written .tmp then os.replace (as save_memory). Topic = {kw, talk:
+      [[when, you, him], ...], used}. Lines capped at 200 characters, 6 exchanges per topic, 100 topics.
+    - file_active(): chat exchanges only. Digit runs of 6+ and password-like words -> "[number]". Joins
+      the topic sharing 2 keywords or 1 rare one (in only one topic), else a new topic.
+    - Recall: score = shared keywords weighted by rarity + a small recency bonus, above a floor; best 2,
+      about 600 characters; their "used" is updated.
+    - JarvisRecall = on | off (off = L1 and L4 only).
+    - Voice: "forget what we said about X" reads back the topics and waits for yes; "what do you remember
+      about X" lists topics and gist by code.
+    Tests: filing merges into the right topic; unrelated question recalls nothing, related one recalls the
+    right topic; digits masked; JarvisRecall=off.
+
+  CHECKPOINT A: commit, live copy, live test (two topics, come back to the first later; an unrelated
+  question gets no old talk).
+
+  M4a. Your facts (the old 6d, about 45 lines; the user chose 2026-10-14 to keep it here, not earlier)
+    - Only facts sharing keywords with the question go into the prompt, 5 at most, word for word under
+      "Facts the user told you. Use them exactly." Today all 50 go into every prompt; this is the main
+      remaining cause of facts brought up unasked after 6a.
+    - Save phrases: remember that / note that / don't forget that / keep in mind that.
+    - "What do you know about X" answered by code. "Replace '...'?" for a contradicting fact. Forget
+      reads back and waits for yes. Offer "Want me to remember that?" (JarvisLearn = ask | off); only a
+      yes saves. Limits: 50 facts, 200 characters. Full spec: 6d below.
+    Tests: a joke gets no facts; "when is my dentist" gets that fact only; replace and forget prompts.
+
+  M4b. What he actually did (about 15 lines)
+    - In-memory list of the last 20 actions really run (time, what, worked or not), fed from can_undo
+      and the act and remind paths (check while building that every action passes through one).
+    - Goes into the prompt only for questions about him ("what did you do", "did you set"); empty ->
+      "You ran nothing in this session."
+    Tests: a real action shows in the list; an empty list gives the fixed line; a joke gets no list.
+
+  M3. Compaction into tiny facts (about 45 lines)
+    - Once a day while idle (busy lock free, not a game or LITE): topics unused 7 days, or the oldest
+      while over 100.
+    - One non-streaming http_json call with a JSON schema (like AI_SCHEMA): up to 3 facts under 120
+      characters each.
+    - Code check: every number, name and content word must be in that topic's saved talk, else the fact
+      is dropped. All dropped or model down -> topic kept, retried tomorrow; after 3 failures removed
+      without a gist, logged as a count only.
+    - Data\jarvis_gist.txt, never expires. Monthly, only over 200 lines, oldest lines sharing a topic are
+      re-compacted under the same check. Your facts (L4) are never compacted.
+    Tests (fake model, fake clock): the 101st topic triggers compaction; a fact with a name or number not
+    in the talk is dropped; model down keeps the topic.
+
+  6e, then CHECKPOINT B: same gates; live test of facts, "what did you do", and one compaction run by
+  hand with a short test age.
+  Shortcut: keywords, not embeddings; synonyms ("dentist" / "teeth") miss. Upgrade path: the Chroma index
+  the notes search already uses.
+
+6c. Tone   MOVED 2026-10-14 to PHASE 10 PERSONALITY (kept here as its spec; not built in Phase 6)
   - New default "natural": "Sound like a calm, friendly person. Joke only if the user jokes first."
     playful, proper and brief stay as choices. The Control Center row gets the fourth button.
   - A fixed word list for serious topics (health, death, grief, money trouble, exams and grades, safety,
@@ -1390,7 +1599,7 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     creator to name.
   - If the live setting already says playful it is NOT changed silently. One click in the Control Center.
 
-6d. Memory relook (about 35 lines)
+6d. Memory relook (about 35 lines)   FOLDED 2026-10-14 into 6b as layer L4 (M4a); this list is its spec
   Faults found in the code: all 50 facts go into every prompt; saving works only with the exact words
   "remember that" at the very start; forgetting matches exact words only; nothing stops two facts that
   contradict each other.
@@ -1454,7 +1663,9 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     - Pace: a JarvisVoiceSpeed setting (Kokoro speed, default 1.0, kept to 0.8-1.2).
   Judged by ear by the user; the logged gaps are the number that must go down. Best after Phase 2e.
 
-6h. Honest even when playful (issue 28; added 2026-10-14; about 25 lines)
+6h. Honest even when playful   MOVED 2026-10-14 to PHASE 10 PERSONALITY. The user: no output cuts that
+    make him speak oddly; solve it by designing the personality. 6b L4 gives him the true action list.
+    The Phase 1 (1d) action-claim check stays as it is: it is a safety rule, not personality.
   Seen by the user: playful answers bend important facts, and asked about the GPU spikes he said he had
   been "running simulations", which he never did. He cannot run anything the code does not run.
   Builds on 1d (the model may never claim an action) and 6c (tone). Changes:
@@ -1506,11 +1717,12 @@ Your live test after Phase 6
   1. Ask ten everyday questions with nothing to do with school or mail. Count how often he mentions your
      schedule, mail or to-dos. Target: zero.
   2. "What's on today?" He does tell you the calendar.
-  3. Talk about something serious. No jokes.
-  4. Ask about A, wait three minutes, ask about B. He does not bring A back.
+  3. (Phase 10) Talk about something serious. No jokes.
+  4. Ask about A, wait three minutes, ask about B. He does not bring A back. Then ask about A again:
+     he recalls the earlier talk about A.
   5. "Remember that ..." in three different wordings, then ask about it tomorrow.
-  6. "Who made you?" No film names.
-  7. (6h) Under playful, ask "why is the GPU at 100%?" and a factual question. He answers from real
+  6. (Phase 10) "Who made you?" No film names.
+  7. (Phase 10) Under playful, ask "why is the GPU at 100%?" and a factual question. He answers from real
      numbers or says he can't see it; no made-up activity.
   8. (6i) Watch Task Manager > GPU during a few turns and compare with the 6i measurements.
 
@@ -1846,6 +2058,18 @@ hybrid laptop, which events appear without admin rights, and the script's run ti
 Risk: a wrong rule blames the wrong app. He only names and offers; closing still needs your yes.
 Risk: a game can show high CPU and be fine. The rules say "is using", never "is broken".
 Rollback: revert the commit. Nothing is installed, stored or changed on the system by this phase.
+
+
+--------------------------------------------------------------------------------------------------------
+PHASE 10  PERSONALITY (tone and honesty)   added 2026-10-14, parked; not built yet
+--------------------------------------------------------------------------------------------------------
+Fixes:  issue 3  (playful when unnecessary or on a serious topic)
+        issue 28 (bends facts when playful; invented "simulations")
+Holds 6c in full (natural default, NATURAL button, serious-topic switch, identity line) and 6h (honesty
+line, serious-topic list extension). 6h's widening of the claim check is REJECTED as an output cut; the
+personality itself should not invent. To look at when this starts: a persona card (a few example answers
+that show the voice) and an honesty rule written into each mood, not a filter after it. Builds on 6b L4
+(what he really did). Needs the user's design answers before any code.
 
 
 FIX ROUND 3   FROM THE THIRD LIVE TEST (added 2026-10-14)

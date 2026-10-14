@@ -230,40 +230,68 @@ def todo_note():
     return path if path and os.path.exists(path) else ""
 
 
-def context():
+# 6a: a block of HUD data goes into the prompt only when the question is about it. The time always; a briefing all.
+BLOCKS = {"calendar": r"schedule|today|tomorrow|tonight|week|class|quiz|exam|test|meeting|free|busy|when is|what'?s on|"
+                      r"calendar|event|appointment|plans?\b|monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+                      r"weekend|month|morning|afternoon|evening|later\b|due\b|deadline|anything (?:on|for|happening)",
+          "mail": r"e?-?mail|inbox|unread|messages?\b|gmail",
+          "todo": r"to-?\s?dos?\b|tasks?\b|my list",
+          "pc": r"cpu|gpu|graphics|temp|hot|ram\b|memory|fans?\b|power|battery|slow|lag|fps|load|usage|disk|storage|"
+                r"volume|bright|mic|alarm|timer|reminder|pending|pc\b|computer|laptop|system",
+          "net": r"wi-?fi|network|internet|connection|online|ping|download|upload|speed",
+          "apps": r"open\b|running|windows?\b|apps?\b|programs?\b",
+          # the Pending line (in sensors()): sent on its own for anything about time or setting things, so "wake me
+          # at 7" or "did you set it" can be checked against the real schedule; left out of unrelated chat
+          "pending": r"alarms?\b|timers?\b|remind|wake|snooze|cancel|pending|schedul|set\b|did you|o'?clock|"
+                     r"\d+ ?(?:am|pm|a\.m|p\.m)\b|minutes?\b|hours?\b|morning|tonight|later\b"}
+# "tell me a joke" is not about you: "me" right after tell/give/show/help/let does not count
+ABOUT_ME = re.compile(r"\b(?:my|(?<!tell )(?<!give )(?<!show )(?<!help )(?<!let )me|i|i'm|i've|mine|myself)\b", re.I)
+
+
+def wants(text, kind=None):
+    """The HUD blocks a question needs. None = all of them (a briefing, or a caller that did not say)."""
+    if text is None or kind == "brief":
+        return set(BLOCKS)
+    return {b for b, pat in BLOCKS.items() if re.search(rf"\b(?:{pat})", text, re.I)}
+
+
+def context(text=None, kind=None):
+    want = wants(text, kind)
     lines = [f"Now:{datetime.now().strftime('%A %d %B %Y, %H:%M (%I:%M %p)')}"]
-    try:
-        m = MEMORYSTATUSEX(); m.dwLength = ctypes.sizeof(m)
-        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):   # 0 = the call failed: no line, not "0 %"
-            lines.append(f"Memory in use: {m.dwMemoryLoad}% of {m.ullTotalPhys / 2**30:.0f} GB")
-        p = SYSTEM_POWER_STATUS()
-        ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(p))
-        if p.BatteryLifePercent != -1 and (p.BatteryLifePercent & 0xFF) <= 100:
-            lines.append(f"Battery: {p.BatteryLifePercent & 0xFF}% ({'plugged in' if p.ACLineStatus == 1 else 'on battery'})")
-    except Exception:
-        pass
-    mail = re.search(r"^UNREAD (\d+)", read_kv("mail.txt"), re.M)
+    if "pc" in want:
+        try:
+            m = MEMORYSTATUSEX(); m.dwLength = ctypes.sizeof(m)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):   # 0 = the call failed: no line, not "0 %"
+                lines.append(f"Memory in use: {m.dwMemoryLoad}% of {m.ullTotalPhys / 2**30:.0f} GB")
+            p = SYSTEM_POWER_STATUS()
+            ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(p))
+            if p.BatteryLifePercent != -1 and (p.BatteryLifePercent & 0xFF) <= 100:
+                lines.append(f"Battery: {p.BatteryLifePercent & 0xFF}% ({'plugged in' if p.ACLineStatus == 1 else 'on battery'})")
+        except Exception:
+            pass
+    mail = "mail" in want and re.search(r"^UNREAD (\d+)", read_kv("mail.txt"), re.M)
     if mail:
         lines.append(f"Unread Gmail: {mail.group(1)}")
     events = []
-    for m in re.finditer(r"^E (\d+)\|(\d+)\|(\d)\|([^|]*)\|(.*)$", read_kv("calendar.txt"), re.M):
+    for m in re.finditer(r"^E (\d+)\|(\d+)\|(\d)\|([^|]*)\|(.*)$", read_kv("calendar.txt") if "calendar" in want else "", re.M):
         start = datetime.fromtimestamp(int(m.group(1)))
         if int(m.group(2)) >= time.time():
             when = start.strftime("%a %d %b") + ("" if m.group(3) == "1" else start.strftime(" %H:%M"))
             events.append(f"{when} - {m.group(5)}" + (f" ({m.group(4)})" if m.group(4) else ""))
     if events:
         lines.append("Upcoming calendar events: " + "; ".join(events[:6]))
-    apps = re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M)
+    apps = re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M) if "apps" in want else []
     if apps:
         lines.append("Open apps: " + ", ".join(a.replace(".exe", "") for a in apps[:20]))
-    net = read_kv("net.txt")
-    d, u = re.search(r"^DOWN (\d+)", net, re.M), re.search(r"^UP (\d+)", net, re.M)
-    if d and u:
-        lines.append(f"Network right now: {int(d.group(1)) * 8 / 1e6:.1f} Mbps down, {int(u.group(1)) * 8 / 1e6:.1f} Mbps up")
-    st = settings()
-    if st.get("LinkDownMbps"):
-        lines.append(f"Internet speed (last test {st.get('LastSpeedTest', '?')}): {st.get('LinkDownMbps')} down / {st.get('LinkUpMbps', '?')} up Mbps")
-    todo = todo_note()
+    if "net" in want:
+        net = read_kv("net.txt")
+        d, u = re.search(r"^DOWN (\d+)", net, re.M), re.search(r"^UP (\d+)", net, re.M)
+        if d and u:
+            lines.append(f"Network right now: {int(d.group(1)) * 8 / 1e6:.1f} Mbps down, {int(u.group(1)) * 8 / 1e6:.1f} Mbps up")
+        st = settings()
+        if st.get("LinkDownMbps"):
+            lines.append(f"Internet speed (last test {st.get('LastSpeedTest', '?')}): {st.get('LinkDownMbps')} down / {st.get('LinkUpMbps', '?')} up Mbps")
+    todo = todo_note() if "todo" in want else ""
     if todo:
         try:
             with open(todo, "r", encoding="utf-8", errors="ignore") as f:
@@ -360,7 +388,8 @@ SYSTEM = ("You are JARVIS, the AI built into the user's spaceship-style desktop 
           "one to three short spoken sentences: no lists, markdown, emoji or code unless asked. {mood} "
           "Use the live HUD data below when it's relevant; if something isn't in it, say you don't "
           "have that rather than guessing. Alarms, timers, reminders, volume and apps are handled by the system, not by "
-          "you; the Pending line below is the true schedule. Never say you set or changed something.\n")
+          "you; the Pending line below is the true schedule. Never say you set or changed something. "
+          "Answer only what was asked. Do not mention the data below unless the question is about it.\n")
 MOODS = {"proper": "Be calm, precise and a little dry.",       # JarvisPersonality: how the model words its answers
          "playful": "Be funny and quick. When the user jokes or banters, dark humor included, answer in the same spirit. "
                     "When they ask a real question, answer it helpfully first, then joke if it fits. "
@@ -401,8 +430,11 @@ def about_me():
     return text
 
 
-def system_prompt():
-    me = about_me()
+def system_prompt(text=None, kind=None):
+    """text / kind: the question, so only the HUD blocks and the profile it needs go in. None = everything."""
+    me = about_me() if text is None or kind == "brief" or ABOUT_ME.search(text) else ""
+    if me and text is not None and kind != "brief" and len(me) > 500:                # a question about you: the note's start, not all of it
+        me = me[:500].rsplit(" ", 1)[0] + " ..."
     out = SYSTEM.replace("{mood}", MOODS.get(setting("JarvisPersonality", "playful").strip().lower(), MOODS["playful"]))
     if me:
         out += ("\nABOUT THE USER (from their own note - use it to personalise answers; don't recite it unless "
@@ -413,7 +445,7 @@ def system_prompt():
         facts = ""                                             # unreadable: he says so when asked, the prompt goes on
     if facts:
         out += "\nTHINGS THE USER ASKED YOU TO REMEMBER:\n" + facts + "\n"
-    return out + "\nLIVE HUD DATA:\n" + context()
+    return out + "\nLIVE HUD DATA:\n" + context(text, kind)
 
 
 # ------------------------------------------------------------------ Ollama
@@ -3123,7 +3155,14 @@ def turn(tier, follow=0):
         if time.time() - last_turn > 600:
             history = []
         reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
-        messages = fit_context([{"role": "system", "content": system_prompt() + "".join("\n" + h for h in hud if h) + extra}],
+        # the question and the one before it pick the blocks, so "and tomorrow?" after a calendar question still has it
+        ask = text + (" " + history[-2]["content"] if len(history) >= 2 else "")
+        readings = "\n".join(h for h in hud if h).splitlines()
+        want = wants(ask, kind)
+        if "pc" not in want:                                   # not a PC question: at most the schedule, and only if it's about time
+            readings = [r.replace("Pending:", "Pending (don't bring it up unless asked about alarms, reminders or timers):", 1)
+                        for r in readings if r.startswith("Pending:") and "pending" in want]
+        messages = fit_context([{"role": "system", "content": system_prompt(ask, kind) + "".join("\n" + r for r in readings) + extra}],
                                history[-8:], {"role": "user", "content": text})
         collected = []
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")

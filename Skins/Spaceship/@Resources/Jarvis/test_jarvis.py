@@ -214,6 +214,39 @@ assert "Memory in use" in j.context()
 j.ctypes.windll.kernel32.GlobalMemoryStatusEx = lambda p: 0
 assert "Memory in use" not in j.context()
 del j.ctypes.windll.kernel32.GlobalMemoryStatusEx
+
+# 6a: only the HUD blocks a question needs reach the prompt; a briefing, or no question, gets all of them
+import time as _t
+kv = {"mail.txt": "UNREAD 3", "windows.txt": "W chrome.exe", "net.txt": "DOWN 1000\nUP 1000",
+      "calendar.txt": f"E {int(_t.time()) + 3600}|{int(_t.time()) + 7200}|0||Physics quiz"}
+real_kv, real_mem, j.read_kv, j.load_memory = j.read_kv, j.load_memory, lambda name: kv.get(name, ""), lambda: []
+heads = {"calendar": "Physics quiz", "mail": "Unread Gmail", "apps": "Open apps", "net": "Network right now",
+         "pc": "Memory in use"}
+
+
+def blocks(text, kind=None):
+    c = j.context(text, kind)
+    assert c.startswith("Now:"), c                                # the time is always there
+    return {b for b, h in heads.items() if h in c}
+
+
+assert blocks("Tell me a joke.") == blocks("What's the capital of France?") == set()
+assert blocks("What's on tomorrow?") == blocks("Do I have a quiz this week?") == {"calendar"}
+assert blocks("How hot is my GPU?") == blocks("Why is the computer so slow") - {"apps"} == {"pc"}
+assert blocks("Any new email?") == {"mail"} and blocks("Is the wifi working?") == {"net"}
+assert blocks("Is Chrome open?") == {"apps"}
+assert blocks("Anything Friday?") == blocks("What's due this weekend") == {"calendar"}
+assert "pending" in j.wants("Did you set it?") and "pending" in j.wants("wake me at 7 am")
+assert "pending" not in j.wants("Tell me a joke.") and "pending" not in j.wants("What's the capital of France?")
+assert blocks("Good morning.", "brief") == blocks(None) == set(heads)
+assert "Physics quiz" not in j.system_prompt("Tell me a joke.") and "Physics quiz" in j.system_prompt()
+assert "Answer only what was asked." in j.system_prompt("Tell me a joke.")
+real_me, j.about_me = j.about_me, lambda: "word " * 400                 # the profile: only for questions about you
+assert "ABOUT THE USER" not in j.system_prompt("Tell me a joke.")
+mine = j.system_prompt("What's my sister's name?")
+assert "ABOUT THE USER" in mine and "word " * 99 in mine and "word " * 101 not in mine
+assert "word " * 399 in j.system_prompt() and "word " * 399 in j.system_prompt("Good morning.", "brief")
+j.read_kv, j.load_memory, j.about_me = real_kv, real_mem, real_me
 j.settings = real_settings
 
 # the model stream: normal replies come through, and a cancel ends it even while the request is still blocked
@@ -790,7 +823,7 @@ assert all(r[0] > now for r in j.load_reminders())
 j.save_reminders([])
 
 # ---- remembered facts: kept in a file, said back in your own words, forgotten by word; questions never save
-j.context = lambda: ""
+j.context = lambda *a: ""
 j.MEMORY_FILE = os.path.join(tmp, "memory.txt")
 
 
@@ -865,7 +898,7 @@ assert "secret" not in "".join(logged) + said[-1][0] and tmp not in "".join(logg
 j.log = keep
 
 # personality: one sentence of the prompt follows JarvisPersonality; an unknown or unset value is the playful one
-j.context = lambda: ""
+j.context = lambda *a: ""
 for mood, sentence in (("proper", "a little dry"), ("playful", "same spirit"), ("brief", "one short sentence"), ("nonsense", "same spirit")):
     j.setting = lambda name, default="", mood=mood: mood if name == "JarvisPersonality" else default
     assert sentence in j.system_prompt() and j.system_prompt().count("You are JARVIS") == 1, mood
@@ -907,6 +940,20 @@ j.save_reminders([])
 assert "BRIEFING:" not in prompts[-1]
 talk(1, words="Good morning.")
 assert "BRIEFING:" in prompts[-1] and "at most three" in prompts[-1]
+assert "Fan 1: 900 RPM" in prompts[-1]                            # a briefing has the readings
+j.history.clear()
+real_sensors, j.sensors = j.sensors, lambda: "Fan 1: 900 RPM\nPending: alarm at 7:00 AM"
+talk(1, words="Tell me a joke.")
+assert "Fan 1: 900 RPM" not in prompts[-1]                        # 6a: readings only when asked about the PC
+assert "alarm at 7:00 AM" not in prompts[-1]                      # unrelated chat: no schedule either
+j.history.clear()
+talk(1, words="Did you do what I asked?")
+assert "Pending (don't bring it up unless asked" in prompts[-1] and "alarm at 7:00 AM" in prompts[-1]   # checkable
+assert "Fan 1: 900 RPM" not in prompts[-1]
+j.history.clear()
+talk(1, words="How hot is the GPU?")
+assert "Fan 1: 900 RPM" in prompts[-1] and "\nPending: alarm at 7:00 AM" in prompts[-1]
+j.sensors = real_sensors
 j.setting = lambda name, default="": default
 
 # ---- the name as Whisper writes it: removed only as the first words, so every command works after it
