@@ -687,17 +687,71 @@ except ImportError:
     pass
 
 # ---- snooze: heard in the same gap as "stop" and checked first; one minute unless a length is said
-assert j.snooze_for("Snooze.") == j.snooze_for("okay, later") == j.snooze_for("Not now!") == j.SNOOZE == 60
+assert j.snooze_for("Snooze.") == j.snooze_for("okay, later") == j.snooze_for("Not now!") == j.SNOOZE == 300
 assert j.snooze_for("snooze 5 minutes") == 300 and j.snooze_for("Ten more minutes.") == 600
 assert j.snooze_for("snooze for half an hour") == 1800
 assert j.snooze_for("snooze 5 hours") == 0 and j.snooze_for("snooze 10 seconds") == 0     # out of range: keeps ringing
 assert j.snooze_for("stop") is None and j.snooze_for("") is None and j.snooze_for("no more") is None
 t0 = time.time()
-assert ring(["Snooze."]) == (1, ["reminder", "timer"]) and asked[-1] == "Snoozed for 1 minute."
-assert 55 < j.load_reminders()[0][0] - t0 < 70 and j.load_reminders()[0][3] == "to cook"
-assert ring(["", "okay, snooze 5 minutes"]) == (2, ["reminder", "timer"]) and asked[-1] == "Snoozed for 5 minutes."
+assert ring(["Snooze."]) == (1, ["reminder", "timer"]) and asked[-1] == "Snoozed for 5 minutes."
+assert 295 < j.load_reminders()[0][0] - t0 < 310 and j.load_reminders()[0][3] == "to cook"
+assert ring(["", "okay, snooze 10 minutes"]) == (2, ["reminder", "timer"]) and asked[-1] == "Snoozed for 10 minutes."
 assert ring(["okay"]) == (1, ["timer"])
 assert ring(["snooze 5 hours", "stop"]) == (2, ["timer"])
+assert ring(["hey jarvis"] * 20)[0] == j.RINGS                    # a reminder keeps the RINGS loop: the name alone is no stop
+
+
+# ---- 5a: an alarm rings until it is answered (5-minute cap); the label every 30 s; a fake clock moves 2 s per gap
+class _Clock:
+    def __init__(self):
+        self.t = time.time()
+
+    def time(self):
+        return self.t
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
+
+def ring_alarm(heard, timer_due=False):
+    """An alarm that is due (and a timer, due or not): (dings, labels said, gaps listened, kinds left in the file)."""
+    clk, back, gaps = _Clock(), iter(heard), []
+    now = clk.t
+    j.save_reminders(sorted([(now - 1, now - 600, "reminder", "alarm"), (now - 1 if timer_due else now + 900, now - 600, "timer", "")]))
+    played.clear(), convo.clear(), states.clear()
+
+    def gap(**k):
+        gaps.append(k.get("patience"))
+        clk.t += 2
+        return "audio" if next(back, "") else None
+
+    words = iter(w for w in heard if w)
+    j.time, j.muted, j.listen, j.transcribe = clk, lambda: False, gap, lambda a: next(words)
+    try:
+        assert within(5, j.alarm) is None
+    finally:
+        j.time = time
+    assert states[-1] == idle and not j.busy.locked()
+    return played.count("ding"), sum(1 for p in played if p != "ding"), gaps, [r[2] for r in j.load_reminders()]
+
+
+j.rang.clear()
+dings, labels, gaps, left = ring_alarm([])                        # nobody answers: 5 minutes, then a missed line
+assert (dings, labels, left) == (150, 10, ["timer"]) and set(gaps) == {1.5}
+assert convo[-1][1].startswith("Missed alarm from ") and {"pop": "open"} in states and j.rang
+assert ring_alarm(["", "", "stop"])[:2] == (3, 1) and convo[-1] == ("J", "(stopped)")
+assert ring_alarm(["", "Hey Jarvis."])[0] == 2 and convo[-1] == ("J", "(stopped)")      # the name alone stops an alarm
+assert ring_alarm(["Jarvis"])[0] == 1
+assert ring_alarm(["what time is it"] + [""] * 20)[0] == 150      # other words: it keeps ringing
+assert ring_alarm(["", "", "snooze"])[3] == ["reminder", "timer"] and asked[-1].startswith("Snoozed until ")
+assert asked[-1].endswith(("AM.", "PM.")) and not j.rang
+assert ring_alarm([], timer_due=True)[0] == 150                   # a timer due with an alarm: the batch rings long
+j.play_samples = lambda a, rate: (played.append(a), j.cancel.set())           # a click in the first ding
+assert ring_alarm([])[:2] == (1, 0) and convo[-1] == ("J", "(stopped)")
+j.play_samples = lambda a, rate: played.append(a)
+j.save_reminders([])
+# 5c: asking about alarms and timers is answered by code
+assert cmd("when is my next alarm") == ("list", "alarm") and cmd("what timers are running") == ("list", "timer")
 
 # ---- repeating reminders: the rule lives in the kind field, and the next time is saved before it rings
 mon9 = datetime(2026, 10, 12, 9, 0).timestamp()                   # a Monday

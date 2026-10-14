@@ -1923,9 +1923,9 @@ def reply_line(text, quiet):
         speak_all([text])
 
 
-def hear():
-    """Listen once more inside a turn and return the words ("" for silence or a click)."""
-    audio = listen() if not cancel.is_set() else None
+def hear(**opts):
+    """Listen once more inside a turn and return the words ("" for silence or a click). `opts` go to listen()."""
+    audio = listen(**opts) if not cancel.is_set() else None
     return strip_name(transcribe(audio)) if audio is not None else ""   # the "Jarvis" hotword can put the name before a "yes"
 
 
@@ -2227,7 +2227,10 @@ def memory_reply(op, text):
 REMIND_FILE = os.path.join(DATA, "jarvis_reminders.txt")      # due|created|kind|label  (kind: reminder | timer | a rule)
 STOP_WORDS = re.compile(r"\b(stop|shush|shh+|shut ?up|quiet|enough|okay|ok|thanks|thank you|dismiss)\b", re.I)
 RINGS = 10                                                    # each is a ding, the line, and up to 6 s of listening
-SNOOZE = 60                                                   # seconds, when "snooze" is said with no length
+SNOOZE = 300                                                  # seconds, when "snooze" is said with no length
+ALARM_CAP = 300                                               # an alarm rings this long unanswered, then it is missed
+ALARM_SAY = 30                                                # an alarm says its line again after this many seconds
+NAME_ONLY = re.compile(r"\W*(?:(?:hey|hi|ok|okay)\W+)?jarvis\W*", re.I)   # said in a gap, it stops an alarm
 DAYS = "mon tue wed thu fri sat sun".split()
 ONES = ("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
         "seventeen eighteen nineteen").split()
@@ -2719,25 +2722,37 @@ def alarm():
                     S.set(pop="open")
                 rang[:] = [time.time(), due]
                 return
-            for _ in range(RINGS):
+            # an alarm in the batch: ding every ~2 s until answered (cap ALARM_CAP); timers and reminders: RINGS rounds
+            alarm_at = next((r[0] for r in due if r[2] != "timer" and r[3] == "alarm"), None)
+            start, said, rounds = time.time(), None, 0
+            while time.time() - start < ALARM_CAP if alarm_at else rounds < RINGS:
+                rounds += 1
                 S.set(state="speaking", say=text)
                 play_samples(*ding())
-                if not cancel.is_set():
+                if not cancel.is_set() and (not alarm_at or said is None or time.time() - said >= ALARM_SAY):
                     play_samples(*audio)
+                    said = time.time()
                 S.set(state="listening", level=0.0)
-                heard = hear()                                 # matched and dropped, never kept
+                # matched and dropped, never kept; an alarm's gap is short, and Whisper runs only if someone speaks
+                heard = hear(patience=1.5) if alarm_at else hear()
                 nap = snooze_for(heard)                        # before the stop words: "okay, snooze" snoozes
                 if nap and not cancel.is_set():                # rings again once; a repeating one keeps its own series
-                    save_reminders(sorted(load_reminders() + snoozed(due, time.time() + nap)))
+                    again = time.time() + nap
+                    save_reminders(sorted(load_reminders() + snoozed(due, again)))
                     rang.clear()
                     log(f"reminder snoozed ({nap:.0f}s)")
-                    reply_line(f"Snoozed for {span(nap)}.", False)
+                    reply_line(f"Snoozed until {clock(again)}." if alarm_at else f"Snoozed for {span(nap)}.", False)
                     return
-                if cancel.is_set() or (nap is None and STOP_WORDS.search(heard)):
+                if cancel.is_set() or (nap is None and (STOP_WORDS.search(heard) or alarm_at and NAME_ONLY.fullmatch(heard))):
                     convo_add("J", "(stopped)")
                     rang[:] = [time.time(), due]               # "snooze" in the next 5 minutes still works
                     return
             rang[:] = [time.time(), due]
+            if alarm_at:                                       # nobody answered it: a line in the pop-up
+                log(f"alarm missed (rang {ALARM_CAP // 60} min)")
+                convo_add("J", f"Missed alarm from {clock(alarm_at)}.")
+                if setting("JarvisMutedPopup", "1") == "1":
+                    S.set(pop="open")
         except Exception as e:
             log(f"alarm failed: {type(e).__name__}")
             problem("A reminder could not ring")

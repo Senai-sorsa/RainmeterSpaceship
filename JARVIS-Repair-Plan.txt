@@ -86,6 +86,14 @@ STATUS (2026-10-14, read this first in a new session)
     one at a time, then Phase 5. Q4-Q14 still open for Phase 5.
   - 2026-10-14: Q4-Q14 answered (see PART D "Q4-Q14 ANSWERED"); the user moved Phase 5 BEFORE 6b and
     R5-1/2/3. 6a committed on the user's word (not live yet). NEXT: Phase 5a/5b/5c as written below.
+  - 2026-10-14: Phase 5a/5b/5c built and committed, NOT live. jarvis.py: alarm() rings an alarm (any
+    alarm in the batch) with a ding about every 2 s and 1.5 s gaps (hear(patience=1.5)), the line every
+    ALARM_SAY=30 s, cap ALARM_CAP=300 s then "alarm missed" + pop-up line "Missed alarm from <time>.";
+    the name alone (NAME_ONLY) stops it in a gap; alarm snooze says "Snoozed until <time>."; SNOOZE=300.
+    Timers and reminders keep the RINGS loop. No wake_loop change. Checks: test_jarvis OK (py -3 and venv,
+    TZ=ABC+12 for N13); route check 65 phrases, 2 differences (snooze 60 -> 300 intended; N14 noise).
+    check_voice not run (synth_audio untouched). Waiting for: the user's word to copy to live (6a + 5),
+    then the Phase 5 live test.
 
 HANDOVER FOR A NEW CONVERSATION (state at the end of 2026-10-14)
   Git
