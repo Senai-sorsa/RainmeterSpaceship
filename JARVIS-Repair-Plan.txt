@@ -1,7 +1,8 @@
 JARVIS REPAIR PLAN (MASTER COPY)
 ================================
 Written 2026-10-13 after the first live test. Since then Phases 0-5 have been built and committed, and
-Phase 6 has started (6a done). See "CURRENT STATE" just below for where things stand.
+Phase 6 is built up to its live test (all code done; 6i / 6f are measure-only). See "CURRENT STATE"
+just below for where things stand.
 This file is the single source of truth. It is written so that a brand new chat can pick up any phase
 with no other context. Read PART A first, then only the phase you are about to do.
 
@@ -36,7 +37,7 @@ TO ANY AI READING THIS FILE: FIRST CHECK THE TOOLS (added 2026-10-14)
     - Known gap (2026-10-14): Docs\Spaceship-HUD-Guide.md was only partly re-read, so its nodes are from an
       older version. "graphify extract --force" rebuilds it in full (costs tokens; ask the user first).
 
-CURRENT STATE (end of the 2026-10-14 session that built Phase 5 and Phase 6a; READ THIS FIRST)
+CURRENT STATE (end of the 2026-10-14 session that built Phase 6b and 6j; READ THIS FIRST)
   Done (built, tested by test_jarvis + route check, committed on branch chore/jarvis-baseline-and-performance,
   NOT pushed, main is behind):
     - Fix Rounds 1, 2, 4 (Round 3 not built), Phase 1-4, status-only hologram          d7386dd, 301c22f
@@ -44,22 +45,33 @@ CURRENT STATE (end of the 2026-10-14 session that built Phase 5 and Phase 6a; RE
       "BEFORE ROUND 5" (R5-0 .. R5-6).
     - R5-0 (wake sensitivity 0.35, user's click) done. R5-6 step 6a (wake word training) built   123d829
     - PHASE 5 COMPLETE: 5a continuous alarm ring, 5b snooze, 5c alarm questions                   23b290c
-    - PHASE 6a (called "S1" in tasks/): only the HUD data a question needs goes to the model, plus the
-      Phase 6 re-plan (6b memory system, PHASE 10)                       1036282
-  Not live yet: everything from 123d829 on (R5-6 6a, Phase 5, Phase 6a). The live skin has the state the
-    user tested in "BEFORE PHASE 5". Copy to live only on the user's word (COPY TO LIVE in PART D).
-  Waiting on the user (in this order, unless the user changes it):
-    1. Copy to live, then the Phase 5 live test ("Your live test after Phase 5") and the 6a live test
-       (PHASE 6 > 6a > "Live test"). Paste log lines; Claude never reads Data\.
-    2. In Control Center: check WHISPER = small.en (the R5-0 log showed base.en) and train the wake word
-       (WAKE TRAINING > TRAIN), then send the three "train:" lines.
-  NEXT TO BUILD: Phase 6 M1 (active window), then M1b, M2, Checkpoint A (PHASE 6 > 6b, "Slices"). The user
-    chose Phase 6 before the Phase 5 live test and before R5-1/2/3.
+    - PHASE 6a (called "S1" in tasks/): only the HUD data a question needs                       1036282
+    - Checkpoint A: M1 active window, meaning match, M1b last results, M2a/M2b topic memory     a74b235
+    - Checkpoint B: M4a facts (T4-T6), M4b what he really did (T7), M3a/M3b compaction (T8/T9),
+      everything about the voice moved to PHASE 10                                               c33d37f
+    - 6j (T11) route + timing log: BUILT and tested, NOT committed yet (see STATUS) -> commit on the
+      user's word, then the live copy.
+  PHASE 6 CODE IS FINISHED. What is left of Phase 6 needs the user (Claude cannot do these alone):
+    1. Commit 6j + the plan update (on the user's word; stage files by name).
+    2. COPY TO LIVE (PART D, "COPY TO LIVE"; on the user's word; back up first). Live is still 301c22f, so
+       this copy brings in everything since: 123d829, 23b290c, 1036282, a74b235, c33d37f and 6j.
+    3. The ONE full live test: "PHASE 6 LIVE TEST CHECKLIST" (end of PHASE 6, after "Your live test after
+       Phase 6"). It also covers the Phase 5 live test and the 6a live test that were never run. The user
+       pastes log lines (route: / timing: / compaction: / topics: lines); Claude never reads Data\.
+    4. 6i (GPU spikes) and 6f (model compare): MEASURE ONLY on the live run, report the numbers, change
+       anything only on approval. 6f downloads a model only on approval.
+    5. Fix what the live test finds (each fix: test first, smallest change, the gates, commit on the word).
+  RULE (the user, 2026-10-14): the PHASE 6 LIVE TEST (step 3) must be DONE before any Phase 7 work starts.
+    A new session must not begin Phase 7 until the user has run it and its findings are fixed or parked.
+  After Phase 6: PHASE 7 (more settings by voice; starts with 7-0, one action table). PHASE 10 (personality
+    and voice) is parked: its FIRST step is telling the user the personality review is due and waiting for
+    the user's hand customization and feedback. The voice part (6e, 6g) starts only on the user's word.
   Still open, not scheduled: R5-1, R5-2, R5-3 (command path, volume direction, follow-up), R5-6 step 6b
     (W1-W3, needs the "train:" numbers), R5-5 (only if needed), Fix Round 3, N13 (test clock bug: run tests
-    with TZ=ABC+12), N19 ("again in ten" snooze phrase). Phases 7-10 not started; PHASE 10 is parked.
+    with TZ=ABC+12), N19 ("again in ten" snooze phrase). In Control Center: check WHISPER = small.en (the R5-0
+    log showed base.en) and train the wake word (WAKE TRAINING > TRAIN), then send the three "train:" lines.
   Naming trap: "6a" in R5-6 and N13/N14/N16 means R5-6 step 6a (wake training). "Phase 6a" / "S1" is the
-    relevance fix. M1-M4b are the slices of Phase 6b.
+    relevance fix. M1-M4b are the slices of Phase 6b. T1-T14 are the tasks in tasks/todo.md.
   The STATUS list below is the history, oldest first. A "NEXT:" in an older entry is superseded by this
   block.
 
@@ -269,61 +281,123 @@ STATUS (2026-10-14, history log; newest at the bottom)
     - Not built: forgetting a gist line by voice ("forget what you know about X" only clears facts and topics).
     Checks: test_jarvis OK (py -3, venv, TZ=ABC+12); route check 65 phrases, 0 routed differently.
     NEXT: Checkpoint B (commit on your word), then T11 (6j).
+  - 2026-10-14: COMMITTED c33d37f on the user's word (Checkpoint B: T4-T9, voice to Phase 10). Not pushed,
+    not live. Two bugs the T8 tests caught, fixed before the commit: (1) gist_ok() rejected "The user likes X"
+    when you had said "I like X": keywords() checks stop-words BEFORE it cuts a trailing "s", so "likes" stays
+    as "like" while "like" itself is a stop-word. Fixed only in gist_ok() (keywords(fact) - TALK_STOP);
+    keywords() itself is left as it is, because topic and fact matching depend on it (known quirk, harmless
+    there: both sides go through the same function). (2) compact() wrote "tries": 0 onto every topic; now
+    only onto the topics it actually tried.
+  - 2026-10-14: T11 (6j, route + timing log) BUILT, NOT committed, NOT live. jarvis.py turn(): a small "way"
+    dict is filled where the path is decided and logged ONCE in finally:
+      route: <kind>[ <action>] via rule | ai-reread | model, total <s>s
+    total = seconds from the end of your speech to the end of the turn (for a chat turn: until he finished
+    speaking). kind / action are names from the code only (the action is printed only if it is a plain
+    lower-case word), never what you said or a target. Paths: "rule" = route() or a fixed check decided it,
+    "ai-reread" = interpret() re-read a missed command and its reading was used, "model" = the chat model
+    answered (chat, notes, apps, guard, brief). Extra kinds: "new_topic" ("new topic" alone), "log" (show /
+    close the log), "memory save" (a yes to "Want me to remember that?"). Turns with no words (silence, not
+    heard, ended by you on a follow-up) log no route line. The existing "timing:" lines stay as they were.
+    Action names to expect: e.g. a timer / alarm / reminder is "remind set", the volume question "level".
+    Tests: a chat, a level question, a timer, "new topic", "show me what you've said" each log exactly one
+    line with the right path and none of the question's words; the ai-reread test logs "act volume via
+    ai-reread". Checks: test_jarvis OK (py -3, venv, TZ=ABC+12); route check 65 phrases, only the N14
+    time-stamp line (old and new print the same tuple). Rollback: before_t11_jarvis.py / before_t11_test.py
+    in the 28aef137 scratchpad, or reverse the diff.
+    PHASE 6 CODE IS NOW COMPLETE. NEXT: commit on the user's word -> copy to live on the user's word -> the
+    PHASE 6 LIVE TEST CHECKLIST -> 6i / 6f measure.
 
-HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 5 / 6a session)
+HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 6b / 6j session)
+  Start here: read CURRENT STATE above, then this block, then tasks\todo.md. Check the tools (top of file)
+  and list them for the user. Then ask the user which of CURRENT STATE's waiting steps comes first.
   Git
     - Branch chore/jarvis-baseline-and-performance. Not pushed. main (c5ff4a5) is behind it.
-        1036282  Phase 6a (S1), Phase 6 re-plan, plan handover (later plan-only commits: git log)
+        c33d37f  Phase 6 Checkpoint B: M4a (T4-T6), M4b, M3a, M3b; voice to Phase 10
+        a74b235  Phase 6 Checkpoint A: M1, meaning match, M1b, M2a, M2b; tone to Phase 10
+        1036282  Phase 6a (S1), Phase 6 re-plan, plan handover
         23b290c  Phase 5: an alarm rings until answered (5 min cap), snooze 5 min
         123d829  R5-6 step 6a (wake word training), answers Q4-Q14 for Phase 5
         8494cee  plan: "Before Round 5" fixes from the live test, wake word triple check
         9e73f54  plan: issues 27/28 (6h, 6i), copy-to-live commands with /XO
         1d4b106  plan: record 301c22f, N7 timer flake won't fix
-        301c22f  Phase 3 + Phase 4 + plan handover
+        301c22f  Phase 3 + Phase 4 + plan handover            <- THE LIVE SKIN IS STILL THIS
         d7386dd  Phase 2, 2e/2f, Rounds 2/4, status-only hologram
         7bf9e14  this plan (first version)
-    - Working tree clean except the user's untracked suggestions file (ideas taken: STATUS). Rollback of any step: git revert <its commit>.
-    - Never "git checkout" / "git restore" / "git stash" to undo something; never "git add ."; read the
-      staged list before every commit; commit only on the user's word.
+    - Uncommitted at the end of the session (waiting for the user's word): 6j in jarvis.py / test_jarvis.py,
+      and this plan, tasks\plan.md, tasks\todo.md. The user's untracked suggestions file stays untracked.
+    - Never "git checkout" / "git restore" / "git stash" to undo something; never "git add ."; stage files by
+      name and read the staged list before every commit; commit only on the user's word. Commit trailer:
+      "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>". Rollback of any step: git revert <commit>.
   Where the work is
-    - Code: Skins\Spaceship\@Resources\Jarvis\jarvis.py (3600 lines) and test_jarvis.py.
-    - Phase 6 working notes: tasks\plan.md (the approved plan + S1) and tasks\todo.md (the checklist).
+    - Code: Skins\Spaceship\@Resources\Jarvis\jarvis.py (about 4230 lines) and test_jarvis.py (about 2340).
+    - Phase 6 working notes: tasks\plan.md (design + task breakdown T1-T14) and tasks\todo.md (checklist).
       This file stays the master; keep the three in step.
   How to check a change (PART E has the full list)
     - Copy jarvis.py and test_jarvis.py to a scratch folder and run there, never in the repo (importing
       jarvis.py writes Data\jarvis.txt):  TZ=ABC+12 py -3 -I test_jarvis.py   and the same with
       %LOCALAPPDATA%\SpaceshipHUD\venv\Scripts\python.exe. Both must print "test_jarvis: OK", exit 0.
-      TZ=ABC+12 works around N13.
+      TZ=ABC+12 works around N13. A full run takes about a minute.
     - Route check: py -3 -I check_route.py <old jarvis.py> <new jarvis.py> (65 phrases). Expect no
-      differences except the N14 timestamp line (old and new print the same tuple).
-    - In bash on this PC, long Python heredocs fail ("unexpected EOF"): write a script file, then run it.
-    - This file uses LF line endings; write it with newline="\n".
+      differences except the N14 time-stamp line ("set a timer for 10 minutes": old and new print the same).
+      check_route.py lives in the scratchpads below; if they are gone, ask the user before rewriting it.
+    - Edits: write a small .py script into the scratchpad that asserts each old text occurs exactly once,
+      then replaces it (open with newline="" to keep the line endings), and run it with py -3 -I. Long bash
+      heredocs with Python inside can fail ("unexpected EOF"); a script file always works.
+    - This file uses LF line endings (0 CR); check with: grep -c $'\r' JARVIS-Repair-Plan.txt -> 0.
+    - Test-file facts (save time): test_jarvis.py does NOT import re (use j.re) but does import os, sys,
+      tempfile, json (M3 block) and datetime. Helpers: talk(times, words=...) runs one turn with a fake
+      microphone; asked / said / prompts collect what he said and the prompts sent; j.log is silenced near
+      the top (swap it for a list to check log lines); j.http_json fakes the model per block. Every block
+      cleans up its Data files, reminders, undo, did and history at the end.
   Scratch folders (session temp dirs; they may be deleted at any time; if gone, use git)
-    Phase 5 / 6a session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
-                          6701ccf6-4c51-4d5b-96c2-a1d1a3782d7e\scratchpad
-      p5\Jarvis\        scratch copy where the tests run
-      before_s1\         jarvis.py + test_jarvis.py before Phase 6a (now also: git revert of the 6a commit)
-      rc_old\, rc_new\   the two jarvis.py files for the route check
-      patch_*.py        the scripts that made the 6a and plan edits
-    Phase 2-4 session:    ...\0636710a-9b2d-427d-a83f-3ccf1e10411d\scratchpad (before_phase2..4\, bench\, vtest\)
-    Older session:        ...\d775d96e-50f0-4512-ad84-96309ffb7bba\scratchpad
-      check_route.py   the route check;  lupa\  Lua 5.1 for the control.lua syntax check
+    Phase 6b / 6j session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
+                           28aef137-e5d1-4bf2-98a2-908f9af5acd1\scratchpad
+      run\Jarvis\          scratch copy where the tests run
+      base\Jarvis\         jarvis.py before Phase 6b (the "old" side of the route check)
+      check_route.py       the route check
+      before_m1\, before_t7_*.py, before_t11_*.py   copies before those slices (git has them too)
+      t*.py                the edit scripts of each slice (examples of the edit pattern)
+    Phase 5 / 6a session:  ...\6701ccf6-4c51-4d5b-96c2-a1d1a3782d7e\scratchpad (p5\Jarvis\, rc_old\, rc_new\)
+    Phase 2-4 session:     ...\0636710a-9b2d-427d-a83f-3ccf1e10411d\scratchpad (before_phase2..4\, bench\, vtest\)
+    Older session:         ...\d775d96e-50f0-4512-ad84-96309ffb7bba\scratchpad (check_route.py, lupa\ for
+                           the Lua 5.1 syntax check of control.lua / jarvis.lua)
   Bench warning: importing jarvis.py writes the HUD state file Data\jarvis.txt through S.set. Patch the
     paths / S first, and delete any Data\ file a bench creates (never read it).
-  Privacy: Claude does not read Data\jarvis.log or anything in Data\. The user pastes the lines needed.
+  Privacy: Claude does not read Data\jarvis.log or anything in Data\ (jarvis_memory.txt, jarvis_topics.json,
+    jarvis_gist.txt hold the user's words). The user pastes the lines needed. Settings.inc holds personal
+    paths: never print it; grep single keys only. Never use the claude.ai Gmail / Calendar / Drive / Docs
+    connectors on the user's data.
 
-  MAP FOR PHASE 6 (jarvis.py in the working tree after the 6a commit; search by name if lines moved)
-    BLOCKS 234, ABOUT_ME 248, wants() 251, context() 258   6a: blocks by keyword (+ "pending")
-    sensors() 326 (Pending line in its pending())            read on a thread while you speak
-    SYSTEM 387 ("Answer only what was asked..."), system_prompt() 433, http_json() 452, AI_SCHEMA 625
-    CLAIM_LINE / CLAIM 1705                                    the Phase 1 action-claim guard (stays)
-    route() 1780, hear() 1958, can_undo() 2129                 can_undo: a hook for M4b
-    load_memory() 2211, save_memory() 2219                     L4 facts; the atomic write to reuse in M2
-    SNOOZE / ALARM_CAP / ALARM_SAY 2262-2264, alarm() 2731     Phase 5
-    ENDERS 2960, turn() 2982 (fixed() is inside it)
-      "last_turn > 600" 3055 and 3155                          M1: both become ACTIVE_TTL = 120
-      the readings filter (6a Pending rule) ~3160, history[-8:] 3166   M1: history[-4:] + linking
-    wake_loop() 3352, main() 3510
+  MAP FOR PHASE 6 (jarvis.py after 6j; line numbers drift, search by name)
+    load_meaning 244, meaning 283                 the meaning match (ChromaDB all-MiniLM-L6-v2, CPU)
+    BLOCKS 309, wants 326, context 334            6a: blocks by keyword
+    sensors 402, SYSTEM 463, system_prompt 509    system_prompt: facts (M4a-1), "what you actually did" (M4b)
+    http_json 535                                  the one HTTP helper (faked in tests)
+    pick_last 1872, route 1896                     M1b "the second one", then every rule in order
+    run_action 2079, DID_ASK 2292, did_add 2298, can_undo 2314, undo_last 2321      M4b hooks
+    load_memory 2402, learnable 2449, memory_reply 2466                              M4a your facts
+    alarm 2979                                     Phase 5
+    keywords 3174, related 3182, recall 3194, file_talk 3221, talk_forget 3307, talk_list 3321   M2 topics
+    GIST_FILE 3341, gist_ok 3378, compact 3400, recompact 3448, compact_due 3481, daily_memory 3487  M3
+    file_active 3495, active 3501                  M1 window
+    turn 3577 ("way" + the route line in finally: 6j), wake_loop 3980, main 4138
+    main loop beat: compact_due(now, max(turn_id[0], started)) starts daily_memory on a thread (~4172)
+
+  DATA FILES PHASE 6 ADDED (all in @Resources\Data, gitignored, never read by Claude)
+    jarvis_topics.json   M2 topics: [{"kw", "talk": [[when, you, him]], "used", "tries"?}], up to 200
+    jarvis_gist.txt      M3 checked facts: "YYYY-MM-DD|fact" lines; first line "#month YYYY-MM" after a re-compaction
+    jarvis_memory.txt    your facts (existed before; never compacted or reworded by the model)
+    Settings (code defaults, no Settings.inc line, no Control Center row): JarvisRecall on|off,
+    JarvisLearn ask|off.
+
+  PROBLEMS SOLVED IN THE PHASE 6b / 6j SESSION (so they are not rediscovered)
+    - keywords() checks stop-words before cutting a trailing "s" ("likes" -> "like" survives). Only the gist
+      check corrects for it; see the c33d37f STATUS entry.
+    - compact() used to stamp "tries": 0 on every topic; fixed.
+    - The model being down must not count as a compaction try, or an off PC would delete topics unread.
+    - Route action names come from the code: a timer / alarm / reminder routes as ("remind", "set", ...).
+    - check_route reports the N14 time-stamp line as "1 routed differently" while both sides print the
+      same tuple; that is expected noise, not a change.
 
   DECIDED IN PHASE 5 (was "how Phase 4 touches alarms")
     - End stops a ringing alarm (no snooze). Barge-in works while the ding or the label plays; in the gaps
@@ -1909,9 +1983,35 @@ Your live test after Phase 6
 Unverified until the live run: tone and wording are judged by ear.
 Rollback: revert the commit. JarvisPersonality returns the old tone by setting.
 
+PHASE 6 LIVE TEST CHECKLIST (added 2026-10-14; the ONE live test after all of Phase 6 is built)
+  Before: commit, then COPY TO LIVE (PART D) on the user's word, refresh Rainmeter, restart JARVIS, wait
+  for STANDBY. Live was 301c22f, so this also tests wake word training, Phase 5 and 6a for the first time.
+  Report per item: PASS / FAIL, and for a FAIL what you said, what he said, roughly when, plus the
+  "route:" and "timing:" lines of that turn (leave out "you:" lines if you prefer).
+  Phase 5 (alarms): run "Your live test after Phase 5" (PART D, PHASE 5).
+  6a: items 1 and 2 of "Your live test after Phase 6" above; "how hot is my GPU" gets the readings.
+  6b:
+    - M1: ask about A, then "and why is that?" within 2 minutes: he follows on. "New topic." -> "Okay."
+    - M2 (item 4 above): A, wait three minutes, B (no A), then A again (A comes back). "What do you
+      remember about A?" lists it. "Forget what we said about A" reads back, waits for yes.
+    - M1b: "what alarms do I have", then "cancel the second one" (confirm). "The fifth one" -> "Which one?"
+    - M4a (item 5 above): "remember that ..." in three wordings ("hey Jarvis, remember ...", "..., remember
+      that", "I want you to remember that ..."), ask about them the next day. "What do you know about me?"
+      A contradicting fact asks "Replace it?". Say "my favourite colour is green" in chat: one "Want me to
+      remember that?", then yes.
+    - M4b: set a timer, open an app, then "What did you do?": he lists exactly those, nothing invented.
+      Right after a restart: "What did you do?" -> he ran nothing.
+    - M3: one compaction by hand. Claude prepares the exact steps on the user's word (a short test age via a
+      temporary copy, or a "compaction:" line after the next quiet 10 min with the HUD in FULL). Report the
+      "compaction:" log line (counts only). A game or LITE must not start it.
+  6j: every turn logs one "route:" line; paste ten of them with their "timing:" lines.
+  6i: watch Task Manager > GPU during a few turns (then the 6i nvidia-smi measurement, on approval).
+
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
+  BEFORE STARTING (the user, 2026-10-14): the PHASE 6 LIVE TEST CHECKLIST must be done first. If it is not,
+  stop and do that with the user.
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 13 ("or anything else")
         issue 20 (microphone settings, Bluetooth settings, "connect to ___")

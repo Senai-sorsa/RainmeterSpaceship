@@ -14,16 +14,16 @@ Gates for every task:
 - [ ] T2 M2a topics: file into `jarvis_topics.json` and recall (top 2, score floor), digits masked, `JarvisRecall` on|off — BUILT, tests OK, NOT committed
 - [ ] T3 M2b topics by voice: "forget what we said about X" (read back, yes), "what do you remember about X" (by code) — BUILT, tests OK, NOT committed
 - [x] **Checkpoint A:** committed a74b235 (live checks for the end: two topics, come back, unrelated gets nothing, "cancel the second one")
-- [ ] T4 M4a-1 only matching facts in the prompt (`related()`, 5 at most) — BUILT, tests OK, NOT committed
-- [ ] T5 M4a-2 save phrases, Replace?, forget read-back, "what do you know about X" by code — BUILT, tests OK, NOT committed (no yes to Replace keeps both)
-- [ ] T6 M4a-3 offer to remember (`JarvisLearn` ask|off), never digit strings — BUILT, tests OK, NOT committed ("remember ..." wordings save at once)
-- [ ] (BUILT, tests OK, NOT committed) T7 M4b last 20 actions really run, in the prompt only for questions about him
-- [ ] (BUILT, tests OK, NOT committed; model down counts no try) T8 M3a daily idle compaction into checked facts (`jarvis_gist.txt`), model down keeps the topic
-- [ ] (BUILT, tests OK, NOT committed) T9 M3b monthly re-compaction over 200 gist lines
+- [x] T4 M4a-1 only matching facts in the prompt (`related()`, 5 at most) — committed c33d37f, awaiting live test
+- [x] T5 M4a-2 save phrases, Replace?, forget read-back, "what do you know about X" by code — committed c33d37f, awaiting live test (no yes to Replace keeps both)
+- [x] T6 M4a-3 offer to remember (`JarvisLearn` ask|off), never digit strings — committed c33d37f, awaiting live test ("remember ..." wordings save at once)
+- [x] (committed c33d37f, awaiting live test) T7 M4b last 20 actions really run, in the prompt only for questions about him
+- [x] (committed c33d37f; model down counts no try) T8 M3a daily idle compaction into checked facts (`jarvis_gist.txt`), model down keeps the topic
+- [x] (committed c33d37f) T9 M3b monthly re-compaction over 200 gist lines
 - [ ] ~~T10 6e~~ MOVED to Phase 10 (2026-10-14: everything about the voice)
-- [ ] **Checkpoint B:** commit on the user's word (live checks for the end: facts, "what did you do", one compaction by hand)
-- [ ] T11 6j route + timing log: one line per turn (path, total seconds, no words) — before the measurements
-- [ ] **End of Phase 6:** live copy + the full live test (everything since 301c22f), the user pastes the log lines
+- [x] **Checkpoint B:** committed c33d37f (live checks for the end: facts, "what did you do", one compaction by hand)
+- [ ] T11 6j route + timing log: one line per turn (path, total seconds, no words) — BUILT, tests OK, NOT committed (awaiting the user's word)
+- [ ] **End of Phase 6:** live copy + the full live test (everything since 301c22f), the user pastes the log lines — use "PHASE 6 LIVE TEST CHECKLIST" in JARVIS-Repair-Plan.txt
 - [ ] T12–14 6i / 6f measure on the live run → report → fix only on approval
 - [ ] (Phase 10, parked) 6c tone + 6h honesty + 6e style rules: personality design, not output cuts
 - [ ] (Phase 10, parked) voice: 6e speech-safe rules + `speakable()` cleaner, 6g smoother voice (measure from 6j lines first); on the user's word

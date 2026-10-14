@@ -1278,6 +1278,24 @@ assert talk(99, words="") == 2                                    # silence afte
 j.save_reminders([])
 j.undo.clear()
 
+# ---- 6j: one route line per turn - the path and the total, never words from the question
+routes, keep = [], j.log
+j.log = lambda line: routes.append(line) if line.startswith("route:") else None
+for words, want in (("Tell me a joke.", "route: chat via model, total "),
+                    ("What's the volume?", "route: level via rule, total "),
+                    ("Set a timer for 10 minutes.", "route: remind set via rule, total "),
+                    ("New topic.", "route: new_topic via rule, total "),
+                    ("Show me what you've said.", "route: log via rule, total ")):
+    routes.clear()
+    talk(1, words=words)
+    assert len(routes) == 1 and routes[0].startswith(want) and routes[0].endswith("s"), (words, routes)
+    assert not (set(j.re.findall(r"[a-z]+", words.lower())) - {"new", "topic", "set"}) & set(routes[0].split()), routes
+j.log = keep
+j.save_reminders([])
+j.undo.clear()
+j.did.clear()
+j.history.clear()
+
 # ---- M4a-3: he offers to remember a lasting fact said in chat; only a yes saves it
 j.save_memory(["my dentist is on Fridays"])
 for text, fact in (("My sister's name is Ana and she loves cats.", "My sister's name is Ana and she loves cats"),
@@ -2052,8 +2070,12 @@ j.muted, j.transcribe = (lambda: False), (lambda a: "make it louder")
 j.listen = lambda **k: listens.__setitem__(0, listens[0] + 1) or "audio"
 j.setting = default_setting
 states.clear()
+routes, keep = [], j.log
+j.log = lambda line: routes.append(line) if line.startswith("route:") else None
 j.turn(0)
+j.log = keep
 assert acts == [] and listens[0] == 1 and states[-1] == idle and not j.busy.locked(), (acts, listens)
+assert len(routes) == 1 and routes[0].startswith("route: act volume via ai-reread, total "), routes   # 6j
 j.ask_ai, j.interpret, j.filler = real_ask_ai, real_interpret, real_filler
 # stopped mid-reply: no follow-up; and the HUD is idle before the slow GPU check, not after it
 j.transcribe = lambda a: "Tell me a joke."

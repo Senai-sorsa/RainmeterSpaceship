@@ -263,8 +263,12 @@ true facts to work from.
 # Task breakdown: the rest of Phase 6 (added 2026-10-14, after M1 and the meaning match)
 
 ## Where things stand
-- **Committed:** S1 (6a), in 1036282.
-- **Built, not committed:** M1 (the active window) and the meaning match (words OR meaning; 6a 0.6, talk 0.35).
+- (updated at the end of the 2026-10-14 session) **All Phase 6 code is built.** Committed: S1 (1036282),
+  Checkpoint A (a74b235), Checkpoint B (c33d37f). Built, tests OK, not committed: T11 (6j). Left: the live
+  copy and the one full live test (JARVIS-Repair-Plan.txt "PHASE 6 LIVE TEST CHECKLIST"), then 6i / 6f
+  measure only. See JARVIS-Repair-Plan.txt CURRENT STATE and HANDOVER.
+- (older) **Committed:** S1 (6a), in 1036282.
+- (older) **Built, not committed:** M1 (the active window) and the meaning match (words OR meaning; 6a 0.6, talk 0.35).
 - **Live is not the repo.** The live `jarvis.py` is byte-for-byte commit 301c22f (Phase 3 + 4). It does not
   have 123d829 (wake word training), 23b290c (Phase 5 alarms), S1, M1 or the meaning match. A live test only
   tests what was copied. Live and the repo can also differ in `Settings.inc` and the venv's packages.

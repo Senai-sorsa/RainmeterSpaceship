@@ -3581,6 +3581,7 @@ def turn(tier, follow=0):
     if not busy.acquire(blocking=False):
         return
     again = False
+    way = {}                                                   # 6j: which path answered; logged once in finally
     cancel.clear()
     turn_id[0] = time.time()
     threading.Thread(target=watchdog, args=(turn_id[0],), daemon=True).start()
@@ -3619,7 +3620,7 @@ def turn(tier, follow=0):
         audio = listen(patience=follow_wait()) if follow else listen()
         if audio is None or cancel.is_set():
             return
-        t_spoke = time.time()
+        t_spoke = way["t"] = time.time()
         log(f"timing: listening -> end of speech {t_spoke - t_listen:.2f}s")
         S.set(state="thinking", level=0.0)
         try:
@@ -3658,9 +3659,11 @@ def turn(tier, follow=0):
         offer.clear()
         plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
         if fact and (plain in YES or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
+            way.update(kind="memory", action="save", via="rule")
             fixed(memory_reply("save", fact))
             return
         m = NEW_TOPIC.match(strip_name(text))
+        way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
         if m:                                                  # files the window; "new topic, <question>" goes on without it
             file_active()
             last.clear()                                       # M1b: "cancel it" no longer points back
@@ -3670,6 +3673,7 @@ def turn(tier, follow=0):
                 history.clear()                                # "new topic" / "Okay." is not talk to keep
                 return
         # "show me what you've said" / "close the log": handled here, no model needed
+        way["kind"] = "log"
         if HIDE_LOG.search(text):
             S.set(pop="close")
             reply = "Closing the log."
@@ -3685,6 +3689,7 @@ def turn(tier, follow=0):
                 speak_all([reply])
             return
         kind, action, target, prompt = fix_route(text, route(text))
+        way.update(kind=kind, action=action)
         if kind == "heard":
             fixed(f"I heard: {recent['you']}" if recent["you"] else "I haven't heard anything yet.")
             return
@@ -3693,7 +3698,10 @@ def turn(tier, follow=0):
             return
         if ask_ai(text, (kind, action, target, prompt)):       # a missed command: the AI's reading, checked, or as before
             filler("confirm_wait", quiet)                      # "One moment." while the model reads it; the answer waits for it
-            kind, action, target, prompt = interpret(model, text) or (kind, action, target, prompt)
+            read = interpret(model, text)
+            if read:
+                kind, action, target, prompt = read
+                way.update(kind=kind, action=action, via="ai-reread")
         if cancel.is_set():                                    # stopped while the model read it: nothing runs
             return
         if kind == "act" and prompt is None and heard_score[0] < -1.0:   # Whisper was unsure: never act on a guess
@@ -3775,6 +3783,7 @@ def turn(tier, follow=0):
         messages = fit_context([{"role": "system", "content": system_prompt(ask, kind) + "".join("\n" + r for r in readings) + extra}],
                                past, {"role": "user", "content": text})
         collected = []
+        way["via"] = "model"
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
         stream = chat_stream(model, messages)
         if quiet and setting("JarvisMutedPopup", "1") == "1":
@@ -3811,6 +3820,10 @@ def turn(tier, follow=0):
         problem(str(e).split("\n")[0][:110])
         live("")
     finally:
+        if "kind" in way:                                      # only names from the code, never words you said
+            act = way.get("action")
+            act = f" {act}" if isinstance(act, str) and re.fullmatch(r"[a-z_]+", act) else ""
+            log(f"route: {way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s")
         S.set(state="idle", level=0.0)
         busy.release()
         # in finally, so a fixed reply's `return` gets here too. The lock is free for an instant: a reminder that
