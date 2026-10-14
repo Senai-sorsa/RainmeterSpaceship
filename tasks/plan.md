@@ -46,7 +46,7 @@ The answers given on 2026-10-14:
 |---|---|---|
 | 6a | Only send what the question needs (keyword blocks) | unchanged (S1 in tasks/plan.md) |
 | **6b** | **One memory system: active → topics → compact facts, plus the user's facts and what he really did** | **new, replaces old 6b and 6d** |
-| 6e | Wording for the ear + `for_ear()` cleaner | unchanged |
+| 6e | Wording for the ear + the `speakable()` cleaner | cleaner renamed; style rules (contractions, 1–2 sentences, "as an AI", acknowledgements) **→ PHASE 10** (2026-10-14) |
 | 6f / 6g / 6i | Model compare, voice smoothness, GPU spikes: measure first, each needs approval | unchanged |
 | 6c, 6h | Tone, serious-topic switch, identity and honesty lines, self-claim check | **parked → new PHASE 10 PERSONALITY** |
 
@@ -188,6 +188,14 @@ Two ideas to look at when that phase starts:
 - A persona card: a few example answers that show the voice.
 - A per-mood honesty rule that is part of the persona rather than a filter.
 
+Also moved here (the user, 2026-10-14: anything about tone not finished): 6e's style rules (contractions,
+1–2 short sentences, never "as an AI", acknowledgements).
+
+**Gate: the user's review first.** Before any Phase 10 code, gather everything the model gets about its
+personality (SYSTEM text, MOODS, identity line, style rules, persona card draft, how the ABOUT THE USER note
+is used), tell the user the review is due, and show it in one place. The user customizes it by hand and gives
+feedback. No Phase 10 work goes ahead until that feedback is in.
+
 Issues 3 and 28 stay open and point to Phase 10. Phase 6's M4b (what he really did) already gives him the
 true facts to work from.
 
@@ -226,8 +234,8 @@ true facts to work from.
 - **Live scripts** at each checkpoint. You paste the log lines; I never read `Data\`.
 
 ## Risks
-- **Keyword matching misses** synonyms ("dentist" vs "teeth"). A miss means no recall, never a wrong one.
-  - shortcut: keywords, not embeddings. If misses matter, reuse the existing Chroma setup (`_chroma`, ~2768).
+- **Matching is words OR meaning** (`related()`, all-MiniLM-L6-v2 on the CPU; 6a cut-off 0.6, talk 0.35).
+  The cut-offs come from a small sample; words only until the model loads (~3 s) or without ChromaDB.
 - **Compaction can lose detail.** The checker stops invented details, not lost ones. It runs on the GPU once
   a day while idle.
 - **Conversation text is stored on disk** in `Data\` (ignored by git). `JarvisRecall=off` turns this off, and
@@ -241,6 +249,189 @@ true facts to work from.
 - `JarvisRecall=off` turns off topic memory without a code change. The data files can be deleted by you.
 
 ## After approval
-1. Rewrite `tasks/plan.md`, `tasks/todo.md` and the Phase 6/10 text in `JARVIS-Repair-Plan.txt`.
-2. Build S1 first, then stop for your test.
+1. Rewrite `tasks/plan.md`, `tasks/todo.md` and the Phase 6/10 text in `JARVIS-Repair-Plan.txt`. DONE.
+2. Build S1 first, then stop for your test. DONE (S1 committed in 1036282).
 3. No commit without your word.
+
+---
+
+# Task breakdown: the rest of Phase 6 (added 2026-10-14, after M1 and the meaning match)
+
+## Where things stand
+- **Committed:** S1 (6a), in 1036282.
+- **Built, not committed:** M1 (the active window) and the meaning match (words OR meaning; 6a 0.6, talk 0.35).
+- **Live is not the repo.** The live `jarvis.py` is byte-for-byte commit 301c22f (Phase 3 + 4). It does not
+  have 123d829 (wake word training), 23b290c (Phase 5 alarms), S1, M1 or the meaning match. A live test only
+  tests what was copied. Live and the repo can also differ in `Settings.inc` and the venv's packages.
+
+## Dependency graph
+```
+keywords() / related() / meaning()   (built with M1 + the meaning match)
+  ├── M1 active window (built) ── NEW_TOPIC, ACTIVE_TTL, file_active()
+  │     ├── M1b last results          (uses ACTIVE_TTL and NEW_TOPIC; the reminder list + app paths)
+  │     └── M2a topics: file + recall (file_active() starts writing to jarvis_topics.json)
+  │           ├── M2b voice: forget / what do you remember about X
+  │           └── M3 compaction        (reads topics; http_json + schema; writes jarvis_gist.txt)
+  ├── M4a-1 matching facts only        (related() on jarvis_memory.txt; does not need M2)
+  │     └── M4a-2 save / replace / forget / "what do you know" ── M4a-3 offer to remember
+  └── (none) M4b action list ── run_action() / can_undo() / the remind paths
+6e ear wording + cleaner      independent (the system prompt + the text before speak_all)
+6j route + timing log         independent; must come before 6f / 6g / 6i
+6g, 6i, 6f                    measure → report → fix only on approval
+```
+Order: what fails fast first (the live gap), then the memory core (M1b, M2), then facts. M4b and 6j are
+small and independent, so they can move earlier if a live test needs them.
+
+## Gates for every task (not repeated below)
+- Copy `jarvis.py` and `test_jarvis.py` to the scratch `run\Jarvis\`, then run
+  `TZ=ABC+12 py -3 -I test_jarvis.py` and the same with the venv Python. Both must print "test_jarvis: OK"
+  and exit 0.
+- `py -3 -I check_route.py <old> <new>`: no new differences beyond the N14 time-stamp line.
+- A STATUS line in `JARVIS-Repair-Plan.txt` (LF) and the box in `tasks/todo.md`.
+- No commit and no live copy without the user's word. Claude never reads `Data\`.
+- Tests use fakes (fake clock, a fake `_embed[0]`, a fake `http_json`) and never load the real model.
+
+## Tasks
+
+### Live tests: all at the end of Phase 6 (the user, 2026-10-14)
+- No live copy or live test between tasks. Checkpoints A and B are commit points only (on the user's word).
+- After T11 (6j): one live copy and one full live test of everything since 301c22f (wake word training,
+  Phase 5, S1, M1, meaning, M1b-M4b, M3, 6e), using "Your live test after Phase 6" plus the checkpoint lists
+  below. The 6j route lines make a fault easier to place, which is why 6j moves before the live test.
+- 6g / 6i / 6f measure on the live run, after that test.
+
+### Task 1: M1b, the last results (S: jarvis.py, test_jarvis.py; about 30 lines)
+- **Description:** "Cancel the second one" and "cancel it" work against the list or target he just read out.
+  Code resolves the item, never the model.
+- **Acceptance:**
+  - "What alarms do I have" then "cancel the second one" cancels that alarm after the usual confirmation.
+  - "The fourth one" with 3 items, no list, or a list older than 120 s → the fixed line "Which one?".
+  - "New topic" clears it. Nothing is stored on disk, and only the kind and the count are logged.
+- **Verification:** tests for each case above, plus "a joke after a list gets no list in the prompt". The gates.
+- **Depends on:** M1.
+- **Files:** `jarvis.py` (the schedule list ~2666, `run_action` ~1994, the open / close app path, `route()`),
+  `test_jarvis.py`.
+- **Scope:** only kinds that already have a command: reminders, alarms and timers, and open / close app.
+  Calendar and to-do items are listed but have no "cancel" command, so they are left out.
+
+### Task 2: M2a, topic memory: filing and recall (M: jarvis.py, test_jarvis.py; about 45 lines)
+- **Description:** talk that leaves the active window is filed by topic in `Data\jarvis_topics.json`, and
+  comes back only when a new question is about that topic.
+- **Acceptance:**
+  - Filing: chat exchanges only; digit runs of 6+ → "[number]"; it joins the topic with 2 shared keywords
+    or 1 rare one, otherwise it starts a new topic. Limits: 200 characters a line, 6 exchanges a topic,
+    100 topics. Atomic write (.tmp, then `os.replace`).
+  - Recall: score = rare-weighted shared keywords + meaning + a small recency bonus, above a floor. The best
+    2 are recalled, about 600 characters, and their `used` is updated. An unrelated question gets nothing.
+  - `JarvisRecall=off` → no file is written and nothing is recalled.
+- **Verification:** tests for filing into the right topic, unrelated → nothing, related → the right topic,
+  masking, recall off. Plus the gates.
+- **Depends on:** M1 (`file_active()`).
+- **Files:** `jarvis.py` (`file_active` ~3001, the chat path in `turn()`, the `setting` defaults),
+  `test_jarvis.py`, and `Settings.inc` only if the defaults live there (check while building).
+
+### Task 3: M2b, topic memory by voice (S: jarvis.py, test_jarvis.py; about 20 lines)
+- **Acceptance:**
+  - "Forget what we said about X" reads back the matching topics and deletes only after a yes.
+  - "What do you remember about X" lists the topics (and, after M3, the gist) by code, not by the model.
+- **Verification:** tests for read-back, then yes / no; a list with no matches; the new phrases in the
+  route check. The gates.
+- **Depends on:** M2a.
+
+### Checkpoint A: commit on the user's word (live checks saved for the end of Phase 6)
+- Talk about two topics, wait, come back to the first: it is recalled.
+- An unrelated question gets no old talk.
+- "Cancel the second one" after a list works.
+
+### Task 4: M4a-1, only matching facts in the prompt (S; about 15 lines)
+- **Description:** today every saved fact (up to 50) goes into every prompt. This is the main remaining
+  cause of issue 5.
+- **Acceptance:** facts are picked by `related()`, 5 at most, word for word under "Facts the user told you.
+  Use them exactly." A joke gets none. "When is my dentist" gets the dentist fact only.
+- **Verification:** tests for those cases. The gates.
+- **Depends on:** `related()` (built). Not M2.
+
+### Task 5: M4a-2, save, replace, forget, "what do you know" (S–M; about 25 lines)
+- **Acceptance:**
+  - New save phrases: remember / note / don't forget / keep in mind that.
+  - A contradicting fact → "Replace '…'?"; it changes only after a yes.
+  - Forget reads back and waits for yes.
+  - "What do you know about X" is answered by code.
+  - Limits stay: 50 facts, 200 characters.
+- **Verification:** tests per phrase and per confirmation; the route check with the new phrases added
+  (they must not steal current routes). The gates.
+- **Depends on:** Task 4. **Files:** `jarvis.py` (memory code ~2274, `route()` ~1886), `test_jarvis.py`.
+
+### Task 6: M4a-3, offer to remember (XS–S; about 10 lines)
+- **Acceptance:** "my sister's name is Ana" → one offer, "Want me to remember that?"; it saves only after
+  yes. A digit string is never offered. `JarvisLearn=off` → no offers.
+- **Depends on:** Task 5.
+
+### Task 7: M4b, what he actually did (S; about 15 lines)
+- **Acceptance:**
+  - An in-memory list of the last 20 actions really run (time, what, worked or not). It is fed from
+    `run_action` / `can_undo` and the remind paths; while building, check that every action passes through
+    one of them.
+  - The list goes into the prompt only for questions about him. An empty list → "You ran nothing in this
+    session."
+  - A joke gets no list.
+- **Verification:** tests for each. The gates.
+- **Depends on:** none.
+
+### Task 8: M3a, daily compaction into checked facts (M; about 35 lines)
+- **Acceptance:**
+  - Runs once a day when idle (the busy lock is free, not in a game or LITE). It compacts topics unused for
+    7 days, or the oldest while there are more than 100.
+  - One `http_json` call with a JSON schema returns up to 3 facts, each under 120 characters.
+  - Code check: every number, name and content word must be in the topic's saved talk, or the fact is
+    dropped.
+  - All facts dropped or the model down → the topic is kept and tried again tomorrow. After 3 failures it
+    is removed and logged as a count only.
+- **Verification:** fake model and fake clock: the 101st topic triggers compaction; an invented name or
+  number is dropped; model down keeps the topic. The gates.
+- **Depends on:** M2a.
+
+### Task 9: M3b, monthly re-compaction (XS–S; about 10 lines)
+- **Acceptance:** only when `jarvis_gist.txt` has more than 200 lines, under the same check. L4 facts are
+  never touched.
+- **Depends on:** Task 8.
+
+### Task 10: 6e, wording for the ear (S; about 15 lines)
+- **Acceptance:**
+  - Prompt rules: no lists, headings or symbols; numbers, dates and times said the way they are spoken.
+    (Contractions, 1–2 sentences, "as an AI" and acknowledgements moved to Phase 10: tone.)
+  - A cleaner before `speak_all()` removes asterisks, bullets and "#", and turns "°C" and "%" into words.
+  - The cleaner is named `speakable(text)`: `for_ear()` already exists (~2061) as the number formatter
+    and is kept as it is.
+- **Verification:** the cleaner's output has no symbols; `check_voice`. The gates.
+- **Depends on:** none.
+
+### Checkpoint B: commit on the user's word (live checks saved for the end of Phase 6)
+- Facts in three wordings, then asked about the next day.
+- "What did you do?"
+- One compaction run by hand with a short test age.
+
+### Task 11: 6j, route + timing log (XS; about 10 lines)
+- **Acceptance:** one line per turn, "route: <kind> [<action>] via rule | ai-reread | model, total <s>s", with
+  no words from the question.
+- **Verification:** a fixed command, an action and a chat turn each log one line with the right path.
+- **Depends on:** none. Must come before the end-of-phase live test and Tasks 12–14.
+
+### Tasks 12–14: 6g voice smoothness, 6i GPU spikes, 6f model compare (measure only)
+- Each one: measure as its spec says (no install), report the numbers, and fix only on approval.
+- 6f downloads a model only on approval.
+- The user pastes the 6j lines; Claude does not read `Data\`.
+
+## Risks (added for this breakdown)
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Live is many slices behind; one live test at the end | High: a live fault is harder to place | 6j route lines first; each slice is its own commit, so `git revert` / bisect |
+| Recall brings unrelated talk back | High: the issue this phase fixes | A score floor, top 2, a test with unrelated questions, `JarvisRecall=off` |
+| New voice phrases steal existing routes | Med | The route check on 65 phrases plus the new ones |
+| The model's gist invents details | Med | The code check drops unknown names, numbers and words |
+| Meaning cut-offs from a small sample | Med | Words still decide when the model is off; tune after live logs |
+| Memory from the second model copy not measured | Low–Med | Measure at the end-of-phase live test (Task Manager) |
+
+## Open questions
+- Decided (spec as written): M1b covers only kinds with a command (reminders / alarms / timers, open / close
+  app). Calendar / to-do look-ups can be added later if the live test asks for them.

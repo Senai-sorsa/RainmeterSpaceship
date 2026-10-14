@@ -45,7 +45,7 @@ CURRENT STATE (end of the 2026-10-14 session that built Phase 5 and Phase 6a; RE
     - R5-0 (wake sensitivity 0.35, user's click) done. R5-6 step 6a (wake word training) built   123d829
     - PHASE 5 COMPLETE: 5a continuous alarm ring, 5b snooze, 5c alarm questions                   23b290c
     - PHASE 6a (called "S1" in tasks/): only the HUD data a question needs goes to the model, plus the
-      Phase 6 re-plan (6b memory system, PHASE 10)                       the commit after 23b290c
+      Phase 6 re-plan (6b memory system, PHASE 10)                       1036282
   Not live yet: everything from 123d829 on (R5-6 6a, Phase 5, Phase 6a). The live skin has the state the
     user tested in "BEFORE PHASE 5". Copy to live only on the user's word (COPY TO LIVE in PART D).
   Waiting on the user (in this order, unless the user changes it):
@@ -53,7 +53,7 @@ CURRENT STATE (end of the 2026-10-14 session that built Phase 5 and Phase 6a; RE
        (PHASE 6 > 6a > "Live test"). Paste log lines; Claude never reads Data\.
     2. In Control Center: check WHISPER = small.en (the R5-0 log showed base.en) and train the wake word
        (WAKE TRAINING > TRAIN), then send the three "train:" lines.
-  NEXT TO BUILD: Phase 6 M1 (active window), then M2, Checkpoint A (PHASE 6 > 6b, "Slices"). The user
+  NEXT TO BUILD: Phase 6 M1 (active window), then M1b, M2, Checkpoint A (PHASE 6 > 6b, "Slices"). The user
     chose Phase 6 before the Phase 5 live test and before R5-1/2/3.
   Still open, not scheduled: R5-1, R5-2, R5-3 (command path, volume direction, follow-up), R5-6 step 6b
     (W1-W3, needs the "train:" numbers), R5-5 (only if needed), Fix Round 3, N13 (test clock bug: run tests
@@ -127,18 +127,87 @@ STATUS (2026-10-14, history log; newest at the bottom)
     topic memory, compaction into checked tiny facts, your facts = old 6d, what he really did); 6c and 6h
     moved to the new PHASE 10 PERSONALITY (no output cuts). Working plan: tasks/plan.md, tasks/todo.md
     (committed with 6a). The approved revision is written out in PHASE 6 > "PLAN CHANGES".
-  - 2026-10-14: S1 (6a) BUILT and committed on the user's word (the commit after 23b290c), not live. Beyond the table below, from the build: "me" after
+  - 2026-10-14: S1 (6a) BUILT and committed on the user's word (1036282), not live. Beyond the table below, from the build: "me" after
     tell/give/show/help/let is not "about you" (else "tell me a joke" sent the profile); a briefing keeps the
     whole profile; the Pending line goes in on its own for time / setting questions, labelled "don't bring it
     up unless asked", and is left out of unrelated chat; calendar words widened (day names, weekend, due...).
     The user chose to keep "only matching memory facts" as M4a (not pulled forward). Checks: test_jarvis OK
     (py -3 and venv, TZ=ABC+12); route check 65 phrases, 0 real differences (1 N14 timestamp line).
     Waiting for: the user's word to copy to live and the S1 live test. NEXT: M1.
+  - 2026-10-14: ideas taken from the user's file "Suggested-Jarvis-Improvments. Efficiency and performance" (repo root, untracked). Claude compared its 23 ideas with the code and this
+    plan. Already built: #2 always-running process, #3 model / GPU handling, #4 streaming speech with
+    barge-in, #14 tests, #15/#16 code-checked actions. Already planned: #5/#17 (6b), #13 (Phase 9), #20
+    (Phase 10). Added on the user's word: #1 as 6j (route + timing log), #7 as M1b (the last results),
+    #9 as 7-0 (one action table). Not now (user): #10 Claude Code as a coding agent, #21 file search.
+    Skipped: #6, #8, #11, #12, #18, #19, #22, #23. Bigger model for hard questions: see 6f (proposal).
+  - 2026-10-14: M1 (6b active window) BUILT, NOT committed, NOT live. jarvis.py: keywords(), active(),
+    file_active() (only empties until M2), ACTIVE_TTL=120, TALK_STOP, FOLLOW_START, NEW_TOPIC ("new topic" /
+    "change the subject" alone -> "Okay."; "new topic, <question>" asks the rest with no window; "a new subject
+    at school" is not caught). history[-8:] -> the window (last 2 exchanges); brief / notes turns neither send
+    nor file it. Checks: test_jarvis OK (py -3 and venv, TZ=ABC+12); route check 65 phrases, 0 differences.
+    Rollback: before_m1\ in the 28aef137-... session scratchpad, or reverse the diff.
+  - 2026-10-14: MEANING MATCH (the user: words OR meaning, fall back to words; 6a a lot stricter) BUILT, NOT
+    committed, NOT live. jarvis.py: load_meaning() (ChromaDB's local all-MiniLM-L6-v2, CPU only, loaded first in
+    index_loop), vec(), meaning(text, others, floor), BLOCK_EXAMPLES, MEANING_BLOCK=0.6 (6a), MEANING_TALK=0.35
+    (M1 now; M2 / M4a when built), related() = shared keyword OR meaning. No ChromaDB / not loaded yet / error:
+    words only. Measured (venv, real model): load 2.4-3.8 s; ~31-39 ms per wants(); 6a paraphrases 0.62-0.84
+    in, unrelated questions <= 0.47 out, "Is the machine overheating?" 0.54 out (strict as asked). RAM not
+    measured. Checks: test_jarvis OK (py -3 and venv); route check 65 phrases, only the N14 time-stamp line.
+  - 2026-10-14: LIVE IS NOT THE REPO (the user). The live skin's jarvis.py (C:\Users\Senai\Rainmeter\Skins\
+    Spaceship\@Resources\Jarvis) is byte-for-byte commit 301c22f (Phase 3 + 4); checked with git hash-object.
+    Live does NOT have: 123d829 (wake word training), 23b290c (Phase 5 alarm rings until answered), 1036282
+    (6a only the HUD data a question needs), M1 (active window) and the meaning match (both uncommitted).
+    test_jarvis.py live is also older. So a live test only tests what was copied: copy first (COPY TO LIVE,
+    PART D, on the user's word), and say which version the log lines come from. Live and repo can also differ
+    in runtime: the live Settings.inc (e.g. JarvisWhisperDevice=cpu) and the venv's packages.
+  - 2026-10-14: the user: ALL live tests at the end of Phase 6 (checkpoints A and B are commit points only);
+    6j moves before that one live test. 6e's cleaner is named speakable() (for_ear() is the number formatter).
+    Task breakdown T1-T14 in tasks/plan.md and tasks/todo.md.
+  - 2026-10-14: M1b (T1, the last results) BUILT, NOT committed, NOT live. jarvis.py: last = {kind, items,
+    when} (memory only, never logged), set by the reminder list, a reminder / alarm / timer set, and an app
+    opened or closed (run_action); ORDINALS, REFER, pick_last() in route() before reminder_cmd; "cancel the
+    second one" / "cancel it" cancel that exact item (remind_reply cancel with the item, then the usual undo);
+    "open it again" / "close it" go through route("open / close <name>"), so the same confirmation. Too far,
+    "it" with several items, older than ACTIVE_TTL or the wrong kind -> "Which one?". "new topic" clears it.
+    "cancel that" stays undo; "stop it" is not caught. Not covered (spec): calendar events and to-dos.
+    Checks: test_jarvis OK (py -3 and venv, TZ=ABC+12); route check 65 phrases, only the N14 time-stamp
+    line. NEXT: T2 (M2a topics).
+  - 2026-10-14: M2a (T2, topic memory) BUILT, NOT committed, NOT live. jarvis.py: TOPICS_FILE
+    (Data\jarvis_topics.json, .tmp then os.replace), load_topics / save_topics, file_talk(), recall(),
+    recall_on() (JarvisRecall, default on, in code only: no Settings.inc line, no Control Center button).
+    Filed: chat exchanges only (fixed() stamps command replies, so those are skipped), from file_active() AND
+    from the talk that drops off the 2-exchange window (else it was lost). SECRET masks digit runs of 6+ and
+    8+ character words mixing letters and digits -> "[number]". Joins by keywords only (2 shared, or 1 found in
+    no other topic), as specced; 200 characters a line, 6 exchanges a topic, 100 topics (shortcut: the oldest
+    is dropped until M3). Recall: shared keywords weighted 1/(topics having the word) + 1.5 if close in meaning
+    (words OR meaning, MEANING_TALK on the user's side of the topic), floor 1.5 (one rare word alone is not
+    enough); best 2, newest exchanges first taking turns, about 600 characters, "used" updated; in the system
+    prompt under "FROM EARLIER TALKS". Not for briefings / notes. load_meaning() embeds every topic at startup.
+    Real model (venv, 6 topics, 14 questions): related 0.42-0.70 recalled; unrelated 0.10-0.29 not; "play some
+    music" 0.42 -> the guitar talk; "tell me something about space" 0.29 -> nothing (black holes; strict).
+    Unreadable file: left alone, nothing recalled. Log: counts only. The FORGET pipe still only empties the
+    window (topics stay; voice forget is M2b). Checks: test_jarvis OK (py -3, venv); route check unchanged.
+    NEXT: T3 (M2b).
+  - 2026-10-14: M2b (T3) BUILT, NOT committed, NOT live. route(): "forget / delete / erase what / everything we
+    (have) said / talked / discussed about X" -> talk_forget(): the matching topics read back ("Forget 1 earlier
+    talk about that, starting with: ...? Confirm with yes.") and the usual yes; ACTIONS["forget_talk"] removes
+    exactly those topics (by their talk). Not undoable ("I can't undo that"). "What do you remember / recall
+    about X" and "what did we say / talk about X" -> talk_list(), by code: "You asked me: ...", newest first,
+    about 300 characters. A topic matches X when it has all of X's keywords, or is close in meaning
+    (MEANING_TALK). No match -> "I don't remember us talking about that."; unreadable file -> left alone, said.
+    Works with JarvisRecall=off too (off stops filing and recall, not forgetting). run_action no longer logs
+    the forget_talk target. Gist lines join the list in M3. Checks: test_jarvis OK (py -3, venv); route check
+    65 phrases, 0 changed. NEXT: Checkpoint A (commit on the user's word), then T4 (M4a-1).
+  - 2026-10-14: the user: anything about tone not finished moves to PHASE 10. 6c and 6h were already there;
+    now 6e's style rules too (contractions, 1-2 sentences, never "as an AI", acknowledgements). 6e in Phase
+    6 keeps only the speech-safe text rules (no lists / symbols, numbers as said) and speakable(). PHASE 10
+    starts with the user's own review of everything the model gets about its personality: Claude must tell
+    the user when that review is due, and wait for the feedback before moving on.
 
 HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 5 / 6a session)
   Git
     - Branch chore/jarvis-baseline-and-performance. Not pushed. main (c5ff4a5) is behind it.
-        <6a commit> JARVIS: Phase 6a (only send what the question needs), Phase 6 re-plan   (git log -1)
+        1036282  Phase 6a (S1), Phase 6 re-plan, plan handover (later plan-only commits: git log)
         23b290c  Phase 5: an alarm rings until answered (5 min cap), snooze 5 min
         123d829  R5-6 step 6a (wake word training), answers Q4-Q14 for Phase 5
         8494cee  plan: "Before Round 5" fixes from the live test, wake word triple check
@@ -147,7 +216,7 @@ HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 5 
         301c22f  Phase 3 + Phase 4 + plan handover
         d7386dd  Phase 2, 2e/2f, Rounds 2/4, status-only hologram
         7bf9e14  this plan (first version)
-    - Working tree clean after the 6a commit. Rollback of any step: git revert <its commit>.
+    - Working tree clean except the user's untracked suggestions file (ideas taken: STATUS). Rollback of any step: git revert <its commit>.
     - Never "git checkout" / "git restore" / "git stash" to undo something; never "git add ."; read the
       staged list before every commit; commit only on the user's word.
   Where the work is
@@ -998,7 +1067,7 @@ Found while building Phases 2-4 (new issues)
       5th is silently not drawn. That is why TRAIN got its own WAKE TRAINING row. New buttons: new row.
   N16. LIMIT (6a). A click or End stops the training only between clips, so up to 15 s late (the 15 s
       "talk normally" clip). The "train the wake word" voice phrase is not built; the button only.
-  N17. LIMIT (Phase 6a). Blocks are picked by keywords: false hits ("speed test" adds the calendar, "hotel"
+  N17. LIMIT (Phase 6a). Blocks are picked by keywords (since 2026-10-14 also by meaning, cut-off 0.6): false hits ("speed test" adds the calendar, "hotel"
       the PC readings) only add data; misses ("anything Friday" before the widening) leave data out and he
       says he doesn't have it. A follow-up with no keyword relies on the question before it.
   N18. LIMIT (Phase 6a). The Pending line goes in only for time / setting words (or a PC question). A
@@ -1477,7 +1546,7 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
   Research: a 2026 study of models under 7B parameters found that the mere presence of context, relevant
   or not, pulls answers off course. An earlier study found the effect grows with the amount of irrelevant
   text. The fix both point to is not to send it.
-  RESULT (built 2026-10-14, committed after 23b290c, NOT live)
+  RESULT (built 2026-10-14, committed in 1036282, NOT live)
     - jarvis.py: BLOCKS + wants(text, kind) pick the blocks; context(text, kind) and system_prompt(text,
       kind) take the question (None = everything, so any other caller is unchanged; turn() is the only
       caller). turn() passes the question plus the previous user line, so "and Friday?" keeps the calendar.
@@ -1523,7 +1592,10 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
                sentences.
   Prompt per turn: L1 (if linked), matching L4 facts (5 at most), at most 2 L2 topics + matching L3 lines,
   the action list only for questions about him. Nothing matches -> nothing is added.
-  Order: 6a -> M1 (L1) -> M2 (L2) -> Checkpoint A -> M4a (6d) -> M4b (actions) -> M3 (L3) -> 6e -> Checkpoint B.
+  Order: 6a -> M1 (L1) -> M1b (last results) -> M2 (L2) -> Checkpoint A -> M4a (6d) -> M4b (actions) -> M3 (L3)
+         -> 6e -> Checkpoint B -> 6j (route log) -> ONE live copy + live test of all of Phase 6 -> 6f / 6g / 6i.
+  Live tests (the user, 2026-10-14): ALL at the end of Phase 6. Checkpoints A and B are commit points only;
+  their live checks join the end-of-phase test. Task breakdown: tasks/plan.md, tasks/todo.md (T1-T14).
   Each slice: its own tests, test_jarvis OK (py -3 and venv), route check, commit and live copy on the
   user's word.
 
@@ -1538,6 +1610,22 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     - Briefing and notes turns neither send nor file the window. The FORGET pipe still empties it.
     Tests: linked / unlinked; "never mind" keeps it; "new topic" files it; a question 3 minutes later gets
     no window.
+
+  M1b. The last results (added 2026-10-14 from idea #7 of the suggestions file; about 30 lines)
+    Why: "cancel the second one", "open it again", "when is that one" need something concrete to point
+    at. "Repeat that" and "what did you hear" already work (recent["me"], recent["you"]); this adds the
+    last LIST and the last TARGET.
+    - last = {"kind", "items", "when"}: set by code when he reads out a list (reminders / alarms, calendar
+      events, to-dos, open apps) or runs an action on one target (the app opened, the alarm set).
+      Kept 120 s (ACTIVE_TTL, same as M1); "new topic" clears it.
+    - Code resolves "the first / second / third / last one", "that one", "it" against last.items. Only
+      for kinds that already have a command (cancel a reminder, open / close an app); the result goes
+      through the normal route and its confirmation, exactly as if the item had been said by name.
+    - The model never picks the item. No last list, or a number past its end -> "Which one?" (fixed line).
+    - Not stored on disk. Items are not written to the log (only the kind and the count).
+    Tests: "what alarms do I have" then "cancel the second one" cancels that alarm after the usual yes;
+    "the fourth one" with 3 items -> "Which one?"; after 3 fake minutes "cancel it" -> "Which one?";
+    a joke after a list gets no list in the prompt.
 
   M2. Topic memory (about 60 lines)
     - Data\jarvis_topics.json, written .tmp then os.replace (as save_memory). Topic = {kw, talk:
@@ -1587,16 +1675,15 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
 
   6e, then CHECKPOINT B: same gates; live test of facts, "what did you do", and one compaction run by
   hand with a short test age.
-  Shortcut: keywords, not embeddings; synonyms ("dentist" / "teeth") miss. Upgrade path: the Chroma index
-  the notes search already uses.
+  Matching (the user, 2026-10-14): related() = a shared keyword OR meaning >= MEANING_TALK (0.35), words only
+  while the model is off. M2 recall score = keyword weight + meaning; M4a facts use related().
 
 6c. Tone   MOVED 2026-10-14 to PHASE 10 PERSONALITY (kept here as its spec; not built in Phase 6)
   - New default "natural": "Sound like a calm, friendly person. Joke only if the user jokes first."
     playful, proper and brief stay as choices. The Control Center row gets the fourth button.
   - A fixed word list for serious topics (health, death, grief, money trouble, exams and grades, safety,
     conflict, fear) forces the "proper" sentence for that turn, whatever the setting.
-  - Identity line in SYSTEM: he is a local assistant on this PC, not the film character, and has no
-    creator to name.
+  - Identity line in SYSTEM: he is a local assistant on this PC, not the film character, and the user is his creator.
   - If the live setting already says playful it is NOT changed silently. One click in the Control Center.
 
 6d. Memory relook (about 35 lines)   FOLDED 2026-10-14 into 6b as layer L4 (M4a); this list is its spec
@@ -1635,11 +1722,13 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
   Tests for 3 and 4: a close question returns the stored words without the fake model; a fake sentence
   "my sister's name is Ana" leads to one offer and a save only after yes; a digit string is never offered.
 
-6e. Wording for the ear (about 15 lines)
-  - Prompt rules from voice-agent guides: contractions; one or two short sentences; no lists, headings or
-    symbols; numbers, dates and times written the way they are said; never "as an AI"; at most one short
+6e. Wording for the ear (about 15 lines)   STYLE RULES MOVED 2026-10-14 to PHASE 10 (tone, the user)
+  - Kept in Phase 6 (text the voice can say, not tone): no lists, headings or symbols; numbers, dates and
+    times written the way they are said.
+  - MOVED to PHASE 10: contractions; one or two short sentences; never "as an AI"; at most one short
     acknowledgement ("Sure.", "Got it.") and not every time.
-  - A small cleaner before the voice removes what slips through: asterisks, bullet marks, "#", and turns
+  - A small cleaner before the voice, speakable(text) (named 2026-10-14: for_ear() is already the number
+    formatter), removes what slips through: asterisks, bullet marks, "#", and turns
     "°C" and "%" into words.
 
 6f. A stronger chat model (needs approval; a download only if the chosen model is not installed)
@@ -1648,6 +1737,13 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
   - Compare the models that are already installed with a fixed list of 20 questions: does it mention
     unasked data, does it claim actions, does it keep to two sentences, seconds to the first word.
   - Choose by the result. Never the first model in the list. Log the chosen model and the reason.
+  - PROPOSAL (2026-10-14, not approved yet): a bigger model only for hard questions. Do 6f first: moving
+    from 3B to 8B may make it unneeded. 12 GB holds voice + small.en + an 8B (about 6 GB); a 14B (about
+    9 GB) does not fit beside them, so each switch is several seconds of unload / load and may put part
+    of a model on the CPU (what Phase 2 fixed). So: a spoken trigger found by code ("think hard about
+    ...", "big brain mode"), a filler line while it loads, then back to the normal model. No automatic
+    "is it complex?" guess unless the 6j log shows the trigger used often for the same kind of question.
+    Setting JarvisModelBig (empty = off). About 20 lines. Numbers are estimates until measured.
 
 6g. A smoother voice (added 2026-10-14 after the Phase 1 live test: "the voice doesn't sound very fluid yet")
   Not covered elsewhere: Phase 2e only makes the voice faster, 6e only changes the words.
@@ -1703,6 +1799,20 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
   Judged by the user (does it bother you: noise, heat, stutter?) and by the logged numbers.
   Ties to Phase 2 (GPU first) and Phase 9 (he can explain a spike from real readings, see 6h).
 
+6j. Which path answered, and how long it took (added 2026-10-14 from idea #1 of the suggestions file;
+    about 10 lines; build before 6f / 6g / 6i)
+  The suggestion was a central "priority router". route() already is one: fixed checks in a fixed order
+  (guard, undo, never mind, fixed questions, reminders, actions, chat), with interpret() only for a missed
+  command. Not taken: a new request_router.py, confidence scores, semantic matching. Taken: the log.
+  - One line per turn at the end of turn(): "route: <kind> [<action>] via rule | ai-reread | model,
+    total <s>s". No text of what was said, no targets (privacy, as the other log lines).
+  - The timing lines that exist (click -> listening, end of speech -> text, -> reply start, -> reply done)
+    stay; this adds the path and the total for fixed and action turns too, which today log no total.
+  - Use: 6f (model compare), 6g, 6i and the 6f big-model proposal measure from these lines; the user
+    pastes them, Claude never reads Data\.
+  Tests: a fixed command, an action and a chat turn each log one route line with the right path; the line
+  has no words from the question.
+
 Tests (fakes)
   - "what's 12 times 9" builds a prompt with no calendar, mail or to-do text.
   - "what's on today" has the calendar and nothing else extra.
@@ -1721,7 +1831,7 @@ Your live test after Phase 6
   4. Ask about A, wait three minutes, ask about B. He does not bring A back. Then ask about A again:
      he recalls the earlier talk about A.
   5. "Remember that ..." in three different wordings, then ask about it tomorrow.
-  6. (Phase 10) "Who made you?" No film names.
+  6. (Phase 10) "Who made you?" Should name the user (with his infomation, calling me senai sorsa).
   7. (Phase 10) Under playful, ask "why is the GPU at 100%?" and a factual question. He answers from real
      numbers or says he can't see it; no made-up activity.
   8. (6i) Watch Task Manager > GPU during a few turns and compare with the 6i measurements.
@@ -1744,6 +1854,25 @@ Rules for every new action
   - Anything that can cut you off (Bluetooth off, Wi-Fi off, microphone mute) asks for a yes first.
   - Device names are matched against the list Windows gives. They are not written to the log.
   - Tests use fakes: no real device is connected, muted or switched during a test.
+
+7-0. One action table (added 2026-10-14 from idea #9 of the suggestions file; build first in Phase 7;
+     needs the user's approval of the exact layout before building)
+  Why here: Phase 7 adds about 20 new actions. Today an action is spread over three places (a regex in
+  route(), an entry in ACTIONS, a confirmation / reply in turn()). One table entry per action makes each
+  new one a single, testable block.
+  - ACTIONS entries become small records: name, the phrases (regex) that call it, risk (read | change |
+    ask-first: ask-first always gets the yes question), run(target), check(target) that reads Windows
+    back (what he says afterwards, as the Phase 7 rule above), and one line of description.
+  - The AI_SCHEMA list of actions interpret() may choose is built from the same table, so the model can
+    only name an action that exists, as today.
+  - NOT taken from the suggestion: discovering tools by loading every Python file in a folder (any file
+    dropped there would run). The table is one fixed list in jarvis.py.
+  - Existing actions move one at a time, each with the route check showing 0 differences and test_jarvis
+    OK; the new Phase 7 actions are written in the new form from the start. If a move changes any route,
+    it stops there.
+  - Risk is decided by code, never by the model; DANGER and the 1d claim check stay as they are.
+  Tests: every table entry has a check(); an ask-first entry always asks; a phrase reaches the same
+  action as before the move (route check); interpret() can't return a name missing from the table.
 
 7a. Microphone (about 30 lines, no new package)
     Say                                         Result
@@ -2070,6 +2199,14 @@ line, serious-topic list extension). 6h's widening of the claim check is REJECTE
 personality itself should not invent. To look at when this starts: a persona card (a few example answers
 that show the voice) and an honesty rule written into each mood, not a filter after it. Builds on 6b L4
 (what he really did). Needs the user's design answers before any code.
+Also holds (moved 2026-10-14, the user: anything about tone not finished goes here): 6e's style rules
+(contractions, one or two short sentences, never "as an AI", at most one short acknowledgement and not
+every time), and the Phase 6 live checks 3, 6 and 7 (serious topic, "who made you?", playful honesty).
+  YOUR REVIEW FIRST (the user, 2026-10-14). Before any Phase 10 code, Claude gathers everything the model
+  is told about who he is and how he talks: the SYSTEM text, the MOODS sentences, the identity line, the
+  6e style rules, the persona card draft, and how the ABOUT THE USER note is used. Claude TELLS the user it
+  is time for this review and shows it all in one place. The user reads it, customizes it by hand, and
+  gives feedback. Nothing in Phase 10 is built, and Claude does not move on, until that feedback is in.
 
 
 FIX ROUND 3   FROM THE THIRD LIVE TEST (added 2026-10-14)

@@ -15,6 +15,7 @@ j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 muted_to, ran = [], []
 j.REMIND_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-reminders")
 j.MEMORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-memory")   # never the real one
+j.TOPICS_FILE = os.path.join(tempfile.mkdtemp(), "topics.json")
 j.speakers_mute = muted_to.append
 
 
@@ -1225,6 +1226,187 @@ assert talk(1, words="") == 2 and asked[-1] == "Sorry, I didn't catch that."
 assert talk(99, words="") == 2                                    # silence after "didn't catch" ends it: no loop
 j.save_reminders([])
 j.undo.clear()
+
+# ---- M1: the active window - the last 2 exchanges for 2 minutes, while the question links to them
+assert j.keywords("[Mon 14 Oct, 07:00 PM] What's the Eiffel Tower's height?") == {"eiffel", "tower", "height"}
+assert j.keywords("How tall are the towers?") == {"tall", "tower"}
+for text in ("New topic.", "new topic", "Jarvis, new topic.", "Okay, let's change the subject.", "New topic, why is the sky blue?"):
+    assert j.NEW_TOPIC.match(j.strip_name(text)), text
+for text in ("A new subject at school is hard.", "New topics in physics?", "what's a new topic for my essay"):
+    assert not j.NEW_TOPIC.match(j.strip_name(text)), text
+sent, real_stream = [], j.chat_stream
+j.chat_stream = lambda model, messages: sent.append(messages) or real_stream(model, messages)
+past = lambda: [m["content"] for m in sent[-1][1:-1]]             # what went in between the system prompt and the question
+j.history.clear()
+talk(1, words="Tell me about the Eiffel Tower.")
+assert past() == []
+talk(1, words="How tall is the Eiffel Tower?")                     # a shared keyword
+assert past() == ["Tell me about the Eiffel Tower.", "Ha."]
+talk(1, words="And why is it made of iron?")                       # a follow-up start
+talk(1, words="Really?")                                           # 3 words or fewer
+assert len(past()) == 4 and past()[0] == "How tall is the Eiffel Tower?"   # only the last 2 exchanges
+talk(1, words="Never mind.")                                       # "never mind" keeps the window
+assert "Really?" in [m["content"] for m in j.history]
+talk(1, words="What's a good pasta recipe for dinner?")            # unlinked: filed and emptied
+assert past() == [] and [m["content"] for m in j.history] == ["What's a good pasta recipe for dinner?", "Ha."]
+talk(1, words="New topic.")                                        # files it, a fixed "Okay.", nothing kept
+assert asked[-1] == "Okay." and j.history == []
+talk(1, words="What's a good pasta sauce?")
+talk(1, words="New topic, which pasta sauce goes with fish?")      # the rest is asked with no window
+assert past() == [] and j.history[0]["content"] == "which pasta sauce goes with fish?"
+j.last_turn -= 180                                                 # 3 minutes later: no window, even when linked
+talk(1, words="And which pasta sauce goes with chicken?")
+assert past() == [] and len(j.history) == 2
+talk(1, words="Good morning.")                                     # a briefing neither sends nor files the window
+assert past() == [] and len(j.history) == 2
+
+# ---- words OR meaning (6a strict, M1 loose); a fake model with fixed vectors, so the test never needs ChromaDB
+ids = {}
+
+
+def fake_vec(t):
+    v = [0.0] * 3000
+    if j.re.search(r"teeth|dentist", t, j.re.I):
+        v[0] = 1.0
+    elif j.re.search(r"overheating|How hot is my computer running", t):
+        v[1] = 1.0
+    elif "kinda warm" in t:                                       # 0.45 from the PC example: talk yes, 6a no
+        v[1], v[2] = 0.45, (1 - 0.45 ** 2) ** 0.5
+    else:
+        v[3 + ids.setdefault(t, len(ids))] = 1.0                 # anything else: unrelated to everything
+    return v
+
+
+assert not j.related("When should I see the dentist?", ["My teeth have been hurting."])   # model off: words only
+j._embed[0] = lambda texts: [fake_vec(t) for t in texts]
+assert j.wants("Is the machine overheating?") == {"pc"}          # no PC word, but the same as a PC example
+assert j.wants("It's kinda warm in here.") == set()              # 6a is strict: 0.45 is not close enough
+assert j.meaning("It's kinda warm in here.", j.BLOCK_EXAMPLES["pc"], j.MEANING_TALK)   # talk would count it
+assert j.wants("Tell me a joke.") == set() and "pc" in j.wants("How hot is the GPU?")  # words still work
+assert j.related("When should I see the dentist?", ["[Mon 14 Oct, 07:00 PM] My teeth have been hurting."])
+j.history.clear()
+talk(1, words="My teeth have been hurting all week.")
+talk(1, words="When should I see the dentist?")                  # no shared word, same meaning: the window stays
+assert past() == ["My teeth have been hurting all week.", "Ha."]
+talk(1, words="What's the capital of France these days?")        # unrelated in words and meaning
+assert past() == []
+j._embed[0] = lambda texts: 1 / 0                                # the model breaks: words only, the turn goes on
+assert not j.meaning("When should I see the dentist?", ["My teeth hurt."], 0.1)
+j._embed[0] = None
+j._vecs.clear()
+real_ef = sys.modules.get("chromadb.utils.embedding_functions")
+sys.modules["chromadb.utils.embedding_functions"] = None         # no ChromaDB: load_meaning leaves it off
+j.load_meaning()
+assert j._embed[0] is None
+if real_ef is None:
+    sys.modules.pop("chromadb.utils.embedding_functions")
+else:
+    sys.modules["chromadb.utils.embedding_functions"] = real_ef
+
+# ---- M1b: the last results. Code picks the item from what he just listed or did; the model never does
+j.save_reminders([]), j.last.clear()
+assert j.route("cancel the second one") == ("say", None, None, "Which one?")      # nothing listed yet
+assert j.route("cancel that")[0] == "undo" and j.route("stop it")[3] != "Which one?"   # both left as they were
+do("set an alarm for 7 am"), do("set an alarm for 8 am"), do("remind me to cook in 20 minutes")
+do("what alarms do I have")
+second = [r for r in j.load_reminders() if r[2] != "timer"][1]                      # the order they were read out
+assert do("cancel the second one") == f"Cancelled: {j.describe(second, time.time())}."
+assert second not in j.load_reminders() and len(j.load_reminders()) == 2
+do("what alarms do I have")
+assert j.route("cancel the fourth one")[3] == "Which one?" and j.route("cancel it")[3] == "Which one?"   # 2 listed
+j.last["when"] -= 180                                                              # 3 minutes later
+assert j.route("cancel the first one")[3] == "Which one?"
+assert do("set a timer for 10 minutes") == "Timer set for 10 minutes."
+assert do("cancel it").startswith("Cancelled: ") and not [r for r in j.load_reminders() if r[2] == "timer"]
+j.history.clear()
+talk(1, words="What alarms do I have?")
+talk(1, words="Tell me a joke.")                                                   # a joke after a list: no list
+assert past() == []
+talk(1, words="New topic.")
+assert j.last == {}
+real_open, real_owin = j.ACTIONS["open"], j.open_windows
+j.ACTIONS["open"], j.open_windows = lambda target: None, lambda: ["chrome.exe"]
+assert j.run_action("open", ("Google Chrome", "Chrome")) and j.last["items"] == [("Google Chrome", "Chrome")]
+assert j.route("close it")[:3] == ("act", "close", "chrome.exe")                   # same confirmation as by name
+assert j.route("open it again") == ("act", "open", ("Google Chrome", "Chrome"), None)
+assert j.route("cancel the first one")[3] == "Which one?"                          # an app is not a reminder
+j.last.update(kind="app", items=["chrome.exe"])                                   # after "close chrome"
+assert j.route("reopen it") == ("act", "open", ("Google Chrome", "Chrome"), None)
+j.ACTIONS["open"], j.open_windows = real_open, real_owin
+j.save_reminders([]), j.last.clear(), j.undo.clear()
+# ---- M2: topic memory - talk that leaves the window is filed by topic, and comes back only when it's about it
+pair = lambda you, him="Ha.": [{"role": "user", "content": you}, {"role": "assistant", "content": him}]
+j.save_topics([])                                                             # the M1 turns above filed talk
+j.file_talk(pair("My card is 4111111111111111 and the code is hunter2abc9.", "Keep those private."))
+j.file_talk(pair("[Tue 14 Oct, 07:00 PM] Set a timer for 10 minutes.", "Timer set."))   # a command reply: not filed
+saved = j.json.dumps(j.load_topics())
+assert len(j.load_topics()) == 1 and "4111" not in saved and "hunter2" not in saved and saved.count("[number]") == 2
+j.save_topics([])
+j.file_talk(pair("Tell me about the Eiffel Tower in Paris.", "It is an iron tower."))
+j.file_talk(pair("What's a good pasta recipe for dinner?", "Try a carbonara."))
+j.file_talk(pair("How tall is the Eiffel Tower?", "About 330 metres."))          # 2 shared keywords: the same topic
+j.file_talk(pair("Is the weather nice in Tokyo?", "Mild in spring."))
+topics = j.load_topics()
+assert len(topics) == 3 and [len(t["talk"]) for t in topics if "eiffel" in t["kw"]] == [2]
+assert j.recall("What's the capital of Japan?") == ""                         # unrelated: nothing
+assert j.recall("What time is it in Tokyo?") == ""                            # one shared word is under the floor
+r = j.recall("When was the Eiffel Tower built?")
+assert "About 330 metres." in r and "It is an iron tower." in r and "carbonara" not in r, r
+assert max(t["used"] for t in j.load_topics()) == [t for t in j.load_topics() if "eiffel" in t["kw"]][0]["used"]
+for n in range(8):                                                            # 6 exchanges a topic, 200 characters a line
+    j.file_talk(pair(f"Eiffel Tower fact {n}?", "The Eiffel Tower " + "very " * 60 + "tall."))
+assert [len(t["talk"]) for t in j.load_topics() if "eiffel" in t["kw"]] == [6]
+assert max(len(x[2]) for t in j.load_topics() for x in t["talk"]) == 200 and len(j.recall("Eiffel Tower height?")) < 700
+j.save_topics([])
+j._embed[0] = lambda texts: [fake_vec(t) for t in texts]                    # no shared word, the same meaning
+j.file_talk(pair("My teeth have been hurting all week.", "Sorry to hear it."))
+assert "My teeth" in j.recall("When should I see the dentist?") and j.recall("Any good films out?") == ""
+j._embed[0] = None
+j._vecs.clear()
+j.setting = lambda name, default="": "off" if name == "JarvisRecall" else default
+j.file_talk(pair("Tell me more about my teeth and the dentist."))
+assert len(j.load_topics()) == 1 and j.recall("My teeth again?") == ""        # off: nothing filed, nothing recalled
+j.setting = lambda name, default="": default
+with open(j.TOPICS_FILE, "w", encoding="utf-8") as f:
+    f.write("{broken")
+j.file_talk(pair("My teeth again and the dentist."))
+assert open(j.TOPICS_FILE, encoding="utf-8").read() == "{broken" and j.recall("My teeth and dentist?") == ""
+# M2b by voice: "what do you remember about X" is said by code; "forget what we said about X" reads back, then yes
+j.save_topics([])
+j.file_talk(pair("Tell me about the Eiffel Tower in Paris.", "It is an iron tower."))
+j.file_talk(pair("How tall is the Eiffel Tower?", "About 330 metres."))
+j.file_talk(pair("What's a good pasta recipe for dinner?", "Try a carbonara."))
+assert j.route("What do you remember about the Eiffel Tower?") == (
+    "say", None, None, "You asked me: How tall is the Eiffel Tower; Tell me about the Eiffel Tower in Paris.")
+assert j.route("What did we say about pasta?")[3] == "You asked me: What's a good pasta recipe for dinner."
+assert j.route("What do you remember about the moon?")[3] == j.NO_TALK
+assert j.route("Forget everything we talked about the moon.")[3] == j.NO_TALK
+kind, action, gone, prompt = j.route("Jarvis, forget what we said about the Eiffel Tower.")
+assert (kind, action) == ("act", "forget_talk") and prompt == (
+    "Forget 1 earlier talk about that, starting with: Tell me about the Eiffel Tower in Paris.? Confirm with yes."), prompt
+assert len(j.load_topics()) == 2                                              # nothing is gone before the yes
+logged, keep = [], j.log
+j.log = logged.append
+assert j.run_action(action, gone) and [t["kw"] for t in j.load_topics()] == [["carbonara", "dinner", "good", "pasta", "recipe", "try"]]
+j.log = keep
+assert logged == ["action: forget_talk "]                                    # no words of the talk in the log
+assert j.route("What do you remember about the Eiffel Tower?")[3] == j.NO_TALK
+assert j.route("Forget that my dentist is on Fridays.")[:2] == ("memory", "forget")   # facts: as before
+with open(j.TOPICS_FILE, "w", encoding="utf-8") as f:
+    f.write("[1]")
+assert j.route("What do you remember about pasta?")[3] == j.TOPICS_BAD == j.route("forget what we said about pasta")[3]
+j.save_topics([])
+j.history.clear()
+talk(1, words="Tell me about the Eiffel Tower.")
+talk(1, words="What's a good pasta recipe for dinner?")                       # unlinked: the Eiffel talk is filed
+assert len(j.load_topics()) == 1 and "FROM EARLIER TALKS" not in sent[-1][0]["content"]
+talk(1, words="New topic, how tall is the Eiffel Tower?")                     # no window, but the topic comes back
+assert "the user said: Tell me about the Eiffel Tower." in sent[-1][0]["content"] and past() == []
+j.save_topics([])
+j.history.clear()
+
+j.chat_stream = real_stream
+j.history.clear()
 
 # ---- one schedule: alarms and reminders are listed and cancelled together; timers stay apart
 do("set an alarm for 7 am"), do("remind me to cook in 20 minutes"), do("set a timer for 10 minutes")

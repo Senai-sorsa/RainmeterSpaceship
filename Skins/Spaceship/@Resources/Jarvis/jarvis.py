@@ -49,6 +49,7 @@ import time
 import urllib.error
 import urllib.request
 import wave
+from collections import Counter
 from datetime import datetime, timedelta
 
 RES = (sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")).strip().strip('"')
@@ -230,6 +231,73 @@ def todo_note():
     return path if path and os.path.exists(path) else ""
 
 
+# Matching by meaning (the user, 2026-10-14): a shared word OR a close meaning counts, in 6a, M1, M2 and M4a. The model
+# is ChromaDB's local all-MiniLM-L6-v2; until it is loaded, or without ChromaDB, matching is by words only.
+# Measured 2026-10-14: related pairs 0.39-0.53, unrelated 0.02-0.18; about 30 ms a sentence on the CPU.
+MEANING_TALK = 0.35        # talk and facts (M1, M2, M4a)
+MEANING_BLOCK = 0.6        # 6a, a lot stricter (the user): only close to one of the block's example questions
+_embed = [None]            # the model, set by load_meaning() on a thread at startup
+_vecs = {}                 # text -> unit vector, so each line is embedded once
+STAMP = re.compile(r"^\[[^\]]*\] ")   # the time stamp fixed() puts on a history line
+
+
+def load_meaning():
+    try:
+        from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
+        # CPU only: the default tries TensorRT / CUDA, fails and retries on every call (330 ms a sentence, not 30)
+        ef = ONNXMiniLM_L6_V2(preferred_providers=["CPUExecutionProvider"])
+        ef(["warm up"])
+        _embed[0] = ef
+        for examples in BLOCK_EXAMPLES.values():               # ready before the first question
+            for e in examples:
+                vec(e)
+        try:
+            for t in load_topics():                            # M2: each filed topic once, so recall doesn't wait
+                vec(topic_text(t))
+        except (OSError, ValueError):
+            pass
+        log("meaning match: ready")
+    except Exception as e:
+        _embed[0] = None
+        log(f"meaning match off, words only: {e!r}")
+
+
+def vec(text):
+    v = _vecs.get(text)
+    if v is None:
+        if len(_vecs) > 500:
+            _vecs.clear()
+        raw = [float(x) for x in _embed[0]([text])[0]]
+        n = sum(x * x for x in raw) ** 0.5 or 1.0
+        v = _vecs[text] = [x / n for x in raw]
+    return v
+
+
+def meaning(text, others, floor):
+    """Whether text means about the same as any of `others` (cosine >= floor). False while the model is off."""
+    if _embed[0] is None or not others:
+        return False
+    try:
+        q = vec(STAMP.sub("", text))
+        return any(sum(a * b for a, b in zip(q, vec(STAMP.sub("", o)))) >= floor for o in others)
+    except Exception as e:
+        log(f"meaning match failed, words only: {e!r}")
+        return False
+
+
+# 6a, by meaning: a block also goes in when the question is very close to one of these
+BLOCK_EXAMPLES = {
+    "calendar": ("What's on my calendar this week?", "Do I have any classes or exams coming up?", "Am I free on Friday?",
+                 "When is my next appointment?"),
+    "mail": ("Do I have any new emails?", "Did anyone message me?", "How many unread emails are in my inbox?"),
+    "todo": ("What's on my to-do list?", "What tasks do I still have to do?", "What do I need to get done?"),
+    "pc": ("How hot is my computer running?", "Why is my laptop so slow?", "How much battery is left?",
+           "Is my graphics card busy?"),
+    "net": ("Is my internet working?", "How fast is my connection?", "Am I connected to the wifi?"),
+    "apps": ("What apps are open right now?", "Which programs are running?"),
+    "pending": ("What alarms do I have set?", "Did you set my reminder?", "How long is left on the timer?",
+                "When will you wake me up?"),
+}
 # 6a: a block of HUD data goes into the prompt only when the question is about it. The time always; a briefing all.
 BLOCKS = {"calendar": r"schedule|today|tomorrow|tonight|week|class|quiz|exam|test|meeting|free|busy|when is|what'?s on|"
                       r"calendar|event|appointment|plans?\b|monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
@@ -252,7 +320,8 @@ def wants(text, kind=None):
     """The HUD blocks a question needs. None = all of them (a briefing, or a caller that did not say)."""
     if text is None or kind == "brief":
         return set(BLOCKS)
-    return {b for b, pat in BLOCKS.items() if re.search(rf"\b(?:{pat})", text, re.I)}
+    return {b for b, pat in BLOCKS.items()
+            if re.search(rf"\b(?:{pat})", text, re.I) or meaning(text, BLOCK_EXAMPLES[b], MEANING_BLOCK)}
 
 
 def context(text=None, kind=None):
@@ -1687,6 +1756,7 @@ ACTIONS = {
     "media": lambda key: press_key(MEDIA_KEYS[key]),
     "todo": lambda item: act_todo(item),
     "forget_all": lambda _: save_memory([]),
+    "forget_talk": lambda gone: save_topics([t for t in load_topics() if t["talk"] not in gone]),   # M2b, after the read-back
 }
 
 # the whole reply has to be one of these: "yes, but don't" is not a yes
@@ -1777,6 +1847,36 @@ def no_claims(sentences, collected):
         yield s
 
 
+ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth")
+# M1b: "cancel the second one", "open it again". "cancel that" stays undo; "stop it" is left alone (stop is for ringing)
+REFER = re.compile(rf"(cancel|delete|remove|turn off|open|reopen|launch|close|quit|exit) (?:the )?(?:({'|'.join(ORDINALS)}|last) "
+                   r"(?:one|alarm|reminder|timer|app)|(?:that|this) (?:one|alarm|reminder|timer|app)|it)(?: again)?")
+
+
+def pick_last(cmd):
+    """M1b: a sentence that points at what he just listed or acted on -> the route for that item, as if it had been said
+    by name; "Which one?" when nothing fits. None when the sentence does not point back. Code picks, never the model."""
+    m = REFER.fullmatch(cmd)
+    if not m:
+        return None
+    app = m.group(1) in ("open", "reopen", "launch", "close", "quit", "exit")
+    fresh = time.time() - last.get("when", 0) <= ACTIVE_TTL and (last.get("kind") == "app") == app
+    items = last["items"] if fresh else []
+    nth = m.group(2)
+    i = (-1 if nth == "last" else ORDINALS.index(nth)) if nth else 0 if len(items) == 1 else None   # "it" needs one item
+    if i is None or not -len(items) <= i < len(items):
+        return ("say", None, None, "Which one?")
+    if not app:
+        return ("remind", "cancel", (last["kind"], "", items[i]), None)
+    name = items[i][0] if isinstance(items[i], tuple) else os.path.splitext(items[i])[0]   # opened (name, id) / closed exe
+    if REFER.fullmatch(f"open {name}".lower()):                 # an app called "it" would point back here forever
+        return ("say", None, None, "Which one?")
+    if m.group(1) in ("open", "reopen", "launch"):
+        return route(f"open {name}")
+    r = route(f"close {name}")
+    return r if r[0] == "act" else route(f"close {name.split()[-1]}")   # "Google Chrome" is open as chrome.exe
+
+
 def route(text):
     """Map what you said to (kind, action, target, confirmation prompt). kind: chat | notes | apps | act | guard | say |
     remind (action = list / cancel / set / flip, target = its details) | memory (action = save / list / forget) | brief |
@@ -1811,12 +1911,24 @@ def route(text):
         return ("again", None, None, None)
     if re.match(r"snooze\b", cmd):                             # after it stopped ringing (while it rings, alarm() hears it)
         return ("remind", "snooze", ("alarm", snooze_for(cmd)), None)
+    picked = pick_last(cmd)
+    if picked:
+        return picked
     op = reminder_cmd(t, cmd, time.time())
     if op:
         return ("remind", op[0], op[1:], None)
     if re.fullmatch(r"(?:good (?:morning|afternoon|evening)|brief me|(?:give me )?(?:my |the )?daily briefing|"
                     r"what.?s my day look(?:ing)? like)(?:,? jarvis)?", whole):
         return ("brief", None, None, None)
+    # M2b, talk filed by topic: forgetting reads them back and waits for yes; the list is said by code, not the model
+    m = re.fullmatch(r"(?:forget|delete|erase) (?:what|everything) (?:we|i)(?:'ve| have)? (?:said|talked|spoken|spoke|"
+                     r"discussed) about (.+)", whole)
+    if m:
+        return talk_forget(m.group(1))
+    m = re.fullmatch(r"what do you (?:remember|recall) about (.+)|what (?:did|have) we (?:say|said|talk|talked|discuss|"
+                     r"discussed) about (.+)", whole)
+    if m:
+        return ("say", None, None, talk_list(m.group(1) or m.group(2)))
     # remembered facts. "do you remember that film?" and "remember to buy milk" are not for this
     if re.fullmatch(r"what do you remember|what have i (?:told|asked) you to remember|"
                     r"(?:list|show|read)(?: me)? (?:my |your )?memor(?:y|ies)|what.?s in your memory", whole):
@@ -1932,8 +2044,10 @@ def run_action(action, target):
     try:
         before = speakers() if action in ("volume", "mute", "unmute") else None
         ACTIONS[action](target)
-        log(f"action: {action} {target if target and action != 'todo' else ''}")     # a to-do's text stays out of the log
+        log(f"action: {action} {target if target and action not in ('todo', 'forget_talk') else ''}")   # your words stay out of the log
         can_undo(action, before)                               # anything else (lock, close, a key...) cannot be put back
+        if action in ("open", "close"):                        # M1b: "close it", "open it again"
+            last.update(kind="app", items=[target], when=time.time())
         return True
     except Exception as e:
         log(f"action {action} failed: {e!r}")
@@ -2124,6 +2238,7 @@ def fact_answer(q, now):
 UNDO_FOR = 120                                                # seconds
 undo = []                                                     # [expires, what, before]: the last change, memory only
 recent = {"you": "", "me": ""}                                # the last thing heard and said, memory only, never logged
+last = {}             # M1b: the list he just read out or the one thing he acted on {kind, items, when}; memory only, never logged
 
 
 def can_undo(what, before=None):
@@ -2606,6 +2721,7 @@ def remind_reply(op, args, quiet):
         n = sum(map(is_alarm, pool))
         counts = (" and ".join(f"{k} {w}{'s' if k != 1 else ''}" for k, w in ((n, "alarm"), (len(pool) - n, "reminder")) if k)
                   if kind != "timer" else f"{len(pool)} timer{'s' if len(pool) != 1 else ''}")
+        last.update(kind=kind, items=pool, when=now)          # M1b: "cancel the second one" means this order
         return f"You have {counts}: {'; '.join(describe(r, now) for r in pool)}."
     if op == "snooze":                                         # "snooze" said after the ringing stopped
         if not rang or now - rang[0] > 300:
@@ -2616,8 +2732,12 @@ def remind_reply(op, args, quiet):
         rang.clear()
         log(f"reminder snoozed ({args[1]:.0f}s, after it rang)")
         return f"Snoozed for {span(args[1])}."
-    if op in ("cancel", "move"):
+    if op == "cancel" and len(args) > 2:                     # M1b: the item was picked from the last list, by code
+        key = lambda r: (round(r[0]), round(r[1]), r[2], r[3])
+        gone, words = [r for r in pool if key(r) == key(args[2])], []
+    elif op in ("cancel", "move"):
         gone, words = find_items(pool, args[1], kind, now)
+    if op in ("cancel", "move"):
         if len(gone) > 1 and (op == "move" or not words and not args[1].startswith("all")):   # "turn off my alarm" with 2
             name = lambda r: clock(r[0], now) if is_alarm(r) else describe(r, now)
             reply_line(f"You have {len(gone)} {kind}s: {' and '.join(map(name, gone))}. Which one?", quiet)
@@ -2695,6 +2815,8 @@ def remind_reply(op, args, quiet):
     save_reminders(items + [(d, now, kind, label) for d in dues])
     log(f"reminder set ({'alarm' if alarm_set else kind}, {dues[0] - now:.0f}s ahead, {len(dues)})")
     can_undo("reminder", [(round(d), round(now), kind, label) for d in dues])   # as the file stores it
+    last.update(kind="timer" if kind == "timer" else "alarm" if alarm_set else "reminder",
+                items=[(d, now, kind, label) for d in dues], when=now)        # M1b: "cancel it"
     if len(dues) > 1:
         return f"Alarms set for {' and '.join(clock(d, now) for d in dues)}."
     due = dues[0]
@@ -2903,6 +3025,7 @@ def smart_search(query, limit=3):
 
 
 def index_loop():
+    load_meaning()                                             # here, so chromadb is imported by one thread only
     while True:
         try:
             chroma_index(force=True)
@@ -2912,8 +3035,190 @@ def index_loop():
 
 
 # ------------------------------------------------------------------ one conversation turn
-history = []          # recent turns, forgotten after 10 minutes
+history = []          # the active window (M1): the last 2 exchanges, kept while the talk stays on them
 last_turn = 0.0
+ACTIVE_TTL = 120      # seconds after the last exchange that the window is still sent
+TALK_STOP = STOP | set("how who why whom whose its they them their there then than also just really very not don't "
+                       "does did has had will well now yes yeah okay please jarvis want need know think get got going "
+                       "like one some more much many all our out into over too let".split())
+FOLLOW_START = re.compile(r"(?:it|that|this|he|she|they|and|but|so|what about|how about|why|then|also)\b")
+
+
+def keywords(text):
+    """Content words of a line, for matching talk to talk (L1, later L2 / L4): lowercase, no time stamp,
+    stop-words out, a trailing "s" cut."""
+    words = re.findall(r"[a-z0-9']+", STAMP.sub("", text).lower().replace("’", "'"))
+    words = [w.removesuffix("'s").strip("'") for w in words]
+    return {w[:-1] if w.endswith("s") and len(w) > 3 else w for w in words if len(w) > 2 and w not in TALK_STOP}
+
+
+def related(text, lines):
+    """Talk matching for L1 / L2 / L4: a shared keyword, or close in meaning (MEANING_TALK)."""
+    return bool(keywords(text) & set().union(set(), *map(keywords, lines))) or meaning(text, lines, MEANING_TALK)
+
+
+# M2 topic memory: talk that leaves the window is filed by topic in Data\jarvis_topics.json, and comes back only
+# when a question is about that topic. Plain text on this PC, sent only to the local model; only counts are logged.
+TOPICS_FILE = os.path.join(DATA, "jarvis_topics.json")
+SECRET = re.compile(r"\d{6,}|\b(?=\w*\d)(?=\w*[a-z])\w{8,}\b", re.I)   # long numbers and password-like words
+RECALL_FLOOR = 1.5    # one rare shared word scores 1.0: not enough alone, so "time" or "day" never pulls a topic in
+
+
+def recall_on():
+    return setting("JarvisRecall", "on").strip().lower() not in ("off", "0")
+
+
+def load_topics():
+    """[{"kw": [...], "talk": [[when, you, him], ...], "used": time}]. Unreadable raises OSError / ValueError."""
+    if not os.path.exists(TOPICS_FILE):
+        return []
+    with open(TOPICS_FILE, "r", encoding="utf-8") as f:
+        topics = json.load(f)
+    if not isinstance(topics, list) or not all(isinstance(t, dict) and {"kw", "talk", "used"} <= t.keys() for t in topics):
+        raise ValueError("not a topic list")
+    return topics
+
+
+def save_topics(topics):
+    tmp = TOPICS_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(topics, f)
+    os.replace(tmp, TOPICS_FILE)
+
+
+def topic_text(t):
+    """What a topic is about, for the meaning match: your side of its talk."""
+    return " ".join(you for _, you, _ in t["talk"])
+
+
+def file_talk(msgs):
+    """Files the chat exchanges in msgs into topics: it joins the topic sharing 2 keywords, or 1 found in no other
+    topic, else starts a new one. fixed() stamps command replies, so those are left out."""
+    pairs = [(u["content"], a["content"]) for u, a in zip(msgs[::2], msgs[1::2]) if not STAMP.match(u["content"])]
+    if not pairs or not recall_on():
+        return
+    try:
+        topics = load_topics()
+    except (OSError, ValueError):
+        log("topic memory unreadable: left alone")
+        return
+    for you, him in pairs:
+        you, him = (SECRET.sub("[number]", s)[:200] for s in (you, him))
+        kw = keywords(you + " " + him) - {"number"}
+        if not kw:
+            continue
+        seen = Counter(w for t in topics for w in t["kw"])
+        best = max(topics, key=lambda t: len(kw & set(t["kw"])), default=None)
+        shared = kw & set(best["kw"]) if best else set()
+        if not (len(shared) >= 2 or any(seen[w] == 1 for w in shared)):
+            best = {"talk": []}
+            topics.append(best)
+        best["talk"] = (best["talk"] + [[round(time.time()), you, him]])[-6:]
+        best["kw"] = sorted(set().union(*(keywords(y + " " + h) for _, y, h in best["talk"])) - {"number"})
+        best["used"] = time.time()
+    topics.sort(key=lambda t: t["used"])
+    try:
+        save_topics(topics[-100:])     # shortcut: past 100 the oldest topic is dropped, until M3 turns it into gist
+        log(f"topic memory: {len(pairs)} exchange(s) filed, {len(topics[-100:])} topics")
+    except OSError as e:
+        log(f"topic memory not saved ({type(e).__name__})")
+
+
+def recall(text):
+    """The best 2 filed topics for this question, about 600 characters, or "". Score: shared keywords weighted by
+    rarity, + RECALL_FLOOR when close in meaning (words OR meaning), at least RECALL_FLOOR; recent use breaks ties."""
+    if not recall_on():
+        return ""
+    try:
+        topics = load_topics()
+    except (OSError, ValueError):
+        return ""
+    kw, now = keywords(text), time.time()
+    seen = Counter(w for t in topics for w in t["kw"])
+    scored = []
+    for t in topics:
+        s = sum(1 / seen[w] for w in kw & set(t["kw"]))
+        if s < RECALL_FLOOR and meaning(text, [topic_text(t)], MEANING_TALK):
+            s += RECALL_FLOOR
+        if s >= RECALL_FLOOR:
+            scored.append((s + 0.2 * max(0.0, 1 - (now - t["used"]) / (7 * 86400)), t))
+    best = [t for _, t in sorted(scored, key=lambda p: -p[0])[:2]]
+    if not best:
+        return ""
+    # newest exchange of each topic first, taking turns, until about 600 characters
+    lines = sorted(((i, f"- {datetime.fromtimestamp(when):%a %d %b}: the user said: {you} / you said: {him}")
+                    for t in best for i, (when, you, him) in enumerate(reversed(t["talk"]))), key=lambda p: p[0])
+    out = ""
+    for _, line in lines:
+        if out and len(out) + len(line) > 600:
+            break
+        out += line + "\n"
+    for t in best:
+        t["used"] = now
+    try:
+        save_topics(topics)
+    except OSError:
+        pass                                                   # only "used" is lost
+    log(f"topic memory: {len(best)} topic(s) recalled")
+    return "\nFROM EARLIER TALKS (only if it helps; don't bring it up otherwise):\n" + out
+
+
+TOPICS_BAD = "I can't read my topic memory, so I left it alone."
+NO_TALK = "I don't remember us talking about that."
+
+
+def topics_about(x):
+    """M2b: the filed topics about X: all of its keywords, or close in meaning. Unreadable raises OSError / ValueError."""
+    kw = keywords(x)
+    return [t for t in load_topics() if (kw and kw <= set(t["kw"])) or meaning(x, [topic_text(t)], MEANING_TALK)]
+
+
+def talk_forget(x):
+    """The route for "forget what we said about X": read the matching talks back and ask (the usual yes)."""
+    try:
+        hits = topics_about(x)
+    except (OSError, ValueError):
+        return ("say", None, None, TOPICS_BAD)
+    if not hits:
+        return ("say", None, None, NO_TALK)
+    said = "; ".join(t["talk"][0][1][:80] for t in hits[:3]) + ("; and more" if len(hits) > 3 else "")
+    n = len(hits)
+    return ("act", "forget_talk", [t["talk"] for t in hits],
+            f"Forget {n} earlier talk{'s' if n != 1 else ''} about that, starting with: {said}? Confirm with yes.")
+
+
+def talk_list(x):
+    """What you said in the talks about X, newest first, about 300 characters."""
+    try:
+        hits = topics_about(x)
+    except (OSError, ValueError):
+        return TOPICS_BAD
+    if not hits:
+        return NO_TALK
+    out = ""
+    for you in (you for t in hits for _, you, _ in reversed(t["talk"])):
+        if out and len(out) + len(you) > 300:
+            break
+        out += ("; " if out else "") + you.rstrip(".!? ")
+    return f"You asked me: {out}."
+
+
+def file_active():
+    """Unlinked, timed out or "new topic": the window is filed (topic memory, M2) and emptied."""
+    file_talk(history)
+    history.clear()
+
+
+def active(text):
+    """The window to send with this question. It is kept when the question is related to it (related()), starts
+    like a follow-up, or is 3 words or fewer; otherwise (or after ACTIVE_TTL) it is filed first."""
+    file_talk(history[:-4])                                    # talk that drops off the window is filed too
+    del history[:-4]
+    plain = " ".join(re.sub(r"[^a-z' ]", " ", text.lower().replace("’", "'")).split())
+    if history and (time.time() - last_turn > ACTIVE_TTL or not (
+            len(plain.split()) <= 3 or FOLLOW_START.match(plain) or related(text, [m["content"] for m in history]))):
+        file_active()
+    return list(history)
 
 
 def fit_context(system, past, user):
@@ -2959,6 +3264,7 @@ NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left them|Canc
 # a whole follow-up reply that means "we're done": he stops without answering
 ENDERS = re.compile(r"(?:(?:ok|okay|alright|great|cool|perfect|no|nah) )?(?:thanks|thank you|that's all|that's it|no thanks|"
                     r"no thank you|nope|no|goodbye|bye|i'm good|i'm fine|nothing|stop|all good|cheers|quiet|never mind|enough)(?: jarvis)?")
+NEW_TOPIC = re.compile(r"(?:(?:ok|okay|alright),? )?(?:let'?s )?(?:(?:start|have) )?(?:a )?(?:new |change (?:the )?)(?:topic|subject)(?:[,.!?:;-]+\s*|\s*$)", re.I)
 
 
 def command_reply(kind, action, target, prompt, quiet):
@@ -3052,14 +3358,22 @@ def turn(tier, follow=0):
             nonlocal again
             global history, last_turn
             reply_line(reply, quiet)
-            if time.time() - last_turn > 600:
-                history = []
+            active(text)
             # stamped, so "7:00 AM tomorrow" in the reply still means the right day after midnight
             history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {text}"},
                         {"role": "assistant", "content": reply}]
             last_turn = time.time()
             again = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
         S.set(err="")
+        m = NEW_TOPIC.match(strip_name(text))
+        if m:                                                  # files the window; "new topic, <question>" goes on without it
+            file_active()
+            last.clear()                                       # M1b: "cancel it" no longer points back
+            text = strip_name(text)[m.end():].strip()
+            if not text:
+                fixed("Okay.")
+                history.clear()                                # "new topic" / "Okay." is not talk to keep
+                return
         # "show me what you've said" / "close the log": handled here, no model needed
         if HIDE_LOG.search(text):
             S.set(pop="close")
@@ -3152,18 +3466,19 @@ def turn(tier, follow=0):
             log("guardrail: request handled in persona only")
         elif kind == "brief":
             extra = "\n" + BRIEFING
-        if time.time() - last_turn > 600:
-            history = []
+        apart = kind in ("brief", "notes")                     # these neither send nor file the window
+        past = [] if apart else active(text)
         reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
         # the question and the one before it pick the blocks, so "and tomorrow?" after a calendar question still has it
-        ask = text + (" " + history[-2]["content"] if len(history) >= 2 else "")
+        ask = text + (" " + past[-2]["content"] if len(past) >= 2 else "")
         readings = "\n".join(h for h in hud if h).splitlines()
         want = wants(ask, kind)
         if "pc" not in want:                                   # not a PC question: at most the schedule, and only if it's about time
             readings = [r.replace("Pending:", "Pending (don't bring it up unless asked about alarms, reminders or timers):", 1)
                         for r in readings if r.startswith("Pending:") and "pending" in want]
+        extra += "" if apart else recall(text)                # M2: an earlier talk, only when the question is about it
         messages = fit_context([{"role": "system", "content": system_prompt(ask, kind) + "".join("\n" + r for r in readings) + extra}],
-                               history[-8:], {"role": "user", "content": text})
+                               past, {"role": "user", "content": text})
         collected = []
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
         stream = chat_stream(model, messages)
@@ -3184,8 +3499,9 @@ def turn(tier, follow=0):
         log(f"jarvis: {reply}")
         recent["me"] = reply
         convo_add("J", reply)
-        history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
-        last_turn = time.time()
+        if not apart:
+            history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
+            last_turn = time.time()
         S.set(say=reply)
         again = not quiet and not cancel.is_set()             # fixed replies set it in fixed()
     except urllib.error.URLError as e:

@@ -1,0 +1,262 @@
+1. Efficiency and performance
+These are the highest-priority changes because they improve almost every interaction without requiring a more powerful model.
+
+1. A shared priority router
+Highest priority
+The reference uses an 18-layer priority chain. Borrow the principle, not necessarily all 18 layers.
+Build one central router that checks each incoming request in a predictable order. For example:
+1. Is this a simple command, such as opening an app or checking the time?
+2. Is it a confirmation, cancellation, or follow-up to an existing task?
+3. Is it a memory or file retrieval request?
+4. Does it require a tool or multi-step workflow?
+5. Does it need an LLM response?
+6. Does it require a more capable model or coding agent?
+Why this matters: a request such as "open VS Code" shouldn't require an LLM to reason about something a script can do instantly. The router should use deterministic rules where possible and invoke AI only when the request is ambiguous or requires reasoning.
+What to add: a request_router.py module with explicit routing rules, confidence thresholds for intent matching, and a fallback to the LLM. Log which route handled each request and how long it took.
+Compute cost: negligible for rule-based routing. Semantic matching can be added later.
+
+
+
+
+2. Persistent daemon and event-driven workers
+Avoid repeatedly starting Python, reloading configuration, initializing clients, and recreating connections for every HUD click or voice command.
+Run JARVIS as a persistent background service. Its frontends should communicate with it through a local socket, named pipe, or localhost HTTP/WebSocket endpoint. The daemon owns shared state, tool connections, active jobs, and the model client.
+Use event-driven workers for file changes, task completion, and notifications instead of constantly polling or repeatedly restarting processes.
+What to add: a daemon.py, a small IPC interface, a task queue, and a clean shutdown/restart procedure. On Windows, consider a Windows service or a user-session background process, depending on whether the assistant needs desktop access.
+Compute cost: very low while idle. This primarily reduces latency and duplicated work.
+
+
+
+
+3. On-demand model loading and resource-aware routing
+Don't keep every model loaded all the time. Separate inexpensive system operations from tasks that need language-model inference.
+For example, a file search can run without an LLM; a small local model can classify a vague request; and a coding model can be called only when a code change is necessary.
+Track RAM, available VRAM, model load state, and active jobs. Configure an idle-unload policy where appropriate, and avoid unloading a model in the middle of an active task.
+What to add: a model_manager.py that tracks available backends, model capabilities, memory requirements, load/unload operations, and task priorities.
+Important: unloading models reduces idle memory usage but can increase the latency of the next request. Use configurable policies instead of aggressively unloading everything.
+Compute cost: very low for the manager itself. The selected models determine inference cost.
+
+
+
+
+4. Streaming responses and TTS
+The reference streams LLM output into sentence-level TTS rather than waiting for the entire response to finish.
+Have JARVIS display text as it arrives and, when voice is enabled, begin speaking completed sentences while the remaining response is generated. Keep the TTS engine and audio output pipeline warm if doing so doesn't interfere with other work.
+What to add: an asynchronous response pipeline with separate generation, sentence-buffering, synthesis, and playback stages. Support cancellation and interruption so you can stop a long answer naturally.
+Compute cost: low with a small CPU-friendly TTS model, although continuous speech recognition and synthesis still consume resources.
+Recommendation: implement streaming text first, then add streaming TTS as a separate subsystem.
+
+
+
+2. Helpfulness and everyday usability
+These features make JARVIS feel like it understands ongoing work rather than merely answering isolated prompts.
+
+5. Self-managing memory
+The reference extracts durable facts, stores them in SQLite, and retrieves them when relevant. This is worth adopting, but start with a simpler system.
+Maintain three kinds of information:
+- Profile memory: stable preferences, such as how you want JARVIS to respond.
+- Project memory: architecture decisions, active tasks, important paths, and unresolved bugs.
+- Episode memory: what happened during a session, including completed tasks and failures.
+Extract candidate memories after useful interactions, deduplicate them, and save only information that will help future tasks. Retrieve relevant memories before generating an answer instead of inserting the entire history into every prompt.
+What to add: memory_manager.py backed by SQLite, with timestamps, source references, project associations, and explicit edit/delete controls.
+Start with SQLite full-text search. Add embeddings and a vector index only if ordinary search isn't retrieving enough relevant information.
+Compute cost: low for storage and keyword search; moderate only if you add continuous LLM-based extraction or semantic indexing.
+
+
+
+
+6. Session recovery and task checkpoints
+Save the current task, its completed steps, its pending steps, and the relevant outputs. If JARVIS or Windows restarts, it should be able to tell you what was happening and offer to resume.
+This is particularly useful for Claude Code tasks, simulations, large file operations, and workflows that take several minutes.
+What to add: persistent task records with a unique ID, status, step number, timestamps, output references, and retry information. Make operations idempotent where possible so retrying a step doesn't accidentally duplicate its effects.
+Don't blindly replay a task after a crash. Check its current state first and ask for confirmation when resuming could modify files or repeat an external action.
+Compute cost: negligible. This is mainly database and workflow logic.
+
+
+
+
+7. Conversation artifacts and reference resolution
+The reference caches tool results so follow-up commands such as "open the second result," "repeat that," and "save it" refer to something concrete.
+Implement this for your own workflows. If JARVIS returns five files, keep their IDs and metadata available during the session. If it creates a report, remember the actual output path. If it produces a diagnostic, preserve the associated logs.
+What to add: an artifact_store.py that records typed outputs such as file results, reports, code diffs, diagnostics, and research results. Let follow-up commands resolve references against the most recent relevant artifact, not just the last message.
+Compute cost: negligible. Structured IDs and metadata are enough for a useful first version.
+
+
+
+
+8. A task planner with pause, resume, and cancel
+Let JARVIS break compound requests into small, inspectable steps.
+For example: "Check my project, run the tests, identify failures, fix the easy ones, and summarize the changes."
+It should show a plan, execute one step at a time, evaluate the result, and adjust or stop when necessary. It should support pause, resume, skip, and cancel commands even while a task is running.
+What to add: a task state machine, structured plans, per-step output storage, timeouts, retry limits, and explicit success criteria. Use ordinary code for predictable sequences and an LLM for ambiguous planning or recovery.
+Compute cost: low for orchestration. Planning and evaluation consume model inference, so avoid asking the LLM to reevaluate every trivial step.
+
+
+
+3. Integration with Windows, Claude Code, and other applications
+This category is especially important for your goal of making JARVIS deeply connected to your computer.
+
+9. A single tool registry with automatic discovery
+The reference allows new tools to be added as individual Python files, which are discovered automatically. Adopt this architecture.
+Create a standard interface for each tool, such as a tool name, description, input schema, permission level, and execution function. JARVIS loads the tools at startup and exposes their descriptions to the model when appropriate.
+Example tools could include find_files, get_system_info, run_tests, get_git_status, open_application, and manage_reminders.
+What to add: core/tools/ and tool_registry.py. Each tool should be independently testable and should not need to modify the central router to become available.
+Include a capability registry so the LLM knows what each tool can do, what arguments it accepts, and whether it is currently available.
+Compute cost: negligible. This is ordinary Python architecture.
+
+
+
+
+10. Claude Code as a specialized coding agent
+Give JARVIS a dedicated way to delegate programming tasks to Claude Code rather than trying to recreate an entire coding agent inside JARVIS.
+JARVIS can identify the relevant repository, provide the goal and necessary context, start or communicate with the coding agent, track its progress, and report the result. Claude Code handles repository exploration, editing, and tests using its own agent workflow.
+What to add: a coding_agent integration that supports task submission, working-directory selection, execution status, output capture, cancellation, and completion verification. Prefer a documented CLI or supported interface over scraping terminal output when possible.
+Important distinction: Claude Code is the agent, while the configured model is its reasoning backend. A local Ollama model can be used with compatible configurations, but it won't necessarily match Claude's coding ability. JARVIS can also delegate to the normal cloud-backed Claude Code setup when desired.
+Compute cost: low for JARVIS's integration code. Model inference depends on whether the coding backend is local or remote.
+
+
+
+
+11. Model Context Protocol (MCP) integration
+The reference implements both an MCP server and client. This is a strong idea for extending JARVIS without tightly coupling every integration to its internal codebase.
+An MCP server can expose selected JARVIS capabilities to compatible clients, such as a coding agent. An MCP client can connect to supported external MCP servers and make their tools available to JARVIS.
+This could allow Claude Code to access approved JARVIS tools for project memory, system diagnostics, or local file discovery, while JARVIS delegates coding tasks to Claude Code.
+What to add: start with one direction: expose a small set of safe JARVIS tools to Claude Code. Add inbound MCP connections later if you need them. Restrict accessible directories and commands, and require confirmation for risky operations.
+Compute cost: negligible compared with the models being used. The complexity is in integration and permissions, not inference.
+
+
+
+
+12. A unified interface for HUD, terminal, voice, and web
+The reference sends requests from multiple frontends through the same conversation router.
+Apply the same principle to your JARVIS HUD, hotkeys, terminal, voice interface, and any local web dashboard. They should all share the same task manager, memory, permissions, and tool registry.
+What to add: a frontend-independent request API. Each request should carry its input source, conversation or task ID, cancellation signal, and relevant context. Responses should be delivered through whichever frontend initiated the request.
+This prevents you from maintaining separate automation logic for every interface and allows you to add a new frontend without rewriting JARVIS's core.
+Compute cost: negligible.
+
+
+
+4. Reliability, testing, and self-diagnostics
+A personal assistant that can control your computer needs to know when something has failed. This is more valuable than giving it additional intelligence without verification.
+
+13. A system health dashboard
+Borrow the reference's layered health-check design. Monitor whether the daemon is running, the model backend is reachable, tools are available, memory storage is accessible, and recent tasks are succeeding.
+Expose useful information through your HUD: daemon uptime, active jobs, model backend, RAM/VRAM usage, recent errors, and average response latency.
+What to add: a health_check.py module and a small diagnostics endpoint. Use actual measurements, not LLM-generated guesses. Let JARVIS explain a failure only after retrieving the relevant diagnostic data.
+Compute cost: negligible to low.
+
+
+
+
+14. Automated regression and behavioral tests
+The reference includes unit tests, tool-calling tests, and conversation-level tests. This is a better pattern than judging JARVIS by whether a few manual demonstrations work.
+Build tests for ordinary commands, ambiguous requests, multi-step tasks, tool failures, interruptions, memory retrieval, and model switching.
+Maintain a small set of realistic prompts with expected behaviors. For instance, "open my latest report" should select a file according to a documented rule, while "delete the old reports" should require confirmation.
+What to add: unit tests for each tool, integration tests for the router, and a behavioral suite for common user workflows. Run these before deploying changes to the live assistant.
+Compute cost: low for most tests. LLM-based evaluations can be run separately when needed.
+
+
+
+
+15. Verification after every consequential action
+Never assume a tool succeeded simply because it returned without throwing an error.
+If JARVIS opens a file, verify the target exists and the launch request succeeded. If it edits code, inspect the diff and run relevant tests. If it changes a configuration, validate the new configuration and preserve a backup.
+What to add: define success conditions for each tool and have the task manager inspect actual outputs. Record whether a result is verified, partially verified, or unverified.
+This makes the assistant more dependable and gives it concrete information when a task needs recovery.
+Compute cost: negligible for deterministic checks. Use an LLM only when interpreting a failure requires reasoning.
+
+
+
+5. Security, privacy, and control
+Because JARVIS will have access to files, processes, terminals, and potentially credentials, permissions should be designed into the architecture from the beginning.
+
+16. Permission tiers for tools
+Classify actions by risk.
+- Read-only: search files, inspect logs, check system information.
+- Low-risk changes: create a report, open an app, create a project folder.
+- Sensitive actions: overwrite files, install packages, execute arbitrary shell commands, modify startup settings, or transmit private information.
+Require progressively stronger approval as the risk increases. Don't let the model grant itself permissions.
+What to add: a centralized permission manager, command allowlists where practical, confirmation prompts, and audit logs. Use restricted working directories and avoid running the entire assistant with administrator privileges.
+Compute cost: negligible.
+
+
+
+
+17. Memory transparency and deletion
+The reference supports memory recall, forgetting, and a memory dashboard. Copy this idea so you can see what JARVIS knows about you.
+You should be able to ask what it remembers about a project, correct a wrong fact, delete a memory, and inspect where a recalled fact came from.
+What to add: memory-management commands and a small HUD or web page with search, edit, delete, and provenance information. Make memory extraction conservative, and don't save credentials or secrets as ordinary memories.
+Compute cost: negligible for the interface and database operations.
+
+
+
+6. Voice interaction and personality
+I'd treat these as optional layers on top of the working core. Voice is useful, but it should not be a prerequisite for computer automation.
+
+18. Lightweight wake-word and speech pipeline
+The reference separates wake-word detection, voice activity detection, speech recognition, request routing, and speech synthesis. This separation makes sense even if you use simpler components.
+Start with push-to-talk or a hotkey, then add a wake word and local speech recognition when the rest of the system is stable. A small wake-word detector and VAD can run continuously without running a large LLM continuously.
+What to add: separate STT and TTS interfaces so you can replace engines without changing the router. Consider faster-whisper for transcription and Kokoro or Piper for speech output, testing CPU usage and compatibility on your actual machine.
+Compute cost: low to moderate, depending on the models and whether they use CPU or GPU.
+
+
+
+
+19. Natural follow-ups and interruption
+JARVIS should understand "do the same for the other file," "cancel that," and "continue" without forcing you to repeat the entire request.
+Keep the active task and recent results in structured state. Support cancellation through an event or cancellation token so an ongoing task can stop safely between steps.
+What to add: a conversation-state manager, artifact references, and explicit task states. Use the LLM to interpret ambiguous follow-ups, not to handle obvious commands such as cancel or pause.
+Compute cost: low.
+
+
+
+
+20. Contextual acknowledgments and configurable personality
+Instead of generating a complete LLM response just to say "working on it," use a small set of natural acknowledgments. Use different responses for searching, executing, waiting, and reporting an error.
+Keep personality in a configuration file rather than scattering response text across the codebase. You can add humor or a more formal voice without changing tool behavior.
+What to add: a small response-template module, configurable speech style, and optional pre-generated acknowledgment audio.
+Compute cost: negligible.
+
+
+
+7. Knowledge, research, and engineering workflows
+These features would be particularly useful for your coding and aerospace engineering work, without requiring JARVIS to continuously analyze your screen.
+
+21. Local document and code search
+Index selected folders, project notes, PDFs, source files, and Markdown documentation. Return matching passages with file paths and, where possible, page numbers or line numbers.
+Start with filename search, ripgrep, and SQLite FTS5. Only add semantic embeddings if you need to find conceptually related content that doesn't share the same terminology.
+What to add: a searchable index that updates when files change, plus a tool that returns grounded excerpts instead of asking an LLM to invent an answer from incomplete context.
+Compute cost: very low for keyword search; low for occasional embedding generation.
+
+
+
+
+22. Research and document generation
+The reference combines web research, document creation, and follow-up navigation. Borrow the workflow without necessarily implementing its entire research stack.
+Let JARVIS gather permitted source material, extract relevant information, produce a report, and save the result to a specified directory. Preserve source URLs and distinguish retrieved facts from model-generated interpretations.
+What to add: reusable research and document-generation tools that can create Markdown first, then optionally export to PDF, DOCX, or PPTX.
+Compute cost: low for document generation itself. Research and synthesis depend on the model and external services you choose.
+
+
+
+
+23. Engineering and developer toolkit
+Create specialized tools for Git, Python, test runners, package information, simulation logs, and numerical data analysis.
+For example, JARVIS could compare two CSV files of simulation results, calculate the difference between their outputs, plot the results, and save a report. The numerical calculations should be performed by Python or another deterministic tool, not guessed by an LLM.
+What to add: a developer_tools collection with explicit inputs, timeouts, structured results, and verification. Let the coding agent handle unfamiliar implementation tasks while JARVIS handles repeatable analysis.
+Compute cost: generally low, unless the engineering simulation itself is computationally expensive.
+
+
+
+8. What I would not copy yet
+The reference includes sophisticated features, but I wouldn't reproduce all of them in your first implementation.
+Feature	My recommendation	Reason
+Large multimodal model always loaded	Postpone	Consumes substantial RAM/VRAM even when not needed.
+Continuous webcam vision and face recognition	Skip initially	Adds inference, privacy, and maintenance costs.
+Speaker identification	Optional later	Useful for multi-user environments, unnecessary for a personal single-user assistant.
+Complex semantic matching across every tool	Start simpler	Rules and tool metadata may be sufficient at first.
+Hundreds of persona templates	Skip	A small configurable set of responses achieves most of the benefit.
+Multiple GPUs and custom ROCm builds	Don't copy blindly	The reference is built around a different Linux/AMD hardware configuration.
+A huge monolithic router	Avoid	It becomes harder to test, debug, and extend.
+Automatic memory extraction after every exchange	Simplify	Save useful information selectively to avoid noise and extra inference.
+The source's own architecture demonstrates that many useful features are ordinary software systems surrounding the LLM. Its event-driven pipeline, tool registry, memory database, task planner, and health diagnostics are separate subsystems rather than one giant prompt.
