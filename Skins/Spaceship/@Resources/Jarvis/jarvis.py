@@ -256,6 +256,13 @@ def load_meaning():
                 vec(topic_text(t))
         except (OSError, ValueError):
             pass
+        try:
+            for f in load_memory():                            # M4a: each saved fact once, for the same reason
+                vec(f)
+            for _, g in load_gist()[0]:                        # M3: and each gist line
+                vec(g)
+        except (OSError, ValueError):
+            pass
         log("meaning match: ready")
     except Exception as e:
         _embed[0] = None
@@ -509,11 +516,18 @@ def system_prompt(text=None, kind=None):
         out += ("\nABOUT THE USER (from their own note - use it to personalise answers; don't recite it unless "
                 "asked):\n" + me + "\n")
     try:
-        facts = "\n".join("- " + f for f in load_memory())[:2000]
+        facts = load_memory()
     except (OSError, ValueError):
-        facts = ""                                             # unreadable: he says so when asked, the prompt goes on
+        facts = []                                             # unreadable: he says so when asked, the prompt goes on
+    if text is not None and kind != "brief":                   # M4a: only the facts the question is about, best 5
+        words = keywords(text)
+        facts = sorted((f for f in facts if related(text, [f])), key=lambda f: -len(words & keywords(f)))[:5]
     if facts:
-        out += "\nTHINGS THE USER ASKED YOU TO REMEMBER:\n" + facts + "\n"
+        out += "\nFACTS THE USER TOLD YOU (use them exactly):\n" + "\n".join("- " + f for f in facts)[:2000] + "\n"
+    if text is not None and DID_ASK.search(text):              # M4b: only for questions about what he did
+        out += ("\nWHAT YOU ACTUALLY DID THIS SESSION (only these ran; never claim anything else):\n"
+                + ("\n".join(f"- {clock(t)}: {what}" + ("" if ok else " (it failed)") for t, what, ok in did)
+                   or "You ran nothing in this session.") + "\n")
     return out + "\nLIVE HUD DATA:\n" + context(text, kind)
 
 
@@ -1757,6 +1771,8 @@ ACTIONS = {
     "todo": lambda item: act_todo(item),
     "forget_all": lambda _: save_memory([]),
     "forget_talk": lambda gone: save_topics([t for t in load_topics() if t["talk"] not in gone]),   # M2b, after the read-back
+    "forget_facts": lambda gone: save_memory([f for f in load_memory() if f not in gone]),           # M4a, after the read-back
+    "replace_fact": lambda pair: save_memory([pair[1] if f == pair[0] else f for f in load_memory()]),
 }
 
 # the whole reply has to be one of these: "yes, but don't" is not a yes
@@ -1933,9 +1949,20 @@ def route(text):
     if re.fullmatch(r"what do you remember|what have i (?:told|asked) you to remember|"
                     r"(?:list|show|read)(?: me)? (?:my |your )?memor(?:y|ies)|what.?s in your memory", whole):
         return ("memory", "list", None, None)
-    m = re.match(r"remember (?:that )?(?!to )(.+)", cmd)
+    m = (re.match(r"(?:(?:oh|also|and),? )*(?:i (?:want|need) you to )?remember[,:]? (?:that )?(?!to )(?!(?:that|it|this)$)(.+)", cmd)
+         or re.match(r"(?:note|(?:don't|do not) forget|keep in mind) that (\S+ .+)", cmd)   # two words: not "note that down"
+         or re.fullmatch(r"(?!.*\?)(\S+ .+?)[,.;!] (?:(?:please )?remember (?:that|this|it)|(?:don't|do not) forget (?:that|it)|"
+                         r"keep (?:that|this|it) in mind)", cmd))   # "my sister's name is Ana, remember that"
     if m:
-        return ("memory", "save", as_said(text, m.group(1)), None)
+        return fact_save(as_said(text, m.group(1)))
+    m = re.fullmatch(r"what do you know about (.+)", whole)      # M4a: your own words, by code; nothing saved -> the model
+    if m:
+        try:
+            hits = facts_about(m.group(1))
+        except (OSError, ValueError):
+            return ("say", None, None, MEMORY_BAD)
+        if hits:
+            return ("say", None, None, "You told me: " + "; ".join(hits) + ".")
     if re.match(r"forget (?:everything|all)\b", cmd):
         try:
             n = len(load_memory())
@@ -1946,6 +1973,12 @@ def route(text):
         return ("act", "forget_all", None, f"Forget all {n} thing{'s' if n != 1 else ''} I remember? Confirm with yes.")
     m = re.match(r"forget (?:that |about |the )*(.+)", cmd)
     if m and m.group(1) not in ("it", "that", "this", "about it", "about that"):
+        try:
+            gone = [f for f in load_memory() if all(w in f.lower() for w in m.group(1).split())]
+        except (OSError, ValueError):
+            return ("say", None, None, MEMORY_BAD)
+        if len(gone) > 1:                                      # M4a: more than one: read back, wait for yes
+            return ("act", "forget_facts", gone, f"Forget {len(gone)} things: {'; '.join(gone)}? Confirm with yes.")
         return ("memory", "forget", m.group(1), None)
     # "add buy milk to my to-do list", "add a task: renew passport". It writes into your note, so he asks first
     m = (re.match(r"(?:add|put) (.+?) (?:to|on|in|onto) (?:my |the )?(?:to-do|to do|todo|task)s?(?: list)?$", cmd)
@@ -2040,16 +2073,21 @@ def route(text):
     return ("chat", None, None, None)
 
 
+ACTIONS_LOGGED = ("close", "open", "volume", "media")           # targets that are app names or levels, never your words
+
+
 def run_action(action, target):
     try:
         before = speakers() if action in ("volume", "mute", "unmute") else None
         ACTIONS[action](target)
-        log(f"action: {action} {target if target and action not in ('todo', 'forget_talk') else ''}")   # your words stay out of the log
+        log(f"action: {action} {target if target and action in ACTIONS_LOGGED else ''}")   # your words stay out of the log
+        did_add(action, target)
         can_undo(action, before)                               # anything else (lock, close, a key...) cannot be put back
         if action in ("open", "close"):                        # M1b: "close it", "open it again"
             last.update(kind="app", items=[target], when=time.time())
         return True
     except Exception as e:
+        did_add(action, target, False)
         log(f"action {action} failed: {e!r}")
         problem(f"Couldn't {action}: {str(e)[:80]}")
         return False
@@ -2238,12 +2276,46 @@ def fact_answer(q, now):
 UNDO_FOR = 120                                                # seconds
 undo = []                                                     # [expires, what, before]: the last change, memory only
 recent = {"you": "", "me": ""}                                # the last thing heard and said, memory only, never logged
+offer = {}            # M4a-3: a fact he offered to remember {fact, expires}; memory only, never logged
 last = {}             # M1b: the list he just read out or the one thing he acted on {kind, items, when}; memory only, never logged
+
+
+# M4b: the last 20 actions really run (time, what, worked), memory only, never logged. Fed by run_action, can_undo
+# (facts and reminders), snoozes and undo; questions about him get it in the prompt (DID_ASK).
+did = []
+DID = {"lock": "locked the PC", "sleep": "put the PC to sleep", "restart": "started a restart", "shutdown": "started a shutdown",
+       "mute": "muted the sound", "unmute": "unmuted the sound", "volume": "changed the volume", "media": "pressed a media key",
+       "todo": "added a to-do", "forget_all": "forgot all saved facts", "forget_talk": "forgot earlier talks",
+       "forget_facts": "forgot saved facts", "replace_fact": "replaced a saved fact", "fact": "saved a fact",
+       "forget": "forgot a saved fact", "cancel": "cancelled a reminder", "move": "moved a reminder",
+       "snooze": "snoozed a reminder", "undo": "undid the last change", "reminder": "set a reminder"}
+DID_ASK = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doing|run|change)|what actions|"
+                     r"did you (?:\w+ )?(?:set|open|close|save|remember|change|cancel|mute|unmute|lock|add|turn|do|run|"
+                     r"snooze|move|forget|undo|put)|have you (?:\w+ )?(?:set|opened|closed|saved|changed|cancelled|muted|"
+                     r"done|run|added|locked|snoozed|moved|forgotten))\b", re.I)
+
+
+def did_add(what, target=None, ok=True):
+    line = DID.get(what, str(what).replace("_", " "))
+    try:                                                       # an odd target never stops the action itself
+        if what == "open":
+            line = f"opened {target[0]}"                       # (name, path)
+        elif what == "close":
+            line = f"closed {target.replace('.exe', '')}"
+        elif what == "reminder":                               # target: the reminders set, as the file stores them
+            r = target[0]
+            line = f"set {'a timer' if r[2] == 'timer' else 'an alarm' if r[3] == 'alarm' else 'a reminder'} for {clock(r[0])}"
+    except (TypeError, IndexError, AttributeError, ValueError, OSError, OverflowError):
+        pass
+    did.append((time.time(), line, ok))
+    del did[:-20]
 
 
 def can_undo(what, before=None):
     """Keep the one change "undo that" reverses; before=None marks a change that cannot be put back."""
     undo[:] = [time.time() + UNDO_FOR, what, before]
+    if what in ("fact", "forget", "cancel", "move", "reminder"):   # run_action records its own
+        did_add(what, before)
 
 
 def undo_last():
@@ -2267,6 +2339,7 @@ def undo_last():
             if before not in facts:
                 return "It's already gone."
             save_memory([f for f in facts if f != before])
+            did_add("undo")
             log("fact removed by undo")
             return f"Forgotten: {before}."
         items, now = load_reminders(), time.time()
@@ -2275,6 +2348,7 @@ def undo_last():
             if not back:
                 return "It's too late to put that back." if any(r[0] <= now for r in before) else "It's already back."
             save_reminders(items + back)
+            did_add("undo")
             log(f"reminder put back by undo ({len(back)})")
             return "Put back: " + "; ".join(describe(r, now) for r in back) + "."
         if what == "move":                                     # back to its old time, if that has not passed
@@ -2284,12 +2358,14 @@ def undo_last():
             if old[0] <= now:
                 return "It's too late to put that back."
             save_reminders([r for r in items if r != new] + [old])
+            did_add("undo")
             log("reminder moved back by undo")
             return "Put back: " + describe(old, now) + "."
         gone = [r for r in items if (round(r[0]), round(r[1]), r[2], r[3]) in before]
         if not gone:
             return "It's already gone."
         save_reminders([r for r in items if r not in gone])
+        did_add("undo")
         log(f"reminder removed by undo ({len(gone)})")
         noun = "alarm" if gone[0][2:] == ("reminder", "alarm") else "timer" if gone[0][2] == "timer" else "reminder"
         return f"Removed that {noun}." if len(gone) == 1 else f"Removed those {len(gone)} {noun}s."
@@ -2336,6 +2412,55 @@ def save_memory(facts):
     with open(tmp, "w", encoding="utf-8") as f:
         f.write("".join(fact + "\n" for fact in facts))
     os.replace(tmp, MEMORY_FILE)
+
+
+def facts_about(x):
+    """The saved facts about x: all of them for "me", else the ones related() to it. Unreadable raises."""
+    facts = load_memory()
+    if re.fullmatch(r"(?:me|myself)\W*", x.strip().lower()):
+        return facts
+    return [f for f in facts if related(x, [f])]
+
+
+def fact_save(fact):
+    """route() for a save: an older fact about the same thing asks "Replace?" first; anything else saves."""
+    fact = " ".join(fact.split())[:200]
+    try:
+        facts = load_memory()
+    except (OSError, ValueError):
+        return ("memory", "save", fact, None)                  # memory_reply says it can't read the file
+    new = keywords(fact)
+    same = [f for f in facts if f != fact and new and len(new & keywords(f)) * 2 >= len(new)]   # half its words or more
+    if fact in facts or not same:
+        return ("memory", "save", fact, None)
+    old = max(same, key=lambda f: len(new & keywords(f)))
+    return ("act", "replace_fact", (old, fact), f"You told me '{old}'. Replace it with this? Confirm with yes.")
+
+
+# M4a-3: a lasting fact about you said in a chat turn; he offers to remember it, and only a yes saves it.
+# shortcut: fixed patterns, not the model, so unusual wording is missed; let the model propose if they miss too much
+LEARN = re.compile(r"\b(?:my (?:(?:sister|brother|mum|mom|mother|dad|father|wife|husband|partner|girlfriend|boyfriend|son|"
+                   r"daughter|best friend|friend|dog|cat|teacher|boss)(?:'s)? (?:name |birthday )?is|(?:name|birthday|school|"
+                   r"job|favou?rite \w+) is)|i'?m allergic to|i am allergic to|i work (?:at|as|for|in)|i live in|"
+                   r"i(?:'m| am) (?:a )?(?:vegetarian|vegan)|i study|i have an? \w+ (?:called|named)) \w", re.I)
+NO_LEARN = re.compile(r"password|passcode|\bpin\b|code|card|account|bank|social security|\d{3,}", re.I)
+
+
+def learnable(text):
+    """The sentence of a chat turn worth offering to remember, or "": never a question, a number or a secret,
+    never one already saved, never with JarvisLearn=off."""
+    if setting("JarvisLearn", "ask").strip().lower() in ("off", "0"):
+        return ""
+    for part in re.split(r"(?<=[.!?])\s+", strip_name(text)):
+        part = re.sub(r"^(?:(?:and|so|oh|well|also|by the way),? )+", "", part.strip(), flags=re.I).rstrip(".!")
+        if LEARN.search(part) and not part.endswith("?") and not SECRET.search(part) and not NO_LEARN.search(part):
+            try:
+                if part.lower() in (f.lower() for f in load_memory()):
+                    return ""
+            except (OSError, ValueError):
+                return ""
+            return part[:200]
+    return ""
 
 
 def memory_reply(op, text):
@@ -2729,6 +2854,7 @@ def remind_reply(op, args, quiet):
         if not args[1]:
             return "I can snooze it for 1 minute to 2 hours."
         save_reminders(sorted(items + snoozed(rang[1], now + args[1])))
+        did_add("snooze")
         rang.clear()
         log(f"reminder snoozed ({args[1]:.0f}s, after it rang)")
         return f"Snoozed for {span(args[1])}."
@@ -2893,6 +3019,7 @@ def alarm():
                 if nap and not cancel.is_set():                # rings again once; a repeating one keeps its own series
                     again = time.time() + nap
                     save_reminders(sorted(load_reminders() + snoozed(due, again)))
+                    did_add("snooze")
                     rang.clear()
                     log(f"reminder snoozed ({nap:.0f}s)")
                     reply_line(f"Snoozed until {clock(again)}." if alarm_at else f"Snoozed for {span(nap)}.", False)
@@ -3118,8 +3245,8 @@ def file_talk(msgs):
         best["used"] = time.time()
     topics.sort(key=lambda t: t["used"])
     try:
-        save_topics(topics[-100:])     # shortcut: past 100 the oldest topic is dropped, until M3 turns it into gist
-        log(f"topic memory: {len(pairs)} exchange(s) filed, {len(topics[-100:])} topics")
+        save_topics(topics[-200:])     # M3 brings it back to 100 each day; past 200 the oldest goes without a gist
+        log(f"topic memory: {len(pairs)} exchange(s) filed, {len(topics[-200:])} topics")
     except OSError as e:
         log(f"topic memory not saved ({type(e).__name__})")
 
@@ -3143,8 +3270,9 @@ def recall(text):
         if s >= RECALL_FLOOR:
             scored.append((s + 0.2 * max(0.0, 1 - (now - t["used"]) / (7 * 86400)), t))
     best = [t for _, t in sorted(scored, key=lambda p: -p[0])[:2]]
+    gist = gist_for(text)                                      # M3: the checked facts of older talks
     if not best:
-        return ""
+        return EARLIER + gist if gist else ""
     # newest exchange of each topic first, taking turns, until about 600 characters
     lines = sorted(((i, f"- {datetime.fromtimestamp(when):%a %d %b}: the user said: {you} / you said: {him}")
                     for t in best for i, (when, you, him) in enumerate(reversed(t["talk"]))), key=lambda p: p[0])
@@ -3160,7 +3288,10 @@ def recall(text):
     except OSError:
         pass                                                   # only "used" is lost
     log(f"topic memory: {len(best)} topic(s) recalled")
-    return "\nFROM EARLIER TALKS (only if it helps; don't bring it up otherwise):\n" + out
+    return EARLIER + out + gist
+
+
+EARLIER = "\nFROM EARLIER TALKS (only if it helps; don't bring it up otherwise):\n"
 
 
 TOPICS_BAD = "I can't read my topic memory, so I left it alone."
@@ -3188,19 +3319,177 @@ def talk_forget(x):
 
 
 def talk_list(x):
-    """What you said in the talks about X, newest first, about 300 characters."""
+    """What you said in the talks about X, newest first, about 300 characters, then up to 3 gist lines about X."""
     try:
         hits = topics_about(x)
+        kw = keywords(x)
+        notes = [f for _, f in load_gist()[0] if (kw and kw <= keywords(f)) or meaning(x, [f], MEANING_TALK)][:3]
     except (OSError, ValueError):
         return TOPICS_BAD
     if not hits:
-        return NO_TALK
+        return "From before: " + "; ".join(notes) + "." if notes else NO_TALK
     out = ""
     for you in (you for t in hits for _, you, _ in reversed(t["talk"])):
         if out and len(out) + len(you) > 300:
             break
         out += ("; " if out else "") + you.rstrip(".!? ")
-    return f"You asked me: {out}."
+    return f"You asked me: {out}." + (" From before: " + "; ".join(notes) + "." if notes else "")
+
+
+# M3: once a day while idle, old topics become up to 3 tiny facts each in Data\jarvis_gist.txt ("date|fact" lines,
+# "#month YYYY-MM" = the last re-compaction). The model writes them; code checks every one against the saved talk.
+GIST_FILE = os.path.join(DATA, "jarvis_gist.txt")
+GIST_AGE = 7 * 86400
+GIST_SCHEMA = {"type": "object", "properties": {"facts": {"type": "array", "items": {"type": "string"}}}, "required": ["facts"]}
+GIST_PROMPT = ("Write at most 3 short facts worth keeping from these lines, each under 120 characters, starting "
+               "'The user'. Use only words, names and numbers that appear in the lines; add nothing. Output JSON only.")
+gist_day = [""]       # the day compaction last finished
+gisting = threading.Lock()
+
+
+def load_gist():
+    """([(date, fact)], month of the last re-compaction). Unreadable raises OSError / ValueError."""
+    if not os.path.exists(GIST_FILE):
+        return [], ""
+    with open(GIST_FILE, "r", encoding="utf-8") as f:
+        rows = [l.rstrip("\n") for l in f if l.strip()]
+    month = next((r[7:] for r in rows if r.startswith("#month ")), "")
+    return [tuple(r.split("|", 1)) for r in rows if not r.startswith("#") and "|" in r], month
+
+
+def save_gist(lines, month):
+    tmp = GIST_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("".join(f"{l}\n" for l in ([f"#month {month}"] if month else []) + [f"{d}|{g}" for d, g in lines]))
+    os.replace(tmp, GIST_FILE)
+
+
+def gist_for(text):
+    """Up to 3 gist lines related to the question (words or meaning), most shared words first."""
+    try:
+        lines = [g for _, g in load_gist()[0]]
+    except (OSError, ValueError):
+        return ""
+    kw = keywords(text)
+    hits = sorted((g for g in lines if related(text, [g])), key=lambda g: -len(kw & keywords(g)))[:3]
+    return "".join(f"- earlier: {g}\n" for g in hits)
+
+
+def gist_ok(fact, talk):
+    """The code check: under 120 characters, and every number, name and content word is in the talk ("user" aside)."""
+    words = keywords(fact) - TALK_STOP - {"user"}                # "likes" -> "like": a stop-word after the cut
+    return (0 < len(fact) <= 120 and bool(words) and words <= keywords(talk)
+            and set(re.findall(r"\d+", fact)) <= set(re.findall(r"\d+", talk)))
+
+
+def ask_gist(model, talk):
+    """The model's facts for some talk, unchecked; None when the model is down or answers nonsense."""
+    opts = {"num_ctx": ctx_tokens(), "temperature": 0, "num_predict": 200}
+    if not gpu():
+        opts["num_thread"] = cpu_threads()
+    try:
+        out = http_json("/api/chat", {"model": model, "stream": False, "format": GIST_SCHEMA, "keep_alive": keep_alive(),
+                                      "options": opts, "messages": [{"role": "system", "content": GIST_PROMPT},
+                                                                    {"role": "user", "content": talk}]}, timeout=60)
+        return [" ".join(str(f).replace("|", "/").split()) for f in json.loads(out["message"]["content"])["facts"]][:3]
+    except Exception as e:
+        log(f"compaction: model not usable ({type(e).__name__})")
+        return None
+
+
+def compact(now, stop=lambda: False):
+    """M3a: topics unused GIST_AGE, or the oldest past 100, become checked facts. Nothing passes the check -> the topic
+    stays and is tried tomorrow, removed without a gist after 3 such tries. Model down -> all stay, no try counted.
+    Returns False when stopped early (a turn started or the HUD left FULL)."""
+    try:
+        topics = sorted(load_topics(), key=lambda t: t["used"])
+        load_gist()
+    except (OSError, ValueError):
+        log("compaction: memory unreadable, left alone")
+        return True
+    old = [t for i, t in enumerate(topics) if now - t["used"] > GIST_AGE or i < len(topics) - 100]
+    if not old:
+        return True
+    model, facts, gone, tried, dropped, finished = pick_model(0), [], [], {}, 0, True
+    for t in old:
+        if stop():
+            finished = False
+            break
+        talk = "\n".join(f"User: {y}\nJARVIS: {h}" for _, y, h in t["talk"])
+        got = ask_gist(model, talk) if model else None
+        if got is None:                                        # model down: try again tomorrow, nothing counted
+            break
+        got = [g for g in got if gist_ok(g, talk)]
+        if got:
+            facts += [f"{datetime.fromtimestamp(now):%Y-%m-%d}|{g}" for g in got]
+            gone.append(t["talk"])
+        elif t.get("tries", 0) >= 2:
+            gone.append(t["talk"])
+            dropped += 1
+        else:
+            tried[json.dumps(t["talk"])] = t.get("tries", 0) + 1
+    try:
+        if facts:                                              # the gist first: a failed topic save repeats, never loses
+            with open(GIST_FILE, "a", encoding="utf-8") as f:
+                f.write("".join(l + "\n" for l in facts))
+        topics = load_topics()                                 # again: a turn may have filed talk meanwhile
+        for t in topics:
+            if json.dumps(t["talk"]) in tried:
+                t["tries"] = tried[json.dumps(t["talk"])]
+        save_topics([t for t in topics if t["talk"] not in gone])
+    except (OSError, ValueError) as e:
+        log(f"compaction: not saved ({type(e).__name__})")
+        return True
+    log(f"compaction: {len(gone) - dropped} topic(s) -> {len(facts)} fact(s), {len(tried)} kept for tomorrow, "
+        f"{dropped} removed without a gist")
+    return finished
+
+
+def recompact(now, stop=lambda: False):
+    """M3b: once a month, only over 200 gist lines: among the oldest 100, lines sharing 2+ keywords are merged into
+    fewer under the same check. Your facts (jarvis_memory.txt) are never touched."""
+    try:
+        lines, month = load_gist()
+    except (OSError, ValueError):
+        return
+    this = f"{datetime.fromtimestamp(now):%Y-%m}"
+    if len(lines) <= 200 or month == this:
+        return
+    model, old, gone, merged = pick_model(0), lines[:100], set(), []
+    for i, (d, g) in enumerate(old):
+        if len(merged) >= 30 or stop():                        # shortcut: about 10 merges a month; plenty at 200+ lines
+            break
+        group = [j for j in range(i, len(old)) if j not in gone and len(keywords(g) & keywords(old[j][1]) - {"user"}) >= 2]
+        if i in gone or len(group) < 2:
+            continue
+        text = "\n".join(old[j][1] for j in group)
+        got = ask_gist(model, text) if model else None
+        if got is None:
+            return                                             # model down: next idle day
+        got = [x for x in got if gist_ok(x, text)]
+        if got and len(got) < len(group):
+            gone.update(group)
+            merged += [(d, x) for x in got]
+    try:
+        save_gist(merged + [l for j, l in enumerate(lines) if j not in gone], this)
+    except OSError as e:
+        log(f"re-compaction: not saved ({type(e).__name__})")
+        return
+    log(f"re-compaction: {len(gone)} line(s) -> {len(merged)}")
+
+
+def compact_due(now, since):
+    """Once a day, 10 minutes after the last turn, with no turn running and the HUD on FULL (no game)."""
+    return (gist_day[0] != f"{datetime.fromtimestamp(now):%Y-%m-%d}" and now - since >= 600
+            and not busy.locked() and hud_tier() == 0 and not gisting.locked())
+
+
+def daily_memory():
+    with gisting:
+        stop = lambda: busy.locked() or hud_tier() > 0
+        if compact(time.time(), stop) and not stop():
+            recompact(time.time(), stop)
+            gist_day[0] = f"{datetime.now():%Y-%m-%d}"
 
 
 def file_active():
@@ -3365,6 +3654,12 @@ def turn(tier, follow=0):
             last_turn = time.time()
             again = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
         S.set(err="")
+        fact = offer.pop("fact", None) if time.time() < offer.get("expires", 0) else None
+        offer.clear()
+        plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
+        if fact and (plain in YES or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
+            fixed(memory_reply("save", fact))
+            return
         m = NEW_TOPIC.match(strip_name(text))
         if m:                                                  # files the window; "new topic, <question>" goes on without it
             file_active()
@@ -3432,7 +3727,7 @@ def turn(tier, follow=0):
                 fixed(("Added." if action == "todo" else "Done.") if ok else "That didn't work.")
             else:
                 log(f"action {action} not confirmed ({answer!r})")
-                fixed("Cancelled.")
+                fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else "Cancelled.")
             return
         if kind == "notes":
             filler("notes", quiet)
@@ -3503,6 +3798,10 @@ def turn(tier, follow=0):
             history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
             last_turn = time.time()
         S.set(say=reply)
+        fact = learnable(text) if kind == "chat" and not cancel.is_set() else ""
+        if fact:                                               # M4a-3: one offer; the next turn's yes saves it
+            reply_line("Want me to remember that?", quiet)
+            offer.update(fact=fact, expires=time.time() + 30 + follow_wait())
         again = not quiet and not cancel.is_set()             # fixed replies set it in fixed()
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
@@ -3857,6 +4156,8 @@ def main():
                 beat = now
                 S.set()                                        # heartbeat
                 unload_idle(now, max(turn_id[0], started))
+                if compact_due(now, max(turn_id[0], started)):  # M3: old talk into checked facts, once a day
+                    threading.Thread(target=daily_memory, daemon=True).start()
                 gpu_watch(now)
                 missing = 0 if rainmeter_running() else missing + 1
                 if missing >= 15:                              # Rainmeter gone for 30 s: quit

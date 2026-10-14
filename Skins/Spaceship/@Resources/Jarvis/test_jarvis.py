@@ -16,6 +16,7 @@ muted_to, ran = [], []
 j.REMIND_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-reminders")
 j.MEMORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-memory")   # never the real one
 j.TOPICS_FILE = os.path.join(tempfile.mkdtemp(), "topics.json")
+j.GIST_FILE = os.path.join(tempfile.mkdtemp(), "gist.txt")
 j.speakers_mute = muted_to.append
 
 
@@ -842,13 +843,21 @@ assert mem("what have I told you to remember") == "I remember 2 things: my denti
 for text in ("Do you remember that film?", "do you remember that film", "remember to buy milk", "forget it", "Remember that film?"):
     assert j.route(text)[0] == "chat", text
 assert j.route("forget the cooking reminder")[0] == "remind"
-assert "THINGS THE USER ASKED YOU TO REMEMBER:\n- my dentist is on Fridays\n- my bike is in the shed" in j.system_prompt()
+assert "FACTS THE USER TOLD YOU (use them exactly):\n- my dentist is on Fridays\n- my bike is in the shed" in j.system_prompt()
+assert "TOLD YOU" not in j.system_prompt("Tell me a joke.")                  # M4a: only the facts the question is about
+p = j.system_prompt("When is my dentist?")
+assert "- my dentist is on Fridays\n" in p and "bike" not in p
+assert "my bike is in the shed" in j.system_prompt("Good morning.", "brief")   # a briefing still gets them all
+j.save_memory([f"car fact {i}" for i in range(6)] + ["my car is blue"])
+p = j.system_prompt("Is my car still blue?").split("(use them exactly):\n")[1].split("\n\n")[0].splitlines()
+assert len(p) == 5 and p[0] == "- my car is blue"                             # 5 at most, most shared words first
+j.save_memory(["my dentist is on Fridays", "my bike is in the shed"])
 assert j.route("forget everything") == ("act", "forget_all", None, "Forget all 2 things I remember? Confirm with yes.")
 assert mem("forget that my dentist is on Fridays") == "Forgotten: my dentist is on Fridays."
 assert mem("forget the dentist") == "I don't have that." and j.load_memory() == ["my bike is in the shed"]
 j.ACTIONS["forget_all"](None)
 assert j.load_memory() == [] and j.route("forget everything")[:2] == ("say", None)
-assert "TO REMEMBER" not in j.system_prompt()
+assert "TOLD YOU" not in j.system_prompt()
 j.save_memory([f"fact {i}" for i in range(50)])
 assert mem("remember one more thing") == "You've told me 50 things. Forget one first." and len(j.load_memory()) == 50
 j.save_memory([])
@@ -859,7 +868,43 @@ assert mem("remember the milk is off") == mem("what do you remember") == "I can'
 assert j.route("forget everything")[:2] == ("say", None) and "You are JARVIS" in j.system_prompt()
 with open(j.MEMORY_FILE, "rb") as f:
     assert f.read() == b"\xff\xfe\xff"
+assert j.route("what do you know about my dentist")[3] == j.MEMORY_BAD
 os.remove(j.MEMORY_FILE)
+
+# ---- M4a-2: more save phrases, "Replace?", forget reads back, "what do you know about X" by code
+assert mem("Note that my locker code is in my phone.") == "Noted: my locker code is in my phone."
+assert mem("Don't forget that the boiler is serviced in May.") == "Noted: the boiler is serviced in May."
+assert mem("keep in mind that I'm vegetarian") == "Noted: I'm vegetarian."
+for text, fact in (("Hey Jarvis, remember my sister's name is Ana.", "my sister's name is Ana"),   # clear: saved at once
+                   ("Oh and remember my sister is Ana.", "my sister is Ana"), ("Remember, the gym shuts at nine.", "the gym shuts at nine"),
+                   ("I want you to remember that my sister is Ana", "my sister is Ana"),
+                   ("Hey Jarvis, my sister's name is Ana, remember that.", "my sister's name is Ana"),
+                   ("My sister's name is Ana. Remember that.", "My sister's name is Ana"),
+                   ("the bins go out on Tuesday, don't forget that", "the bins go out on Tuesday")):
+    assert j.route(text)[:3] == ("memory", "save", fact), text
+for text in ("Jarvis, remember that.", "remember it", "Did you see the film? Remember that.", "I can't remember that",
+             "do you remember that film", "I want you to remember to call mum"):
+    assert j.route(text)[0] != "memory", text
+for text in ("note to self buy eggs", "don't forget to call mum", "keep in mind I'm tired", "note that down"):
+    assert j.route(text)[0] != "memory", text
+j.save_memory(["my dentist is on Fridays", "my bike is in the shed"])
+r = j.route("remember my dentist is on Mondays")
+assert r == ("act", "replace_fact", ("my dentist is on Fridays", "my dentist is on Mondays"),
+             "You told me 'my dentist is on Fridays'. Replace it with this? Confirm with yes.")
+j.ACTIONS["replace_fact"](r[2])
+assert j.load_memory() == ["my dentist is on Mondays", "my bike is in the shed"]
+assert j.route("remember my dentist is on Mondays")[0] == "memory"          # already saved: no question
+assert j.route("remember the wifi box is upstairs")[0] == "memory"          # nothing in common: saved straight away
+assert j.route("what do you know about my dentist") == ("say", None, None, "You told me: my dentist is on Mondays.")
+assert j.route("What do you know about me?")[3] == "You told me: my dentist is on Mondays; my bike is in the shed."
+assert j.route("what do you know about black holes")[0] == "chat"         # nothing saved about it: the model answers
+j.save_memory(["my bike is in the shed", "my bike is blue"])
+r = j.route("forget my bike")
+assert r == ("act", "forget_facts", ["my bike is in the shed", "my bike is blue"],
+             "Forget 2 things: my bike is in the shed; my bike is blue? Confirm with yes.")
+j.ACTIONS["forget_facts"](r[2])
+assert j.load_memory() == []
+j.save_memory(["my dentist is on Fridays"])
 
 # ---- to-do by voice: asked first, appended to the note (never rewritten, never created), the text kept out of the log
 note = os.path.join(tmp, "todo.md")
@@ -884,6 +929,12 @@ j.turn(0)
 assert acted == ["todo"] and asked[-1] == "Added." and not j.busy.locked()
 with open(note, "rb") as f:
     assert f.read() == b"- [ ] old"                               # run_action is a fake here: the note is untouched
+turns = iter(["Remember my dentist is on Mondays.", "No."])          # M4a-2: no yes keeps the old fact AND saves the new one
+j.transcribe = lambda a: next(turns)
+j.turn(0)
+assert asked[-1] == "Noted: my dentist is on Mondays. I kept the old one too." and acted == ["todo"]
+assert j.load_memory() == ["my dentist is on Fridays", "my dentist is on Mondays"]
+os.remove(j.MEMORY_FILE)
 j.setting = lambda name, default="": default
 j.ACTIONS["todo"]("buy milk")
 j.ACTIONS["todo"]("call\nthe   bank")
@@ -1227,6 +1278,142 @@ assert talk(99, words="") == 2                                    # silence afte
 j.save_reminders([])
 j.undo.clear()
 
+# ---- M4a-3: he offers to remember a lasting fact said in chat; only a yes saves it
+j.save_memory(["my dentist is on Fridays"])
+for text, fact in (("My sister's name is Ana and she loves cats.", "My sister's name is Ana and she loves cats"),
+                   ("I'm allergic to peanuts. What snacks are safe?", "I'm allergic to peanuts"),
+                   ("Jarvis, so I work at the library now.", "I work at the library now"),
+                   ("My favourite colour is green.", "My favourite colour is green")):
+    assert j.learnable(text) == fact, text
+for text in ("Tell me a joke.", "Is my sister's name Ana?", "My bank PIN is 4821.", "My password is hunter2abc.",
+             "My phone number is 0123 456 789.", "My head is killing me.", "my dentist is on Fridays",
+             "My account code is X7."):
+    assert j.learnable(text) == "", text
+asked.clear()
+talk(2, words="My sister's name is Ana.")                          # he answers, offers, then the follow-up hears it again: no yes
+assert asked == ["Want me to remember that?", "Want me to remember that?"] and j.load_memory() == ["my dentist is on Fridays"]
+turns = iter(["My sister's name is Ana.", "Yes."])
+heard[0], speaks[0] = 0, 2
+j.transcribe = lambda a: next(turns)
+j.turn(0)
+assert asked[-1] == "Noted: My sister's name is Ana." and j.load_memory() == ["my dentist is on Fridays", "My sister's name is Ana"]
+assert j.offer == {} and j.learnable("My sister's name is Ana.") == ""        # already saved: no second offer
+turns = iter(["I live in Leeds.", "Yes."])                           # a late yes is just a yes
+heard[0], speaks[0] = 0, 1
+j.transcribe = lambda a: next(turns)
+j.turn(0)
+real_now = j.time.time
+j.time.time = lambda: real_now() + 60
+heard[0], speaks[0] = 0, 1
+j.turn(0)
+j.time.time = real_now
+assert "I live in Leeds" not in j.load_memory()
+j.setting = lambda name, default="": "off" if name == "JarvisLearn" else default
+assert j.learnable("I live in Leeds.") == ""
+j.setting = lambda name, default="": default
+os.remove(j.MEMORY_FILE)
+asked.clear()
+
+# ---- M4b: what he actually did - the last 20 actions really run, only for questions about him
+j.did.clear()
+assert "You ran nothing in this session." in j.system_prompt("What did you do?")
+assert "WHAT YOU ACTUALLY DID" not in j.system_prompt("Tell me a joke.")
+real_actions = j.ACTIONS
+j.ACTIONS = dict(real_actions, lock=lambda _: None, sleep=lambda _: 1 / 0)
+assert j.run_action("lock", None) and not j.run_action("sleep", None)
+j.ACTIONS = real_actions
+j.memory_reply("save", "my bike is red")
+r = j.route("set a timer for 10 minutes")
+j.remind_reply(r[1], r[2], False)
+assert [w for _, w, _ in j.did][:3] == ["locked the PC", "put the PC to sleep", "saved a fact"]
+assert j.did[3][1].startswith("set a timer for ") and [ok for _, _, ok in j.did] == [True, False, True, True]
+p = j.system_prompt("Did you set a timer?")
+assert ": locked the PC\n" in p and "put the PC to sleep (it failed)" in p and "ran nothing" not in p
+j.did_add("open", None)                                            # an odd target: a plain line, no error
+assert j.did[-1][1] == "open"
+for _ in range(25):
+    j.did_add("media")
+assert len(j.did) == 20
+os.remove(j.MEMORY_FILE)
+j.save_reminders([])
+j.undo.clear()
+j.did.clear()
+
+# ---- M3: old topics into checked facts (fake model, fake clock), monthly re-compaction
+import json
+real_http, real_pick, real_gpu, real_tier = j.http_json, j.pick_model, j.gpu, j.hud_tier
+j.pick_model, j.gpu, j.hud_tier = (lambda tier: "m"), (lambda: True), (lambda: 0)
+answer, calls = [None], []
+
+
+def _gist_model(path, payload=None, timeout=5):
+    calls.append(payload["messages"][1]["content"])
+    if answer[0] is None:
+        raise OSError("model down")
+    return {"message": {"content": json.dumps({"facts": answer[0]})}}
+
+
+j.http_json = _gist_model
+now = 2e9
+j.save_topics([{"kw": [f"thing{i}"], "talk": [[now, f"I like thing{i} a lot", "Nice."]], "used": now - 1000 + i}
+               for i in range(101)])
+answer[0] = ["The user likes thing0 a lot", "The user likes Bob", "The user likes thing0 42 times"]
+assert j.compact(now) and len(calls) == 1 and "I like thing0 a lot" in calls[0]   # the 101st: only the oldest
+assert len(j.load_topics()) == 100 and "thing0" not in json.dumps(j.load_topics())
+assert j.load_gist()[0] == [(datetime.fromtimestamp(now).strftime("%Y-%m-%d"), "The user likes thing0 a lot")]   # Bob, 42 dropped
+calls.clear()
+assert j.compact(now) and calls == []                             # 100 topics, none old: no model call
+topics = j.load_topics()
+topics[0]["used"] = now - 8 * 86400                               # unused 7 days
+j.save_topics(topics)
+answer[0] = None
+assert j.compact(now) and len(j.load_topics()) == 100 and "tries" not in j.load_topics()[0]   # model down: kept, not counted
+answer[0] = ["The user met Bob"]                                  # all dropped: kept, tried again; gone after the 3rd
+for n in (1, 2):
+    j.compact(now)
+    assert len(j.load_topics()) == 100 and j.load_topics()[0]["tries"] == n
+j.compact(now)
+assert len(j.load_topics()) == 99 and len(j.load_gist()[0]) == 1
+calls.clear()
+topics = j.load_topics()
+topics[0]["used"] = now - 8 * 86400
+j.save_topics(topics)
+assert j.compact(now, stop=lambda: True) is False and calls == [] and len(j.load_topics()) == 99   # a turn started
+assert "- earlier: The user likes thing0 a lot" in j.recall("Do I still like thing0?")   # the gist comes back when asked
+assert j.recall("Tell me a joke.") == ""
+assert j.talk_list("thing0") == "From before: The user likes thing0 a lot."
+assert j.compact_due(now, now - 601) and not j.compact_due(now, now - 10)
+j.hud_tier = lambda: 1
+assert not j.compact_due(now, now - 601)                          # LITE: a game has the card
+j.hud_tier = lambda: 0
+with j.busy:
+    assert not j.compact_due(now, now - 601)
+# M3b: only over 200 lines, once a month; the oldest lines about one thing merge into fewer, under the same check
+j.save_memory(["my bike is red"])
+with open(j.MEMORY_FILE, "rb") as f:
+    facts_before = f.read()
+apples = ["The user likes red apples", "The user likes red apples a lot", "The user eats red apples daily", "The user likes red apples"]
+j.save_gist([("2026-01-01", a) for a in apples] + [("2026-01-02", f"The user saw film{i}") for i in range(197)], "")
+calls.clear()
+answer[0] = ["The user likes red apples a lot", "The user loves bananas"]
+j.recompact(now)
+lines, month = j.load_gist()
+assert len(calls) == 1 and month == datetime.fromtimestamp(now).strftime("%Y-%m") and len(lines) == 198
+assert lines[0] == ("2026-01-01", "The user likes red apples a lot") and lines[1] == ("2026-01-02", "The user saw film0")
+j.save_gist(lines + [("2026-01-03", f"The user saw show{i}") for i in range(10)], month)
+calls.clear()
+j.recompact(now)
+assert calls == [] and len(j.load_gist()[0]) == 208                # this month already done
+j.save_gist(lines[:150], "")
+j.recompact(now)
+assert calls == [] and j.load_gist()[1] == ""                      # 200 lines or fewer: nothing
+with open(j.MEMORY_FILE, "rb") as f:
+    assert f.read() == facts_before                               # your facts are never compacted
+os.remove(j.MEMORY_FILE)
+os.remove(j.GIST_FILE)
+j.save_topics([])
+j.http_json, j.pick_model, j.gpu, j.hud_tier = real_http, real_pick, real_gpu, real_tier
+
 # ---- M1: the active window - the last 2 exchanges for 2 minutes, while the question links to them
 assert j.keywords("[Mon 14 Oct, 07:00 PM] What's the Eiffel Tower's height?") == {"eiffel", "tower", "height"}
 assert j.keywords("How tall are the towers?") == {"tall", "tower"}
@@ -1361,6 +1548,9 @@ j.save_topics([])
 j._embed[0] = lambda texts: [fake_vec(t) for t in texts]                    # no shared word, the same meaning
 j.file_talk(pair("My teeth have been hurting all week.", "Sorry to hear it."))
 assert "My teeth" in j.recall("When should I see the dentist?") and j.recall("Any good films out?") == ""
+j.save_memory(["my teeth hurt on cold drinks"])                              # M4a facts: no shared word, the same meaning
+assert "cold drinks" in j.system_prompt("When should I see the dentist?") and "TOLD YOU" not in j.system_prompt("Any good films out?")
+j.save_memory([])
 j._embed[0] = None
 j._vecs.clear()
 j.setting = lambda name, default="": "off" if name == "JarvisRecall" else default

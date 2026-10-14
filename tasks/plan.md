@@ -46,8 +46,9 @@ The answers given on 2026-10-14:
 |---|---|---|
 | 6a | Only send what the question needs (keyword blocks) | unchanged (S1 in tasks/plan.md) |
 | **6b** | **One memory system: active → topics → compact facts, plus the user's facts and what he really did** | **new, replaces old 6b and 6d** |
-| 6e | Wording for the ear + the `speakable()` cleaner | cleaner renamed; style rules (contractions, 1–2 sentences, "as an AI", acknowledgements) **→ PHASE 10** (2026-10-14) |
-| 6f / 6g / 6i | Model compare, voice smoothness, GPU spikes: measure first, each needs approval | unchanged |
+| 6e | Wording for the ear + the `speakable()` cleaner | **all → PHASE 10** (2026-10-14: style rules = tone, the rest = voice) |
+| 6g | Voice smoothness | **→ PHASE 10** (2026-10-14: everything about the voice) |
+| 6f / 6i | Model compare, GPU spikes: measure first, each needs approval | unchanged |
 | 6c, 6h | Tone, serious-topic switch, identity and honesty lines, self-claim check | **parked → new PHASE 10 PERSONALITY** |
 
 The existing **1d action-claim check** ("I've set the alarm" when nothing ran) **stays**. That is a safety
@@ -172,12 +173,12 @@ already in use.
   - test_jarvis passes, `check_route.py` shows nothing new, commit on your word, copy to live on your word.
   - Live test: talk about two topics, come back to the first one later; check that an unrelated question
     gets no old talk.
-- M4a → M4b → M3 → 6e → **Checkpoint B**:
+- M4a → M4b → M3 → **Checkpoint B**:
   - The same gates.
   - Live test: facts, "what did you do", and compaction run once by hand with a short test age.
-- 6f, 6g and 6i: measure, report, then a fix only on your approval.
+- 6f and 6i: measure, report, then a fix only on your approval. (6g is in Phase 10.)
 
-## Phase 10: Personality (parked, not built now)
+## Phase 10: Personality and voice (parked, not built now)
 This is a new section in JARVIS-Repair-Plan.txt. It holds:
 - **6c in full:** the natural default tone, a NATURAL button in Control Center, the serious-topic switch,
   and the identity line.
@@ -190,6 +191,10 @@ Two ideas to look at when that phase starts:
 
 Also moved here (the user, 2026-10-14: anything about tone not finished): 6e's style rules (contractions,
 1–2 short sentences, never "as an AI", acknowledgements).
+
+Also moved here (the user, 2026-10-14: everything about the voice): the rest of 6e (speech-safe rules and the
+`speakable()` cleaner, was Task 10) and all of 6g (smoother voice, was in Tasks 12–14). The voice part does
+not wait for the personality review; it still starts only on the user's word.
 
 **Gate: the user's review first.** Before any Phase 10 code, gather everything the model gets about its
 personality (SYSTEM text, MOODS, identity line, style rules, persona card draft, how the ABOUT THE USER note
@@ -230,7 +235,7 @@ true facts to work from.
 - **Commands:**
   - `TZ=ABC+12 py -3 -I test_jarvis.py` and the venv run, both on the scratch copy. I expect "OK" and exit 0.
   - `check_route.py` on the 65 phrases, expecting no new differences.
-  - `check_voice` after 6e.
+  - `check_voice` after 6e (Phase 10).
 - **Live scripts** at each checkpoint. You paste the log lines; I never read `Data\`.
 
 ## Risks
@@ -275,9 +280,9 @@ keywords() / related() / meaning()   (built with M1 + the meaning match)
   ├── M4a-1 matching facts only        (related() on jarvis_memory.txt; does not need M2)
   │     └── M4a-2 save / replace / forget / "what do you know" ── M4a-3 offer to remember
   └── (none) M4b action list ── run_action() / can_undo() / the remind paths
-6e ear wording + cleaner      independent (the system prompt + the text before speak_all)
-6j route + timing log         independent; must come before 6f / 6g / 6i
-6g, 6i, 6f                    measure → report → fix only on approval
+6j route + timing log         independent; must come before 6f / 6i (and 6g in Phase 10)
+6i, 6f                        measure → report → fix only on approval
+(6e, 6g → Phase 10)
 ```
 Order: what fails fast first (the live gap), then the memory core (M1b, M2), then facts. M4b and 6j are
 small and independent, so they can move earlier if a live test needs them.
@@ -296,9 +301,9 @@ small and independent, so they can move earlier if a live test needs them.
 ### Live tests: all at the end of Phase 6 (the user, 2026-10-14)
 - No live copy or live test between tasks. Checkpoints A and B are commit points only (on the user's word).
 - After T11 (6j): one live copy and one full live test of everything since 301c22f (wake word training,
-  Phase 5, S1, M1, meaning, M1b-M4b, M3, 6e), using "Your live test after Phase 6" plus the checkpoint lists
+  Phase 5, S1, M1, meaning, M1b-M4b, M3), using "Your live test after Phase 6" plus the checkpoint lists
   below. The 6j route lines make a fault easier to place, which is why 6j moves before the live test.
-- 6g / 6i / 6f measure on the live run, after that test.
+- 6i / 6f measure on the live run, after that test.
 
 ### Task 1: M1b, the last results (S: jarvis.py, test_jarvis.py; about 30 lines)
 - **Description:** "Cancel the second one" and "cancel it" work against the list or target he just read out.
@@ -396,7 +401,7 @@ small and independent, so they can move earlier if a live test needs them.
   never touched.
 - **Depends on:** Task 8.
 
-### Task 10: 6e, wording for the ear (S; about 15 lines)
+### Task 10: 6e, wording for the ear (S; about 15 lines)   MOVED to Phase 10 (2026-10-14, voice)
 - **Acceptance:**
   - Prompt rules: no lists, headings or symbols; numbers, dates and times said the way they are spoken.
     (Contractions, 1–2 sentences, "as an AI" and acknowledgements moved to Phase 10: tone.)
@@ -417,7 +422,7 @@ small and independent, so they can move earlier if a live test needs them.
 - **Verification:** a fixed command, an action and a chat turn each log one line with the right path.
 - **Depends on:** none. Must come before the end-of-phase live test and Tasks 12–14.
 
-### Tasks 12–14: 6g voice smoothness, 6i GPU spikes, 6f model compare (measure only)
+### Tasks 12–14: 6i GPU spikes, 6f model compare (measure only); 6g voice smoothness MOVED to Phase 10
 - Each one: measure as its spec says (no install), report the numbers, and fix only on approval.
 - 6f downloads a model only on approval.
 - The user pastes the 6j lines; Claude does not read `Data\`.

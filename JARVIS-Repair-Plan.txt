@@ -203,6 +203,72 @@ STATUS (2026-10-14, history log; newest at the bottom)
     6 keeps only the speech-safe text rules (no lists / symbols, numbers as said) and speakable(). PHASE 10
     starts with the user's own review of everything the model gets about its personality: Claude must tell
     the user when that review is due, and wait for the feedback before moving on.
+  - 2026-10-14: COMMITTED a74b235 (Checkpoint A: M1, meaning match, M1b, M2a, M2b, tone to Phase 10). Not
+    pushed, not live.
+  - 2026-10-14: the user: everything about the voice moves to PHASE 10 too. All of 6e (speech-safe rules and
+    speakable()) and all of 6g (smoother voice) are now PHASE 10 work; their specs stay in Phase 6 as text,
+    marked MOVED. PHASE 10 is renamed PERSONALITY AND VOICE. Phase 6 order now: M4a -> M4b -> M3 ->
+    Checkpoint B -> 6j -> live copy + full live test -> 6i / 6f measure. Phase 8 (follow-up timing and
+    chimes) stays where it is: sounds, not his voice. NEXT: T4 (M4a-1).
+  - 2026-10-14: T4 (M4a-1, only matching facts) BUILT, NOT committed, NOT live. system_prompt(): with a
+    question, a saved fact goes in only when related() (a shared keyword OR meaning >= 0.35), best 5 by shared
+    words, under "FACTS THE USER TOLD YOU (use them exactly):". A joke gets none. No question (None) or a
+    briefing still gets all of them. Unreadable file: no facts, the prompt goes on (as before).
+    load_meaning() pre-embeds the saved facts. Checks: test_jarvis OK (py -3, venv, TZ=ABC+12); route check
+    65 phrases, only a time-stamp line (prints identical). NEXT: T5 (M4a-2).
+  - 2026-10-14: T5 (M4a-2) BUILT, NOT committed, NOT live. jarvis.py:
+    - Save phrases: "remember (that)", plus "note that / don't forget that / keep in mind that" + at least two
+      words ("note that down" stays chat).
+    - fact_save(): an older fact sharing half or more of the new one's keywords asks "You told me '...'.
+      Replace it with this? Confirm with yes." Yes replaces it (ACTIONS replace_fact). CHANGED FROM THE SPEC
+      on purpose: anything but a yes still saves the new fact and says "I kept the old one too.", because you
+      asked for the save, the yes only guards the old fact, and a wrong "same thing" guess must not lose
+      what you said. "undo that" removes the new fact.
+    - Forget: more than one match reads them all back, "Forget N things: ...? Confirm with yes."
+      (ACTIONS forget_facts). One match works as before.
+    - "What do you know about X": your saved facts by code, "You told me: ...". X = me / myself -> all.
+      Nothing saved about X -> the model answers (so "what do you know about black holes" still works).
+    - run_action logs a target only for close / open / volume / media (an allow-list; same lines as before).
+    - Not built (not in T5's acceptance): 6d's "a close question answered by code with the stored words".
+    Checks: test_jarvis OK (py -3, venv, TZ=ABC+12); route check 65 phrases, only the time-stamp line.
+    NEXT: T6 (M4a-3, offer to remember).
+  - 2026-10-14: T6 (M4a-3) BUILT, NOT committed, NOT live. jarvis.py:
+    - Clear requests save at once, more wordings: "oh / also / and remember ...", "remember, ...",
+      "I want (need) you to remember that ...", and a trailing "..., remember that / don't forget that /
+      keep that in mind". "remember that" alone, a question, "I can't remember that", "do you remember that
+      film" and "remember to call mum" do not save.
+    - Offer: after a chat answer, a lasting fact about you in your words (fixed patterns: my sister's name
+      is, my favourite X is, I'm allergic to, I work at, I live in, I'm vegetarian, I study, I have a X
+      called ...) gets one "Want me to remember that?". Only a yes (or "remember that" / "save it") in the
+      next turn, within 30 s + the follow-up wait, saves it. Anything else drops the offer and goes on as
+      usual. Never offered: questions, numbers of 3+ digits, passwords/PINs/codes/cards/accounts/bank,
+      anything SECRET matches, facts already saved. JarvisLearn=off (or 0) turns offers off (default: ask).
+      The offered fact is held in memory only and never logged.
+    - Shortcut: fixed patterns, not the model, so unusual wording is missed (comment in code).
+    Checks: test_jarvis OK (py -3, venv, TZ=ABC+12); route check 65 phrases, only the time-stamp line.
+    NEXT: T7 (M4b, recent actions).
+  - 2026-10-14: T7 (M4b), T8 (M3a), T9 (M3b) BUILT, NOT committed, NOT live. jarvis.py:
+    - T7: the last 20 actions that really ran this session (time, what, failed or not), held in memory only.
+      Logged by code where they run: PC actions (opened X, closed X, locked, sleep, volume, media ...), saved /
+      forgotten / replaced facts, timers, alarms, reminders (with their time), cancel, move, snooze, undo.
+      They go into the prompt only for questions about him ("what did you do", "did you set a timer", "have
+      you opened ...") with "only these ran; never claim anything else". None: "You ran nothing in this session."
+    - T8: once a day, when you have been quiet 10 min, JARVIS is idle and the HUD is FULL (not LITE/OFF), topics
+      unused 7 days (or the oldest past 100) go to the model, which returns up to 3 short facts. Code checks each:
+      120 characters or fewer, every content word, name and number must be in that talk. Passed facts go to
+      Data\jarvis_gist.txt ("date|fact"), the topic is removed. None passed: the topic stays, tried again the
+      next day, removed after the 3rd failed try. A turn starting or the HUD leaving FULL stops it between topics.
+      The gist comes back in recall ("- earlier: ...") and in "what do you remember about X" ("From before: ...").
+      Only counts are logged.
+    - T9: once a month, only over 200 gist lines: among the oldest 100, lines sharing 2+ keywords are merged into
+      fewer by the model under the same check (about 30 at most a month). jarvis_memory.txt (your facts) is never
+      touched.
+    - Deviations from the spec (better, I'm sure): model down does NOT count a try (an off PC would otherwise
+      delete topics unread); the topic file cap went 100 -> 200 (compaction brings it back to 100 daily); the
+      check ignores stop-words, so "likes" passes when you said "like".
+    - Not built: forgetting a gist line by voice ("forget what you know about X" only clears facts and topics).
+    Checks: test_jarvis OK (py -3, venv, TZ=ABC+12); route check 65 phrases, 0 routed differently.
+    NEXT: Checkpoint B (commit on your word), then T11 (6j).
 
 HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 5 / 6a session)
   Git
@@ -558,7 +624,7 @@ Order: what breaks trust first, then what every later phase depends on, then com
    Phase 7   More settings by voice                          issues 13, 20, 22
    Phase 8   Follow-up timing and sounds                     issues 1, 17
    Phase 9   Ask him what is wrong (diagnosis)               issue 21
-   Phase 10  Personality (tone and honesty)                  issues 3, 28
+   Phase 10  Personality and voice (tone, honesty, speech)   issues 3, 28
    Phase 8 is small and independent. It can be done at any point for a quick win.
 
 
@@ -1481,7 +1547,8 @@ Rollback: revert the commit. The reminders file format is unchanged.
 --------------------------------------------------------------------------------------------------------
 PHASE 6   RELEVANCE, MEMORY, SOUNDING HUMAN   (revised 2026-10-14: 6b rewritten; 6c, 6h -> PHASE 10)
 --------------------------------------------------------------------------------------------------------
-STATE: 6a BUILT and committed (not live). Next: 6b slice M1. 6c, 6h moved to PHASE 10; 6d folded into 6b.
+STATE: 6a, M1, meaning, M1b, M2 BUILT and committed (not live). Next: T4 M4a-1. 6c, 6e, 6g, 6h moved to
+PHASE 10; 6d folded into 6b.
 
 PLAN CHANGES (what changed in this phase's plan, in order; 2026-10-14)
   1. First plan (from this file, broken into tasks/plan.md): 6a relevance, 6b history (last 2 exchanges,
@@ -1593,7 +1660,8 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
   Prompt per turn: L1 (if linked), matching L4 facts (5 at most), at most 2 L2 topics + matching L3 lines,
   the action list only for questions about him. Nothing matches -> nothing is added.
   Order: 6a -> M1 (L1) -> M1b (last results) -> M2 (L2) -> Checkpoint A -> M4a (6d) -> M4b (actions) -> M3 (L3)
-         -> 6e -> Checkpoint B -> 6j (route log) -> ONE live copy + live test of all of Phase 6 -> 6f / 6g / 6i.
+         -> Checkpoint B -> 6j (route log) -> ONE live copy + live test of all of Phase 6 -> 6f / 6i.
+         (6e and 6g moved to PHASE 10 on 2026-10-14: everything about the voice.)
   Live tests (the user, 2026-10-14): ALL at the end of Phase 6. Checkpoints A and B are commit points only;
   their live checks join the end-of-phase test. Task breakdown: tasks/plan.md, tasks/todo.md (T1-T14).
   Each slice: its own tests, test_jarvis OK (py -3 and venv), route check, commit and live copy on the
@@ -1673,7 +1741,7 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     Tests (fake model, fake clock): the 101st topic triggers compaction; a fact with a name or number not
     in the talk is dropped; model down keeps the topic.
 
-  6e, then CHECKPOINT B: same gates; live test of facts, "what did you do", and one compaction run by
+  Then CHECKPOINT B: same gates; live test of facts, "what did you do", and one compaction run by
   hand with a short test age.
   Matching (the user, 2026-10-14): related() = a shared keyword OR meaning >= MEANING_TALK (0.35), words only
   while the model is off. M2 recall score = keyword weight + meaning; M4a facts use related().
@@ -1722,8 +1790,9 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
   Tests for 3 and 4: a close question returns the stored words without the fake model; a fake sentence
   "my sister's name is Ana" leads to one offer and a save only after yes; a digit string is never offered.
 
-6e. Wording for the ear (about 15 lines)   STYLE RULES MOVED 2026-10-14 to PHASE 10 (tone, the user)
-  - Kept in Phase 6 (text the voice can say, not tone): no lists, headings or symbols; numbers, dates and
+6e. Wording for the ear (about 15 lines)   ALL MOVED 2026-10-14 to PHASE 10 (style rules: tone; the rest:
+    voice, the user). Kept here as its spec; not built in Phase 6.
+  - Speech-safe rules (text the voice can say): no lists, headings or symbols; numbers, dates and
     times written the way they are said.
   - MOVED to PHASE 10: contractions; one or two short sentences; never "as an AI"; at most one short
     acknowledgement ("Sure.", "Got it.") and not every time.
@@ -1746,6 +1815,7 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     Setting JarvisModelBig (empty = off). About 20 lines. Numbers are estimates until measured.
 
 6g. A smoother voice (added 2026-10-14 after the Phase 1 live test: "the voice doesn't sound very fluid yet")
+    MOVED 2026-10-14 to PHASE 10 (everything about the voice, the user). Kept here as its spec.
   Not covered elsewhere: Phase 2e only makes the voice faster, 6e only changes the words.
   Measure first (no install): record one three-sentence answer and log, per sentence, the synthesis time,
   the gap between the end of one sentence and the start of the next, and the sentence length. Then fix
@@ -1800,7 +1870,7 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
   Ties to Phase 2 (GPU first) and Phase 9 (he can explain a spike from real readings, see 6h).
 
 6j. Which path answered, and how long it took (added 2026-10-14 from idea #1 of the suggestions file;
-    about 10 lines; build before 6f / 6g / 6i)
+    about 10 lines; build before 6f / 6i, and before 6g in Phase 10)
   The suggestion was a central "priority router". route() already is one: fixed checks in a fixed order
   (guard, undo, never mind, fixed questions, reminders, actions, chat), with interpret() only for a missed
   command. Not taken: a new request_router.py, confidence scores, semantic matching. Taken: the log.
@@ -1808,7 +1878,7 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     total <s>s". No text of what was said, no targets (privacy, as the other log lines).
   - The timing lines that exist (click -> listening, end of speech -> text, -> reply start, -> reply done)
     stay; this adds the path and the total for fixed and action turns too, which today log no total.
-  - Use: 6f (model compare), 6g, 6i and the 6f big-model proposal measure from these lines; the user
+  - Use: 6f (model compare), 6i, 6g (Phase 10) and the 6f big-model proposal measure from these lines; the user
     pastes them, Claude never reads Data\.
   Tests: a fixed command, an action and a chat turn each log one route line with the right path; the line
   has no words from the question.
@@ -1819,8 +1889,8 @@ Tests (fakes)
   - History holds 4 messages and is gone after the fake 2 minutes.
   - A serious sentence gets the proper line even under playful.
   - Fact retrieval picks the right facts, 5 at most. A contradicting fact asks first.
-  - The cleaner output has no symbols.
-  - 6g: very short sentences are joined before the voice; a sentence is never split; the speed setting
+  - (Phase 10) The cleaner output has no symbols.
+  - (Phase 10) 6g: very short sentences are joined before the voice; a sentence is never split; the speed setting
     stays inside 0.8-1.2.
 
 Your live test after Phase 6
@@ -2190,7 +2260,7 @@ Rollback: revert the commit. Nothing is installed, stored or changed on the syst
 
 
 --------------------------------------------------------------------------------------------------------
-PHASE 10  PERSONALITY (tone and honesty)   added 2026-10-14, parked; not built yet
+PHASE 10  PERSONALITY AND VOICE (tone, honesty, speech)   added 2026-10-14, parked; not built yet
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 3  (playful when unnecessary or on a serious topic)
         issue 28 (bends facts when playful; invented "simulations")
@@ -2202,6 +2272,11 @@ that show the voice) and an honesty rule written into each mood, not a filter af
 Also holds (moved 2026-10-14, the user: anything about tone not finished goes here): 6e's style rules
 (contractions, one or two short sentences, never "as an AI", at most one short acknowledgement and not
 every time), and the Phase 6 live checks 3, 6 and 7 (serious topic, "who made you?", playful honesty).
+Also holds (moved 2026-10-14, the user: everything about the voice goes here): the rest of 6e (speech-safe
+rules: no lists / symbols, numbers as said; the speakable() cleaner before speak_all) and all of 6g (a
+smoother voice: measure gaps from the 6j lines first, join very short sentences, fades, JarvisVoiceSpeed
+0.8-1.2). Specs: the 6e and 6g sections in Phase 6. The voice part is not personality, so it does not wait
+for the review below; it still needs the user's word to start.
   YOUR REVIEW FIRST (the user, 2026-10-14). Before any Phase 10 code, Claude gathers everything the model
   is told about who he is and how he talks: the SYSTEM text, the MOODS sentences, the identity line, the
   6e style rules, the persona card draft, and how the ABOUT THE USER note is used. Claude TELLS the user it
