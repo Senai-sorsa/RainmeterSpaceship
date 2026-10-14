@@ -31,6 +31,7 @@ Every problem is logged to Data\\jarvis.log, shown on the hologram (ERR) and add
 import ctypes
 import gc
 import json
+import math
 import msvcrt
 import os
 import queue
@@ -213,7 +214,7 @@ def todo_note():
 
 
 def context():
-    lines = [f"Now:{datetime.now().strftime('%A %d %B %Y, %H:%M')}"]
+    lines = [f"Now:{datetime.now().strftime('%A %d %B %Y, %H:%M (%I:%M %p)')}"]
     try:
         m = MEMORYSTATUSEX(); m.dwLength = ctypes.sizeof(m)
         if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):   # 0 = the call failed: no line, not "0 %"
@@ -326,9 +327,11 @@ def sensors():
         use = shutil.disk_usage(drive + "\\")
         return [f"Disk {drive} {use.free / 2**30:.0f} GB free of {use.total / 2**30:.0f} GB"]
 
-    def pending():                                            # how many and when, not what: the text stays in its file
-        items = load_reminders()
-        return [f"Timers and reminders pending: {len(items)}, the next at {clock(items[0][0])}"] if items else []
+    def pending():                                            # what kind and when, never the label: the text stays in its file
+        items, now = load_reminders(), time.time()
+        each = [f"timer with {span(r[0] - now)} left" if r[2] == "timer" else
+                f"{'alarm' if r[3] == 'alarm' else 'reminder'} at {clock(r[0], now)}" for r in items[:5]]
+        return [f"Pending: {'; '.join(each) or 'no alarms, reminders or timers'}" + (f"; and {len(items) - 5} more" if len(items) > 5 else "")]
     for line in HW_LINES:
         part(lambda: hw(*line))
     for fn in (cpu, card, sound, panel, disk, pending):
@@ -339,7 +342,8 @@ def sensors():
 SYSTEM = ("You are JARVIS, the AI built into the user's spaceship-style desktop HUD. You talk out loud, so answer in "
           "one to three short spoken sentences: no lists, markdown, emoji or code unless asked. {mood} "
           "Use the live HUD data below when it's relevant; if something isn't in it, say you don't "
-          "have that rather than guessing.\n")
+          "have that rather than guessing. Alarms, timers, reminders, volume and apps are handled by the system, not by "
+          "you; the Pending line below is the true schedule. Never say you set or changed something.\n")
 MOODS = {"proper": "Be calm, precise and a little dry.",       # JarvisPersonality: how the model words its answers
          "playful": "Be funny and quick. When the user jokes or banters, dark humor included, answer in the same spirit. "
                     "When they ask a real question, answer it helpfully first, then joke if it fits. "
@@ -487,6 +491,28 @@ def ollama_on_cpu(model):
     return False
 
 
+_moved = set()                 # chat models reloaded once since they were last seen fully on the card
+
+
+def chat_to_gpu(model):
+    """Ollama keeps part of the chat model off the card: if the card is there, unload and warm it again - once, so a
+    card full of a game's data costs one reload, not one per turn."""
+    if model in _moved or not gpu():
+        return False
+    _moved.add(model)
+
+    def go():
+        try:
+            http_json("/api/generate", {"model": model, "keep_alive": 0}, timeout=30)
+        except Exception as e:
+            log(f"chat model reload failed ({type(e).__name__})")
+            return
+        log(f"chat model {model} reloaded to move it onto the GPU")
+        warm(model)
+    threading.Thread(target=go, daemon=True).start()
+    return True
+
+
 def chat_stream(model, messages):
     opts = {"num_ctx": ctx_tokens(), "temperature": 0.5, "num_predict": 160}
     if not gpu():
@@ -535,6 +561,116 @@ def chat_stream(model, messages):
         gone.set()
 
 
+# ------------------------------------------------------------------ AI fallback for a command the patterns missed
+# The model only names the intent and copies your words. Code checks every word was said and the intent's own word is
+# in what you said, builds one fixed sentence, and route() must read it as that command; then the usual code runs it.
+# Lock, sleep, restart, shutdown, open, close, memory and to-do are not on its list: those stay pattern-only.
+AI_CUES = {"alarm_set": r"alarm|wake|woken|get me up", "reminder_set": r"remind|ping me|heads.?up", "timer_set": r"timer",
+           "schedule_list": r"alarm|remind|timer|schedul", "schedule_cancel": r"alarm|remind|timer|schedul",
+           "volume_set": r"volume|sound|audio|speaker|music", "volume_step": r"volume|sound|audio|speaker|music|louder|quieter|crank",
+           "volume_level": r"volume|sound|loud|muted", "mute": r"mute|silen", "unmute": r"unmute|sound|audio|speaker",
+           "media": r"pause|resume|skip|next (?:song|track)|previous|song|track|music"}
+AI_WORDS = re.compile(r"\b(?:" + "|".join(AI_CUES.values()) + ")")
+AI_NOT = re.compile(r"(?:how|why|what|when|who|where|which|whose|should|shall|is|are|was|were|do|does|did|has|had)\b|"
+                    r".*\b(?:yesterday|earlier|ago|last (?:night|week)|explain|tell me about)\b")
+AI_SCHEMA = {"type": "object", "properties": {"commands": {"type": "array", "items": {"type": "object", "properties": {
+    "intent": {"type": "string", "enum": list(AI_CUES) + ["chat"]}, "when": {"type": "string"}, "label": {"type": "string"},
+    "number": {"type": "integer"}}, "required": ["intent"]}}}, "required": ["commands"]}
+AI_PROMPT = """You sort what the user said to a voice assistant into commands. Output JSON only.
+RULE 1: a question is "chat". Anything asking how, why or should, any opinion, anything about the past, and talk ABOUT
+alarms, timers or volume is "chat". Only an order to do something now is a command. Anything not listed below is "chat".
+RULE 2: "when" is copied word for word from the user, including "in"/"at"/"for", and nothing added: never add am, pm,
+today or tomorrow that the user did not say. "number" is only for volume.
+Intents, with examples ->  output:
+alarm_set: "wake me at 7" -> when "at 7";  "alarm for 6:30 am" -> when "for 6:30 am"
+reminder_set: "remind me to cook in 20 minutes" -> label "to cook", when "in 20 minutes"
+timer_set: "ten minute timer for pasta" -> when "ten minute", label "pasta"
+schedule_list: "what reminders do I have", "list my timers", "any alarms?"
+schedule_cancel: "cancel the 7 am alarm" -> when "7 am";  "cancel the cooking reminder" -> label "cooking";
+  "stop the timer", "cancel all reminders"
+volume_set: "volume to 30" -> number 30   volume_step: "louder", "turn it down"
+volume_level: "what's the volume"   mute: "mute"   unmute: "unmute the sound"
+media: "pause", "skip", "next song", "previous track" -> label playpause | next | prev
+Several orders in one sentence -> several commands in order: "alarms for 7 and 8 am" -> when "7", when "8 am".
+Now: {now}."""
+
+
+def ask_ai(text, routed):
+    """Only a near-miss, or a chat line with a command word that is not a question or about the past, goes to the AI."""
+    t = re.sub(r"^(?:(?:and|then|so|now|okay|ok|alright|um|uh|yo|hey|hi)[,.]? +)+", "", strip_name(text).strip().lower())
+    if (setting("JarvisAIRouter", "1") != "1" or AI_NOT.match(t)
+            or t.endswith("?") and not re.match(r"(?:can|could|would|will) you\b", t)):
+        return False
+    return routed[3] == NEAR_MISS or routed[0] == "chat" and bool(AI_WORDS.search(t))
+
+
+def _words(s):
+    return re.findall(r"[a-z0-9:']+", re.sub(r"\b([ap])\.? ?m\b\.?", r"\1m", s.lower()))
+
+
+def interpret(model, text):
+    """What the AI made of a missed command, as a checked route; None when there is none or it can't be trusted."""
+    t0, low = time.time(), text.lower()
+    heard = set(_words(text))
+    nums = {_num(w) for w in heard} - {None}
+    said = lambda s: all(w in heard or w in ("at", "in", "for", "to", "the", "and") or _num(w) in nums for w in _words(s))
+    opts = {"num_ctx": ctx_tokens(), "temperature": 0, "num_predict": 160}   # chat's num_ctx: no model reload
+    if not gpu():
+        opts["num_thread"] = cpu_threads()
+    try:
+        out = http_json("/api/chat", {"model": model, "stream": False, "format": AI_SCHEMA, "keep_alive": keep_alive(),
+                                      "options": opts, "messages": [
+                                          {"role": "system", "content": AI_PROMPT.replace("{now}", datetime.now().strftime("%A %d %B %Y, %I:%M %p"))},
+                                          {"role": "user", "content": text}]}, timeout=8)
+        cmds = [c for c in json.loads(out["message"]["content"])["commands"] if c.get("intent") != "chat"]
+        sets = [c for c in cmds if c.get("intent") == "alarm_set"]
+        if len(sets) > 1 and len(sets) == len(cmds) and not any(str(c.get("when", "")).startswith("in ") for c in sets):
+            # "alarms for 7 and 8 am": one sentence, so route() gives the am / pm said last to each
+            cmds = [{"intent": "alarm_set", "when": "for " + " and ".join(re.sub(r"^(?:at|for) ", "", c.get("when", "")) for c in sets)}]
+        routes = []
+        for c in cmds:
+            intent, at, label = c["intent"], str(c.get("when") or "").strip(), str(c.get("label") or "").strip()
+            label = " ".join(re.sub(r"\b(?:alarms?|reminders?|timers?)\b", " ", label).split())
+            if not re.search(rf"\b(?:{AI_CUES[intent]})", low) or not said(at) or intent != "media" and not said(label):
+                raise ValueError("not what was said")
+            bare = re.sub(r"^(?:at|in|for|on) ", "", at)
+            noun = "timer" if "timer" in low else "reminder" if "remind" in low else "alarm"
+            spec = " ".join(x for x in (bare, label) if x)
+            n = c.get("number")
+            if intent == "volume_set" and not (isinstance(n, int) and 0 <= n <= 100 and n in nums):
+                raise ValueError("volume not said")
+            sentence = {
+                "alarm_set": f"set an alarm {at}".strip(),
+                "reminder_set": f"remind me {label if re.match(r'(?:to|about|that) ', label) or not label else 'to ' + label} {at}".strip(),
+                "timer_set": f"set a timer for {bare}" + (f" for {label}" if label else "") if bare else "set a timer",
+                "schedule_list": "list my timers" if noun == "timer" else "what alarms do I have",
+                "schedule_cancel": (f"cancel all {noun}s" if re.search(r"\b(?:all|every)\b", low) and not spec
+                                    else f"cancel the {noun} for {spec}" if spec else f"cancel the {noun}"),
+                "volume_set": f"set the volume to {n}",
+                "volume_step": "turn it down" if re.search(r"\b(?:down|lower|quieter|decrease|reduce|softer)\b", low) else "turn it up",
+                "volume_level": "what's the volume", "mute": "mute", "unmute": "unmute",
+                "media": {"playpause": "pause", "next": "next track", "prev": "previous track"}.get(label, ""),
+            }[intent]
+            r = route(sentence)
+            want = {"alarm_set": "set", "reminder_set": "set", "timer_set": "set", "schedule_list": "list",
+                    "schedule_cancel": "cancel"}.get(intent)
+            ok = (r[:2] == ("remind", want) and (intent != "alarm_set" or r[2][0] == "alarm")
+                  and (intent != "timer_set" or r[2][0] == "timer") and (intent != "reminder_set" or r[2][0] not in ("alarm", "timer"))
+                  if want else r == ("level", None, None, None) if intent == "volume_level"
+                  else r[0] == "act" and r[1] == {"mute": "mute", "unmute": "unmute", "media": "media"}.get(intent, "volume") and r[3] is None)
+            if not ok:
+                raise ValueError("no preset")
+            routes.append(r)
+        # several commands only when each is complete: a set with no time would stop to ask
+        if len(routes) > 1 and any(r[1] == "set" and r[2][1] is None for r in routes):
+            raise ValueError("incomplete")
+    except Exception as e:
+        log(f"interpreter: fallback ({type(e).__name__})")
+        return None
+    log(f"interpreter: {len(routes)} commands, {time.time() - t0:.1f}s" if routes else "interpreter: no command")
+    return None if not routes else routes[0] if len(routes) == 1 else ("multi", None, routes, None)
+
+
 # ------------------------------------------------------------------ GPU or capped CPU
 def gpu():
     """True while an NVIDIA card is attached (a hybrid laptop powers it off on battery)."""
@@ -557,31 +693,89 @@ def cpu_in_use(what, why):
 
 # ------------------------------------------------------------------ speech to text
 _whisper = None
+_whisper_dev = [None]          # "cuda" or "cpu": where _whisper runs
+_whisper_lock = threading.Lock()
+_gpu_try = [0.0, False]        # when the card was last tried, and whether that failure is already logged
+
+
+def _cuda_dlls():
+    """The pip nvidia-* wheels keep cuBLAS / cuDNN / the CUDA runtime in their own bin folders, which Windows does not search."""
+    import glob
+    for d in [d for p in sys.path for d in glob.glob(os.path.join(p, "nvidia", "*", "bin"))]:
+        if d not in os.environ["PATH"]:
+            os.add_dll_directory(d)
+            os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
+
+
+def _load_whisper(device):
+    from faster_whisper import WhisperModel
+    size = setting("JarvisWhisper", "small.en")
+    if device == "cpu":
+        return WhisperModel(size, device="cpu", compute_type="int8", cpu_threads=cpu_threads())
+    _cuda_dlls()
+    return WhisperModel(size, device="cuda", compute_type="float16")
 
 
 def whisper():
     global _whisper
-    if _whisper is None:
-        from faster_whisper import WhisperModel
-        size = setting("JarvisWhisper", "base.en")
-        dev = setting("JarvisWhisperDevice", "auto").lower()
-        why = f"JarvisWhisperDevice={dev}"
-        if dev in ("auto", "cuda"):
-            try:
-                # the pip nvidia-* wheels keep cuBLAS / cuDNN in their own bin folders, which Windows does not search
-                import glob
-                for d in [d for p in sys.path for d in glob.glob(os.path.join(p, "nvidia", "*", "bin"))]:
-                    if d not in os.environ["PATH"]:
-                        os.add_dll_directory(d)
-                        os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
-                _whisper =WhisperModel(size, device="cuda", compute_type="float16")
-                log(f"whisper {size} on GPU")
-                return _whisper
-            except Exception as e:
-                why = e
-        _whisper = WhisperModel(size, device="cpu", compute_type="int8", cpu_threads=cpu_threads())
-        cpu_in_use("speech recognition", why)
-    return _whisper
+    with _whisper_lock:                                        # the preload and a turn never load it twice
+        if _whisper is None:
+            dev = setting("JarvisWhisperDevice", "auto").lower()
+            why = f"JarvisWhisperDevice={dev}"
+            if dev in ("auto", "cuda"):
+                try:
+                    _whisper, _whisper_dev[0] = _load_whisper("cuda"), "cuda"
+                    log(f"whisper {setting('JarvisWhisper', 'small.en')} on GPU")
+                    return _whisper
+                except Exception as e:
+                    why = e
+            _whisper, _whisper_dev[0], _gpu_try[0] = _load_whisper("cpu"), "cpu", time.time()
+            if dev in ("auto", "cuda") and not gpu():
+                problem("RTX is off - switch the laptop to hybrid graphics", popup=False)
+            else:
+                cpu_in_use("speech recognition", why)
+        return _whisper
+
+
+def gpu_watch(now):
+    """Whisper fell back to the CPU: between turns, at most once a minute, move it to the card once it is back.
+    gpu() is asked last, since it starts CUDA."""
+    if (_whisper is None or _whisper_dev[0] != "cpu" or busy.locked() or now - _gpu_try[0] < 60
+            or setting("JarvisWhisperDevice", "auto").lower() not in ("auto", "cuda") or not gpu()):
+        return False
+    _gpu_try[0] = now
+    threading.Thread(target=_whisper_to_gpu, daemon=True).start()
+    return True
+
+
+def _whisper_to_gpu():
+    global _whisper
+    t0 = time.time()
+    try:
+        m = _load_whisper("cuda")                              # outside the lock: a turn meanwhile keeps the CPU model
+    except Exception as e:
+        if not _gpu_try[1]:
+            _gpu_try[1] = True
+            log(f"whisper: the GPU is still unavailable ({type(e).__name__})")
+        return
+    with _whisper_lock:
+        if _whisper is None or _whisper_dev[0] != "cpu":       # unloaded or moved meanwhile
+            return
+        _whisper, _whisper_dev[0], _gpu_try[1] = m, "cuda", False
+    log(f"whisper moved to GPU ({time.time() - t0:.1f} s)")
+    if S.err.startswith(("RTX is off", "CPU in use - speech recognition")):
+        S.set(err="")                                          # only our own warning; other problems stay up
+
+
+# what Whisper writes on noise or near-silence: treated as silence
+PHANTOM = re.compile(r"[\W_]*(?:(?:thanks|thank you)(?: so much)? for watching|subtitles? by\b.*|you)?[\W_]*", re.I)
+
+
+def real_words(text):
+    if text and PHANTOM.fullmatch(text):
+        log("transcript: dropped (phantom)")
+        return ""
+    return text
 
 
 def transcribe(audio):
@@ -589,35 +783,43 @@ def transcribe(audio):
         return ""
     try:
         segs, _ = whisper().transcribe(audio, beam_size=1, language="en", vad_filter=False)
-        return " ".join(s.text for s in segs).strip()
+        return real_words(" ".join(s.text for s in segs).strip())
     except Exception as e:
         if "cuda" in str(e).lower() or "cublas" in str(e).lower() or "cudnn" in str(e).lower():
             global _whisper
             cpu_in_use("speech recognition", e)
             try:
-                from faster_whisper import WhisperModel
-                _whisper = WhisperModel(setting("JarvisWhisper", "base.en"), device="cpu", compute_type="int8",
-                                        cpu_threads=cpu_threads())
-                segs, _ = _whisper.transcribe(audio, beam_size=1, language="en", vad_filter=False)
-                return " ".join(s.text for s in segs).strip()
+                with _whisper_lock:                            # gpu_watch() moves it back to the card later
+                    m = _whisper = _load_whisper("cpu")
+                    _whisper_dev[0], _gpu_try[0] = "cpu", time.time()
+                segs, _ = m.transcribe(audio, beam_size=1, language="en", vad_filter=False)
+                return real_words(" ".join(s.text for s in segs).strip())
             except Exception as cpu_e:
                 log(f"whisper CPU fallback also failed: {cpu_e}")
                 raise cpu_e
         raise
 
 
-def listen(wait=3):
-    """Record until you stop talking: waits up to 6 s for speech, then stops after JarvisSilence seconds of quiet
-    (default 1 s; raise it if he cuts you off mid-sentence), max 25 s."""
+def listen(wait=3, patience=6):
+    """Record until you stop talking: waits up to `patience` s for speech, then stops after JarvisSilence seconds of
+    quiet (default 1 s; raise it if he cuts you off mid-sentence), max 25 s."""
     if not mic.acquire(timeout=wait):                          # the wake word lets go within a second of a turn starting
         raise RuntimeError("The microphone is busy - try again")
     try:
-        return _listen()
+        return _listen(patience)
     finally:
         mic.release()
 
 
-def _listen():
+def follow_wait():
+    """Seconds a follow-up waits for you to start talking: JarvisFollowUpWait, default 10, kept to 3-30."""
+    try:
+        return max(3.0, min(30.0, float(setting("JarvisFollowUpWait", "10"))))
+    except ValueError:
+        return 10.0
+
+
+def _listen(patience=6):
     import numpy as np
     import sounddevice as sd
     rate, block = 16000, 480                     # 30 ms blocks
@@ -657,7 +859,7 @@ def _listen():
                     frames = (frames + [x.copy()])[-10:]     # keep 0.3 s before speech starts
                 if started and silent > quiet_blocks:
                     break
-                if not started and waited > 200:
+                if not started and waited > patience / 0.03:
                     return None
                 if time.time() - t0 > 25:
                     break
@@ -682,7 +884,9 @@ def _listen():
 # Piper, blank -> the built-in Windows voice. If an engine fails, that sentence falls back to the Windows voice, and
 # if even that fails the words go to the pop-up - he never just goes silent.
 _engines = {}               # loaded voices, by path
-_broken = set()             # voice files that failed to load (not retried until the service restarts)
+_voice_dev = [None]         # "cuda" or "cpu": where the Kokoro voice runs
+_voice_gpu_off = [0.0]      # after a GPU failure of the voice: the CPU until then
+_broken = {}                # voice file -> when it may be tried again (a missing or unsupported file: never)
 _kokoro_last = [None]       # the Kokoro voice last used (logged whenever it changes)
 KOKORO_VOICES = ("bm_lewis", "bm_george", "bm_fable", "bm_daniel", "bf_emma", "am_michael", "am_adam", "af_heart")
 
@@ -715,15 +919,28 @@ def _kokoro(voice_path, text):
             raise RuntimeError("voices-v1.0.bin is missing next to the Kokoro model - run SETUP")
         from kokoro_onnx import Kokoro
         import onnxruntime as rt
-        # our own session, to cap its threads: measured 25% of the machine instead of 50%, 0.6 s slower per sentence
-        # shortcut: CPU only, onnxruntime-gpu 1.31 wants CUDA 13 while Whisper (ctranslate2) loads CUDA 12, and both
-        # ship a cudnn64_9.dll (not tried together); move the voice to the GPU once the two agree on a CUDA version
-        opts = rt.SessionOptions()
-        opts.intra_op_num_threads = cpu_threads()
-        sess = rt.InferenceSession(voice_path, opts, providers=["CPUExecutionProvider"])
+        # the full model on the RTX, through onnxruntime-gpu 1.23 (CUDA 12, the same libraries as Whisper):
+        # measured 0.3 s a sentence vs 1.0 s on the CPU. The int8 model is 3x SLOWER on CUDA, so only the full one.
+        full, sess = os.path.join(os.path.dirname(voice_path), "kokoro-v1.0.onnx"), None
+        if (os.path.exists(full) and time.time() >= _voice_gpu_off[0] and gpu()
+                and "CUDAExecutionProvider" in rt.get_available_providers()):
+            _cuda_dlls()
+            opts = rt.SessionOptions()
+            opts.log_severity_level = 3                            # its per-run performance hints are noise
+            # HEURISTIC: measured 0.9 s to load and 0.24 s a sentence vs 4.1 s and 0.37 s with the default search
+            s = rt.InferenceSession(full, opts, providers=[("CUDAExecutionProvider", {"cudnn_conv_algo_search": "HEURISTIC"}),
+                                                           "CPUExecutionProvider"])
+            if s.get_providers()[0] == "CUDAExecutionProvider":
+                sess, used = s, full
+        _voice_dev[0] = "cuda" if sess else "cpu"
+        if sess is None:
+            # our own session, to cap its threads: measured 25% of the machine instead of 50%, 0.6 s slower per sentence
+            opts = rt.SessionOptions()
+            opts.intra_op_num_threads = cpu_threads()
+            sess, used = rt.InferenceSession(voice_path, opts, providers=["CPUExecutionProvider"]), voice_path
         eng = _engines[voice_path] = Kokoro.from_session(sess, bins[-1])
-        log(f"kokoro loaded ({os.path.basename(voice_path)}, {os.path.basename(bins[-1])}), {cpu_threads()} threads")
-        cpu_in_use("the voice", "no GPU build of onnxruntime here")
+        log(f"kokoro loaded ({os.path.basename(used)}, {os.path.basename(bins[-1])}), "
+            + ("on the GPU" if _voice_dev[0] == "cuda" else f"{cpu_threads()} threads on the CPU"))
     name = (setting("JarvisKokoroVoice", "bm_lewis").strip().strip('"').split() or ["bm_lewis"])[0]
     try:
         known = list(eng.get_voices())
@@ -737,7 +954,13 @@ def _kokoro(voice_path, text):
         log(f"kokoro speaking with voice {name}")
     speed = max(0.6, min(1.6, 1.0 + (voice_rate() - 1) * 0.08))
     lang = "en-gb" if name[:1] == "b" else "en-us"
-    samples, rate = eng.create(text, voice=name, speed=speed, lang=lang)
+    try:
+        samples, rate = eng.create(text, voice=name, speed=speed, lang=lang)
+    except Exception:
+        if _voice_dev[0] == "cuda":
+            # shortcut: the CPU until the next idle unload (or 10 minutes), the GPU watch moves only Whisper back
+            _voice_gpu_off[0] = time.time() + 600              # synth_audio's retry builds the CPU voice
+        raise
     return np.asarray(samples, dtype=np.float32).reshape(-1), int(rate)
 
 
@@ -818,29 +1041,29 @@ def synth_audio(text):
     voice = setting("JarvisVoice", "").strip().strip('"')
     if voice:
         voice = resolve_voice(os.path.join(RES, voice))        # a relative path is relative to @Resources
-    if voice and voice not in _broken:
+    if voice and time.time() >= _broken.get(voice, 0):
         if not os.path.exists(voice):
             log(f"voice file not found: {voice} - using the Windows voice")
             problem("Voice file not found - using the Windows voice (check JarvisVoice)", popup=False)
-            _broken.add(voice)
+            _broken[voice] = float("inf")
         elif re.search(r"kokoro.*v0[._]", os.path.basename(voice).lower()):
             msg = ("Kokoro v0.19 isn't supported - put kokoro-v1.0.onnx and voices-v1.0.bin in "
                    + os.path.dirname(voice))
             log(msg)
             problem(msg, popup=False)
-            _broken.add(voice)
+            _broken[voice] = float("inf")
         else:
-            try:
-                if "kokoro" in os.path.basename(voice).lower():
-                    out = _kokoro(voice, text)
-                else:
-                    out = _piper(voice, text)
-                if out is not None:
-                    return out
-            except Exception as e:
-                problem(f"Voice failed - using the Windows voice ({str(e)[:60]})", popup=False)   # once: it is not retried
-                _broken.add(voice)
-                _engines.pop(voice, None)
+            for again in (True, False):                        # one failure is retried at once, with a fresh engine
+                try:
+                    out = (_kokoro if "kokoro" in os.path.basename(voice).lower() else _piper)(voice, text)
+                    if out is not None:
+                        return out
+                    break
+                except Exception as e:
+                    _engines.pop(voice, None)
+                    if not again:
+                        problem(f"Voice failed twice ({type(e).__name__}) - the Windows voice for a minute", popup=False)
+                        _broken[voice] = time.time() + 60
     return _windows(text)
 
 
@@ -1327,19 +1550,74 @@ def confirmed(pending, answer, now):
     return said in YES and now < pending["expires"]
 DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)|wipe (my|the)|delete (all|every|my files|windows)|rm -rf|"
                     r"disable (the )?(antivirus|defender|firewall)|hack|brick|destroy|nuke|blow up|kill (all|every)", re.I)
+NAMES = "travis jervis javis jarvus service droves drovis".split()   # how Whisper writes "Jarvis" (JarvisNameAliases adds more)
+NEAR_MISS = "I heard a command but couldn't work it out. Try: set a timer for one minute."
+CLAIM_LINE = "I didn't catch that as a command, so nothing changed. Say it again, like: set an alarm for 7 AM."
+# a chat answer that says something was done: nothing runs on the chat path, so it cannot be true
+CLAIM = re.compile(r"\b(?:alarm|timer|reminder|volume)s? (?:is |has been |was )?(?:set|added|changed|now|snoozed)\b|"
+                   r"\bi(?:['’]ve| have) (?:set|turned|changed|opened|closed|muted|unmuted|added|created|scheduled|"
+                   r"adjusted|connected|cancelled|canceled|snoozed|moved)\b", re.I)
+
+
+def strip_name(text):
+    """'Travis, set the volume' -> 'set the volume'. Only as the first words, after an optional hey / hi / ok; a
+    misheard name needs the greeting or a comma after it, so "Service the car" and "Travis Scott is..." stay as said."""
+    extra = [n.strip().lower() for n in setting("JarvisNameAliases", "").split(",") if n.strip()]
+    names = "|".join(re.escape(n) for n in NAMES + extra)
+    m = re.match(rf"\s*(?:(hey|hi|ok|okay)[,.]?\s+)?(?:(jarvis)|({names}))\b(?(1)\s*[,.!?]?|(?(2)\s*[,.!?]?|\s*[,.!?]))\s*",
+                 text, re.I)
+    if not m or not text[m.end():].strip():
+        return text
+    if m.group(3):
+        log("name: heard as another word")                     # how often, never what was said
+    return text[m.end():]
+
+
+def no_claims(sentences, collected):
+    """The chat answer as it is spoken: a sentence that says an action was done is replaced, and the answer ends there."""
+    for s in sentences:
+        if CLAIM.search(s):
+            log("chat answer claimed an action - replaced")
+            collected[:] = [CLAIM_LINE]
+            yield CLAIM_LINE
+            return
+        yield s
 
 
 def route(text):
     """Map what you said to (kind, action, target, confirmation prompt). kind: chat | notes | apps | act | guard | say |
-    remind (action = list / cancel / set, target = its details) | memory (action = save / list / forget) | brief."""
+    remind (action = list / cancel / set / flip, target = its details) | memory (action = save / list / forget) | brief |
+    fact (prompt = the answer) | undo | heard | again | level (the volume, read in turn) | multi (target = the routes)."""
+    said = strip_name(text)
+    named, text = said != text, said
     t = text.strip().lower().rstrip(".!?")
+    # "then change the volume", "Okay, set an alarm": a word that joins it to the last sentence is not the command
+    t = re.sub(r"^(?:(?:and|then|so|now|okay|ok|alright|um|uh|yo|hey|hi)[,.]? +)+|,? please$", "", t)
     if DANGER.search(t):
         return ("guard", None, None, None)
     # actions only for commands ("lock my computer", "jarvis, could you open chrome"), never for questions about them
     # ("should I restart my computer?", "how do I close a for loop?")
     whole = cmd = re.sub(r"^(hey |ok |okay )?(jarvis[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
-    if text.strip().endswith("?") and cmd == t:
+    if text.strip().endswith("?") and cmd == t and not named:   # "Jarvis, ...?" was a command before the name moved out
         cmd = ""
+    if re.fullmatch(r"undo(?: that| it)?|put it back|cancel that|take that back", whole):
+        return ("undo", None, None, None)
+    if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
+        return ("say", None, None, "Okay, never mind.")
+    # "no, AM" / "I meant the evening" just after a clock time was set: moved 12 hours (remind_reply). "Morning." alone
+    # is a greeting, so a part of the day needs the "no" / "I meant" in front
+    m = re.fullmatch(r"((?:no,? |i meant |make (?:it|that) )*)(?:in the |the |at )?(a\.? ?m|p\.? ?m|morning|afternoon|evening|night)", whole)
+    if m and (m.group(1) or len(m.group(2)) <= 4) and undo and undo[1] == "reminder" and time.time() < undo[0]:
+        return ("remind", "flip", ("alarm", "am" if m.group(2) == "morning" or m.group(2)[:2] in ("a.", "am", "a ") else "pm"), None)
+    # read from Windows each time (turn), never from what the model or the chat remembers
+    if re.fullmatch(r"what(?:'s| is) the (?:current )?volume(?: at| set to| now)?|how loud is it|is (?:it|the sound|the volume) muted", whole):
+        return ("level", None, None, None)
+    if re.fullmatch(r"what did you (?:just )?hear|what did i (?:just )?say", whole):
+        return ("heard", None, None, None)
+    if re.fullmatch(r"(?:say|repeat) (?:that|it) again|repeat that|come again|what did you (?:just )?say", whole):
+        return ("again", None, None, None)
+    if re.match(r"snooze\b", cmd):                             # after it stopped ringing (while it rings, alarm() hears it)
+        return ("remind", "snooze", ("alarm", snooze_for(cmd)), None)
     op = reminder_cmd(t, cmd, time.time())
     if op:
         return ("remind", op[0], op[1:], None)
@@ -1390,16 +1668,31 @@ def route(text):
     m = re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd)
     if m:
         return ("act", m.group(1), None, None)
-    # shortcut: the volume number must be digits (speech recognition writes "30", not "thirty"); add words if it does not
-    m = re.match(r"(?:set |turn |change |put )?(?:the )?volume (?:to |at )?(\d{1,3})(?: ?%| percent)?$", cmd)
+    # "set the volume to 30 / thirty / max / half", "set it to 30", "max volume", "turn it all the way up"
+    m = (re.match(r"(?:i (?:want|need) |i'?d like )?(?:(?:set|turn|change|put|raise|lower|bring) )?(?:the )?volume(?: up| down)? "
+                  r"(?:to |at |on )?(?:the )?(.+?)(?: ?%| percent)?$", cmd)
+         or re.match(r"(?:set|turn|change|put) it (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+         or re.match(r"(max|maximum|full|half) volume$|(?:turn |put )?(?:it|the (?:sound|music)) (all the way (?:up|down))$", cmd))
     if m:
-        if int(m.group(1)) > 100:
+        word = m.group(m.lastindex)
+        n = {"max": 100, "maximum": 100, "full": 100, "half": 50, "all the way up": 100, "all the way down": 0,
+             "a hundred": 100, "one hundred": 100, "hundred": 100}.get(word, _num(word))
+        if n is not None and n > 100:
             return ("say", None, None, "I can set it between 0 and 100.")
-        return ("act", "volume", ("set", int(m.group(1))), None)
-    m = re.match(r"(?:(?:turn |make )?(?:it |(?:the )?(?:volume|sound|music) )(up|down|louder|quieter)|"
-                 r"turn (up|down) (?:it|the (?:volume|sound|music))|(louder|quieter))$", cmd)
-    if m:
-        return ("act", "volume", ("step", 10 if (m.group(1) or m.group(2) or m.group(3)) in ("up", "louder") else -10), None)
+        if n is not None:
+            return ("act", "volume", ("set", int(n)), None)
+    soft = r"(?:a (?:bit|little|tad) |slightly )?"               # "a bit" is the same 10 steps as plain "louder"
+    m = re.match(rf"{soft}(?:(?:turn |make )?(?:it |(?:the )?(?:volume|sound|music) ){soft}(up|down|louder|quieter)|"
+                 rf"turn (up|down) (?:it|the (?:volume|sound|music))|(louder|quieter))(?: (?:a )?(?:bit|little|tad)(?: more)?| slightly|"
+                 r" by (.+?)(?: ?%| percent)?)?$", cmd)
+    n = m and (_num(m.group(4)) if m.group(4) else 10)        # "turn it up by 20"; a plain step is 10
+    if m and n is not None:
+        return ("act", "volume", ("step", int(n) if (m.group(1) or m.group(2) or m.group(3)) in ("up", "louder") else -int(n)), None)
+    m = re.match(r"(raise|increase|boost|lower|decrease|reduce) (?:the )?(?:volume|sound|music)(?: (?:a )?(?:bit|little|tad)| slightly|"
+                 r" by (.+?)(?: ?%| percent)?)?$", cmd)
+    n = m and (_num(m.group(2)) if m.group(2) else 10)
+    if m and n is not None:
+        return ("act", "volume", ("step", int(n) if m.group(1) in ("raise", "increase", "boost") else -int(n)), None)
     thing = r"(?: (?:the |my |this )?(?:music|song|track|video|playback))"
     # shortcut: one play/pause key, so "play" while it plays pauses; Windows has no separate keys worth the code
     if re.match(rf"(?:(?:pause|play|resume|unpause){thing}?|stop{thing})$", cmd):
@@ -1422,13 +1715,32 @@ def route(text):
         if start_apps() is None:
             return ("say", None, None, "The app list isn't ready yet.")
         # not an app ("run a speed test"): let the model answer
+    answer = fact_answer(whole, time.time())
+    if answer:
+        return ("fact", None, None, answer)
+    # "set an alarm for 7 and remind me to cook": two commands, run one after the other only when each is complete and
+    # safe on its own (no confirmation); otherwise it is not split
+    pieces = [p for p in re.split(r",? and (?:then )?|, then ", whole) if p.strip()]
+    parts = [route(p) for p in pieces] if len(pieces) > 1 else []          # each piece is shorter: no endless recursion
+    if parts and all(p[0] in ("remind", "level") and p[1] != "flip" and not (p[1] == "set" and p[2][1] is None)
+                     or p[0] == "act" and p[3] is None for p in parts):       # a set with no time would ask: not split
+        return ("multi", None, parts, None)
+    # a command that no parser above took: said plainly, never handed to the model (it would answer "done")
+    if (re.match(r"(?:i (?:want|need) (?:you )?to |i'?d like (?:you )?to )?(?:set|turn|change|open|close|mute|cancel|"
+                 r"connect|snooze|switch)\b", cmd)
+            and re.search(r"\b(?:volume|alarms?|timers?|reminders?|apps?|application|bluetooth|microphone|mic|brightness|"
+                          r"screen|display|colou?r|settings?|wi-?fi|headphones|speakers?|sound)\b", cmd)
+            and not re.match(r"(?:how|why|what|when|who|where|which|can you explain|could you explain)\b", t)):
+        return ("say", None, None, NEAR_MISS)
     return ("chat", None, None, None)
 
 
 def run_action(action, target):
     try:
+        before = speakers() if action in ("volume", "mute", "unmute") else None
         ACTIONS[action](target)
         log(f"action: {action} {target if target and action != 'todo' else ''}")     # a to-do's text stays out of the log
+        can_undo(action, before)                               # anything else (lock, close, a key...) cannot be put back
         return True
     except Exception as e:
         log(f"action {action} failed: {e!r}")
@@ -1438,6 +1750,7 @@ def run_action(action, target):
 
 def reply_line(text, quiet):
     """Speak (or show) a short fixed reply and log it."""
+    recent["me"] = text
     convo_add("J", text)
     filler_done()
     if quiet:
@@ -1459,6 +1772,221 @@ def as_said(text, part):
     """`part` was found in the lowercased text: give it back with the capitals it was said with."""
     i = text.lower().find(part)
     return text[i:i + len(part)] if i >= 0 else part
+
+
+# ------------------------------------------------------------------ answers by code: the clock, dates, sums, conversions
+# Exact and instant, where the model is slow and gets sums wrong. Words are parsed here; nothing said is run as code.
+MONTHS = "january february march april may june july august september october november december".split()
+WEEKDAYS = "monday tuesday wednesday thursday friday saturday sunday".split()
+# dimension, factor to the dimension's base unit (temperature: which scale), what he says, the names it is heard as
+UNIT_ROWS = """length .001 millimetres mm millimetre|length .01 centimetres cm centimetre|length 1 metres m metre
+length 1000 kilometres km kms kilometre|length .0254 inches inch|length .3048 feet ft foot|length .9144 yards yd yard
+length 1609.344 miles mi mile|weight .001 milligrams mg milligram|weight 1 grams g gram|weight 1000 kilograms kg kgs kilogram kilo
+weight 28.349523125 ounces oz ounce|weight 453.59237 pounds lb lbs pound|weight 6350.29318 stone stone
+weight 1000000 tonnes tonne ton|volume .001 millilitres ml millilitre|volume 1 litres l litre
+volume .00492892159375 teaspoons tsp teaspoon|volume .01478676478125 tablespoons tbsp tablespoon
+volume .0295735295625 fluid_ounces fl_oz fluid_ounce|volume .2365882365 cups cup|volume .473176473 pints pint
+volume .946352946 quarts quart|volume 3.785411784 gallons gallon
+speed .2777777777777778 kilometres_per_hour kph km/h kmh kilometre_per_hour|speed .44704 miles_per_hour mph mile_per_hour
+speed 1 metres_per_second m/s metre_per_second|speed .5144444444444445 knots knot
+area 1 square_metres square_metre|area 1000000 square_kilometres square_kilometre|area .09290304 square_feet square_foot
+area 2589988.110336 square_miles square_mile|area 4046.8564224 acres acre|area 10000 hectares hectare
+time 1 seconds s sec secs second|time 60 minutes min mins minute|time 3600 hours hr hrs hour|time 86400 days day
+time 604800 weeks week|data .125 bits bit|data 1 bytes byte|data 1000 kilobytes kb kilobyte|data 1e6 megabytes mb megabyte
+data 1e9 gigabytes gb gigabyte|data 1e12 terabytes tb terabyte
+temp 0 degrees_Celsius c celsius centigrade|temp 1 degrees_Fahrenheit f fahrenheit|temp 2 kelvin k kelvin"""
+UNITS = {}
+for _row in UNIT_ROWS.replace("\n", "|").split("|"):
+    _dim, _factor, _say, *_names = _row.split()
+    for _name in [_say.lower()] + _names:
+        UNITS[_name.replace("_", " ")] = (_dim, float(_factor), _say.replace("_", " "))
+
+
+def for_ear(x):
+    """108.0 -> '108', 34.2857 -> 'about 34.3', 0.123456 -> 'about 0.123'."""
+    r = float(f"{x:.3g}") if abs(x) < 1 else round(x, 2 if abs(x) < 10 else 1)
+    s = f"{r:f}".rstrip("0").rstrip(".")
+    return s if abs(r - x) < 1e-9 else "about " + s
+
+
+def on_day(s, today):
+    """'friday', 'the 3rd', 'december 25th', 'the 25th of december' -> the next such date from today, or None."""
+    s = re.sub(r"^(?:next |this |the )", "", s)
+    if s in WEEKDAYS:
+        return today + timedelta((WEEKDAYS.index(s) - today.weekday() - 1) % 7 + 1)
+    months = "|".join(MONTHS)
+    m = re.fullmatch(rf"(?:({months}) (?:the )?)?(\d{{1,2}})(?:st|nd|rd|th)?(?: of ({months}))?", s)
+    if not m or (m.group(1) and m.group(3)):
+        return None
+    month = MONTHS.index(m.group(1) or m.group(3)) + 1 if m.group(1) or m.group(3) else None
+    try:
+        d = today.replace(month=month or today.month, day=int(m.group(2)))
+        if d < today:
+            d = d.replace(year=d.year + 1) if month else (d.replace(day=1) + timedelta(32)).replace(day=d.day)
+        return d
+    except ValueError:                                         # February 30th, or the 31st of a short month
+        return None
+
+
+def calc(q):
+    """'12 times 9', 'fifteen percent of 240', 'square root of 81' -> the line to say, or None."""
+    # shortcut: one operation per sum ("2 plus 3 times 4" goes to the model); chains would need precedence rules
+    q = re.sub(r"(?<=\d),(?=\d{3}\b)", "", q).replace("%", " percent")
+    q = re.sub(r"(?<=\d) ?([-+*/×^]) ?(?=\d)", r" \1 ", q)
+    m = re.fullmatch(r"(?:the )?square root of (.+)", q)
+    if m:
+        a, op, b = _num(m.group(1)), "root", 0
+    else:
+        m = re.fullmatch(r"(.+?) (?:(squared|cubed)|(plus|minus|times|x|multiplied by|divided by|over|to the power of|"
+                         r"percent of|[-+*/×^]) (.+))", q)
+        if not m:
+            return None
+        a, op = _num(m.group(1)), m.group(2) or m.group(3)
+        b = {"squared": 2, "cubed": 3}[op] if m.group(2) else _num(m.group(4))
+    if a is None or b is None:
+        return None
+    if max(a, b) > 1e12:
+        return "That number is too big to say."
+    op = {"plus": "+", "minus": "-", "times": "*", "x": "*", "×": "*", "multiplied by": "*", "divided by": "/",
+          "over": "/", "squared": "^", "cubed": "^", "to the power of": "^", "percent of": "%"}.get(op, op)
+    if op == "/" and not b:
+        return "You can't divide by zero."
+    if op == "^" and a > 1 and b * math.log10(a) > 15:        # refused before it is worked out, never after
+        return "That number is too big to say."
+    x = {"root": lambda: math.sqrt(a), "+": lambda: a + b, "-": lambda: a - b, "*": lambda: a * b, "/": lambda: a / b,
+         "^": lambda: a ** b, "%": lambda: a * b / 100}[op]()
+    return "That number is too big to say." if abs(x) > 1e15 else for_ear(x).capitalize() + "."
+
+
+def unit(s):
+    s = re.sub(r"^degrees? ", "", s).replace("meter", "metre").replace("liter", "litre").replace("s per ", " per ")
+    return UNITS.get(s) or (UNITS.get(s[:-1]) if s.endswith("s") else None)
+
+
+def amount(s):
+    """'26 miles', 'twenty six miles', '5 feet 10' -> (number, unit row), or None."""
+    s = re.sub(r"(?<=\d)(?=[a-z])", " ", s)
+    m = re.fullmatch(r"(.+?) (?:feet|foot|ft) (?:and )?(.+?)(?: inch(?:es)?)?", s)
+    if m and _num(m.group(1)) is not None and _num(m.group(2)) is not None:
+        return _num(m.group(1)) * 12 + _num(m.group(2)), UNITS["inch"]
+    w = s.split()
+    for i in range(1, len(w)):
+        n, u = _num(" ".join(w[:i])), unit(" ".join(w[i:]))
+        if n is not None and u:
+            return n, u
+    return None
+
+
+def convert(q):
+    """'how many km in 26 miles', '100 fahrenheit in celsius' -> the line to say, or None."""
+    m = re.fullmatch(r"how many (.+?) (?:are )?(?:there )?(?:in|is|are) (.+)", q)
+    if m:
+        dst, src = m.groups()
+    else:
+        m = re.fullmatch(r"(?:convert )?(.+) (?:in|to|into|as) (.+)", q)
+        if not m:
+            return None
+        src, dst = m.groups()
+    have, want = amount(src), unit(dst)
+    if not have or not want or have[1][0] != want[0] or have[0] > 1e12:
+        return None
+    (n, (dim, f, _)), (_, g, say) = have, want
+    if dim == "temp":
+        c = [n, (n - 32) * 5 / 9, n - 273.15][int(f)]
+        x = [c, c * 9 / 5 + 32, c + 273.15][int(g)]
+    else:
+        x = n * f / g
+    return f"{for_ear(x).capitalize()} {say}."
+
+
+def fact_answer(q, now):
+    """A question the code answers exactly -> the line to say, or None (it goes to the model as before)."""
+    q = re.sub(r"^(?:tell me |do you know )", "", re.sub(r"\bwhat['’]?s\b", "what is", q))
+    today = datetime.fromtimestamp(now).date()
+    if re.fullmatch(r"what time is it(?: now)?|what time it is|what is the time(?: now)?|the time", q):
+        return f"It's {clock(now, now)}."
+    if re.fullmatch(r"what is (?:the|today's) date(?: today)?|what date is it(?: today)?|(?:the|today's) date", q):
+        return f"It's {today:%A}, {today:%B} {today.day}."
+    if re.fullmatch(r"what day is (?:it|today)(?: today)?|what day of the week is it", q):
+        return f"It's {today:%A}."
+    m = re.fullmatch(r"what (?:is |will )?(?:the )?(?:date|day)(?: is it| will it be| be)? in (.+?) (days?|weeks?)", q)
+    n = m and _num(m.group(1))
+    if n is not None and n <= 3650:
+        d = today + timedelta(n * (7 if m.group(2).startswith("week") else 1))
+        return f"That's {d:%A}, {d:%B} {d.day}" + ("." if d.year == today.year else f", {d.year}.")
+    m = re.fullmatch(r"what day is (.+)", q)
+    d = m and on_day(m.group(1), today)
+    if d:
+        return f"{d:%B} {d.day} is a {d:%A}."
+    m = re.fullmatch(r"how many days (?:until|till|til|to|before) (.+)", q)
+    d = m and on_day(m.group(1), today)
+    if d:
+        n = (d - today).days
+        return "That's today." if not n else f"{n} day{'s' if n != 1 else ''} until {d:%A}, {d:%B} {d.day}."
+    q = re.sub(r"^(?:what is |how much is |calculate |work out )", "", q)
+    return calc(q) or convert(q)
+
+
+# ------------------------------------------------------------------ "undo that", "what did you hear?", "say that again"
+UNDO_FOR = 120                                                # seconds
+undo = []                                                     # [expires, what, before]: the last change, memory only
+recent = {"you": "", "me": ""}                                # the last thing heard and said, memory only, never logged
+
+
+def can_undo(what, before=None):
+    """Keep the one change "undo that" reverses; before=None marks a change that cannot be put back."""
+    undo[:] = [time.time() + UNDO_FOR, what, before]
+
+
+def undo_last():
+    """Put the last change back if it is under 2 minutes old, and say what is true now."""
+    if not undo or time.time() > undo[0]:
+        undo.clear()
+        return "There's nothing to undo."
+    _, what, before = undo
+    undo.clear()
+    if before is None:
+        return "I can't undo that."
+    if what in ("volume", "mute", "unmute"):
+        ok = run_action("volume", ("set", before[1])) if what == "volume" else run_action("mute" if before[0] else "unmute", None)
+        undo.clear()                                           # an undo is not itself undone
+        if not ok:
+            return "That didn't work."
+        return f"Volume back at {speakers()[1]} percent." if what == "volume" else "Muted." if before[0] else "Unmuted."
+    try:
+        if what == "fact":
+            facts = load_memory()
+            if before not in facts:
+                return "It's already gone."
+            save_memory([f for f in facts if f != before])
+            log("fact removed by undo")
+            return f"Forgotten: {before}."
+        items, now = load_reminders(), time.time()
+        if what == "cancel":                                   # put back what was cancelled, if it has not rung yet
+            back = [r for r in before if r[0] > now and r not in items]
+            if not back:
+                return "It's too late to put that back." if any(r[0] <= now for r in before) else "It's already back."
+            save_reminders(items + back)
+            log(f"reminder put back by undo ({len(back)})")
+            return "Put back: " + "; ".join(describe(r, now) for r in back) + "."
+        if what == "move":                                     # back to its old time, if that has not passed
+            old, new = before
+            if new not in items:
+                return "It's already gone."
+            if old[0] <= now:
+                return "It's too late to put that back."
+            save_reminders([r for r in items if r != new] + [old])
+            log("reminder moved back by undo")
+            return "Put back: " + describe(old, now) + "."
+        gone = [r for r in items if (round(r[0]), round(r[1]), r[2], r[3]) in before]
+        if not gone:
+            return "It's already gone."
+        save_reminders([r for r in items if r not in gone])
+        log(f"reminder removed by undo ({len(gone)})")
+        noun = "alarm" if gone[0][2:] == ("reminder", "alarm") else "timer" if gone[0][2] == "timer" else "reminder"
+        return f"Removed that {noun}." if len(gone) == 1 else f"Removed those {len(gone)} {noun}s."
+    except (OSError, ValueError):
+        return "I can't read that file, so I left it alone."
 
 
 # ------------------------------------------------------------------ to-do by voice and remembered facts
@@ -1518,6 +2046,7 @@ def memory_reply(op, text):
             return "I don't have that."
         save_memory([f for f in facts if f not in gone])
         log(f"fact forgotten ({len(gone)})")
+        can_undo("forget")
         return "Forgotten: " + "; ".join(gone) + "."
     fact = " ".join(text.split())[:200]
     if fact not in facts:
@@ -1525,6 +2054,7 @@ def memory_reply(op, text):
             return "You've told me 50 things. Forget one first."
         save_memory(facts + [fact])
         log(f"fact saved ({len(facts) + 1} stored)")
+        can_undo("fact", fact)
     return f"Noted: {fact}."
 
 
@@ -1540,7 +2070,7 @@ SNOOZE = 60                                                   # seconds, when "s
 DAYS = "mon tue wed thu fri sat sun".split()
 ONES = ("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
         "seventeen eighteen nineteen").split()
-TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60}
+TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
 _remind_bad = [False]                                         # the file could not be read: said once, not every second
 
 
@@ -1558,7 +2088,8 @@ def _num(s):
 
 def duration(s):
     """'10 minutes', 'an hour and a half', 'two minutes and 30 seconds' -> seconds, or None if it is not a duration."""
-    s = re.sub(r"\b(an?|one) hour and a half\b", "90 minutes", s.strip()).replace("half an hour", "30 minutes")
+    s = re.sub(r"\b(?:an?|one) (hour|minute) and a half\b", lambda m: "90 " + ("minutes" if m.group(1) == "hour" else "seconds"),
+               s.strip()).replace("half an hour", "30 minutes")
     s = re.sub(r"((?:sec|min|hour|hr)[a-z]*),? (?!and )", r"\1 and ", s)      # "1 hour 30 minutes" has no "and"
     total = 0
     for piece in s.split(" and "):
@@ -1571,21 +2102,71 @@ def duration(s):
 
 
 def when(s, now):
-    """'in 20 minutes', 'at 6:30 pm', 'at 18:30', 'at 7' -> the time it is due, or None. A clock time is its next
-    occurrence; with no am / pm, 'at 7' is whichever 7 o'clock comes first."""
-    # shortcut: clock times must be digits ("at 7", not "at seven"), which is how speech recognition writes them
-    s = s.strip()
+    """'in 20 minutes', 'at 6:30 pm', 'at 18:30', 'at 7', 'at seven thirty in the morning', 'at 1900 hours',
+    'at noon', 'at 9 tomorrow' -> the time it is due, or None. A clock time is its next occurrence; with no am / pm,
+    'at 7' is whichever 7 o'clock comes first. 'hours', 'hundred' and a leading 0 mean the 24-hour clock."""
+    s = s.strip().lower().rstrip(".")
     if s.startswith("in "):
         d = duration(s[3:])
         return None if d is None else now + d
-    m = re.fullmatch(r"at (\d{1,2})(?:[: .]?(\d{2}))? ?(a\.?m|p\.?m)?\.?", s)
+    lead = re.fullmatch(rf"(?:on |next |this )*(tomorrow|today|{'|'.join(WEEKDAYS)}),?(?: at)? (.+)", s)
+    if lead:                                                   # "tomorrow at 9", "on Friday at 9" -> "at 9 friday"
+        s = f"at {lead.group(2)} {lead.group(1)}"
+    if not s.startswith("at "):
+        return None
+    s = f" {s[3:]} "
+    days = 1 if " tomorrow " in s else 0
+    s = re.sub(r",? (?:tomorrow|today)(?: at)? ", " ", s)
+    wd = re.search(rf",? (?:on )?(?:next |this |coming )?({'|'.join(WEEKDAYS)})(?: at)? ", s)
+    if wd:                                                     # "Monday at 7": that day, at most 7 days ahead
+        days = (WEEKDAYS.index(wd.group(1)) - datetime.fromtimestamp(now).weekday()) % 7
+        s = s[:wd.start()] + " " + s[wd.end():]
+    # "half past six", "quarter to 8", "ten past 7" -> 6:30, 7:45, 7:10
+    q = re.match(r" (half|quarter|[a-z0-9 ]+?)(?: minutes?)? (past|after|to|till) ([a-z0-9]+) ", s)
+    if q:
+        mins, hr = {"half": 30, "quarter": 15}.get(q.group(1), _num(q.group(1))), _num(q.group(3))
+        if mins is not None and hr is not None and 0 < mins <= 30 and mins == int(mins) and hr == int(hr) and 0 <= hr <= 23:
+            back = q.group(2) in ("to", "till")
+            hr = (int(hr) - 1 - back) % 12 + 1 if 1 <= hr <= 12 else (int(hr) - back) % 24     # "quarter to 1" is 12:45
+            s = f" {hr}:{(60 - int(mins)) % 60 if back else int(mins):02d} " + s[q.end():]
+    s = re.sub(r" o'?clock ", " ", s)
+    s = re.sub(r" (?:in the |this )?morning ", " am ", s)
+    s = re.sub(r" (?:(?:in the |this )?(?:afternoon|evening)|(?:at )?night|tonight) ", " pm ", s)
+    s = re.sub(r" (?:12 )?noon ", " 12 pm ", s)
+    s = re.sub(r" (?:12 )?midnight ", " 12 am ", s)
+    m = re.fullmatch(r"(.+?) ?(?:([ap])\.? ?m\.?)?", s.strip())
     if not m:
         return None
-    hour, minute, half = int(m.group(1)), int(m.group(2) or 0), (m.group(3) or "").replace(".", "")
-    if minute > 59 or hour > 23 or (half and not 1 <= hour <= 12):
+    s, half = m.group(1), m.group(2)
+    d = re.fullmatch(r"(\d{1,2})(?:[: .]?(\d{2}))?( hundred)?( hours)?", s)
+    if d:
+        if d.group(4) and not (d.group(2) or d.group(3)):
+            return None                                        # "at 2 hours" is a wait, not a time
+        hour, minute = int(d.group(1)), int(d.group(2) or 0)
+        strict = bool(d.group(3) or d.group(4) or (len(d.group(1)) == 2 and d.group(1)[0] == "0"))
+    else:
+        ws = s.split()
+        strict = bool({"hours", "hundred"} & set(ws))
+        ws = [w for w in ws if w not in ("hours", "hundred")]
+        if not ws or {"a", "an"} & set(ws):
+            return None
+        if strict and "hundred" in s:
+            hour, minute = _num(" ".join(ws)), 0               # "nineteen hundred"
+        else:
+            hour = _num(ws[0])
+            minute = _num(" ".join(ws[1:])[3:] if ws[1:2] == ["oh"] else " ".join(ws[1:])) if ws[1:] else 0
+        if hour is None or minute is None or hour != int(hour) or minute != int(minute):
+            return None
+        hour, minute = int(hour), int(minute)
+    if minute > 59 or hour > 23 or (half and not 1 <= hour <= 12) or (half and strict):
         return None
-    hours = [hour % 12 + (12 if half == "pm" else 0)] if half else [hour, (hour + 12) % 24] if 1 <= hour <= 12 else [hour]
+    hours = [hour % 12 + (12 if half == "p" else 0)] if half else [hour] if strict or not 1 <= hour <= 12 else [hour, (hour + 12) % 24]
     day = datetime.fromtimestamp(now).replace(minute=minute, second=0, microsecond=0)
+    if days or wd:                                             # "tomorrow", "Friday": that day's first match, no rolling on
+        day += timedelta(days=days)
+        ts = [day.replace(hour=h).timestamp() for h in hours]
+        # today's own weekday with its time gone: the same day next week
+        return min([t for t in ts if t > now] or [(day + timedelta(days=7)).replace(hour=h).timestamp() for h in hours])
     return min(t if t > now else t + 86400 for t in (day.replace(hour=h).timestamp() for h in hours))
 
 
@@ -1635,9 +2216,13 @@ def repeats(kind, due):
 def split_time(rest, now):
     """'to cook in 20 minutes' or 'in 20 minutes to cook' -> (due, label, the time as said). No time in it: due is None."""
     for m in re.finditer(r"\b(?:in|at) ", rest):               # the time comes last
-        due = when(rest[m.start():], now)
+        label, said = rest[:m.start()], rest[m.start():]
+        day = re.search(rf"(?:^|\s)(?:on |next |this )*(tomorrow|today|{'|'.join(WEEKDAYS)}),?\s*$", label) if said[:3] == "at " else None
+        if day:                                                # "to call mom tomorrow at 9": the day is part of the time
+            label, said = label[:day.start()], f"{said} {day.group(1)}"
+        due = when(said, now)
         if due is not None:
-            return due, rest[:m.start()].strip(), rest[m.start():]
+            return due, label.strip(), said
     for m in re.finditer(r" (?=(?:to|about|that|for) )", rest):   # the time comes first
         due = when(rest[:m.start()], now)
         if due is not None:
@@ -1648,15 +2233,57 @@ def split_time(rest, now):
 def reminder_cmd(t, cmd, now):
     """A timer or reminder command -> ("list", kind) | ("cancel", kind, words) | ("set", kind, due, label, time as said);
     anything else -> None. due is None when no time was heard (he then asks)."""
+    # alarms are saved as reminders labelled "alarm": kind "alarm" would read as a weekly rule (repeats, next_due)
+    if re.match(r"(?:do i have|have i (?:got|set)|(?:what|which)(?: are)?|what time(?:'s| is)|(?:list|show)(?: me)?|when(?:'s| is)|"
+                r"how long (?:until|till|before)|is) (?:an? |any |all |my |the |next )*alarms?\b", t):
+        return ("list", "alarm")
+    # "move my alarm to 8", "change the 7 am alarm to 8", "make the timer 10 minutes", "add 5 minutes to the timer":
+    # (words that say which one, the new time; or for "add", None and the seconds added). No time read: not this
+    m = re.match(r"(?:change|move|push|reschedule|switch|shift|update) (?:(?:the|my|that) )+(?:(.+?) )?(alarm|reminder) "
+                 r"(?:to|for|until|till) (.+)$", cmd)
+    if m:
+        due = next((d for d in (when(s, now) for s in (m.group(3), "at " + m.group(3))) if d is not None), None)
+        return None if due is None else ("move", m.group(2), m.group(1) or "", due, 0)
+    m = (re.match(r"(?:make|change|reset|update) (?:(?:the|my|that) )+(?:(.+?) )?timer (?:to |for |into )?(.+)$", cmd)
+         or re.match(r"(add) (.+?) (?:to|onto|on to) (?:(?:the|my|that) )+(?:(.+?) )?timer$", cmd))
+    if m:
+        add = m.group(1) == "add"
+        secs = duration(m.group(2))
+        return None if secs is None else ("move", "timer", (m.group(3) if add else m.group(1)) or "",
+                                          None if add else now + secs, secs if add else 0)
+    # "cancel the alarm", "remove my 7 am alarm", "cancel the alarm for 7": the words left say which one (a clock time)
+    m = re.match(r"(?:cancel|delete|remove|clear|stop|turn off|forget) (?:(?:all|every|both|the|my|that|of) )*(?:(.+?) )?alarms?"
+                 r"(?: (?:for|at) (.+?))?(?: (?:that )?i (?:set|made))?$", cmd)
+    # "cancel all alarms", "cancel both", "turn off my alarms": the whole schedule. A plural with other words is by those
+    every = "all " if re.search(r"\b(?:all|every|both)\b", cmd) else ""
+    plural = "all" if re.search(r"\b(?:alarm|reminder|timer)s\b", cmd) else ""
+    if m:
+        return ("cancel", "alarm", f"{every}{m.group(1) or ''} {m.group(2) or ''}".strip() or plural)
+    m = re.match(r"((?:set|create|make|add)(?: me| up)? (?:an? |my |the |another |some )?alarms?|i (?:need|want) (?:an? )?alarm|"
+                 r"alarm|wake me(?: up)?)(?: for| at)?(?: (.+))?$", cmd)
+    if m:
+        rest = re.sub(r" from now$", "", m.group(2) or "")
+        for said in (rest, "at " + rest, "in " + rest):       # "in one minute", "7 am", "one minute"; "at" before "in"
+            due = when(said, now) if rest else None
+            if due is not None:
+                return ("set", "alarm", due, "alarm", said)
+        parts = re.split(r",? and |, ", rest)                  # "7 and 8 am": the am / pm said last is for each
+        half = re.search(r" ?(?:[ap]\.? ?m\.?|in the (?:morning|afternoon|evening)|tonight|at night)$", parts[-1])
+        if len(parts) > 1:
+            dues = [when("at " + (p if half is None or re.search(half.re, p) else p + half.group()), now) for p in parts]
+            if None not in dues:
+                return ("set", "alarm", dues, "alarm", "at " + rest)
+        if not m.group(1).startswith(("alarm", "wake")) and not rest:
+            return ("set", "alarm", None, "alarm", "")        # he asks when
     m = re.match(r"(?:(?:what|which) (?:are )?(?:my |the )?|(?:list|show|read)(?: me| out)? (?:all )?(?:my |the )?|"
                  r"do i have (?:any )?|how (?:much time|long) (?:is |do i have )?left on (?:my |the )?)(reminder|timer)s?"
                  r"(?: (?:do i have|have i (?:got|set)|are (?:set|there|left|pending|running)).*)?$", t)
     if m:
         return ("list", m.group(1))
-    m = re.match(r"(?:cancel|delete|remove|clear|stop|forget) (?:(?:all|every|of|the|my|that) )*(?:(.+) )?(reminder|timer)s?"
+    m = re.match(r"(?:cancel|delete|remove|clear|stop|forget) (?:(?:all|every|both|of|the|my|that) )*(?:(.+) )?(reminder|timer)s?"
                  r"(?: (?:to|about|for) (.+))?$", cmd)
     if m:
-        return ("cancel", m.group(2), f"{m.group(1) or ''} {m.group(3) or ''}".strip())
+        return ("cancel", m.group(2), f"{every}{m.group(1) or ''} {m.group(3) or ''}".strip() or plural)
     m = re.match(r"(?:remind me|(?:set|add) (?:a |another )?reminder)(?: (.+))?$", cmd)
     if m:
         if re.match(r"(what|who|how|why|where|when|which|whether|if) ", m.group(1) or ""):
@@ -1676,6 +2303,8 @@ def reminder_cmd(t, cmd, now):
     if not m:
         return None
     verb, before, after = m.groups()
+    if before and " and " in before:                           # "set an alarm for 7 and set a timer": two commands
+        return None
     secs, label = (duration(before) if before else None), ""
     if before and secs is None:
         if not verb:                                           # "open timer", "what is a timer": not a command for this
@@ -1725,13 +2354,44 @@ def ring_line(r, now):
     due, created, kind, label = r
     if kind == "timer":
         line = f"Your timer for {label} is done." if label else f"Your {span(due - created, '')} timer is done."
+    elif label == "alarm":
+        line = "This is your alarm."
     elif label.startswith("to "):
         line = f"Time {label}."
     else:
         line = f"Reminder: {label[5:]}." if label.startswith("that ") else f"Reminder {label}." if label else "This is your reminder."
     if now - due > 120:                                        # the PC slept, or JARVIS was not running
-        return f"Missed {'timer' if kind == 'timer' else 'reminder'} from {clock(due, now)}: {line[0].lower()}{line[1:]}"
+        return f"Missed {'timer' if kind == 'timer' else 'alarm' if label == 'alarm' else 'reminder'} from {clock(due, now)}: {line[0].lower()}{line[1:]}"
     return line
+
+
+def find_items(pool, said, kind, now):
+    """The items of `pool` that `said` points at, and the words that pointed: by clock time, else by words, else (no
+    words) the asked kind first. Timers go by words only."""
+    # shortcut: a word matches on its first four letters ("cooking" finds "to cook"); fine for a list of 20
+    words = [w for w in said.split() if w not in ("the", "my", "a", "an", "one", "to", "about", "for", "at", "all")]
+    found = [r for r in pool if all(w[:4] in f"{r[3]} {span(r[0] - r[1], '')}" for w in words)]
+    if kind != "timer" and not said.startswith("all"):
+        own = [r for r in pool if (r[2:] == ("reminder", "alarm")) == (kind == "alarm")]
+        at = when("at " + " ".join(words), now) if words else None
+        if at:                                                 # by clock time; "7" with no am / pm is either 7
+            hhmm = lambda ts: datetime.fromtimestamp(ts).strftime("%H:%M")
+            half = re.search(r"\b(?:[ap]\.? ?m\b|morning|afternoon|evening|tonight|night|noon|midnight|hours|hundred)", said)
+            times = {hhmm(at)} | (set() if half else {hhmm(at + 43200)})
+            found = [r for r in pool if hhmm(r[0]) in times]
+        elif not words:                                        # "cancel the reminder": its own kind first, else the other
+            found = own or pool
+        elif not found and len(own) == 1:                      # "cancel the morning alarm" with one alarm: that one
+            found = own
+    return found, words
+
+
+rang = []                                                     # [when the ringing stopped, what rang]: for a later "snooze"
+
+
+def snoozed(due, again):
+    """What rang, back in the schedule once at `again` (a repeating one keeps its own series)."""
+    return [(again, r[1] + again - r[0], "timer" if r[2] == "timer" else "reminder", r[3]) for r in due]
 
 
 def remind_reply(op, args, quiet):
@@ -1741,20 +2401,73 @@ def remind_reply(op, args, quiet):
         items = load_reminders()
     except (OSError, ValueError):
         return "I can't read the reminders file, so I left it alone."
-    same = lambda r: (r[2] == "timer") == (kind == "timer")    # every kind that is not a timer is a reminder
+    # alarms and reminders are one schedule (an alarm is a reminder labelled "alarm"); timers are kept apart
+    is_alarm = lambda r: r[2] == "reminder" and r[3] == "alarm"
+    pool = [r for r in items if (r[2] == "timer") == (kind == "timer")]
     if op == "list":
-        mine = [describe(r, now) for r in items if same(r)]
-        return f"You have {len(mine)} {kind}{'s' if len(mine) != 1 else ''}: {'; '.join(mine)}." if mine else f"You have no {kind}s."
-    if op == "cancel":
-        # shortcut: a word matches on its first four letters ("cooking" finds "to cook"); fine for a list of 20
-        words = [w for w in args[1].split() if w not in ("the", "my", "a", "an", "one", "to", "about", "for")]
-        gone = [r for r in items if same(r) and all(w[:4] in f"{r[3]} {span(r[0] - r[1], '')}" for w in words)]
+        if not pool:
+            return "You have no timers." if kind == "timer" else "You have no alarms or reminders."
+        n = sum(map(is_alarm, pool))
+        counts = (" and ".join(f"{k} {w}{'s' if k != 1 else ''}" for k, w in ((n, "alarm"), (len(pool) - n, "reminder")) if k)
+                  if kind != "timer" else f"{len(pool)} timer{'s' if len(pool) != 1 else ''}")
+        return f"You have {counts}: {'; '.join(describe(r, now) for r in pool)}."
+    if op == "snooze":                                         # "snooze" said after the ringing stopped
+        if not rang or now - rang[0] > 300:
+            return "Nothing is ringing right now."
+        if not args[1]:
+            return "I can snooze it for 1 minute to 2 hours."
+        save_reminders(sorted(items + snoozed(rang[1], now + args[1])))
+        rang.clear()
+        log(f"reminder snoozed ({args[1]:.0f}s, after it rang)")
+        return f"Snoozed for {span(args[1])}."
+    if op in ("cancel", "move"):
+        gone, words = find_items(pool, args[1], kind, now)
+        if len(gone) > 1 and (op == "move" or not words and not args[1].startswith("all")):   # "turn off my alarm" with 2
+            name = lambda r: clock(r[0], now) if is_alarm(r) else describe(r, now)
+            reply_line(f"You have {len(gone)} {kind}s: {' and '.join(map(name, gone))}. Which one?", quiet)
+            S.set(state="listening", level=0.0)
+            answer = hear()
+            if answer:
+                convo_add("U", answer)
+            answer = answer.strip().lower().rstrip(".!?")
+            if not (op == "cancel" and re.search(r"\b(?:both|all|every|them)\b", answer)):
+                pick, said = find_items(gone, answer, kind, now) if answer else ([], [])
+                if not said or not pick or (op == "move" and len(pick) > 1):
+                    return "Okay, I left them."
+                gone = pick
         if not gone:
-            return f"I don't see a {kind} like that."
+            others = "; ".join(describe(r, now) for r in items)
+            return f"I don't see {'an' if kind == 'alarm' else 'a'} {kind} like that." + (f" You have: {others}." if others else "")
+        if op == "move":
+            old, (due, plus) = gone[0], args[2:]
+            due = old[0] + plus if plus else next_due(due, old[2], now) if repeats(old[2], now) else due
+            if not 5 <= due - now <= 7 * 86400:
+                return "I can set that from 5 seconds to 7 days ahead."
+            new = (round(due), round(old[1] if plus else now), old[2], old[3])   # as the file stores it
+            save_reminders([r for r in items if r != old] + [new])
+            log(f"reminder moved ({due - old[0]:.0f}s)")
+            can_undo("move", (old, new))
+            if kind == "timer":
+                return f"The timer now has {span(due - now)} left."
+            return f"Moved your {clock(old[0], now)} {'alarm' if is_alarm(old) else 'reminder'} to {clock(due, now)}."
         save_reminders([r for r in items if r not in gone])
         log(f"reminder cancelled ({len(gone)})")
+        can_undo("cancel", gone)
         return "Cancelled: " + "; ".join(describe(r, now) for r in gone) + "."
+    if op == "flip":                                           # "no, AM": what was just set moves to the other half of the day
+        old = [r for r in items if undo and undo[1] == "reminder" and now < undo[0] and r[2] != "timer"
+               and (round(r[0]), round(r[1]), r[2], r[3]) in undo[2]]
+        if not old:
+            return "There's no alarm to change."
+        # shortcut: 12 hours in seconds, an hour off across a daylight-saving change; use the wall clock if that matters
+        new = [(min(t for t in (r[0] - 43200, r[0] + 43200) if t > now)          # the sooner of the two, never past
+                if (datetime.fromtimestamp(r[0]).hour < 12) != (args[1] == "am") else r[0],) + r[1:] for r in old]
+        save_reminders([r for r in items if r not in old] + new)
+        log(f"reminder moved 12 hours ({len(new)})")
+        can_undo("reminder", [(round(r[0]), round(r[1]), r[2], r[3]) for r in new])
+        return ("Changed to " if new != old else "It's already set for ") + " and ".join(clock(r[0], now) for r in new) + "."
     _, due, label, said = args
+    alarm_set, kind = kind == "alarm", "reminder" if kind == "alarm" else kind
     if repeats(kind, now) and (due is None or said.startswith("in ")):
         return "A repeating reminder needs a clock time, like every day at 9."
     if due is None:                                            # no time heard: ask once and listen, like a confirmation
@@ -1764,18 +2477,33 @@ def remind_reply(op, args, quiet):
         if answer:
             convo_add("U", answer)
         now, answer = time.time(), answer.strip().lower().rstrip(".!?")
-        for said in (answer, "in " + answer, "at " + answer):
+        if re.fullmatch(r"no|nope|never ?mind|cancel(?: that| it)?|forget (?:it|that)|nothing|stop|don'?t", answer):
+            return f"Okay, no {args[0]}."
+        for said in (answer, "at " + answer, "in " + answer):     # "at" first: "1900 hours" is a time, not a wait
             due = when(said, now)
             if due is not None:
                 break
         else:
             return "I didn't catch the time."
-    if not 5 <= due - now <= 7 * 86400:
+    dues = sorted(due) if isinstance(due, list) else [due]     # "alarms for 7 and 8": a list
+    if not all(5 <= d - now <= 7 * 86400 for d in dues):
         return "I can set that from 5 seconds to 7 days ahead."
-    if len(items) >= 20:
+    if len(items) + len(dues) > 20:
         return "You already have 20 pending. Cancel one first."
-    save_reminders(items + [(due, now, kind, re.sub(r"[\s|]+", " ", label))])
-    log(f"reminder set ({kind}, {due - now:.0f}s ahead)")
+    label = re.sub(r"[\s|]+", " ", label)
+    if kind != "timer":                                        # the same alarm or reminder twice would ring twice
+        same = [d for d in dues if any(r[2:] == (kind, label) and abs(r[0] - d) < 60 for r in items)]
+        dues = [d for d in dues if d not in same]
+        if not dues:
+            return f"You already have {'an alarm' if alarm_set else 'that reminder'} for {clock(same[0], now)}."
+    save_reminders(items + [(d, now, kind, label) for d in dues])
+    log(f"reminder set ({'alarm' if alarm_set else kind}, {dues[0] - now:.0f}s ahead, {len(dues)})")
+    can_undo("reminder", [(round(d), round(now), kind, label) for d in dues])   # as the file stores it
+    if len(dues) > 1:
+        return f"Alarms set for {' and '.join(clock(d, now) for d in dues)}."
+    due = dues[0]
+    if alarm_set:
+        return f"Alarm set for {clock(due, now)}" + (f", {span(due - now)} from now." if said.startswith("in ") else ".")
     if kind == "timer":
         return f"Timer set for {span(due - now)}" + (f", for {label}." if label else ".")
     return f"I'll remind you {label} ".replace("  ", " ") + (
@@ -1828,6 +2556,7 @@ def alarm():
             if audio is None:                                  # muted, STEALTH or no voice: shown like a muted reply
                 if setting("JarvisMutedPopup", "1") == "1":
                     S.set(pop="open")
+                rang[:] = [time.time(), due]
                 return
             for _ in range(RINGS):
                 S.set(state="speaking", say=text)
@@ -1838,15 +2567,16 @@ def alarm():
                 heard = hear()                                 # matched and dropped, never kept
                 nap = snooze_for(heard)                        # before the stop words: "okay, snooze" snoozes
                 if nap and not cancel.is_set():                # rings again once; a repeating one keeps its own series
-                    again = time.time() + nap
-                    save_reminders(sorted(load_reminders() + [
-                        (again, r[1] + again - r[0], "timer" if r[2] == "timer" else "reminder", r[3]) for r in due]))
+                    save_reminders(sorted(load_reminders() + snoozed(due, time.time() + nap)))
+                    rang.clear()
                     log(f"reminder snoozed ({nap:.0f}s)")
                     reply_line(f"Snoozed for {span(nap)}.", False)
                     return
                 if cancel.is_set() or (nap is None and STOP_WORDS.search(heard)):
                     convo_add("J", "(stopped)")
+                    rang[:] = [time.time(), due]               # "snooze" in the next 5 minutes still works
                     return
+            rang[:] = [time.time(), due]
         except Exception as e:
             log(f"alarm failed: {type(e).__name__}")
             problem("A reminder could not ring")
@@ -2017,11 +2747,33 @@ def watchdog(started):
 
 
 turn_id = [0.0]
+NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left them|Cancelled)\.$")   # he was told to drop it: no follow-up
+# a whole follow-up reply that means "we're done": he stops without answering
+ENDERS = re.compile(r"(?:(?:ok|okay|alright|great|cool|perfect|no|nah) )?(?:thanks|thank you|that's all|that's it|no thanks|"
+                    r"no thank you|nope|no|goodbye|bye|i'm good|i'm fine|nothing|stop|all good|cheers)(?: jarvis)?")
+
+
+def command_reply(kind, action, target, prompt, quiet):
+    """Carry out a command that needs no confirmation and return what to say; None if it is not one."""
+    if kind in ("say", "fact"):
+        return prompt
+    if kind == "undo":
+        return undo_last()
+    if kind == "level":
+        is_muted, percent = speakers()
+        return f"The volume is at {percent} percent" + (", muted." if is_muted else ".")
+    if kind == "remind":
+        return remind_reply(action, target, quiet)
+    if kind == "memory":
+        return memory_reply(action, target)
+    if kind == "act" and prompt is None:
+        return done_line(action, target) if run_action(action, target) else "That didn't work."
+    return None
 
 
 def turn(tier, follow=0):
-    """One exchange. After a spoken chat answer he listens once more without the wake word (JarvisFollowUp), at most
-    three times in a row: `follow` counts them."""
+    """One exchange. After a spoken answer (chat or a command) he listens once more without the wake word
+    (JarvisFollowUp), at most three times in a row: `follow` counts them."""
     global history, last_turn
     if not busy.acquire(blocking=False):
         return
@@ -2036,6 +2788,10 @@ def turn(tier, follow=0):
         miss = missing_packages()
         if miss:
             problem("Setup needed - missing " + ", ".join(miss) + ". Run Control Center > JARVIS > SETUP")
+            return
+        if setting("JarvisGPU", "prefer").lower() == "require" and not gpu():   # never a turn on the CPU
+            S.set(err="RTX is off - switch the laptop to hybrid graphics (JarvisGPU=require)")
+            reply_line("My graphics card is off.", muted())
             return
         S.set(state="listening", level=0.0, err="")
         if not ensure_ollama():
@@ -2057,7 +2813,7 @@ def turn(tier, follow=0):
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio = listen()
+        audio = listen(patience=follow_wait()) if follow else listen()
         if audio is None or cancel.is_set():
             return
         t_spoke = time.time()
@@ -2070,10 +2826,31 @@ def turn(tier, follow=0):
             return
         log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
         log(f"you: {text}")
+        if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
+            quiet = muted()
+            reply_line("Sorry, I didn't catch that.", quiet)
+            again = not quiet
+            return
         if not text or cancel.is_set():
             return
         convo_add("U", text)
+        if follow and ENDERS.fullmatch(" ".join(re.sub(r"[^a-z' ]", " ", text.lower().replace("’", "'")).split())):
+            log("follow-up: ended by you")
+            return
         quiet = muted()
+
+        def fixed(reply):
+            """Say a fixed reply, keep it in the chat history, and listen once more unless he was told to drop it."""
+            nonlocal again
+            global history, last_turn
+            reply_line(reply, quiet)
+            if time.time() - last_turn > 600:
+                history = []
+            # stamped, so "7:00 AM tomorrow" in the reply still means the right day after midnight
+            history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {text}"},
+                        {"role": "assistant", "content": reply}]
+            last_turn = time.time()
+            again = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
         S.set(err="")
         # "show me what you've said" / "close the log": handled here, no model needed
         if HIDE_LOG.search(text):
@@ -2091,23 +2868,30 @@ def turn(tier, follow=0):
                 speak_all([reply])
             return
         kind, action, target, prompt = route(text)
+        if kind == "heard":
+            fixed(f"I heard: {recent['you']}" if recent["you"] else "I haven't heard anything yet.")
+            return
+        if kind == "again":
+            fixed(recent["me"] or "I haven't said anything yet.")
+            return
+        if ask_ai(text, (kind, action, target, prompt)):       # a missed command: the AI's reading, checked, or as before
+            filler("confirm_wait", quiet)                      # "One moment." while the model reads it; the answer waits for it
+            kind, action, target, prompt = interpret(model, text) or (kind, action, target, prompt)
+        recent["you"] = text
         extra = ""
-        if kind == "say":
-            reply_line(prompt, quiet)
+        if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
+            replies = [command_reply(*part, quiet) for part in target]
+            quiet = muted()
+            fixed(" ".join(replies))
             return
-        if kind == "remind":
-            reply_line(remind_reply(action, target, quiet), quiet)
-            return
-        if kind == "memory":
-            reply_line(memory_reply(action, target), quiet)
-            return
-        if kind == "act":
-            if prompt is None:                                 # harmless: do it now
-                ok = run_action(action, target)
+        if kind != "act" or prompt is None:
+            reply = command_reply(kind, action, target, prompt, quiet)
+            if reply is not None:
                 if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
                     quiet = muted()
-                reply_line(done_line(action, target) if ok else "That didn't work.", quiet)
+                fixed(reply)
                 return
+        if kind == "act":
             # two-phase: stage it, ask, and listen for the answer (15 s) without another click
             pending = {"action": action, "target": target}
             reply_line(prompt, quiet)
@@ -2118,10 +2902,10 @@ def turn(tier, follow=0):
                 convo_add("U", answer)
             if confirmed(pending, answer, time.time()) and not cancel.is_set():
                 ok = run_action(pending["action"], pending["target"])
-                reply_line(("Added." if action == "todo" else "Done.") if ok else "That didn't work.", quiet)
+                fixed(("Added." if action == "todo" else "Done.") if ok else "That didn't work.")
             else:
                 log(f"action {action} not confirmed ({answer!r})")
-                reply_line("Cancelled.", quiet)
+                fixed("Cancelled.")
             return
         if kind == "notes":
             filler("notes", quiet)
@@ -2161,24 +2945,28 @@ def turn(tier, follow=0):
         messages = fit_context([{"role": "system", "content": system_prompt() + "".join("\n" + h for h in hud if h) + extra}],
                                history[-8:], {"role": "user", "content": text})
         collected = []
+        log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
         stream = chat_stream(model, messages)
         if quiet and setting("JarvisMutedPopup", "1") == "1":
-            say_text_only(sentences_from(stream, collected), collected)
+            say_text_only(no_claims(sentences_from(stream, collected), collected), collected)
         else:
-            speak_all(sentences_from(stream, collected))
+            speak_all(no_claims(sentences_from(stream, collected), collected))
         reply = "".join(collected).strip()
-        ollama_on_cpu(model)
+        if ollama_on_cpu(model):
+            chat_to_gpu(model)
+        else:
+            _moved.discard(model)
         log(f"timing: end of speech -> reply done {time.time() - t_spoke:.2f}s ({model})")
         if not reply and not cancel.is_set():
             problem(f"{model} gave no answer - try again, or pick another model in Control Center > JARVIS")
             return
         log(f"jarvis: {reply}")
+        recent["me"] = reply
         convo_add("J", reply)
         history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
         last_turn = time.time()
         S.set(say=reply)
-        # shortcut: follow-up after spoken chat answers only; fixed replies ("Timer set...") leave above. Widen if missed
-        again = not quiet and not cancel.is_set()
+        again = not quiet and not cancel.is_set()             # fixed replies set it in fixed()
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
         live("")
@@ -2189,9 +2977,10 @@ def turn(tier, follow=0):
     finally:
         S.set(state="idle", level=0.0)
         busy.release()
-    # the lock is free for an instant: a reminder that came due while he spoke goes first, and this then simply ends
-    if again and follow < 3 and setting("JarvisFollowUp", "1") == "1":
-        turn(tier, follow + 1)
+        # in finally, so a fixed reply's `return` gets here too. The lock is free for an instant: a reminder that
+        # came due while he spoke goes first, and this then simply ends
+        if again and follow < 3 and setting("JarvisFollowUp", "1") == "1":
+            turn(tier, follow + 1)
 
 
 # ------------------------------------------------------------------ wake word ("Hey Jarvis")
@@ -2322,6 +3111,12 @@ def main():
     S.set(state="idle", level=0.0, err=("Setup needed - missing " + ", ".join(miss)) if miss else "")
     threading.Thread(target=preload_ollama, daemon=True).start()
     if not miss:
+        # one at a time, here: imported at once by the threads below, numpy half-loaded broke the others (wake word, voice)
+        for name in ("numpy", "onnxruntime", "faster_whisper", "openwakeword", "sounddevice"):
+            try:
+                __import__(name)
+            except Exception as e:
+                log(f"start-up import of {name} failed ({type(e).__name__})")
         threading.Thread(target=preload_whisper, daemon=True).start()
         threading.Thread(target=prepare_fillers, daemon=True).start()
         threading.Thread(target=wake_loop, daemon=True).start()
@@ -2336,6 +3131,7 @@ def main():
                 beat = now
                 S.set()                                        # heartbeat
                 unload_idle(now, max(turn_id[0], started))
+                gpu_watch(now)
                 missing = 0 if rainmeter_running() else missing + 1
                 if missing >= 15:                              # Rainmeter gone for 30 s: quit
                     log("Rainmeter closed - exiting")

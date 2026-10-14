@@ -7,7 +7,7 @@
     2. The packages in requirements.txt (pip)        - into a private folder (%LOCALAPPDATA%\SpaceshipHUD\venv),
                                                        exact versions, so your other Python programs are untouched
     3. Ollama + a model                              - the AI brain (runs locally on your GPU)
-    4. Optional: Kokoro-82M natural voice (~90 MB)  - otherwise the built-in Windows voice
+    4. Optional: Kokoro-82M natural voice (~400 MB) - otherwise the built-in Windows voice
   Then writes the Jarvis settings into Settings.inc and refreshes the HUD.
 
 .EXAMPLE
@@ -48,8 +48,14 @@ if (-not (Test-Path $vpy)) { Write-Host "Could not create $venv - see the messag
 & $vpy -m pip install --disable-pip-version-check -r (Join-Path $PSScriptRoot 'requirements.txt')
 if ($LASTEXITCODE -ne 0) { Write-Host 'pip install failed - see the messages above.' -ForegroundColor Yellow; exit 1 }
 Set-Setting 'JarvisPython' (Join-Path $venv 'Scripts\pythonw.exe')
-Write-Host 'Downloading the speech-recognition model (one time, ~150 MB)...'
-& $vpy -c "from faster_whisper import WhisperModel; WhisperModel('base.en', device='cpu', compute_type='int8'); print('speech model ready')"
+# the GPU voice: onnxruntime-gpu 1.23 (CUDA 12, the same libraries as Whisper) replaces the CPU build in the same
+# folder. chromadb / openwakeword / piper / kokoro / faster-whisper ask for "onnxruntime" by name and work with either
+# (tested 2026-10-14), so the line above reinstalls the CPU build each run: uninstall it, then force the GPU build back.
+& $vpy -m pip uninstall -y --disable-pip-version-check onnxruntime
+& $vpy -m pip install --disable-pip-version-check --force-reinstall --no-deps -r (Join-Path $PSScriptRoot 'requirements-gpu.txt')
+if ($LASTEXITCODE -ne 0) { Write-Host 'GPU voice packages failed - see the messages above.' -ForegroundColor Yellow; exit 1 }
+Write-Host 'Downloading the speech-recognition model (one time, ~500 MB)...'
+& $vpy -c "from faster_whisper import WhisperModel; WhisperModel('small.en', device='cpu', compute_type='int8'); print('speech model ready')"
 Step 'Microphone'
 & $vpy -c "import sounddevice as sd; d = sd.query_devices(kind='input'); print('Microphone:', d['name'])"
 if ($LASTEXITCODE -ne 0) { Write-Host 'No microphone found. Plug one in, and check Settings > Privacy & security > Microphone > "Let desktop apps access your microphone".' -ForegroundColor Yellow }
@@ -78,12 +84,13 @@ if ($ollama) {
 
 # ------------------------------------------------------------------ 4. Natural voice (Kokoro-82M)
 Step 'Voice'
-if (Ask 'Install the natural Kokoro voice (~90 MB download, runs on the CPU)? No = the built-in Windows voice') {
+if (Ask 'Install the natural Kokoro voice (~400 MB download, runs on the NVIDIA card if there is one)? No = the built-in Windows voice') {
   if ($true) {
     $vdir = Join-Path $PSScriptRoot 'voices'
     New-Item -ItemType Directory -Force -Path $vdir | Out-Null
     $base = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0'
-    foreach ($f in 'kokoro-v1.0.int8.onnx', 'voices-v1.0.bin') {
+    # int8 = the CPU voice; the full model is only used on the GPU (int8 runs 3x slower there)
+    foreach ($f in 'kokoro-v1.0.int8.onnx', 'kokoro-v1.0.onnx', 'voices-v1.0.bin') {
       $out = Join-Path $vdir $f
       if (-not (Test-Path $out) -or (Get-Item $out).Length -lt 1MB) {
         Write-Host "Downloading $f ..."

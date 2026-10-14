@@ -335,12 +335,7 @@ function Update()
   drawScene(c, st, col, W, D)
   -- label, bottom left of the screen
   local z = H.zones[1]
-  local label = LABEL[st] or 'STANDBY'
-  local e = string.lower(js.err or '')
-  if st == 'idle' and e ~= '' then
-    label = string.find(e, 'setup', 1, true) and 'SETUP NEEDED' or (string.find(e, 'microphone', 1, true) and 'NO MICROPHONE'
-      or (string.find(e, 'ollama', 1, true) and 'NO OLLAMA' or (string.find(e, 'model', 1, true) and 'NO MODEL' or 'CHECK LOG')))
-  end
+  local label = LABEL[st] or 'STANDBY'         -- status only; problems live in Control Center > JARVIS and the log
   -- launched but never came online: say so (the log usually says why)
   if startedAt and st ~= 'offline' then startedAt = nil end
   if startedAt and os.time() - startedAt > 25 then
@@ -350,15 +345,14 @@ function Update()
   end
   if note and os.time() <= note[2] then label = note[1] elseif note then note = nil end
   H.text(1, 1, 8, z.h - 26, 'J.A.R.V.I.S', { size = 5, weight = 700, align = 'LeftBottom', color = H.mix(A1, W, 0.3) })
-  H.text(1, 2, 8, z.h - 12, label, { size = 4.4, weight = 700, align = 'LeftBottom', color = (label == 'START FAILED' or (st == 'idle' and e ~= '')) and H.C.warn or (st == 'listening' and H.mix(DEEP, W, 0.35) or (st == 'offline' and H.mix(OFF, W, 0.2) or W)), glow = false })
+  H.text(1, 2, 8, z.h - 12, label, { size = 4.4, weight = 700, align = 'LeftBottom', color = label == 'START FAILED' and H.C.warn or (st == 'listening' and H.mix(DEEP, W, 0.35) or (st == 'offline' and H.mix(OFF, W, 0.2) or W)), glow = false })
   for k = 3, 8 do H.hideText(1, k) end
   if frame < 6 or frame % 30 == 0 then
     local tip
     if H.num('JarvisEnabled', 1) ~= 1 then tip = 'Jarvis is off (JarvisEnabled=0 in Settings.inc)'
     elseif st == 'offline' then tip = 'Jarvis service not running   click: start it   right-click: conversation log'
-    elseif st == 'idle' then tip = 'Click: talk to Jarvis   right-click: conversation log' .. (js.say ~= '' and ('   last: ' .. string.sub(js.say, 1, 60)) or '')
+    elseif st == 'idle' then tip = 'Jarvis running   click: talk to Jarvis   right-click: conversation log'
     else tip = 'Jarvis ' .. string.lower(LABEL[st] or '') .. '   click: stop' end
-    if js.err ~= '' then tip = tip .. '   (' .. js.err .. ')' end
     local RR = 206
     H.hit(1, 1, CX - RR, CY - RR, RR * 2, RR * 2, tip)
     H.set('H1_1', 'Shape', string.format('Ellipse %.2f,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', RR * H.S, RR * H.S, RR * H.S))

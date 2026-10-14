@@ -4,6 +4,29 @@ Written 2026-10-13 after the first live test. Nothing in this plan is built yet.
 This file is the single source of truth. It is written so that a brand new chat can pick up any phase
 with no other context. Read PART A first, then only the phase you are about to do.
 
+STATUS (2026-10-14, read this first in a new session)
+  - Built since the plan was written: "FIX ROUND 3" (end of PART D), Rounds 1, 2 and 4. Round 3 is not built.
+  - Rounds 2 and 4 are in jarvis.py / test_jarvis.py on branch chore/jarvis-baseline-and-performance, NOT
+    committed and NOT copied to the live skin. All checks passed (test_jarvis OK under the venv and py -3,
+    check_voice OK, the 78-phrase route check showed only the 4 known changes). They wait for the user's live
+    test; commit only with the user's approval.
+  - Rollback for Round 4: the copies in the old session's scratchpad (before_round4/). If that is gone, the
+    last commit (git diff) shows every change made since.
+  - Decided: the log keeps "you: <what you said>" as it is. Do not change it.
+  - Phase 2 steps 2b, 2c and 2d built 2026-10-14 (jarvis.py, test_jarvis.py), NOT committed, NOT in the live
+    skin. Also fixes: whisper() had no lock, so the preload and a turn could load it twice. 2a is the user's
+    click (WHISPER DEVICE -> AUTO). 2e and 2f wait for approval (downloads). Rollback: before_phase2/ in this
+    session's scratchpad (it also holds the uncommitted Round 2/4 work), so never git checkout these files.
+  - 2026-10-14, user's request: the hologram shows status only (J.A.R.V.I.S + STANDBY / LISTENING / THINKING /
+    SPEAKING / OFFLINE, plus STARTING / START FAILED / STOPPED). No last reply, no problem text, no SETUP NEEDED-style
+    labels: problems show in Control Center > JARVIS (SERVICE row) and the log. Whisper moving back to the GPU now
+    clears its own "RTX is off" / "CPU in use" line. NOT committed, NOT live. Rollback: before_hologram/ (scratchpad).
+  - 2026-10-14: 2e and 2f built (results under 2e/2f in PART D). The real venv now has onnxruntime-gpu 1.23.2
+    in place of onnxruntime 1.31.0. Rounds 2/4, Phase 2 and the hologram change are committed together with
+    2e/2f, NOT pushed, NOT in the live skin. For the live test: copy the skin files, put kokoro-v1.0.onnx next
+    to the live kokoro-v1.0.int8.onnx (or re-run Setup), then in Control Center set WHISPER DEVICE=AUTO,
+    WHISPER=small.en, MODEL=llama3.1:8b.
+
 Contents
   PART A   How to use this file, where things are, the rules
   PART B   The 26 reported issues, numbered
@@ -496,10 +519,25 @@ the live setting says so. The voice is on the CPU by design.
     C. Leave the voice on the CPU (today). Measured earlier: capped threads cost about 0.6 s a sentence.
   Decision by measurement: seconds to first sound for the same three sentences, and VRAM used.
   Shown before any install: package name, version, size on disk, how to go back.
+  RESULT (2026-10-14, measured with Whisper loaded on the card in the same process):
+    A. directml 1.24.4: fails on both adapters (ConvTranspose, 80070057). Dropped.
+    B. onnxruntime-gpu 1.23.2 + nvidia-cuda-runtime-cu12 + nvidia-cufft-cu12 (requirements-gpu.txt).
+       int8 model on CUDA: 3.1 s first sentence (slower than the CPU). The full model kokoro-v1.0.onnx
+       (325 MB): 0.24-0.5 s a sentence vs ~1.0 s on the CPU, +~0.5 GB VRAM, cuDNN search HEURISTIC
+       (0.9 s to load vs 4.1 s). CHOSEN. The int8 model stays the CPU fallback; a GPU failure puts the
+       voice on the CPU for 10 minutes. pip check lists 5 "requires onnxruntime" lines: expected, the
+       packages work with the GPU build (check_deps: wake word, whisper, chroma, piper all OK).
+    Rollback: venv\Scripts\python -m pip uninstall -y onnxruntime-gpu, then pip install onnxruntime==1.31.0.
 
 2f. Use the 12 GB (needs approval, each a small download)
   - small.en instead of base.en for speech recognition: fewer mishearings, about 0.5 GB.
   - A stronger chat model than llama3.2:3b: see Phase 6f. The card has room.
+  RESULT (2026-10-14): small.en is now the default (code, Settings.inc, Control Center, Setup): 0.10 s a
+    sentence on the RTX vs 0.04 s for base.en. Chat models, 4 short questions, all fully on the card:
+      llama3.2:3b  0.06-0.42 s, 130-176 tok/s, 2.4 GiB, said 17x23 = 395 (wrong)
+      phi4-mini    0.07-0.26 s (5.2 s first), 75-139 tok/s, 2.9 GiB, 391
+      llama3.1:8b  0.10-0.71 s, 64-84 tok/s, 4.9 GiB, 391
+    Recommended: llama3.1:8b (the Setup default). Still under 1 s; total VRAM ~6 GiB of 12 with voice + small.en.
 
 Tests (fakes)
   - Whisper on a fake CPU plus gpu() turning True -> one reload on the card, none while busy, at most one
@@ -859,6 +897,20 @@ Fixes:  issue 5  (brings up quizzes and schedule when unrelated)
     unasked data, does it claim actions, does it keep to two sentences, seconds to the first word.
   - Choose by the result. Never the first model in the list. Log the chosen model and the reason.
 
+6g. A smoother voice (added 2026-10-14 after the Phase 1 live test: "the voice doesn't sound very fluid yet")
+  Not covered elsewhere: Phase 2e only makes the voice faster, 6e only changes the words.
+  Measure first (no install): record one three-sentence answer and log, per sentence, the synthesis time,
+  the gap between the end of one sentence and the start of the next, and the sentence length. Then fix
+  only what the numbers show:
+    - Gaps: speak_all() already synthesizes the next sentence while one plays. If gaps remain, the cause
+      is a sentence that takes longer to make than the last one takes to play (then 2e's speed fixes it),
+      or the model writing slower than he speaks (then start speaking after the first two sentences).
+    - Choppy short pieces: join very short sentences (under about 6 words) before speaking them, so the
+      voice gets enough text for natural intonation; never split mid-sentence.
+    - A clipped start or end: a few ms fade in / out and no trimmed silence between sentences.
+    - Pace: a JarvisVoiceSpeed setting (Kokoro speed, default 1.0, kept to 0.8-1.2).
+  Judged by ear by the user; the logged gaps are the number that must go down. Best after Phase 2e.
+
 Tests (fakes)
   - "what's 12 times 9" builds a prompt with no calendar, mail or to-do text.
   - "what's on today" has the calendar and nothing else extra.
@@ -866,6 +918,8 @@ Tests (fakes)
   - A serious sentence gets the proper line even under playful.
   - Fact retrieval picks the right facts, 5 at most. A contradicting fact asks first.
   - The cleaner output has no symbols.
+  - 6g: very short sentences are joined before the voice; a sentence is never split; the speed setting
+    stays inside 0.8-1.2.
 
 Your live test after Phase 6
   1. Ask ten everyday questions with nothing to do with school or mail. Count how often he mentions your
@@ -1208,6 +1262,67 @@ hybrid laptop, which events appear without admin rights, and the script's run ti
 Risk: a wrong rule blames the wrong app. He only names and offers; closing still needs your yes.
 Risk: a game can show high CPU and be fine. The rules say "is using", never "is broken".
 Rollback: revert the commit. Nothing is installed, stored or changed on the system by this phase.
+
+
+FIX ROUND 3   FROM THE THIRD LIVE TEST (added 2026-10-14)
+  Round 1, plain code (built, waiting for the user's live test):
+    - A follow-up without the wake word after command replies too, and once after "Sorry, I didn't catch
+      that." Not after "Okay, never mind.", "Okay, no X." or "Cancelled.". Still at most 3, and JarvisFollowUp=0
+      turns it off. Command replies now go into the chat history, so he knows an alarm was cancelled.
+    - "Undo that" after a cancel puts the items back if they have not rung yet.
+    - Clock words: o'clock, in the morning / evening, tonight, noon, midnight, number words ("seven thirty"),
+      "1900 hours" and a leading 0 mean the 24-hour clock, and "tomorrow" / "today".
+    - "No, AM" / "make it PM" just after an alarm is set moves it 12 hours.
+    - Several alarms at once ("7 and 8 am"), and two safe commands in one sentence ("an alarm for 7 and a
+      timer for 10 minutes"). A command that needs a confirmation is never split out.
+    Limits: in a two-command sentence, undo reverses only the last one. An undo after "no, AM" removes the
+    alarm instead of moving it back.
+  Round 2 (built 2026-10-14, waiting for the live test): one schedule, time grounding, and an AI fallback.
+    Measured first: llama3.1:8b as the first reader of every request got 75 of 97 phrases right and turned 14
+    questions into actions, so the AI is only a checked fallback, never the first reader.
+    - One schedule: "what reminders / alarms do I have" lists alarms and reminders together; "cancel the
+      reminder" / "cancel all reminders" search both; a clock time with no am / pm matches either 7. Timers
+      stay apart. Undo puts a cancel back. Storage is unchanged.
+    - Time grounding: Now has a 12-hour form; the Pending line gives each item's type and time (never its
+      label, at most 5); command replies in the chat history carry a day and time stamp. The system prompt no
+      longer says "you cannot set alarms"; it says the system does, and the chat never claims to.
+    - AI fallback (interpret): only for a near-miss, or a chat line with an alarm / timer / reminder / volume
+      / media word that is not a question or about the past. The model names an intent from a fixed list and
+      copies the words; code checks the words were said, builds a fixed sentence and route() must read it as
+      that command. Lock, sleep, restart, shutdown, open, close, memory and to-do are never on its list. Any
+      error, timeout (8 s) or doubt: the answer is exactly as before. JarvisAIRouter=0 turns it off.
+    He says "One moment." as the AI call starts; his answer waits for it to finish.
+    Limits: real accuracy and the call's time on this PC are unmeasured.
+  Round 3: "Hey Jarvis" needing two tries. First log near-miss scores (numbers only), then fix. Not built yet.
+  Round 4: common assistant complaints (built 2026-10-14, waiting for the live test). Found with ~90 phrases
+    and no mic. Fixed:
+    - Times: "remind me to call mom tomorrow at 9" was set for TODAY with "tomorrow" in the label (now
+      tomorrow, label "to call mom"). Also new: "tomorrow at 9 to ...", "on Friday at 9", "Monday at 7", "next
+      Friday at 9 am" (a weekday is that day, at most 7 days ahead; today's weekday with its time gone is next
+      week), "half past six", "quarter to 8", "ten past 7", "7 tomorrow morning", "6 tomorrow night",
+      "a minute and a half".
+    - "Turn off my alarm" with several alarms asks "You have 2 alarms: 7:00 AM and 8:00 AM. Which one?" and
+      listens once ("the 7", "both", or anything else = "Okay, I left them."). "My alarms" / "all" / "both"
+      means every one, no question.
+    - The same alarm or reminder twice (within a minute) is kept once: "You already have an alarm for 7:00 AM."
+    - "What time is my alarm set for" lists them.
+    - Change one: "move / change my alarm to 8", "make the timer 10 minutes", "add 5 minutes to the timer".
+      Asks which when several match; undo puts it back.
+    - "Snooze (for N)" up to 5 minutes after the ringing stopped. Otherwise "Nothing is ringing right now."
+      "Snoozed" / "moved" are added to the false-claim filter.
+    - In a follow-up only, a whole reply of thanks / that's all / no thanks / nope / goodbye / I'm good /
+      nothing / stop ends it silently. On a turn you started, "thanks" still gets a reply.
+    - Whisper's phantom lines ("Thanks for watching!", "Subtitles by ...", a lone "you") are silence.
+      Log: "transcript: dropped (phantom)", no words.
+    - "Turn it up by 20" / "lower the volume by 5 percent".
+    Known limits:
+    - Muted Windows: the alarm is a pop-up only (the user chose to keep this).
+    - No barge-in (talking over him); a click stops him. No "mute for 10 minutes". No dates past 7 days.
+    - The log keeps "you: <what you said>". The user decided to keep it (2026-10-14): no change.
+    - A real "Thank you." heard while an alarm rings still stops it (STOP_WORDS), as before.
+    - Moving a weekly repeating reminder to another weekday keeps its old weekday.
+    - "Remind me to buy milk for Monday at 9" leaves "for" at the end of the label.
+    Unverified until the live test: real Whisper phantom lines from this mic, and how "Which one?" feels.
 
 
 ========================================================================================================

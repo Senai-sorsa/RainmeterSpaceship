@@ -548,7 +548,7 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'NOTE SEARCH', smart and 'SMART - ChromaDB finds notes by meaning (keyword search if it is not installed)' or 'KEYWORD - exact words only', {
     { 'SMART', function() jset('JarvisSmartSearch', 1) end, smart }, { 'KEYWORD', function() jset('JarvisSmartSearch', 0) end, not smart },
     { 'REINDEX', function() local f = io.open(RES .. 'Data\\jarvis_cmd.txt', 'w'); if f then f:write('REINDEX ', os.time(), '\n'); f:close() end; say('REBUILDING THE NOTES INDEX') end } } }
-  local wm, wd = H.str('JarvisWhisper', 'base.en'), string.lower(H.str('JarvisWhisperDevice', 'auto'))
+  local wm, wd = H.str('JarvisWhisper', 'small.en'), string.lower(H.str('JarvisWhisperDevice', 'auto'))
   rows[#rows + 1] = { 'SPEECH RECOGNITION', wm .. ' on ' .. string.upper(wd) .. '   - bigger models are more accurate but slower; AUTO uses the GPU when it can', {
     { '<', function() jset('JarvisWhisper', cycle(WHISPERS, wm, -1)) end },
     { '>', function() jset('JarvisWhisper', cycle(WHISPERS, wm, 1)) end },

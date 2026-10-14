@@ -201,7 +201,7 @@ JarvisModel=
 JarvisModelFast=llama3.2:3b
 JarvisKeepAlive=10
 ; speech recognition: tiny.en / base.en / small.en / medium.en, on auto / cpu / cuda
-JarvisWhisper=base.en
+JarvisWhisper=small.en
 JarvisWhisperDevice=cuda
 ; voice: blank = Windows built-in, or the path to a Piper .onnx voice (Setup fills this in); speed -5..5
 JarvisVoiceRate=1
