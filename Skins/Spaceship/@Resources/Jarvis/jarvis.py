@@ -51,10 +51,15 @@ import urllib.request
 import wave
 from collections import Counter, deque, namedtuple
 from datetime import datetime, timedelta
+from jarvislib import hearing
 from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE,
     MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State, _name,
     busy, cancel, convo_add, live, log, mic, missing_packages, name_until, problem, rainmeter_running, read_kv,
     setting, settings, single_instance, stop_now, todo_note)
+from jarvislib.stopwords import STOP_PHRASES, StopWords, far, far_add, saying, stop_heard
+from jarvislib.gpu import cpu_in_use, cpu_threads, gpu
+from jarvislib.hearing import (HINT, PHANTOM, _cuda_dlls, _decode, _gpu_try, _load_whisper, _whisper_dev,
+    _whisper_lock, _whisper_to_gpu, gpu_watch, heard_score, no_loops, no_repeats, real_words, transcribe, whisper)
 
 # Matching by meaning (the user, 2026-10-14): a shared word OR a close meaning counts, in 6a, M1, M2 and M4a. The model
 # is ChromaDB's local all-MiniLM-L6-v2; until it is loaded, or without ChromaDB, matching is by words only.
@@ -635,173 +640,6 @@ def interpret(model, text):
     return None if not routes else routes[0] if len(routes) == 1 else ("multi", None, routes, None)
 
 
-# ------------------------------------------------------------------ GPU or capped CPU
-def gpu():
-    """True while an NVIDIA card is attached (a hybrid laptop powers it off on battery)."""
-    try:
-        import ctranslate2
-        return ctranslate2.get_cuda_device_count() > 0
-    except Exception:
-        return False
-
-
-def cpu_threads():
-    """Threads a model may use when it has to run on the CPU: a quarter of the cores, so a turn can't take the PC."""
-    return max(2, (os.cpu_count() or 8) // 4)
-
-
-def cpu_in_use(what, why):
-    """Say so in the log and on the hologram, without opening the pop-up."""
-    problem(f"CPU in use - {what} is not on the GPU ({str(why)[:60]})", popup=False)
-
-
-# ------------------------------------------------------------------ speech to text
-_whisper = None
-_whisper_dev = [None]          # "cuda" or "cpu": where _whisper runs
-_whisper_lock = threading.Lock()
-_gpu_try = [0.0, False]        # when the card was last tried, and whether that failure is already logged
-
-
-def _cuda_dlls():
-    """The pip nvidia-* wheels keep cuBLAS / cuDNN / the CUDA runtime in their own bin folders, which Windows does not search."""
-    import glob
-    for d in [d for p in sys.path for d in glob.glob(os.path.join(p, "nvidia", "*", "bin"))]:
-        if d not in os.environ["PATH"]:
-            os.add_dll_directory(d)
-            os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
-
-
-def _load_whisper(device):
-    from faster_whisper import WhisperModel
-    size = setting("JarvisWhisper", "small.en")
-    if device == "cpu":
-        return WhisperModel(size, device="cpu", compute_type="int8", cpu_threads=cpu_threads())
-    _cuda_dlls()
-    return WhisperModel(size, device="cuda", compute_type="float16")
-
-
-def whisper():
-    global _whisper
-    with _whisper_lock:                                        # the preload and a turn never load it twice
-        if _whisper is None:
-            dev = setting("JarvisWhisperDevice", "auto").lower()
-            why = f"JarvisWhisperDevice={dev}"
-            if dev in ("auto", "cuda"):
-                try:
-                    _whisper, _whisper_dev[0] = _load_whisper("cuda"), "cuda"
-                    log(f"whisper {setting('JarvisWhisper', 'small.en')} on GPU")
-                    return _whisper
-                except Exception as e:
-                    why = e
-            _whisper, _whisper_dev[0], _gpu_try[0] = _load_whisper("cpu"), "cpu", time.time()
-            if dev in ("auto", "cuda") and not gpu():
-                problem("RTX is off - switch the laptop to hybrid graphics", popup=False)
-            else:
-                cpu_in_use("speech recognition", why)
-        return _whisper
-
-
-def gpu_watch(now):
-    """Whisper fell back to the CPU: between turns, at most once a minute, move it to the card once it is back.
-    gpu() is asked last, since it starts CUDA."""
-    if (_whisper is None or _whisper_dev[0] != "cpu" or busy.locked() or now - _gpu_try[0] < 60
-            or setting("JarvisWhisperDevice", "auto").lower() not in ("auto", "cuda") or not gpu()):
-        return False
-    _gpu_try[0] = now
-    threading.Thread(target=_whisper_to_gpu, daemon=True).start()
-    return True
-
-
-def _whisper_to_gpu():
-    global _whisper
-    t0 = time.time()
-    try:
-        m = _load_whisper("cuda")                              # outside the lock: a turn meanwhile keeps the CPU model
-    except Exception as e:
-        if not _gpu_try[1]:
-            _gpu_try[1] = True
-            log(f"whisper: the GPU is still unavailable ({type(e).__name__})")
-        return
-    with _whisper_lock:
-        if _whisper is None or _whisper_dev[0] != "cpu":       # unloaded or moved meanwhile
-            return
-        _whisper, _whisper_dev[0], _gpu_try[1] = m, "cuda", False
-    log(f"whisper moved to GPU ({time.time() - t0:.1f} s)")
-    if S.err.startswith(("RTX is off", "CPU in use - speech recognition")):
-        S.set(err="")                                          # only our own warning; other problems stay up
-
-
-# what Whisper writes on noise or near-silence: treated as silence
-PHANTOM = re.compile(r"[\W_]*(?:(?:thanks|thank you)(?: so much)? for watching|subtitles? by\b.*|you)?[\W_]*", re.I)
-
-
-def real_words(text):
-    if text and PHANTOM.fullmatch(text):
-        log("transcript: dropped (phantom)")
-        return ""
-    return text
-
-
-heard_score = [0.0]            # the lowest segment avg_logprob of the last transcript: below -1.0 Whisper was unsure
-HINT = "Hey Jarvis, set a timer for ten minutes. Jarvis, turn the volume down."   # words he should expect
-
-
-def _decode(model, audio):
-    """Whisper told what to expect. VAD trims the silence; when it leaves nothing (it can cut a short "yes") the audio
-    is decoded once more without it, and without the hint, which Whisper can say back on near-silence."""
-    opts = dict(beam_size=5 if _whisper_dev[0] == "cuda" else 3, language="en", condition_on_previous_text=False)
-    segs = list(model.transcribe(audio, vad_filter=True, hotwords="Jarvis", initial_prompt=HINT, **opts)[0])
-    if not segs:
-        segs = list(model.transcribe(audio, vad_filter=False, **opts)[0])
-    segs = no_loops(segs)
-    heard_score[0] = min((getattr(s, "avg_logprob", 0.0) for s in segs), default=0.0)
-    return real_words(no_repeats(" ".join(s.text for s in segs).strip()))
-
-
-def no_loops(segs):
-    """FR5 N2: drop the segments Whisper itself rates as a loop or as silence (its own limits: compression ratio
-    above 2.4; no-speech above 0.6 while unsure, avg log-prob below -1). Only counts go to the log."""
-    keep = [s for s in segs if getattr(s, "compression_ratio", 0.0) <= 2.4
-            and not (getattr(s, "no_speech_prob", 0.0) > 0.6 and getattr(s, "avg_logprob", 0.0) < -1.0)]
-    if len(keep) < len(segs):
-        log(f"transcript: dropped (loop) {len(segs) - len(keep)} of {len(segs)} parts")
-    return keep
-
-
-def no_repeats(text):
-    """"Okay. Okay. Okay." -> "Okay.": a sentence said 3+ times in a row is kept once (Whisper's repetition loop)."""
-    parts = re.split(r"(?<=[.!?])\s+", text)
-    same = [re.sub(r"[^\w']+", "", p.lower()) for p in parts]  # "Okay." and "okay" are the same sentence
-    res, i = [], 0
-    while i < len(parts):
-        k = i
-        while k + 1 < len(parts) and same[k + 1] == same[i]:
-            k += 1
-        res += parts[i:k + 1] if k - i < 2 else [parts[i]]
-        i = k + 1
-    return " ".join(res)
-
-
-def transcribe(audio):
-    if audio is None:
-        return ""
-    try:
-        return _decode(whisper(), audio)
-    except Exception as e:
-        if "cuda" in str(e).lower() or "cublas" in str(e).lower() or "cudnn" in str(e).lower():
-            global _whisper
-            cpu_in_use("speech recognition", e)
-            try:
-                with _whisper_lock:                            # gpu_watch() moves it back to the card later
-                    m = _whisper = _load_whisper("cpu")
-                    _whisper_dev[0], _gpu_try[0] = "cpu", time.time()
-                return _decode(m, audio)
-            except Exception as cpu_e:
-                log(f"whisper CPU fallback also failed: {cpu_e}")
-                raise cpu_e
-        raise
-
-
 def listen(wait=3, patience=6):
     """Record until you stop talking: waits up to `patience` s for speech, then stops after JarvisSilence seconds of
     quiet (default 1 s; raise it if he cuts you off mid-sentence), max 25 s."""
@@ -1151,66 +989,6 @@ def synth_audio(text):
                         problem(f"Voice failed twice ({type(e).__name__}) - the Windows voice for a minute", popup=False)
                         _broken[voice] = time.time() + 60
     return _windows(text)
-
-
-# ------------------------------------------------------------------ stop words while he speaks (redesign slice F, L1)
-# While he speaks, the wake-word thread's microphone blocks also go to Vosk, which knows only the stop phrases. First a
-# WebRTC echo canceller takes his own voice out (the samples play_samples is playing are the reference), and a stop
-# phrase that is in what he is saying right now is ignored. About 4 % of one CPU core while he speaks, none otherwise.
-STOP_PHRASES = ("jarvis stop", "that's enough", "shut up", "be quiet", "stop", "quiet", "cancel", "enough")
-far = deque(maxlen=50)                  # what he played, in 16 kHz pieces (about 2 s): the echo canceller's reference
-saying = [""]                           # his current and previous sentence: the text guard
-
-
-def far_add(a, rate):
-    """Keep what is being played, at the microphone's 16 kHz, for the echo canceller."""
-    import numpy as np
-    a = a if a.ndim == 1 else a.mean(axis=1)
-    n = int(len(a) * 16000 / rate)
-    far.append(np.interp(np.arange(n) * (rate / 16000), np.arange(len(a)), a).astype(np.float32))
-
-
-def stop_heard(text, guard=""):
-    """The stop phrase in Vosk's text, unless he is saying it himself (its last word is in his sentence)."""
-    text, guard = text.lower(), guard.lower()
-    for p in STOP_PHRASES:
-        key = p if p == "shut up" else p.split()[-1]
-        if re.search(rf"\b{p}\b", text) and not re.search(rf"\b{key}\b", guard):
-            return p
-    return None
-
-
-class StopWords:
-    """Vosk on echo-cancelled microphone audio. One echo canceller for the session: it stays tuned to the room."""
-    def __init__(self):
-        import numpy as np
-        import pywebrtc_audio
-        import vosk
-        vosk.SetLogLevel(-1)
-        self.np, self.vosk = np, vosk
-        self.model = vosk.Model(os.path.join(RES, "Jarvis", "vosk", "vosk-model-small-en-us-0.15"))
-        self.grammar = json.dumps(list(STOP_PHRASES) + ["[unk]"])
-        # gain control after the echo canceller: offline, a "stop" said over him was caught 18 of 22 times, not 14
-        self.aec = pywebrtc_audio.AudioProcessor(sample_rate=16000, num_channels=1, echo_cancellation=True,
-                                                 auto_gain_control=True, stream_delay_ms=40)
-        self.rec, self.ref = None, np.zeros(0, np.float32)
-
-    def feed(self, block, fresh):
-        """One 16 kHz int16 microphone block -> the stop phrase heard, or None. fresh: he just started speaking."""
-        np = self.np
-        if fresh or self.rec is None:
-            self.rec = self.vosk.KaldiRecognizer(self.model, 16000, self.grammar)
-            self.ref = np.concatenate(list(far) or [np.zeros(0, np.float32)])[-4800:]   # what he played in the last 0.3 s
-            far.clear()
-        while len(self.ref) < len(block) and far:
-            self.ref = np.concatenate([self.ref, far.popleft()])
-        ref = np.pad(self.ref[:len(block)], (0, max(0, len(block) - len(self.ref))))
-        self.ref = self.ref[len(block):]
-        mic = block.astype(np.float32) / 32768
-        out = np.concatenate([self.aec.process(mic[i:i + 160], ref[i:i + 160]) for i in range(0, len(mic), 160)])
-        if self.rec.AcceptWaveform((np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes()):
-            return stop_heard(json.loads(self.rec.Result()).get("text", ""), saying[0])
-        return None
 
 
 def play_samples(a, rate, progress=None):
@@ -4393,14 +4171,13 @@ def preload_whisper():
 
 def unload_idle(now, since):
     """Free the speech models after JarvisIdleUnload minutes without a turn; they load again on the next one."""
-    global _whisper
     try:
         mins = float(setting("JarvisIdleUnload", "10"))
     except ValueError:
         mins = 10.0
-    if mins <= 0 or busy.locked() or now - since < mins * 60 or not (_whisper or _engines):
+    if mins <= 0 or busy.locked() or now - since < mins * 60 or not (hearing._whisper or _engines):
         return False
-    _whisper = None
+    hearing._whisper = None                        # the model lives in jarvislib\hearing.py
     _engines.clear()
     gc.collect()
     log(f"idle for {mins:g} min - speech models unloaded")
