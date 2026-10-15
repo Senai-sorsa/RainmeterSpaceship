@@ -5,6 +5,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.argv[1:] = [tempfile.mkdtemp()]          # RES = argv[1]: Data\ (state, logs) is a temp folder, never the skin's
 import jarvis
 
 
@@ -43,6 +44,7 @@ class Everywhere:
 
 
 j = Everywhere(jarvis)
+real_convo_add = jarvis.convo_add                                 # faked further down; the BUG-05 test needs the real one
 j.DUCK_FILE = os.path.join(tempfile.mkdtemp(), "duck.txt")       # never the real Data folder
 j.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
 
@@ -2709,5 +2711,19 @@ for suspend, post, want in ((1, 1, []), (0, 1, [(0xFFFF, 0x0112, 0xF170, 2)]), (
         assert want == "raise"
     finally:
         ctypes.windll, ctypes.WinDLL = real_windll, real_WinDLL
+
+# review BUG-05: the turn, an alarm and problem() may log at once; no line is lost, no .tmp clash
+jb = sys.modules["jarvislib.base"]
+real_convo, jb.CONVO_FILE = jb.CONVO_FILE, os.path.join(tempfile.mkdtemp(), "convo.txt")
+writers = [threading.Thread(target=lambda n=n: [real_convo_add("U", f"{n} {i}") for i in range(25)]) for n in range(4)]
+[w.start() for w in writers]
+[w.join() for w in writers]
+with open(jb.CONVO_FILE, encoding="utf-8") as f:
+    assert len(f.read().splitlines()) == 100
+jb.CONVO_FILE = real_convo
+# review BUG-09: a line break in a label stays one reminder
+j.save_reminders([(time.time() + 900, time.time(), "reminder", "to call\nmum\r\n")])
+assert [r[3] for r in j.load_reminders()] == ["to call mum"]
+j.save_reminders([])
 
 print("test_jarvis: OK")

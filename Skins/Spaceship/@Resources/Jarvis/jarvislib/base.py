@@ -190,17 +190,21 @@ def todo_note():
 
 
 # ------------------------------------------------------------------ conversation log (for the pop-up)
+_writing = threading.RLock()                           # write_atomic / convo_add: one writer at a time
+
+
 def convo_add(who, text):
     text = re.sub(r"\s+", " ", text).strip()
     if not text:
         return
     try:
-        lines = []
-        if os.path.exists(CONVO_FILE):
-            with open(CONVO_FILE, "r", encoding="utf-8", errors="ignore") as f:
-                lines = f.read().splitlines()[-299:]
-        lines.append(f"{who}|{int(time.time())}|{text}")
-        write_atomic(CONVO_FILE, "\n".join(lines) + "\n")
+        with _writing:                                 # read-modify-write: a second thread would drop a line
+            lines = []
+            if os.path.exists(CONVO_FILE):
+                with open(CONVO_FILE, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = f.read().splitlines()[-299:]
+            lines.append(f"{who}|{int(time.time())}|{text}")
+            write_atomic(CONVO_FILE, "\n".join(lines) + "\n")
     except OSError:
         pass
 
@@ -215,6 +219,14 @@ def live(text):
 def write_atomic(path, text):
     """Write a whole file so a reader never sees half of it: a .tmp beside it, then one rename."""
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, path)
+    with _writing:                                     # turn, alarm and problem() threads share the .tmp names
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        for i in range(3):                             # the skin may be reading the file at that instant
+            try:
+                os.replace(tmp, path)
+                return
+            except OSError:
+                if i == 2:
+                    raise
+                time.sleep(0.01)

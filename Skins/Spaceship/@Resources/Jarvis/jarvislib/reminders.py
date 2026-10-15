@@ -267,7 +267,9 @@ def load_reminders():
 
 
 def save_reminders(items):
-    write_atomic(REMIND_FILE, "".join(f"{due:.0f}|{created:.0f}|{kind}|{label}\n" for due, created, kind, label in items))
+    # one reminder per line: a line break in a label would split it and stop every reminder on the next load
+    write_atomic(REMIND_FILE, "".join(f"{due:.0f}|{created:.0f}|{kind}|{' '.join(label.split())}\n"
+                                      for due, created, kind, label in items))
 
 
 def describe(r, now):
