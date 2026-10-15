@@ -97,6 +97,10 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
+  AUDIT-0 STATUS (2026-10-15, end of the AUDIT-0 session): P0-01..P0-09 and P0-12 FIXED and committed; P0-06
+    part 2 skipped (feature); P0-10 half done, the rest WAITS for the user (Settings.inc, Setup-Jarvis.ps1).
+    Commits, list, skips and live-test steps: "AUDIT-0" block (STATUS) and "LIVE TEST AFTER PHASE 7" PART 0.
+    NEXT: Phase 7, in its own new session, starting at 7-0 (show the user the action-table layout first).
   GEMINI AUDIT SORTED (2026-10-15, after the review fixes; plan text only, no code touched, nothing committed):
     rebuilding_jarvis.md (repo root, untracked, do not commit without the user) was split with the user's
     word on every feature item. NEW ORDER: AUDIT-0 (bug fixes P0-01..P0-12 minus P0-11) -> Phase 7 -> 8 -> 9 ->
@@ -2890,8 +2894,8 @@ REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, 
 --------------------------------------------------------------------------------------------------------
 AUDIT-0   BUG FIXES FROM THE GEMINI AUDIT   (added 2026-10-15; the user: DO THESE BEFORE PHASE 7)
 --------------------------------------------------------------------------------------------------------
-  Source: rebuilding_jarvis.md section 3 (P0-01..P0-12; it holds the patch text). Untracked, do not commit it
-  without the user. Same rule as the review fixes: check each claim against the code right before its fix
+  Source: rebuilding_jarvis.md section 3 (P0-01..P0-12; it holds the patch text). Committed (user's word),
+  keep it in the repo root. Same rule as the review fixes: check each claim against the code right before its fix
   (line numbers in the audit may be wrong); a false claim is skipped and noted, not "fixed". One fix at a
   time, test_jarvis OK + check_route 0 of 65 changed after each (PART E); no live test (it joins the
   combined test after Phase 7); commit only on the user's word.
@@ -2914,6 +2918,35 @@ AUDIT-0   BUG FIXES FROM THE GEMINI AUDIT   (added 2026-10-15; the user: DO THES
         jarvis.lua (the write half of 8-L2; 8d's typed text is still Phase 8).
   P0-11 is NOT here: brightness / mic wiring is a feature and moved to Phase 7 (7-A2).
   Rollback: git revert <commit>, newest first. Never checkout / restore / stash.
+
+  STATUS (2026-10-15, branch chore/jarvis-baseline-and-performance, NOT pushed, NOT live). Each claim was
+  checked against the code first; checks per fix: py_compile, test_jarvis OK, check_route 0 of 65 changed.
+  All work was done inline (no subagents). Commits, oldest first:
+    c0e8919 P0-09 FIXED test-only (clock freeze). Gemini's production patch (round(now)) NOT applied.
+    4f20d1c P0-05 FIXED  check_voice.py uses a temp Data\.
+    086158c P0-08 FIXED  a failed reminders save is spoken.
+    dfa7efd P0-12 FIXED  atomic gist save in compact(); H.cmd in Scripts/lib.lua (tmp + rename), used by
+                         jarvis.lua and control.lua. Closes 9-L3 and the write half of 8-L2.
+    965467f P0-04 FIXED  "Yes, Jarvis" / "Yes, sir" save the fact; "continue" / "carry on" are yes words.
+    ae89c1a P0-07 FIXED  snooze_for hears "again in ten", "5 minutes more", a bare number.
+    9c314de P0-01 FIXED  "too loud" goes DOWN, "too quiet" UP, the number said is kept, an ambiguous line is
+                         refused. DEVIATION: bare "quiet" / "soft" left out of AI_DOWN (they matched "too quiet").
+    1ebe040 P0-06 part 1 FIXED  "forget what we said about X" also forgets gist lines (gist_about).
+            P0-06 part 2 SKIPPED  single-fact answers by code ("when is my dentist") = a new feature, not a
+                         defect; needs its own approval and design.
+    e9cb861 P0-03 FIXED  (all three claims true) undo after "no, PM"; undo of a confirmed replace / forget of
+                         facts; undo of a multi-command turn takes back every part. forget_talk is still NOT
+                         undoable, by design (plan ~l.429).
+    441197a P0-02 FIXED  "Did you say ...?" (heard_score < -1.0) now covers reminders, memory save / forget and
+                         multi lines, as the user's D1 decision says; a confirmed act says the real result.
+    92caf0b P0-10 PART   Apply-SpaceshipUpdate.ps1 comment bug fixed (a comment goes in only with a key that
+                         is really added).
+  WAITING FOR THE USER (P0-10 rest): (a) Settings.inc duplicate comment blocks + JarvisCallMe=Senai: the git
+  copy is skip-worktree with blank paths, so nothing was touched; needs the user's word. (b) Setup-Jarvis.ps1
+  absolute JarvisPython / JarvisVoice and JarvisKokoroVoice=bm_george: NOT changed. Debatable, not a defect:
+  jarvis.lua already falls back to the venv pythonw, but a relative JarvisVoice was not shown to resolve, and
+  changing the default voice changes what the user hears. Needs the user's word.
+  Live-test steps for all of the above: "LIVE TEST AFTER PHASE 7", PART 0.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
@@ -3199,6 +3232,23 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
   every FAIL becomes a finding with a proposed fix or "park", the user picks; Phase 10 (tone) items are
   only noted. Lines to paste: "route: ... -> ...", "ear:", "capability:", "interpreter:", "reminder",
   "sleep:", "transcript:", "wake word heard", "train:", "stop words", "timing:".
+
+  PART 0   AUDIT-0 fixes (2026-10-15; see the STATUS list in the AUDIT-0 block).
+    0a. Run check_voice.py: Data\ is left untouched (P0-05).
+    0b. Make the reminders file unwritable, set an alarm: he says it was not saved (P0-08).
+    0c. After a memory compaction and after "forget what we said about X": the gist file keeps its #month
+        header and gist lines about X are gone too (P0-12, P0-06).
+    0d. Click the orb: it still wakes and cancels; REINDEX and TRAINWAKE still work (P0-12, H.cmd).
+    0e. Memory offer: say "Yes, Jarvis" -> saved. "Carry on" / "continue" count as yes (P0-04).
+    0f. "Snooze for 10", "again in ten", "5 minutes more" -> snoozed that many minutes (P0-07).
+    0g. "The music is too loud" -> volume DOWN; "knock the volume down by 20" -> steps by 20;
+        "make it louder and quieter" -> refused (P0-01).
+    0h. Set an alarm, "no, PM", then "undo" -> the alarm comes back; undo after a confirmed replace / forget
+        of a fact restores it; undo of a two-part line takes back both parts (P0-03).
+    0i. Mumble an alarm / "remember that ..." / a two-part line so Whisper is unsure: he asks "Did you
+        say ...?"; "no" -> "Cancelled."; a confirmed volume says the real level (P0-02).
+    0j. Apply-SpaceshipUpdate with a settings-add.txt whose existing keys have comments: those comments
+        are not appended (P0-10 part).
 
   PART 1   Phase 7's own live test: "Your live test after Phase 7" just above (steps 1-8).
 
