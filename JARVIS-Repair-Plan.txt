@@ -2302,6 +2302,25 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
       Chat answers not measured yet. JarvisModel NOT switched: the user decides.
     - Checks: py_compile OK; test_jarvis OK with py -3 and the venv, TZ=ABC-4 and ABC-1; route check 75
       phrases, 0 differences (the checker now freezes the clock: "in 20 minutes" differed by microseconds).
+  SLICE C BUILT 2026-10-14 (offline checks only; live test with all slices at the end):
+    - Lanes: lane_of() sorts each turn into command / info / chat. info = notes, apps, brief, or a chat
+      QUESTION about the HUD data (info_blocks). Info answers use temperature 0 and INFO_PROMPT ("answer
+      only from the data; if it isn't there, say you can't see it; never invent events, emails, names or
+      numbers"). Chat stays at 0.5. The route line shows lane.kind, e.g. "route: command.remind set via rule".
+    - info_blocks, MEASURED (MiniLM, best match against BLOCK_EXAMPLES, 32 phrases): info questions score
+      0.46-0.84, chat lines up to 0.50. Rule: a question form, no "you / your", and >= 0.50 when it is about
+      you ("I / my / me") or >= 0.55 otherwise. 12 of 16 info questions caught, 0 of 16 chat lines misread.
+      wants() also adds these blocks, so the data actually reaches the prompt (0.6 alone would miss it).
+    - L10 fix, "no data, no model": when every block asked about (calendar / mail / to-do) is empty, a
+      fixed reply says so and the model is never called: "Nothing is coming up on your calendar." / "I
+      can't see a calendar - none is connected (Control Center > DATA > CALENDARS)." / "I can't see your
+      Gmail right now." / "Your to-do list is empty." / "No to-do note is set (Control Center > DATA)."
+    - CHANGED FROM THE PLAN: no task lane yet (nothing uses it before Phase 7 / Stage 2). turn()'s command
+      branches are not moved into handlers: same behaviour, less risk. Decision.path = the lane.kind in the
+      route line, no new field.
+    - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), with new tests for
+      info_blocks, lane_of, the fixed no-data replies (no model call) and the info prompt at temperature 0;
+      route check 75 phrases, 0 differences.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE

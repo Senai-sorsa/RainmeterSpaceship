@@ -978,8 +978,8 @@ for text in ("Good morning.", "good evening jarvis", "Brief me", "Hey Jarvis, da
     assert j.route(text)[0] == "brief", text
 for text in ("Good morning, can you open Chrome?", "brief me on quantum physics", "is it a good morning?"):
     assert j.route(text)[0] == "chat", text
-prompts, heard, speaks = [], [0], [0]
-j.chat_stream = lambda model, messages: prompts.append(messages[0]["content"])
+prompts, heard, speaks, temps = [], [0], [0], []
+j.chat_stream = lambda model, messages, temperature=0.5: temps.append(temperature) or prompts.append(messages[0]["content"])
 j.sentences_from = lambda stream, collected: collected.append("Ha.") or iter(["Ha."])
 j.speak_all = j.say_text_only = lambda sentences, *a: list(sentences)
 j.ollama_on_cpu = lambda model: None
@@ -1009,6 +1009,30 @@ assert "BRIEFING:" not in prompts[-1]
 talk(1, words="Good morning.")
 assert "BRIEFING:" in prompts[-1] and "at most three" in prompts[-1]
 assert "Fan 1: 900 RPM" in prompts[-1]                            # a briefing has the readings
+j.history.clear()
+
+# ---- slice C, L10: an info question about empty data gets a fixed reply, never the model
+real_close, real_kv = j.closeness, j.read_kv
+j.closeness = lambda text, others: 0.52 if others is j.BLOCK_EXAMPLES["calendar"] else 0.1
+assert j.info_blocks("What do I have today?") == {"calendar"}
+assert "calendar" in j.wants("What do I have today?")                  # its data goes in too (0.6 alone would miss)
+assert j.info_blocks("What's on today?") == set()                       # not about you: needs 0.55
+for talk_line in ("Tell me about your weekend.", "Is it a busy week for you?", "Today was long."):
+    assert j.info_blocks(talk_line) == set(), talk_line                 # about him, or not a question: chat
+assert j.lane_of("chat", {"calendar"}) == "info" and j.lane_of("chat", set()) == "chat"
+assert j.lane_of("notes", set()) == "info" and j.lane_of("remind", set()) == "command"
+for cal, want in (("", "I can't see a calendar"), ("T 1" + chr(10) + "C 1 0", "Nothing is coming up")):
+    j.read_kv = lambda name, cal=cal: cal if name == "calendar.txt" else ""
+    n = len(prompts)
+    talk(1, words="What do I have today?")
+    assert len(prompts) == n and j.history[-1]["content"].startswith(want), (cal, j.history[-1:])   # no model call
+real_context, j.context = j.context, lambda *a: "Upcoming calendar events: Thu 15 Oct 09:00 - Dentist"   # faked "" above
+n = len(prompts)
+talk(1, words="What do I have today?")
+assert len(prompts) == n + 1 and "Dentist" in prompts[-1] and "INFO QUESTION" in prompts[-1] and temps[-1] == 0   # data: the model, strict
+j.closeness, j.read_kv, j.context = real_close, real_kv, real_context
+talk(1, words="Tell me a joke.")
+assert "INFO QUESTION" not in prompts[-1] and temps[-1] == 0.5
 j.history.clear()
 real_sensors, j.sensors = j.sensors, lambda: "Fan 1: 900 RPM\nPending: alarm at 7:00 AM"
 talk(1, words="Tell me a joke.")
@@ -1335,9 +1359,9 @@ j.undo.clear()
 # ---- 6j: one route line per turn - the path and the total, never words from the question
 routes, keep = [], j.log
 j.log = lambda line: routes.append(line) if line.startswith("route:") else None
-for words, want in (("Tell me a joke.", "route: chat via model, total "),
-                    ("What's the volume?", "route: level via rule, total "),
-                    ("Set a timer for 10 minutes.", "route: remind set via rule, total "),
+for words, want in (("Tell me a joke.", "route: chat.chat via model, total "),
+                    ("What's the volume?", "route: command.level via rule, total "),
+                    ("Set a timer for 10 minutes.", "route: command.remind set via rule, total "),
                     ("New topic.", "route: new_topic via rule, total "),
                     ("Show me what you've said.", "route: log via rule, total ")):
     routes.clear()
@@ -1494,7 +1518,7 @@ for text in ("New topic.", "new topic", "Jarvis, new topic.", "Okay, let's chang
 for text in ("A new subject at school is hard.", "New topics in physics?", "what's a new topic for my essay"):
     assert not j.NEW_TOPIC.match(j.strip_name(text)), text
 sent, real_stream = [], j.chat_stream
-j.chat_stream = lambda model, messages: sent.append(messages) or real_stream(model, messages)
+j.chat_stream = lambda model, messages, *a: sent.append(messages) or real_stream(model, messages, *a)
 past = lambda: [m["content"] for m in sent[-1][1:-1]]             # what went in between the system prompt and the question
 j.history.clear()
 talk(1, words="Tell me about the Eiffel Tower.")

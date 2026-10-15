@@ -280,16 +280,21 @@ def vec(text):
     return v
 
 
-def meaning(text, others, floor):
-    """Whether text means about the same as any of `others` (cosine >= floor). False while the model is off."""
+def closeness(text, others):
+    """How close text is in meaning to the nearest of `others` (cosine); 0.0 while the model is off."""
     if _embed[0] is None or not others:
-        return False
+        return 0.0
     try:
         q = vec(STAMP.sub("", text))
-        return any(sum(a * b for a, b in zip(q, vec(STAMP.sub("", o)))) >= floor for o in others)
+        return max(sum(a * b for a, b in zip(q, vec(STAMP.sub("", o)))) for o in others)
     except Exception as e:
         log(f"meaning match failed, words only: {e!r}")
-        return False
+        return 0.0
+
+
+def meaning(text, others, floor):
+    """Whether text means about the same as any of `others` (cosine >= floor). False while the model is off."""
+    return closeness(text, others) >= floor
 
 
 # 6a, by meaning: a block also goes in when the question is very close to one of these
@@ -327,8 +332,9 @@ def wants(text, kind=None):
     """The HUD blocks a question needs. None = all of them (a briefing, or a caller that did not say)."""
     if text is None or kind == "brief":
         return set(BLOCKS)
+    asked = info_blocks(text)                                  # slice C: the blocks an info question was sent for
     return {b for b, pat in BLOCKS.items()
-            if re.search(rf"\b(?:{pat})", text, re.I) or meaning(text, BLOCK_EXAMPLES[b], MEANING_BLOCK)}
+            if re.search(rf"\b(?:{pat})", text, re.I) or b in asked or meaning(text, BLOCK_EXAMPLES[b], MEANING_BLOCK)}
 
 
 def context(text=None, kind=None):
@@ -645,8 +651,8 @@ def chat_to_gpu(model):
     return True
 
 
-def chat_stream(model, messages):
-    opts = {"num_ctx": ctx_tokens(), "temperature": 0.5, "num_predict": 160}
+def chat_stream(model, messages, temperature=0.5):
+    opts = {"num_ctx": ctx_tokens(), "temperature": temperature, "num_predict": 160}
     if not gpu():
         opts["num_thread"] = cpu_threads()
     body = json.dumps({"model": model, "messages": messages, "stream": True, "keep_alive": keep_alive(),
@@ -3660,6 +3666,46 @@ def understand(text, model, quiet, room):
     return Decision(kind, action, target, prompt, via)
 
 
+# REDESIGN slice C: lanes. command = code runs it; info = an answer from data only; chat = talk.
+# shortcut: no task lane yet (nothing routes there), add it with Phase 7 multi-settings / Stage 2
+ASKING = re.compile(r"(?:what|when|where|which|who|how|do|does|did|am|is|are|have|has|any|tell me|show me|check|read)\b", re.I)
+INFO_PROMPT = ("\nINFO QUESTION: answer only from the LIVE HUD DATA and the results above. If what was asked is not "
+               "there, say you can't see it. Never invent events, emails, names or numbers.")
+
+
+def info_blocks(text):
+    """The data blocks a chat line asks about. Measured 2026-10-14 (MiniLM): info questions 0.46-0.84, talk up to
+    0.50, so only a question about you ("I / my", no "you") at 0.5, or any question at 0.55, counts."""
+    t = strip_name(text).strip().lower().replace("’", "'")
+    words = set(re.findall(r"[a-z']+", t))
+    if not (t.endswith("?") or ASKING.match(t)) or {"you", "your", "you're", "yourself"} & words:
+        return set()
+    floor = 0.5 if {"i", "my", "me", "i'm", "i've", "am"} & words else 0.55
+    return {b for b, ex in BLOCK_EXAMPLES.items() if closeness(t, ex) >= floor}
+
+
+def lane_of(kind, blocks):
+    if kind in ("notes", "apps", "brief") or kind == "chat" and blocks:
+        return "info"
+    return "chat" if kind in ("chat", "guard") else "command"
+
+
+def no_data(text, blocks):
+    """L10: a fixed reply when everything asked about is empty, so the model never fills the gap. None: data to use."""
+    if not blocks or blocks - {"calendar", "mail", "todo"}:
+        return None
+    have = context(text)
+    lines = []
+    if "calendar" in blocks and "Upcoming calendar events:" not in have:
+        lines.append("Nothing is coming up on your calendar." if re.search(r"^C [1-9]", read_kv("calendar.txt"), re.M)
+                     else "I can't see a calendar - none is connected (Control Center > DATA > CALENDARS).")
+    if "mail" in blocks and "Unread Gmail:" not in have:
+        lines.append("I can't see your Gmail right now.")
+    if "todo" in blocks and "Open to-dos:" not in have:
+        lines.append("Your to-do list is empty." if todo_note() else "No to-do note is set (Control Center > DATA).")
+    return " ".join(lines) if len(lines) == len(blocks) else None
+
+
 def command_reply(kind, action, target, prompt, quiet):
     """Carry out a command that needs no confirmation and return what to say; None if it is not one."""
     if kind in ("say", "fact"):
@@ -3822,6 +3868,12 @@ def turn(tier, follow=0, woke=False):
             return
         if cancel.is_set():                                    # stopped while the model read it: nothing runs
             return
+        blocks = info_blocks(text) if kind == "chat" else set()
+        lane = way["lane"] = lane_of(kind, blocks)
+        empty = no_data(text, blocks)
+        if empty:                                              # no data, no model
+            fixed(empty)
+            return
         # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
         recent["you"] = text
         extra = ""
@@ -3896,12 +3948,13 @@ def turn(tier, follow=0, woke=False):
             readings = [r.replace("Pending:", "Pending (don't bring it up unless asked about alarms, reminders or timers):", 1)
                         for r in readings if r.startswith("Pending:") and "pending" in want]
         extra += "" if apart else recall(text)                # M2: an earlier talk, only when the question is about it
+        extra += INFO_PROMPT if lane == "info" else ""
         messages = fit_context([{"role": "system", "content": system_prompt(ask, kind) + "".join("\n" + r for r in readings) + extra}],
                                past, {"role": "user", "content": text})
         collected = []
         way["via"] = "model"
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
-        stream = chat_stream(model, messages)
+        stream = chat_stream(model, messages, 0 if lane == "info" else 0.5)
         if quiet and setting("JarvisMutedPopup", "1") == "1":
             say_text_only(no_claims(sentences_from(stream, collected), collected), collected)
         else:
@@ -3939,7 +3992,8 @@ def turn(tier, follow=0, woke=False):
         if "kind" in way:                                      # only names from the code, never words you said
             act = way.get("action")
             act = f" {act}" if isinstance(act, str) and re.fullmatch(r"[a-z_]+", act) else ""
-            log(f"route: {way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s")
+            tag = f"{way['lane']}." if "lane" in way else ""
+            log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s")
         S.set(state="idle", level=0.0)
         busy.release()
         # in finally, so a fixed reply's `return` gets here too. The lock is free for an instant: a reminder that
