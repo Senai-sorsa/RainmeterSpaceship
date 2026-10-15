@@ -109,6 +109,49 @@ def act_mic_level(change):
 
 
 MEDIA_KEYS = {"playpause": 0xB3, "next": 0xB0, "prev": 0xB1}
+# 7c: the fixed settings-pages table. Windows has no switch for most of these, so he opens the page; speech never builds a link
+PAGES = {"bluetooth": ("ms-settings:bluetooth", "Bluetooth"), "sound": ("ms-settings:sound", "Sound"),
+         "display": ("ms-settings:display", "Display"), "night light": ("ms-settings:nightlight", "Night light"),
+         "focus": ("ms-settings:quiethours", "Focus"), "wifi": ("ms-settings:network-wifi", "Wi-Fi"),
+         "apps": ("ms-settings:appsfeatures", "Installed apps"), "startup": ("ms-settings:startupapps", "Startup apps"),
+         "storage": ("ms-settings:storagesense", "Storage"), "update": ("ms-settings:windowsupdate", "Windows Update"),
+         "power": ("ms-settings:powersleep", "Power and sleep"), "battery saver": ("ms-settings:batterysaver", "Battery saver")}
+
+
+def act_page(target):
+    key, _ = target                                           # (page key, note); only a key of PAGES can open
+    os.startfile(PAGES[key][0])
+
+
+def press_keys(*vks):
+    """Hold the keys in order, release them in reverse (a shortcut like Win+D). Windows gives no result back."""
+    for flags, keys in ((0, vks), (2, vks[::-1])):
+        for vk in keys:
+            ctypes.windll.user32.keybd_event(vk, 0, flags, 0)
+
+
+def pictures_folder():
+    buf = ctypes.create_unicode_buffer(260)
+    ctypes.windll.shell32.SHGetFolderPathW(None, 0x27, None, 0, buf)   # CSIDL_MYPICTURES: follows a OneDrive move
+    return buf.value
+
+
+def act_screenshot(_):
+    """Win+PrintScreen saves a PNG in Pictures\\Screenshots; the action succeeds only if a new file really appears."""
+    folder, start = os.path.join(pictures_folder(), "Screenshots"), time.time() - 1
+    press_keys(0x5B, 0x2C)
+    for _ in range(20):
+        time.sleep(0.25)
+        if os.path.isdir(folder) and any(os.path.getmtime(os.path.join(folder, f)) >= start for f in os.listdir(folder)):
+            return
+    raise OSError("no screenshot file appeared")
+
+
+def act_recycle(_):
+    code = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 0x7) & 0xFFFFFFFF   # no prompt, no progress window, no sound
+    if code not in (0, 0x8000FFFF):                           # 0x8000FFFF: it was already empty
+        raise OSError(f"the recycle bin call ended with {code:#x}")
+
 
 
 def press_key(vk):
@@ -123,6 +166,17 @@ def done_line(action, target):
         return f"Opening {target[0]}."
     if action == "volume":
         return f"Volume at {speakers()[1]} percent."
+    if action == "page":
+        key, note = target
+        title = PAGES[key][1]
+        return (f"Windows has no switch for that, so I opened the {title} settings." if note == "noswitch" else
+                f"I can't read that list yet, so I opened the {title} settings." if note == "nolist" else f"Opening the {title} settings.")
+    if action == "screenshot":
+        return "Screenshot saved in Pictures, Screenshots."
+    if action == "recycle":
+        return "Recycle bin emptied."
+    if action == "desktop":
+        return "Sent."
     if action == "theme":
         return f"{theme_mode().capitalize()} mode is on."
     if action == "brightness":

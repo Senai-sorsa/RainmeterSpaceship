@@ -230,6 +230,58 @@ assert j.route("why is dark mode better?")[0] == "chat"
 themest[0] = "dark"
 assert j.run_action("theme", "light") and themest[0] == "light" and j.done_line("theme", "light") == "Light mode is on."
 assert j.undo_last() == "Back to dark mode." and themest[0] == "dark"
+# 7c/7d: settings pages (a fixed table), screenshot, show desktop, recycle bin
+for heard, want in (("open bluetooth settings", ("bluetooth", "")), ("open the sound settings", ("sound", "")), ("open wi-fi settings", ("wifi", "")),
+                    ("open installed apps", ("apps", "")), ("open startup apps", ("startup", "")), ("open storage settings", ("storage", "")),
+                    ("open windows update", ("update", "")), ("are there updates", ("update", "")), ("turn on night light", ("night light", "noswitch")),
+                    ("turn off do not disturb", ("focus", "noswitch")), ("battery saver on", None), ("what starts with windows", ("startup", "nolist")),
+                    ("open night light settings", ("night light", ""))):
+    got = j.route(heard)
+    assert (got == ("act", "page", want, None)) if want else got[1] != "page", (heard, got)
+assert j.route("open sound")[1] != "page" and j.route("open the display")[1] != "page"   # a bare common word could be an app
+assert j.route("take a screenshot") == ("act", "screenshot", None, None) and j.route("show the desktop") == ("act", "desktop", None, None)
+assert j.route("empty the recycle bin")[:3] == ("act", "recycle", None) and "can't be undone" in j.route("empty the recycle bin")[3]
+opened, _sf = [], j.os.startfile
+j.os.startfile = opened.append
+try:
+    assert j.run_action("page", ("wifi", "")) and opened == ["ms-settings:network-wifi"]
+    assert j.done_line("page", ("update", "")) == "Opening the Windows Update settings."
+    assert j.done_line("page", ("night light", "noswitch")) == "Windows has no switch for that, so I opened the Night light settings."
+    assert j.undo_last() == "I can't undo that."
+finally:
+    j.os.startfile = _sf
+assert not j.run_action("recycle", None)                  # ask-first: refused without the yes (and so never reaches Windows)
+class _Shell:                                                    # a fake shell32: the recycle bin and the screenshot folder
+    code = 0
+    SHEmptyRecycleBinW = lambda s, *a: s.code
+    SHGetFolderPathW = lambda s, *a: None
+_sh, j.ctypes.windll.shell32 = j.ctypes.windll.shell32, _Shell()
+try:
+    assert j.run_action("recycle", None, ("recycle", None)) and j.done_line("recycle", None) == "Recycle bin emptied."   # the fake, never the real bin
+    _Shell.code = 0x8000FFFF
+    j.act_recycle(None)
+    _Shell.code = 5
+    try:
+        j.act_recycle(None)
+        assert False, "a failed empty must be an error"
+    except OSError:
+        pass
+finally:
+    j.ctypes.windll.shell32 = _sh
+shots, _pk, _pf, _sl = tempfile.mkdtemp(), j.press_keys, j.pictures_folder, j.time.sleep
+os.makedirs(os.path.join(shots, "Screenshots"))
+j.pictures_folder, j.time.sleep = lambda: shots, lambda s: None
+try:
+    j.press_keys = lambda *k: None                               # no file appears: not "saved"
+    try:
+        j.act_screenshot(None)
+        assert False, "no new file must be an error"
+    except OSError:
+        pass
+    j.press_keys = lambda *k: open(os.path.join(shots, "Screenshots", "a.png"), "w").close()
+    j.act_screenshot(None)
+finally:
+    j.press_keys, j.pictures_folder, j.time.sleep = _pk, _pf, _sl
 class _Reg:                                                      # a fake winreg: nothing of the real registry is touched
     HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, vals = 1, 1, 2, 4, {"AppsUseLightTheme": 0, "SystemUsesLightTheme": 0}
     class _K:
@@ -1351,7 +1403,7 @@ assert j.route("set the volume to two hundred")[0] != "act" and j.route("set it 
 for text in ("Change the screen colour to blue.", "set the volume to 30 decibels", "please open the settings app"):
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
-for text in ("turn on bluetooth", "Travis, connect my headphones", "turn off wifi", "turn on night light",
+for text in ("turn on bluetooth", "Travis, connect my headphones", "turn off wifi", 
              "change my wallpaper", "hibernate", "sign out", "log me off", "switch to the headset microphone"):
     assert j.route(text) == ("say", None, None, j.CANT), (text, j.route(text))
 for text in ("why is my screen dim?", "how do I turn on bluetooth?", "what is screen brightness"):
@@ -1642,8 +1694,7 @@ j.did.clear()
 caps, keep = [], j.log
 j.log = caps.append
 for text, cap in (("connect my airpods", "bluetooth"), ("turn off wifi", "wifi"),
-                  ("hibernate", "account"), ("sign out", "account"), ("turn on the keyboard light", "keyboard light"),
-                  ("turn on do not disturb", "notifications")):
+                  ("hibernate", "account"), ("sign out", "account"), ("turn on the keyboard light", "keyboard light")):
     caps.clear()
     assert j.route(text)[3] == j.CANT and f"capability: {cap} not built yet - said so" in caps, (text, caps)
 j.log = keep

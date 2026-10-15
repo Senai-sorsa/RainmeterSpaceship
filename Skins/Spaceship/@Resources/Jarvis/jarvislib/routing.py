@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_sleep, act_theme, act_volume, best_app, press_key, run_ok, running_window, start_apps
+from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_page, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
@@ -159,6 +159,10 @@ ACTION_TABLE = {
     "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
     "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
+    "page": Action(act_page, "change", "open a Windows settings page"),
+    "screenshot": Action(act_screenshot, "change", "take a screenshot"),
+    "desktop": Action(lambda _: press_keys(0x5B, 0x44), "change", "show the desktop"),
+    "recycle": Action(act_recycle, "ask", "empty the recycle bin"),
     "theme": Action(act_theme, "change", "switch Windows and the apps to dark or light mode"),
     "brightness": Action(act_brightness, "change", "set or step the screen brightness"),
     "todo": Action(lambda item: act_todo(item), "ask", "add a to-do"),
@@ -194,12 +198,11 @@ UNBUILT_CAPS = {
     "brightness": r"brightness|brighter|dimmer|dim|darker",
     "bluetooth": r"bluetooth|headphones|earbuds|airpods",
     "wifi": r"wi-?fi|airplane mode|flight mode|hotspot",
-    "display": r"night ?light|dark mode|light mode|wallpaper|(?:desktop )?background|resolution|screen ?saver",
+    "display": r"wallpaper|(?:desktop )?background|resolution|screen ?saver",
     "microphone": r"microphone|mic",
     "account": r"hibernat\w*|sign (?:me )?out|log (?:me )?(?:off|out)",
-    "power plan": r"battery saver|power mode",
+    "power plan": r"power mode",
     "keyboard light": r"keyboard (?:light|backlight)",
-    "notifications": r"do not disturb|focus assist",
 }
 UNBUILT = re.compile(r"\b(?:" + "|".join(f"(?P<{k.replace(' ', '_')}>{v})" for k, v in UNBUILT_CAPS.items()) + r")\b")
 UNBUILT_ASK = re.compile(r"(?:i (?:want|need) (?:you )?to |i'?d like (?:you )?to )?(?:set|turn|change|make|dim|brighten|"
@@ -420,6 +423,34 @@ def route(text):
             or re.fullmatch(rf"shut ?down(?: {pc})?|shut (?:it|{pc}) (?:down|off)|power (?:off|down)(?: it| {pc})?|"
                             rf"power (?:it|{pc}) (?:off|down)", cmd)):
         return ("act", "shutdown", None, "You're asking me to shut down the PC. Confirm with yes.")
+    page = None                                                # 7c/7d: a fixed table of Windows settings pages
+    names = (("night light", r"night ?light", 1), ("focus", r"focus(?: assist)?|do not disturb", 1), ("battery saver", r"battery saver", 1),
+             ("startup", r"start-?up apps|startup programs", 1), ("apps", r"installed apps|apps and features", 1),
+             ("update", r"windows updates?", 1), ("bluetooth", r"bluetooth", 1), ("wifi", r"wi-?fi", 1),
+             ("sound", r"sound|audio", 0), ("display", r"display|screen", 0), ("storage", r"storage|disk space", 0),
+             ("power", r"power(?: and sleep| settings)?|sleep", 0), ("update", r"updates", 0), ("apps", r"apps", 0))
+    for key, pat, loose in names:                              # a bare "open sound" could be an app: those need the word settings
+        if re.fullmatch(rf"(?:open|show|go to|take me to|pull up) (?:the |my )?(?:{pat})(?: settings| page| panel)" + ("?" if loose else ""), cmd):
+            page = (key, "")
+        elif key in ("night light", "focus", "battery saver") and (
+                re.fullmatch(rf"(?:turn|switch|put) (?:on|off) (?:the )?(?:{pat})", cmd)
+                or re.fullmatch(rf"(?:turn|switch|put) (?:the )?(?:{pat}) (?:on|off)", cmd)
+                or re.fullmatch(rf"(?:enable|disable|activate|deactivate) (?:the )?(?:{pat})", cmd)):
+            page = (key, "noswitch")
+        if page:
+            break
+    if not page and re.fullmatch(r"(?:are there (?:any )?(?:windows )?updates|check for (?:windows )?updates)\??", cmd):
+        page = ("update", "")
+    if not page and re.fullmatch(r"what (?:starts|runs|launches) (?:with windows|at start-?up|on start-?up)|what(?:'s| is) in start-?up", cmd):
+        page = ("startup", "nolist")
+    if page:
+        return ("act", "page", page, None)
+    if re.fullmatch(r"(?:take |grab )?(?:a )?screenshot|(?:capture|screenshot) (?:the |my )?screen", cmd):
+        return ("act", "screenshot", None, None)
+    if re.fullmatch(r"show (?:the |my )?desktop|minimi[sz]e (?:all|everything|all (?:the )?windows)", cmd):
+        return ("act", "desktop", None, None)
+    if re.fullmatch(r"empty (?:the |my )?(?:recycle bin|trash|bin)", cmd):
+        return ("act", "recycle", None, "You want me to empty the recycle bin. That can't be undone. Confirm with yes.")
     m = (re.fullmatch(r"(?:switch|change|go|turn) (?:on |to |over to |back to )?(?:the )?(dark|light) (?:mode|theme)", cmd)
          or re.fullmatch(r"(?:use|enable|set|put) (?:the )?(dark|light) (?:mode|theme)(?: on)?", cmd)
          or re.fullmatch(r"(?:turn off|disable) (?:the )?(dark|light) (?:mode|theme)", cmd) or re.fullmatch(r"(dark|light) (?:mode|theme)", cmd))
