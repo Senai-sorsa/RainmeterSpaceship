@@ -9,7 +9,7 @@ from .base import log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
 from .llm import chat_json
-from .memory import ACTIVE_TTL, MEMORY_BAD, fact_save, facts_about, load_memory, load_topics, save_memory, save_topics, talk_forget, talk_list
+from .memory import ACTIVE_TTL, MEMORY_BAD, fact_save, facts_about, load_gist, load_memory, load_topics, save_gist, save_memory, save_topics, talk_forget, talk_list
 from .reminders import reminder_cmd, snooze_for
 from .todo import act_todo
 from .turnstate import last, undo
@@ -128,6 +128,14 @@ def interpret(model, text):
     return None if not routes else routes[0] if len(routes) == 1 else ("multi", None, routes, None)
 
 
+def forget_talk(gone):
+    """`gone` holds filed talks (lists) and gist facts (strings): drop both."""
+    save_topics([t for t in load_topics() if t["talk"] not in gone])
+    rows, month = load_gist()
+    if any(f in gone for _, f in rows):
+        save_gist([(d, f) for d, f in rows if f not in gone], month)
+
+
 ACTIONS = {
     "lock": act_lock,
     "sleep": act_sleep,
@@ -141,7 +149,7 @@ ACTIONS = {
     "media": lambda key: press_key(MEDIA_KEYS[key]),
     "todo": lambda item: act_todo(item),
     "forget_all": lambda _: save_memory([]),
-    "forget_talk": lambda gone: save_topics([t for t in load_topics() if t["talk"] not in gone]),   # M2b, after the read-back
+    "forget_talk": forget_talk,                                                     # M2b, after the read-back
     "forget_facts": lambda gone: save_memory([f for f in load_memory() if f not in gone]),           # M4a, after the read-back
     "replace_fact": lambda pair: save_memory([pair[1] if f == pair[0] else f for f in load_memory()]),
 }

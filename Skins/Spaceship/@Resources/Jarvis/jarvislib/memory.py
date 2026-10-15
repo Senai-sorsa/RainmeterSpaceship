@@ -191,26 +191,34 @@ def topics_about(x):
     return [t for t in load_topics() if (kw and kw <= set(t["kw"])) or meaning(x, [topic_text(t)], MEANING_TALK)]
 
 
+def gist_about(x):
+    """Compacted (date, fact) rows in jarvis_gist.txt about X: the same match talk_list reads out."""
+    kw = keywords(x)
+    return [(d, f) for d, f in load_gist()[0] if (kw and kw <= keywords(f)) or meaning(x, [f], MEANING_TALK)]
+
+
 def talk_forget(x):
-    """The route for "forget what we said about X": read the matching talks back and ask (the usual yes)."""
+    """The route for "forget what we said about X": read the matching talks and gist lines back and ask (the usual yes).
+    The action's list holds the talks (lists) and the gist facts (strings)."""
     try:
-        hits = topics_about(x)
+        hits, gists = topics_about(x), gist_about(x)
     except (OSError, ValueError):
         return ("say", None, None, TOPICS_BAD)
-    if not hits:
+    if not hits and not gists:
         return ("say", None, None, NO_TALK)
-    said = "; ".join(t["talk"][0][1][:80] for t in hits[:3]) + ("; and more" if len(hits) > 3 else "")
-    n = len(hits)
-    return ("act", "forget_talk", [t["talk"] for t in hits],
-            f"Forget {n} earlier talk{'s' if n != 1 else ''} about that, starting with: {said}? Confirm with yes.")
+    shown = [t["talk"][0][1][:80] for t in hits[:3]] + [f[:80] for _, f in gists][:max(0, 3 - len(hits))]
+    said = "; ".join(shown) + ("; and more" if len(hits) + len(gists) > 3 else "")
+    n = len(hits) + len(gists)
+    what = "talk" if not gists else "item"
+    return ("act", "forget_talk", [t["talk"] for t in hits] + [f for _, f in gists],
+            f"Forget {n} earlier {what}{'s' if n != 1 else ''} about that, starting with: {said}? Confirm with yes.")
 
 
 def talk_list(x):
     """What you said in the talks about X, newest first, about 300 characters, then up to 3 gist lines about X."""
     try:
         hits = topics_about(x)
-        kw = keywords(x)
-        notes = [f for _, f in load_gist()[0] if (kw and kw <= keywords(f)) or meaning(x, [f], MEANING_TALK)][:3]
+        notes = [f for _, f in gist_about(x)][:3]
     except (OSError, ValueError):
         return TOPICS_BAD
     if not hits:

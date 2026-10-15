@@ -1835,6 +1835,11 @@ assert j.run_action(action, gone) and [t["kw"] for t in j.load_topics()] == [["c
 j.log = keep
 assert logged == ["action: forget_talk "]                                    # no words of the talk in the log
 assert j.route("What do you remember about the Eiffel Tower?")[3] == j.NO_TALK
+j.save_gist([("2026-01-02", "The user likes the Eiffel Tower")], "2026-10")           # P0-06: a compacted gist line is forgotten too
+kind, action, gone, prompt = j.route("forget what we said about the Eiffel Tower")
+assert action == "forget_talk" and gone == ["The user likes the Eiffel Tower"] and "Forget 1 earlier item about that" in prompt, (gone, prompt)
+assert j.run_action(action, gone) and j.load_gist() == ([], "2026-10")                  # the #month header stays
+assert j.route("forget what we said about the Eiffel Tower")[3] == j.NO_TALK
 assert j.route("Forget that my dentist is on Fridays.")[:2] == ("memory", "forget")   # facts: as before
 with open(j.TOPICS_FILE, "w", encoding="utf-8") as f:
     f.write("[1]")
