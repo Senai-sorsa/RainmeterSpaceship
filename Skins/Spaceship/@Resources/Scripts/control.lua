@@ -591,6 +591,10 @@ local function rowsJarvis()
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
   rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey Jarvis", "Hey" and "Jarvis" (about 2 minutes; he says what to do)', {
     { 'TRAIN', function() local f = io.open(RES .. 'Data\\jarvis_cmd.txt', 'w'); if f then f:write('TRAINWAKE ', os.time(), '\n'); f:close() end; say('JARVIS WILL TELL YOU WHAT TO SAY') end } } }
+  local heyOn, gap = H.num('JarvisWakeEasy', 0.5) > 0, H.num('JarvisWakeGap', 5)
+  rows[#rows + 1] = { 'HEY ... JARVIS', heyOn and string.format('ON - your trained "Hey", a pause, then "Jarvis" within %d s wakes him (needs TRAIN)', gap) or 'OFF - only "Hey Jarvis" said together wakes him', {
+    { 'ON', function() jset('JarvisWakeEasy', 0.5) end, heyOn }, { 'OFF', function() jset('JarvisWakeEasy', 0) end, not heyOn },
+    { '-', function() jbump('JarvisWakeGap', -1, 2, 10, 5) end }, { '+', function() jbump('JarvisWakeGap', 1, 2, 10, 5) end } } }
   local mic, mics = H.str('JarvisMic', ''), models('jarvis_mics.txt')   -- listed by jarvis.py at start
   local function nextMic(d)
     if #mics == 0 then say('START JARVIS ONCE TO LIST THE MICROPHONES') else jset('JarvisMic', cycle(mics, mic, d)) end
@@ -604,8 +608,8 @@ local function rowsJarvis()
     { '-', function() jbump('JarvisDuckLevel', -10, 10, 80, 30) end }, { '+', function() jbump('JarvisDuckLevel', 10, 10, 80, 30) end } } }
   local barge = string.lower(H.str('JarvisBargeIn', 'wake'))
   if barge ~= 'off' and barge ~= 'voice' then barge = 'wake' end
-  local bargeText = { off = 'OFF - only a click or the stop key stops him', wake = 'WAKE - "Hey Jarvis" while he talks stops him and he listens',
-    voice = 'VOICE - any speech stops him (HEADPHONES ONLY: on speakers his own voice would)' }
+  local bargeText = { off = 'OFF - only a click or the stop key stops him', wake = 'WAKE - "Hey Jarvis" while he talks stops him and he listens; "stop" or "be quiet" just stops him',
+    voice = 'VOICE - any speech stops him (HEADPHONES ONLY: on speakers his own voice would); "stop" too' }
   rows[#rows + 1] = { 'BARGE-IN', bargeText[barge], {
     { 'OFF', function() jset('JarvisBargeIn', 'off') end, barge == 'off' },
     { 'WAKE', function() jset('JarvisBargeIn', 'wake') end, barge == 'wake' },
@@ -613,9 +617,10 @@ local function rowsJarvis()
   local sk = string.lower(H.str('JarvisStopKey', 'end')) ~= 'off'
   rows[#rows + 1] = { 'STOP KEY', sk and 'END - stops him while he talks, thinks or rings; free for other apps when he is idle' or 'OFF', {
     { 'END', function() jset('JarvisStopKey', 'end') end, sk }, { 'OFF', function() jset('JarvisStopKey', 'off') end, not sk } } }
-  local fu = H.num('JarvisFollowUp', 1) == 1
-  rows[#rows + 1] = { 'FOLLOW-UP', fu and 'ON - after a chat or info answer he listens again, no wake word needed, until you stop answering; after a command, 5 s for "undo"' or 'OFF - every question needs the wake word or a click', {
-    { 'ON', function() jset('JarvisFollowUp', 1) end, fu }, { 'OFF', function() jset('JarvisFollowUp', 0) end, not fu } } }
+  local fu, fwait = H.num('JarvisFollowUp', 1) == 1, H.num('JarvisFollowUpWait', 10)
+  rows[#rows + 1] = { 'FOLLOW-UP', fu and string.format('ON - after a chat or info answer he listens again (waits %d s for you), no wake word needed, until you stop answering; after a command, 5 s for "undo"', fwait) or 'OFF - every question needs the wake word or a click', {
+    { 'ON', function() jset('JarvisFollowUp', 1) end, fu }, { 'OFF', function() jset('JarvisFollowUp', 0) end, not fu },
+    { '-', function() jbump('JarvisFollowUpWait', -1, 3, 30, 10) end }, { '+', function() jbump('JarvisFollowUpWait', 1, 3, 30, 10) end } } }
   local sil, ctx = H.num('JarvisSilence', 1), H.num('JarvisContext', 2048)
   rows[#rows + 1] = { 'LISTENING', string.format('answers after %.1f s of silence   - longer lets you pause mid-sentence, shorter answers sooner', sil), {
     { 'SHORTER', function() jbump('JarvisSilence', -0.5, 0.5, 6, 1) end },

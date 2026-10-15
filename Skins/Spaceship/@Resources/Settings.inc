@@ -222,7 +222,7 @@ JarvisDial=1
 JarvisContext=2048
 JarvisBars=1
 JarvisSpeed=1
-JarvisWakeSensitivity=0.4
+JarvisWakeSensitivity=0.5
 JarvisVault="C:\Users\Senai\Downloads\NotesForSchool\School Notes"
 ; orb animation speed in frames per second (the animation has 210; lower = slower, every frame still shown), and 1 = frames on a black background (key it out)
 JarvisFrameRate=15

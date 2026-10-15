@@ -2433,6 +2433,19 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
     - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), new tests for the
       text guard, the 16 kHz reference and the wake loop stopping on a heard "stop" (fake Vosk); route
       check 75 phrases, 0 differences.
+  SLICE G BUILT 2026-10-14 (offline checks only; live test with all slices at the end):
+    - L5 / L9: NO wake-code change. The plan says code only if he still wakes on room talk after the
+      user's settings, and there is no live data yet. Slice A already ends a wake with no words quietly.
+    - Repo default JarvisWakeSensitivity 0.4 -> 0.5 (the plan's STRICTER 0.50). The live copy keeps its
+      own value: the user presses STRICTER until it shows 0.50, then TRAIN, then WHISPER small.en.
+    - Control Center (L7 sync), JARVIS tab:
+      - new row HEY ... JARVIS: ON / OFF (JarvisWakeEasy 0.5 / 0) and - / + for the gap (JarvisWakeGap,
+        2-10 s, default 5). JarvisWakeHard (0.35) has no row: 4 buttons per row (N15); setting only.
+      - FOLLOW-UP: - / + for JarvisFollowUpWait (3-30 s, default 10, the same limits as jarvis.py); the
+        text shows the wait.
+      - BARGE-IN texts name the stop words (WAKE and VOICE); OFF also turns the stop words off.
+    - Checks: no Lua interpreter here, so control.lua was checked by bracket count only; the Control
+      Center must be opened in the live test. test_jarvis OK; route check 75 phrases, 0 differences.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
