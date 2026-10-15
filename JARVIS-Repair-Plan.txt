@@ -2407,6 +2407,32 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
       far smaller change.
     - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), new test for the
       word-by-word typing; route check 75 phrases, 0 differences. check_voice not run (voice untouched).
+  SLICE F BUILT 2026-10-14 (offline checks only; live test with all slices at the end):
+    - L1: "stop" works WHILE he speaks. The wake-word thread already holds the microphone while he speaks
+      (barge-in); now each 80 ms block also goes through WebRTC echo cancelling + gain control
+      (pywebrtc-audio, AudioProcessor) and then Vosk (small English model) that knows only the stop
+      phrases: stop, Jarvis stop, shut up, be quiet, quiet, cancel, that's enough, enough. A hit calls the
+      existing stop_now() (no new turn). The echo reference is what play_samples plays (resampled to 16 kHz).
+    - Text guard: a stop phrase whose last word is in his current or previous sentence is ignored
+      ("shut up" needs both words).
+    - Only while he speaks and JarvisBargeIn is not off. Without vosk / the model it logs "stop words off"
+      once and works as before ("Hey Jarvis" or a click stops him).
+    - Installed (approved): vosk 0.3.45, pywebrtc-audio 0.2.0 (+ srt) into the venv; pinned in
+      requirements.txt. Model vosk-model-small-en-us-0.15 (41 MB zip, 68 MB unpacked) in Jarvis\vosk,
+      git-ignored. NOT in Setup-Jarvis.ps1 yet (ask the user): a fresh install has no stop words.
+    - Cost (measured offline): model load 0.27 s, about +130 MB RAM once loaded (on his first reply);
+      about 4 % of one CPU core while he speaks, nothing otherwise.
+    - Offline echo test (Windows voice as his reply, a 40 ms room echo, the user's "stop" mixed in):
+      his own replies containing stop / quiet / that's enough: 0 false stops with echo cancelling (6 per
+      reply without it). A "stop" said over him at the same loudness: caught 18 of 22 times (19 of 22
+      when louder); misses in the first ~1.5 s while the canceller settles (one canceller is kept for
+      the session so it stays settled). With silence around it: 22 of 22.
+    - LIVE GATE (user, with the combined test): 10 replies containing stop words on speakers, 0 false
+      stops; the user says "stop" 10 times mid-reply, at least 9 stops. Copy-to-live must also copy the
+      Jarvis\vosk folder.
+    - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), new tests for the
+      text guard, the 16 kHz reference and the wake loop stopping on a heard "stop" (fake Vosk); route
+      check 75 phrases, 0 differences.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE

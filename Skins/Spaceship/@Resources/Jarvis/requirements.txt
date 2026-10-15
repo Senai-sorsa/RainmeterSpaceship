@@ -10,6 +10,8 @@ onnxruntime==1.31.0
 kokoro-onnx==0.6.1          # 0.2.x cannot read voices-v1.0.bin
 piper-tts==1.8.0
 openwakeword==0.6.0
+vosk==0.3.45                # stop words while he speaks; its model (vosk-model-small-en-us-0.15) goes in Jarvis\vosk
+pywebrtc-audio==0.2.0       # echo cancelling for the stop words
 chromadb==1.5.9
 nvidia-cublas-cu12==12.9.2.10      # GPU speech recognition; harmless without an NVIDIA card
 nvidia-cudnn-cu12==9.27.0.42

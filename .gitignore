@@ -31,6 +31,13 @@ Skins/Spaceship/@Resources/Backups/
 Skins/Spaceship/Spaceship/
 Skins/Spaceship/@Resources/Jarvis/**/*.bin
 Skins/Spaceship/@Resources/Jarvis/**/*.wav
+# speech models and other large downloads (Vosk stop-word model, slice F)
+Skins/Spaceship/@Resources/Jarvis/vosk/
+*.zip
+*.gguf
+*.safetensors
+*.pt
+*.tflite
 Skins/Spaceship/@Resources/from kokoro_onnx import Kokoro.py
 Skins/Spaceship/@Resources/testkoroko.py
 *.whl

@@ -2396,6 +2396,48 @@ except Stop:
     pass
 assert barges == [("turn", 0)] and not j.cancel.is_set()
 j.time.sleep = lambda s: None
+
+# ---- redesign slice F: stop words while he speaks (fake Vosk and echo canceller)
+assert j.stop_heard("[unk] stop [unk]") == "stop" and j.stop_heard("[unk] that's enough") == "that's enough"
+assert j.stop_heard("[unk] up [unk]") is None and j.stop_heard("[unk]") is None and j.stop_heard("") is None
+assert j.stop_heard("stop", "You can stop the timer.") is None                   # he is saying it himself
+assert j.stop_heard("be quiet", "Keep it quiet.") is None
+assert j.stop_heard("shut up", "Pick it up later.") == "shut up"                 # his "up" is not "shut up"
+j.far.clear()
+j.far_add(np.ones(960, np.float32), 24000)                                     # 40 ms at Kokoro's rate -> 16 kHz
+assert len(j.far) == 1 and len(j.far[0]) == 640
+heard_vosk = ["[unk] stop [unk]"]
+
+
+class StopRec:
+    def __init__(self, model, rate, grammar):
+        assert rate == 16000 and "stop" in json.loads(grammar)
+
+    def AcceptWaveform(self, pcm):
+        return True
+
+    def Result(self):
+        return json.dumps({"text": heard_vosk[0]})
+
+
+real_stop = {m: sys.modules.get(m) for m in ("vosk", "pywebrtc_audio")}
+sys.modules["vosk"] = S_(SetLogLevel=lambda n: None, Model=lambda path: path, KaldiRecognizer=StopRec)
+sys.modules["pywebrtc_audio"] = S_(AudioProcessor=lambda **k: S_(process=lambda near, far: near))
+score[0], vad_score[0], j.saying[0] = 0.0, 0.0, "Here is the weather."
+lines.clear()
+assert barge({}, 1) == [] and j.cancel.is_set() and "stop word heard (stop)" in lines   # stopped; no new turn
+j.cancel.clear()
+j.saying[0] = "You can stop the timer."                                        # his own "stop": ignored
+assert barge({}, 1) == [] and not j.cancel.is_set()
+sys.modules["vosk"] = None                                                     # not installed: off, logged once
+lines.clear()
+assert barge({}, 3) == [] and not j.cancel.is_set() and sum("stop words off" in str(x) for x in lines) == 1, lines
+for m, mod in real_stop.items():
+    if mod is None:
+        sys.modules.pop(m, None)
+    else:
+        sys.modules[m] = mod
+j.far.clear()
 for m, mod in list(real_oww.items()) + [("sounddevice", real_sd)]:
     if mod is None:
         sys.modules.pop(m, None)

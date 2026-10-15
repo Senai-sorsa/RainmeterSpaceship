@@ -49,7 +49,7 @@ import time
 import urllib.error
 import urllib.request
 import wave
-from collections import Counter, namedtuple
+from collections import Counter, deque, namedtuple
 from datetime import datetime, timedelta
 
 RES = (sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")).strip().strip('"')
@@ -1328,6 +1328,66 @@ def synth_audio(text):
     return _windows(text)
 
 
+# ------------------------------------------------------------------ stop words while he speaks (redesign slice F, L1)
+# While he speaks, the wake-word thread's microphone blocks also go to Vosk, which knows only the stop phrases. First a
+# WebRTC echo canceller takes his own voice out (the samples play_samples is playing are the reference), and a stop
+# phrase that is in what he is saying right now is ignored. About 4 % of one CPU core while he speaks, none otherwise.
+STOP_PHRASES = ("jarvis stop", "that's enough", "shut up", "be quiet", "stop", "quiet", "cancel", "enough")
+far = deque(maxlen=50)                  # what he played, in 16 kHz pieces (about 2 s): the echo canceller's reference
+saying = [""]                           # his current and previous sentence: the text guard
+
+
+def far_add(a, rate):
+    """Keep what is being played, at the microphone's 16 kHz, for the echo canceller."""
+    import numpy as np
+    a = a if a.ndim == 1 else a.mean(axis=1)
+    n = int(len(a) * 16000 / rate)
+    far.append(np.interp(np.arange(n) * (rate / 16000), np.arange(len(a)), a).astype(np.float32))
+
+
+def stop_heard(text, guard=""):
+    """The stop phrase in Vosk's text, unless he is saying it himself (its last word is in his sentence)."""
+    text, guard = text.lower(), guard.lower()
+    for p in STOP_PHRASES:
+        key = p if p == "shut up" else p.split()[-1]
+        if re.search(rf"\b{p}\b", text) and not re.search(rf"\b{key}\b", guard):
+            return p
+    return None
+
+
+class StopWords:
+    """Vosk on echo-cancelled microphone audio. One echo canceller for the session: it stays tuned to the room."""
+    def __init__(self):
+        import numpy as np
+        import pywebrtc_audio
+        import vosk
+        vosk.SetLogLevel(-1)
+        self.np, self.vosk = np, vosk
+        self.model = vosk.Model(os.path.join(RES, "Jarvis", "vosk", "vosk-model-small-en-us-0.15"))
+        self.grammar = json.dumps(list(STOP_PHRASES) + ["[unk]"])
+        # gain control after the echo canceller: offline, a "stop" said over him was caught 18 of 22 times, not 14
+        self.aec = pywebrtc_audio.AudioProcessor(sample_rate=16000, num_channels=1, echo_cancellation=True,
+                                                 auto_gain_control=True, stream_delay_ms=40)
+        self.rec, self.ref = None, np.zeros(0, np.float32)
+
+    def feed(self, block, fresh):
+        """One 16 kHz int16 microphone block -> the stop phrase heard, or None. fresh: he just started speaking."""
+        np = self.np
+        if fresh or self.rec is None:
+            self.rec = self.vosk.KaldiRecognizer(self.model, 16000, self.grammar)
+            self.ref = np.concatenate(list(far) or [np.zeros(0, np.float32)])[-4800:]   # what he played in the last 0.3 s
+            far.clear()
+        while len(self.ref) < len(block) and far:
+            self.ref = np.concatenate([self.ref, far.popleft()])
+        ref = np.pad(self.ref[:len(block)], (0, max(0, len(block) - len(self.ref))))
+        self.ref = self.ref[len(block):]
+        mic = block.astype(np.float32) / 32768
+        out = np.concatenate([self.aec.process(mic[i:i + 160], ref[i:i + 160]) for i in range(0, len(mic), 160)])
+        if self.rec.AcceptWaveform((np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes()):
+            return stop_heard(json.loads(self.rec.Result()).get("text", ""), saying[0])
+        return None
+
+
 def play_samples(a, rate, progress=None):
     """Play audio, writing its loudness to the HUD as it goes (that's what moves the hologram). progress(0..1), if
     given, is called after each block (the pop-up types the sentence at speaking pace)."""
@@ -1343,6 +1403,7 @@ def play_samples(a, rate, progress=None):
                     break
                 chunk = np.ascontiguousarray(a[i:i + block], dtype=np.float32)
                 out.write(chunk)
+                far_add(chunk, rate)
                 S.set(level=min(1.0, float(np.sqrt(np.mean(chunk * chunk)) + 1e-9) / 0.18), force=False)
                 if progress:
                     progress(min(1.0, (i + block) / len(a)))
@@ -1401,7 +1462,7 @@ def speak_all(sentences):
 
 def _speak_queue(q, t0):
     filler_done()                                              # never talk over a status phrase
-    first, spoken, shown = True, "", False
+    first, spoken, shown, last = True, "", False, ""
     while True:
         try:
             item = q.get(timeout=0.5)
@@ -1412,6 +1473,7 @@ def _speak_queue(q, t0):
         if item is None or cancel.is_set():                    # stopped: the rest is never said
             break
         audio, said = item
+        saying[0], last = (last + " " + said).strip(), said    # the text guard: the previous piece and this one
         spoken = (spoken + " " + said).strip()
         if audio is not None and JARVIS_WORD.search(said):     # his own "Jarvis" must not wake the barge-in
             name_until[0] = time.time() + len(audio[0]) / audio[1] + 1.0
@@ -4254,6 +4316,7 @@ def wake_loop():
     model, stream, warned = None, None, False
     off, mic_bad, best, minute = None, False, 0.0, time.time()   # why it is off (logged once per change); top score this minute
     heard_talk, no_vad = 0, False                              # 80 ms blocks heard while he speaks; "voice" without a VAD logged
+    spot = None                                                # the stop words (StopWords); False: not available
     checks, last_score, hey_until = None, 0.0, 0.0             # your trained checks (loaded with the model); FR5 N1
 
     def load(**vad):
@@ -4324,6 +4387,22 @@ def wake_loop():
                     time.sleep(5)
                     continue
             data, _ = stream.read(1280)
+            if talking and spot is not False:
+                try:
+                    if spot is None:
+                        spot = StopWords()
+                        log("stop words ready")
+                    hit = spot.feed(data[:, 0], fresh=heard_talk == 0)
+                except Exception as e:                         # no vosk / model: stop by "Hey Jarvis" or a click as before
+                    spot, hit = False, None
+                    log(f"stop words off ({type(e).__name__}: {str(e)[:80]})")
+                if hit:
+                    log(f"stop word heard ({hit})")
+                    stop_now("stop word")
+                    drop()
+                    model.reset()
+                    heard_talk = 0
+                    continue
             scores = model.predict(np.asarray(data[:, 0], dtype=np.int16))
             try:
                 need = max(0.2, min(0.9, float(setting("JarvisWakeSensitivity", "0.5"))))
