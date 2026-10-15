@@ -12,6 +12,8 @@ local slotCursor = {}
 local TX, TY, TW, TH = 22, 78, 170, 46
 local CX, CW, RY, RH, NROWS = 214, 790, 74, 84, 9     -- roomier rows; the list scrolls
 local scroll = {}                                     -- first visible row per tab
+local BARHIT, NSLICE, barMax = 10 + NROWS * 4 + 1, 16, 1  -- the scroll bar's click area: NSLICE hits from spare H1_47; barMax = last first-row
+local dragging = false                                    -- true between a bar mouse-down and the mouse-up
 local BW, BG = 92, 8
 
 local THEMES = {
@@ -37,6 +39,9 @@ function Initialize()
   SKIN:Bang('!SetOption', 'Bounds', 'Shape', 'Rectangle 0,0,(#WW#*#Scale#),(#WH#*#Scale#) | Fill Color 0,0,0,1 | StrokeWidth 0')
   SKIN:Bang('!SetOption', 'Bounds', 'MouseScrollUpAction', '[!CommandMeasure mScript "OnScroll(1,0,-1)"]')
   SKIN:Bang('!SetOption', 'Bounds', 'MouseScrollDownAction', '[!CommandMeasure mScript "OnScroll(1,0,1)"]')
+  SKIN:Bang('!SetOption', 'Bounds', 'LeftMouseUpAction', '[!CommandMeasure mScript "EndDrag()"]')
+  SKIN:Bang('!SetOption', 'Bounds', 'MouseLeaveAction', '[!CommandMeasure mScript "EndDrag()"]')
+  for i = 1, NSLICE do SKIN:Bang('!SetOption', 'H1_' .. (BARHIT + i - 1), 'LeftMouseDownAction', '[!CommandMeasure mScript "OnBarDown(' .. i .. ',$MouseY:%$)"]') end
   -- reopen on the tab / page / module you were on: most settings refresh every module, this one included
   tab = math.max(1, math.min(#TABS, math.floor(H.num('CtlTab', 1))))
   page = math.max(1, math.floor(H.num('CtlPage', 1)))
@@ -580,6 +585,10 @@ local function rowsJarvis()
     { 'FASTER', function() jbump('JarvisVoiceRate', 1, -5, 5, 1) end } } }
   local mood = string.lower(H.str('JarvisPersonality', 'playful'))
   if mood ~= 'proper' and mood ~= 'brief' then mood = 'playful' end
+  local callme = H.str('JarvisCallMe', '')
+  rows[#rows + 1] = { 'CALL ME', (callme ~= '' and callme or 'NO NAME') .. '   - what he calls you at the end of greetings and goodbyes', {
+    { 'CHANGE', function() SKIN:Bang('!CommandMeasure', 'mInput', 'ExecuteBatch 1') end },
+    { 'CLEAR', function() jset('JarvisCallMe', '') end, callme == '' } } }
   rows[#rows + 1] = { 'PERSONALITY', string.upper(mood) .. '   - how he words his own answers; fixed lines like "Done." stay the same', {
     { 'PROPER', function() jset('JarvisPersonality', 'proper') end, mood == 'proper' },
     { 'PLAYFUL', function() jset('JarvisPersonality', 'playful') end, mood == 'playful' },
@@ -617,10 +626,10 @@ local function rowsJarvis()
   local sk = string.lower(H.str('JarvisStopKey', 'end')) ~= 'off'
   rows[#rows + 1] = { 'STOP KEY', sk and 'END - stops him while he talks, thinks or rings; free for other apps when he is idle' or 'OFF', {
     { 'END', function() jset('JarvisStopKey', 'end') end, sk }, { 'OFF', function() jset('JarvisStopKey', 'off') end, not sk } } }
-  local fu, fwait = H.num('JarvisFollowUp', 1) == 1, H.num('JarvisFollowUpWait', 10)
-  rows[#rows + 1] = { 'FOLLOW-UP', fu and string.format('ON - after a chat or info answer he listens again (waits %d s for you), no wake word needed, until you stop answering; after a command, 5 s for "undo"', fwait) or 'OFF - every question needs the wake word or a click', {
+  local fu, fwait = H.num('JarvisFollowUp', 1) == 1, H.num('JarvisFollowUpWait', 3)
+  rows[#rows + 1] = { 'FOLLOW-UP', fu and string.format('ON - after any answer his ear stays open %d s, no wake word needed; talk that is not for him is ignored or he asks', fwait) or 'OFF - every question needs the wake word or a click', {
     { 'ON', function() jset('JarvisFollowUp', 1) end, fu }, { 'OFF', function() jset('JarvisFollowUp', 0) end, not fu },
-    { '-', function() jbump('JarvisFollowUpWait', -1, 3, 30, 10) end }, { '+', function() jbump('JarvisFollowUpWait', 1, 3, 30, 10) end } } }
+    { '-', function() jbump('JarvisFollowUpWait', -1, 3, 30, 3) end }, { '+', function() jbump('JarvisFollowUpWait', 1, 3, 30, 3) end } } }
   local sil, ctx = H.num('JarvisSilence', 1), H.num('JarvisContext', 2048)
   rows[#rows + 1] = { 'LISTENING', string.format('answers after %.1f s of silence   - longer lets you pause mid-sentence, shorter answers sooner', sil), {
     { 'SHORTER', function() jbump('JarvisSilence', -0.5, 0.5, 6, 1) end },
@@ -701,6 +710,7 @@ function Update()
   local maxFirst = math.max(1, #rows - NROWS + 1)
   scroll[tab] = H.clamp(scroll[tab] or 1, 1, maxFirst)
   local first = scroll[tab]
+  barMax = maxFirst
   local DS = 9.5                                                -- description text size
   local cw = DS * (DS < 9.5 and H.textSmall or H.textLarge) * 96 / 72 * 0.7   -- one character (monospace), with margin
   local function wrap(text, width)
@@ -765,10 +775,14 @@ function Update()
     local pos = (bot - top - barH) * (first - 1) / (maxFirst - 1)
     c:line(z.w - 16, top, z.w - 16, bot, D, 1, 120)
     c:line(z.w - 16, top + pos, z.w - 16, top + pos + barH, A1, 3, 230)
+    local sh = (bot - top) / NSLICE
+    for i = 1, NSLICE do H.hit(1, BARHIT + i - 1, z.w - 28, top + (i - 1) * sh, 24, sh, 'Scroll') end     -- click or drag the track to jump there
+  else
+    for i = 0, NSLICE - 1 do H.hideHit(1, BARHIT + i) end
   end
   for i = 11 + NROWS * 3 + 1, 43 do H.hideText(1, i) end
   for i = 43 + NROWS * 4 + 1, 107 do H.hideText(1, i) end
-  for i = 10 + NROWS * 4 + 1, 74 do H.hideHit(1, i) end
+  for i = BARHIT + NSLICE, 74 do H.hideHit(1, i) end
   -- footer status
   c:line(22, z.h - 50, z.w - 22, z.h - 50, D, 1, 200)
   H.text(1, 11, 28, z.h - 30, msg .. (pending and '   -   RELOAD OR CLOSE TO APPLY' or ''), { size = 10, font = H.fontNum, align = 'LeftCenter', color = (pending or os.time() - msgAt < 6) and H.C.warn or D, clip = z.w - 200 })
@@ -784,6 +798,7 @@ function Update()
 end
 
 function OnClick(zi, k)
+  dragging = false                -- mouse-up on any hit (incl. a bar slice) ends a scroll-bar drag
   local fn = actions[k]
   if fn then fn() end
   saveView()                      -- for tab / page / module changes; the view before the click is already saved
@@ -791,7 +806,27 @@ function OnClick(zi, k)
 end
 function OnRightClick(zi, k) end
 function OnScroll(zi, k, d)
-  scroll[tab] = (scroll[tab] or 1) + d * 2
+  scroll[tab] = (scroll[tab] or 1) + d      -- one row per wheel notch
   Update()
 end
-function OnHover(zi, k, on) end
+-- scroll bar: f = 0..1 down the track; OnBarDown(slice, p = 0..100 down that slice)
+-- shortcut: drag = mouse-down plus hover over 16 track slices, so it steps in 1/16 jumps and ends if the pointer leaves the window; upgrade if a finer or captured drag is needed
+local function barTo(f)
+  local r = math.floor(1 + f * (barMax - 1) + 0.5)
+  if r ~= scroll[tab] then scroll[tab] = r; Update() end
+end
+function OnBarDown(i, p)
+  dragging = true
+  barTo(((tonumber(i) or 1) - 1 + (tonumber(p) or 0) / 100) / NSLICE)
+end
+function EndDrag() dragging = false end
+-- InputText (mInput) answer for the CALL ME row: keep it safe for one Settings.inc line
+function SetCallMe(v)
+  v = string.gsub(tostring(v or SKIN:GetVariable('CallMeIn', '')), "[%c=;%[%]#\"'%%]", '')
+  v = string.sub(string.match(v, '^%s*(.-)%s*$'), 1, 30)
+  jset('JarvisCallMe', v)
+  Update()
+end
+function OnHover(zi, k, on)
+  if dragging and on == 1 and k >= BARHIT and k < BARHIT + NSLICE then barTo((k - BARHIT + 0.5) / NSLICE) end
+end

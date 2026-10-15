@@ -48,6 +48,10 @@ assert j.confirmed(due, "yes", 99) and j.confirmed(due, " Go ahead. ", 99) and j
 for no in ("no", "", None, "yes, but don't do it", "yes no", "okay wait", "sure, restart instead", "yesterday"):
     assert not j.confirmed(due, no, 99), no
 assert not j.confirmed(due, "yes", 100) and not j.confirmed(due, "yes", 500), "expired"
+for yes in ("Yes, Jarvis.", "yes sir", "Jarvis, yes.", "Yes please, sir.", "Go ahead now."):   # S2-11: name / sir around it
+    assert j.confirmed(due, yes, 99), yes
+for no in ("yes jarvis but wait", "sir", "jarvis", "no sir"):
+    assert not j.confirmed(due, no, 99), no
 
 assert j.best_app("chrome") == ("Google Chrome", "Chrome")
 assert j.best_app("") is None
@@ -1018,17 +1022,38 @@ assert talk(1) == 2                                               # he answers, 
 assert talk(30) == 31                                             # D2: no cap, he listens until you stop answering
 assert talk(99, mute=True) == 1 and talk(99, follow="0") == 1     # shown instead of spoken, or switched off: none
 n = len(prompts)
-assert talk(99, words="Set a timer for 10 minutes.") == 2 and len(prompts) == n   # slice D: a command opens only the
-j.save_reminders([])                                              # undo window, and other words there get no answer
-for answer, left in (("yes", 0), ("no", 1)):                      # "undo" in the window is asked first, the shared yes
-    seq = iter(["Set a timer for 10 minutes.", "Undo that.", answer])
-    heard[0], speaks[0] = 0, 3
-    j.muted, j.listen, j.transcribe = (lambda: False), _listen, (lambda a: next(seq, ""))
-    j.turn(0)
-    assert heard[0] == 3 and len(j.load_reminders()) == left, (answer, heard, j.load_reminders())
-    assert asked[-1] == ("Removed that timer." if left == 0 else "Okay, I left it."), asked[-2:]
-    j.save_reminders([])
+assert talk(1, words="Set a timer for 10 minutes.") == 2 and len(prompts) == n   # S2-10: a command opens the ear too
 j.save_reminders([])
+
+
+def ear(lines):
+    """A turn of several lines in a row: (how often the mic opened, the model calls made)."""
+    seq, n = iter(lines), len(prompts)
+    heard[0], speaks[0] = 0, len(lines)
+    j.muted, j.listen, j.transcribe = (lambda: False), _listen, (lambda a: next(seq, ""))
+    j.setting = lambda name, default="": default
+    j.offer.clear()
+    j.turn(0)
+    assert states[-1] == idle and not j.busy.locked()
+    return heard[0], len(prompts) - n
+
+
+# "undo" in the window: done at once, no extra yes ("Never mind Jarvis, undo" left the alarm before)
+for undo_line in ("Undo that.", "Never mind Jarvis, undo."):
+    assert ear(["Set a timer for 10 minutes.", undo_line]) == (3, 0) and j.load_reminders() == [], undo_line
+    assert asked[-1] == "Removed that timer.", asked[-2:]
+# room talk in the window: a fragment is ignored, 3+ words with no cue are asked about, a question is answered
+assert ear(["Set a timer for 10 minutes.", "Uh huh."]) == (2, 0) and asked[-1] != "Uh huh."
+assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over."])[1] == 0 and asked[-1] in j.ROOM_ASKS
+assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over.", "Yes."]) == (4, 1)   # yes: answered
+assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over.", "No."]) == (3, 0)    # no: ended
+assert ear(["Set a timer for 10 minutes.", "What is the capital of France?"]) == (3, 1)
+j.save_reminders([])
+for text, want in (("Uh huh.", "no"), ("okay", "no"), ("Mom the pasta is boiling over.", "ask"), ("What's the time?", "yes"),
+                   ("Thank you.", "yes"), ("No.", "yes"), ("Jarvis, the pasta.", "yes"), ("set a timer for 2 minutes", "yes"),
+                   ("Tell me a joke", "yes"), ("I think you are right", "yes"), ("the pasta is boiling", "ask")):
+    assert j.directed(text, False) == want, (text, j.directed(text, False))
+assert j.directed("the pasta is boiling", True) == "yes"           # he had just asked something: it is the answer
 assert "BRIEFING:" not in prompts[-1]
 talk(1, words="Good morning.")
 assert "BRIEFING:" in prompts[-1] and "at most three" in prompts[-1]
@@ -1086,7 +1111,7 @@ for answer, answered in (("Yes.", True), ("No.", False)):
     assert not j.busy.locked() and heard[0] == (3 if answered else 2), (answer, heard[0])
     assert (len(prompts) == n + 1) is answered, answer                 # the model ran only after "yes"
     assert (j.history[:1] == [{"role": "user", "content": ROOM}]) is answered, j.history
-    assert asked[-1] == j.ROOM_ASK                  # asked once (reply_line is faked above)
+    assert asked[-1] in j.ROOM_ASKS                 # asked once (reply_line is faked above)
 assert j.route("I'm still in four loop, so what's the name for it?")[0] == "chat" and not j.room_talk(
     "I'm still in four loop, so what's the name for it?")                         # a question is answered as before
 j.offer.clear(), j.history.clear()
@@ -1154,9 +1179,29 @@ for phrase, want in (("set the volume to thirty", ("set", 30)), ("volume 30", ("
 assert j.route("set the volume to two hundred")[0] != "act" and j.route("set it to five minutes")[0] != "act"
 
 # ---- he never claims an action: a command no parser took gets a fixed line, and the model is not asked
-for text in ("Change the screen colour to blue.", "turn on bluetooth", "set the brightness to 50",
-             "set the volume to 30 decibels", "Travis, connect my headphones", "please open the settings app"):
+for text in ("Change the screen colour to blue.", "set the volume to 30 decibels", "please open the settings app"):
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
+# S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
+for text in ("turn on bluetooth", "set the brightness to 50", "Travis, connect my headphones", "can you dim the screen",
+             "make the screen brighter", "turn up the brightness", "turn off wifi", "turn on night light", "turn on dark mode",
+             "change my wallpaper", "hibernate", "sign out", "log me off", "mute the microphone"):
+    assert j.route(text) == ("say", None, None, j.CANT), (text, j.route(text))
+for text in ("why is my screen dim?", "how do I turn on bluetooth?", "what is screen brightness"):
+    assert j.route(text)[0] == "chat", text
+# S2-11: the short ways to say sleep / restart / shut down / lock reach the action (with its yes), never the model
+for text, act in (("sleep", "sleep"), ("put my pc in sleep mode", "sleep"), ("sleep mode", "sleep"), ("put the laptop on sleep", "sleep"),
+                  ("go to sleep", "sleep"), ("restart", "restart"), ("reboot", "restart"), ("reboot the computer", "restart"),
+                  ("shut down", "shutdown"), ("shut the computer down", "shutdown"), ("power down the pc", "shutdown"),
+                  ("lock", "lock"), ("lock it", "lock"), ("Jarvis, lock the computer.", "lock")):
+    r = j.route(text)
+    assert r[:2] == ("act", act) and r[3].endswith("Confirm with yes."), (text, r)
+for text in ("should I restart my computer?", "restart the song", "I need some sleep"):
+    assert j.route(text)[0] != "act", text
+# alarm questions go to the list by rule however they are asked (one went to the model and mixed in the calendar)
+for text in ("can you tell me if I have any alarms for tomorrow", "Do I have any alarms for tomorrow?",
+             "could you check whether I have an alarm set", "are there any alarms tomorrow"):
+    assert j.route(text)[:2] == ("remind", "list"), text
+assert j.route("I have an alarm at 7 but")[0] == "chat"
 for text in ("how do I change the volume on my phone?", "what timer should I buy", "can you explain how to set an alarm",
              "why won't my bluetooth connect", "I set an alarm yesterday", "who can change the brightness", "play Travis Scott"):
     assert j.route(text)[0] == "chat", text
@@ -1164,10 +1209,14 @@ n = len(prompts)
 talk(1, words="Change the screen colour to blue.")
 assert len(prompts) == n and asked[-1] == j.NEAR_MISS
 for s in ("Alarm set for 5 pm.", "I've turned the volume up.", "Volume is now 30 percent.", "I have set a reminder.",
-          "Reminder added.", "I’ve opened Chrome.", "Done, I've muted it."):
+          "Reminder added.", "I’ve opened Chrome.", "Done, I've muted it.", "I've dimmed the screen.", "Brightness is now 40 percent.",
+          "Bluetooth is now on.", "I'll turn on the night light.", "I just restarted it.", "Done.", "Your screen is dimmed now.",
+          "I've lowered the brightness for you.", "Wi-Fi has been turned off.", "The brightness has been lowered."):
     got = []
     assert list(j.no_claims(iter(["Sure.", s, "More."]), got)) == ["Sure.", j.CLAIM_LINE] and got == [j.CLAIM_LINE], s
-for s in ("You can set an alarm on your phone.", "Set a timer for that.", "The volume knob is on the left."):
+for s in ("You can set an alarm on your phone.", "Set a timer for that.", "The volume knob is on the left.",
+          "I can't change the brightness yet.", "Brightness is set in Windows settings.", "When you're done, say so.",
+          "It is on your calendar for Friday."):
     assert list(j.no_claims(iter([s]), [])) == [s], s
 keep_sf, keep_sa, spoken = j.sentences_from, j.speak_all, []
 j.sentences_from = lambda stream, collected: collected.append("Alarm set for 5 pm.") or iter(["Alarm set for 5 pm."])
@@ -1293,7 +1342,7 @@ waits = []
 real_listen = _listen
 _listen = lambda **k: waits.append(k.get("patience")) or real_listen()
 talk(1)
-assert waits == [None, 10.0], waits                               # the first listen as before; the follow-up waits 10 s
+assert waits == [None, 3.0], waits                                # the first listen as before; the open ear waits 3 s
 j.setting = lambda name, default="": "99" if name == "JarvisFollowUpWait" else default
 assert j.follow_wait() == 30.0
 j.setting = lambda name, default="": default
@@ -1388,19 +1437,44 @@ j.undo.clear()
 # ---- 6j: one route line per turn - the path and the total, never words from the question
 routes, keep = [], j.log
 j.log = lambda line: routes.append(line) if line.startswith("route:") else None
-for words, want in (("Tell me a joke.", "route: chat.chat via model, total "),
-                    ("What's the volume?", "route: info.level via rule, total "),
-                    ("Set a timer for 10 minutes.", "route: command.remind set via rule, total "),
-                    ("New topic.", "route: new_topic via rule, total "),
-                    ("Show me what you've said.", "route: log via rule, total ")):
+for words, want, result in (("Tell me a joke.", "route: chat.chat via model, total ", "answered"),
+                            ("What's the volume?", "route: info.level via rule, total ", "said"),
+                            ("Set a timer for 10 minutes.", "route: command.remind set via rule, total ", "said"),
+                            ("New topic.", "route: new_topic via rule, total ", "said"),
+                            ("Show me what you've said.", "route: log via rule, total ", "said"),
+                            ("Turn up the brightness.", "route: ", "refused - not built")):
     routes.clear()
     talk(1, words=words)
-    assert len(routes) == 1 and routes[0].startswith(want) and routes[0].endswith("s"), (words, routes)
-    assert not (set(j.re.findall(r"[a-z]+", words.lower())) - {"new", "topic", "set"}) & set(routes[0].split()), routes
+    assert len(routes) == 1 and routes[0].startswith(want), (words, routes)
+    assert j.re.search(r" total \d+\.\d\ds -> " + result + "$", routes[0]), (words, routes)   # S2-9: the outcome, last
+    assert not (set(j.re.findall(r"[a-z]+", words.lower())) - {"new", "topic", "set"}) & set(routes[0].split(" -> ")[0].split()), routes   # the outcome is a fixed word
+# S2-9: turns that used to leave no route line: a false wake, room talk in the open ear, a command left without a yes
+j.muted, j.listen, j.transcribe = (lambda: False), (lambda **k: "audio"), (lambda a: "")
+routes.clear()
+j.turn(0, woke=True)
+assert len(routes) == 1 and routes[0].startswith("route: false_wake via rule") and routes[0].endswith("-> nothing said"), routes
+routes.clear()
+ear(["Set a timer for 10 minutes.", "Uh huh."])
+assert routes[-1].startswith("route: ear via rule") and routes[-1].endswith("-> not for me - quiet"), routes
+routes.clear()
+ear(["Lock the computer.", "No."])
+assert routes[-1].startswith("route: command.") and routes[-1].endswith("-> left - no yes"), routes
+routes.clear()
+ear(["Lock the computer.", "Yes, Jarvis."])
+assert routes[-1].endswith("-> done"), routes
 j.log = keep
 j.save_reminders([])
 j.undo.clear()
 j.did.clear()
+# S2-8: the log names the capability (a class from the table, never your words)
+caps, keep = [], j.log
+j.log = caps.append
+for text, cap in (("turn up the brightness", "brightness"), ("connect my airpods", "bluetooth"), ("turn off wifi", "wifi"),
+                  ("hibernate", "account"), ("sign out", "account"), ("turn on the keyboard light", "keyboard light"),
+                  ("turn on do not disturb", "notifications")):
+    caps.clear()
+    assert j.route(text)[3] == j.CANT and f"capability: {cap} not built yet - said so" in caps, (text, caps)
+j.log = keep
 j.history.clear()
 
 # ---- M4a-3: he offers to remember a lasting fact said in chat; only a yes saves it
@@ -1868,8 +1942,10 @@ for words in ("Shut up.", "Be quiet!", "That's enough.", "Jarvis, stop.", "Stop 
 # courtesy: a short proper answer from code, no model, no follow-up
 for words, reply in (("Thanks.", "You're welcome."), ("Okay, thank you Jarvis!", "You're welcome."),
                      ("Thank you. Thank you.", "You're welcome."), ("Bye.", "Goodbye."), ("Good night.", "Good night."),
-                     ("Sorry.", "No problem."), ("Hello Jarvis!", "Hello."), ("Hey Jarvis.", "Hello."), ("Hi there.", "Hello.")):
+                     ("Sorry.", "No problem.")):
     assert talk(99, words=words) == 1 and len(prompts) == n and asked[-1] == reply, words
+for words in ("Hello Jarvis!", "Hey Jarvis.", "Hi there."):        # S2-10: a hello starts a talk, so the ear stays open
+    assert talk(1, words=words) == 2 and len(prompts) == n and asked[-1] == "Hello.", words
 real_talk_setting = j.setting                                     # JarvisCallMe: his name at the end of greetings and goodbyes
 j.setting = lambda name, default="": "Senai" if name == "JarvisCallMe" else default
 for words, reply in (("Hello Jarvis!", "Hello, Senai."), ("Goodbye.", "Goodbye, Senai."), ("Good night Jarvis.", "Good night, Senai."),
@@ -2559,5 +2635,19 @@ fake_whisper = S_(transcribe=lambda audio, **k: ([Seg(" Okay."), Seg(" Okay."), 
 j._whisper_dev[0] = "cpu"
 assert j._decode(fake_whisper, "audio") == "Okay."
 j.log = lambda *a: None
+
+# S2-11: Modern Standby (S0) refuses SetSuspendState; the fallback turns the screen off, and only both failing is an error
+real_windll, posted = ctypes.windll, []
+for suspend, post, want in ((1, 1, []), (0, 1, [(0xFFFF, 0x0112, 0xF170, 2)]), (0, 0, "raise")):
+    posted.clear()
+    ctypes.windll = S_(powrprof=S_(SetSuspendState=lambda *a, r=suspend: r),
+                       user32=S_(PostMessageW=lambda *a, r=post: posted.append(a) or r))
+    try:
+        j.act_sleep(None)
+        assert want != "raise" and posted == want, (suspend, post, posted)
+    except OSError:
+        assert want == "raise"
+    finally:
+        ctypes.windll = real_windll
 
 print("test_jarvis: OK")

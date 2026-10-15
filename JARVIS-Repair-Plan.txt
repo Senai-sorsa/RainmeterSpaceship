@@ -96,8 +96,52 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - Stage by name and read the staged list. Never commit Data\, logs, weights, keys.
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
-CURRENT STATE (end of the 2026-10-14 session: redesign slices A-H + audit 2 committed; READ THIS FIRST)
-  NEXT STEP: "TEST BEFORE PHASE 7" (its own block, just before PHASE 7). Nothing else comes first.
+CURRENT STATE (updated end of the 2026-10-15 S2-8..S2-13 session; READ THIS FIRST)
+  NEXT STEP (the user, 2026-10-15): PHASE 7. ALL live testing is moved to AFTER Phase 7 is complete:
+    see "LIVE TEST AFTER PHASE 7" (its own block, right after Phase 7's own live test, before PHASE 8).
+    "TEST BEFORE PHASE 7" is no longer a gate; its T-items run inside that combined test.
+    Before Phase 7 code: ask the user whether to commit the uncommitted S2-8..S2-13 work first (see
+    HANDOVER 2026-10-15 just below). Phase 7 starts with 7-0: show the user the action-table layout first.
+  HANDOVER 2026-10-15 (what a new chat needs; the older HANDOVER block further down is for tools/habits)
+    - UNCOMMITTED in the working tree (branch chore/jarvis-baseline-and-performance, HEAD bd0dd62):
+      JARVIS-Repair-Plan.txt, Jarvis\jarvis.py, Jarvis\test_jarvis.py, Scripts\ShipCore.cs,
+      Scripts\control.lua, Overlay\Control\Control.ini. Commit only on the user's word, files staged by
+      name. Suggested message: "JARVIS: S2-8..S2-13 - capability table, outcome log, open ear, Modern
+      Standby sleep, CALL ME row, scroll bar drag". Trailer: Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    - LIVE = that working tree (5 code files copied with CRLF 2026-10-15 00:35, verified with a CR-stripped
+      cmp; Rainmeter refreshed; Bin\ShipCore.exe rebuilt 00:35:45). Backups (newest first):
+      C:\Users\Senai\Rainmeter\Spaceship-backup-20261015-003521 (before the 2nd pass) and
+      ...\Spaceship-backup-20261015-002304 (before the 1st pass). UNDO: robocopy <backup> <live> /E /R:1 /W:1,
+      refresh Rainmeter, restart JARVIS. Repo undo: git revert after a commit (never checkout/restore/stash).
+    - So the live skin now runs: slices A-H, audit 2, S2-8..S2-13. Live has Jarvis\vosk and the
+      JarvisCallMe key (step 3b). None of it has had a live test yet (the user chose: after Phase 7).
+    - Checks that passed after the last edit (2026-10-15): py_compile jarvis.py; venv python
+      test_jarvis.py -> "test_jarvis: OK" (about 30-40 s); check_route.py HEAD vs working tree -> only
+      "sleep" changed (+ the known time-stamp noise line); Lua parse of control.lua -> compiles; csc
+      compile of ShipCore.cs (PowerShell, Framework64 v4.0.30319) -> exit 0. Note: test_jarvis.py was run
+      in the repo folder this session (gitignored Data\ files may have been touched; never read them).
+      Prefer the scratch-copy run described in the older HANDOVER.
+    - Shell facts: Git Bash mangles "/flag" arguments (csc, robocopy): use PowerShell for those.
+      Heredocs in the Bash tool collapse "\\" to "\": write edit scripts with the Write tool, raw strings.
+    - Scratch folder of this session: C:\Users\Senai\AppData\Local\Temp\claude\C--Users-Senai-RainmeterSpaceship\
+      05124958-ec38-4503-955c-7557236b43bb\scratchpad (head_jarvis.py = jarvis.py at HEAD; cc\parse.py = the
+      Lua check; cc\sim.py = a Control Center simulator, STALE: still calls the removed OnBar();
+      edit1-6.py = this session's edit scripts). check_route.py: ...\d775d96e-...\scratchpad.
+    - MAP of the 2026-10-15 code (jarvis.py, 4706 lines; search by name, numbers drift):
+      follow_wait 1063, act_sleep 1858 (Modern Standby fallback), ACTIONS 1868, is_yes 1891, confirmed 1899,
+      NEAR_MISS 1905, CLAIM 1909, CANT 1921, UNBUILT_CAPS 1924 (+ UNBUILT, UNBUILT_ASK), no_claims 1998,
+      route 2039 (capability check just before the near-miss catch), ROOM_ASKS 3744, room_ask 3751,
+      directed 3757, ear_wait 3777, turn 3902, exchange 3916 (the "way" dict + "route: ... -> result"
+      line in its finally), wake_loop 4420, main 4614.
+      control.lua: BARHIT/NSLICE 15, CALL ME row 589, OnScroll 808, OnBarDown 818, SetCallMe 824.
+      Control.ini: [mInput] (InputText plugin). ShipCore.cs: "sleep" ~l.87.
+    - PHASE 7 MUST KNOW: UNBUILT_CAPS (jarvis.py) answers "I can't do that yet" for brightness,
+      bluetooth (+headphones), wifi, display (night light, dark/light mode, wallpaper, resolution,
+      screensaver), microphone, account (hibernate, sign out), power plan, keyboard light, notifications.
+      When Phase 7 builds one, REMOVE its row (or words) there and change the test_jarvis S2-8 cases that
+      expect CANT for it (search "S2-8" in test_jarvis.py); otherwise a request can be refused by the
+      table. 7-0's action table is meant to absorb UNBUILT_CAPS (built + not-built in one place).
+      Things Phase 7 does NOT build (stay refused): Wi-Fi on/off, sound output switch, hibernate, sign out.
   Done (built, tested by test_jarvis + route check, committed on branch chore/jarvis-baseline-and-performance,
   NOT pushed, main is behind):
     - Fix Rounds 1, 2, 4 (Round 3 not built), Phase 1-4, status-only hologram          d7386dd, 301c22f
@@ -128,7 +172,8 @@ CURRENT STATE (end of the 2026-10-14 session: redesign slices A-H + audit 2 comm
     FIX ROUND 6 (L1-L10), which the redesign answers. Slices A-H and audit 2 are NOT live; live has no
     Jarvis\vosk yet. COPY TO LIVE (PART D) now copies the committed version (git archive HEAD) plus vosk.
   RULES (the user, 2026-10-14):
-    - No Phase 7 work until TEST BEFORE PHASE 7 is done and all its findings are fixed or parked.
+    - (replaced 2026-10-15 by the user) Phase 7 goes first; every live test, TEST BEFORE PHASE 7
+      included, runs once after Phase 7 is complete: LIVE TEST AFTER PHASE 7.
     - PHASE 10 (personality and voice) is parked: its FIRST step is telling the user the personality
       review is due and waiting for the user's hand review. The voice part (6e, 6g) only on the user's word.
     - Copy to live, commit, push: only on the user's word; copy to live always backs up first.
@@ -141,6 +186,13 @@ CURRENT STATE (end of the 2026-10-14 session: redesign slices A-H + audit 2 comm
     in the test, the redesign may have fixed them), R5-5 (only if needed), Fix Round 3, N19 ("again in
     ten" snooze phrase), 6i (GPU spikes) and 6f (model compare): measure only on the live run. Git history
     still holds the old Settings.inc paths: a rewrite is the user's decision (not done).
+  Live JarvisWakeSensitivity is 0.3 (set in the Control Center; the repo copy says 0.5): that is why the
+    2026-10-14 live log accepted wakes at 0.14 / 0.18. Settings, not a code bug.
+  COPY TO LIVE step 3b (2026-10-14): new settings now reach live; every live value is kept.
+  The 2026-10-14 live-log audit S2-8 .. S2-13 (end of file): IMPLEMENTED 2026-10-15 (2nd pass the
+    same day: capability table, outcome line, Modern Standby sleep, bar drag), copied to live from the
+    working tree (not yet committed); test_jarvis OK. Their live tests (A-D) are in LIVE TEST AFTER
+    PHASE 7.
   Naming trap: "6a" in R5-6 and N13/N14/N16 means R5-6 step 6a (wake training). "Phase 6a" / "S1" is the
     relevance fix. M1-M4b are the slices of Phase 6b. T1-T14 are the tasks in tasks/todo.md.
   The STATUS list below is the history, oldest first. A "NEXT:" in an older entry is superseded by this
@@ -1329,9 +1381,10 @@ S. SET-UP (once)
     Repo:      C:\Users\Senai\RainmeterSpaceship
     Live skin: C:\Users\Senai\Rainmeter\Skins\Spaceship
     Skipped on purpose: @Resources\Data\ (memory, reminders, logs; only Data\zones.lua is in git and it is
-    already live), @Resources\Backups\, Settings.inc (your personal values; the committed copy has the
-    personal paths BLANK, so it must never be copied; new settings use the code defaults), State.inc and
-    Apps.ini (the skin rewrites both at runtime). /E without /MIR only adds and overwrites, it never deletes
+    already live), @Resources\Backups\, Settings.inc (the committed copy has the personal paths BLANK, so
+    it is never copied over; step 3b instead adds any setting live is missing, from the repo's working
+    copy, and never changes a value live already has), State.inc and Apps.ini (the skin rewrites both at
+    runtime). /E without /MIR only adds and overwrites, it never deletes
     live files. git archive stamps every file with the commit time, so /XO still lets the copy overwrite
     older live files. Icons are not in git, so the runtime icons are never touched.
     Not in git: the Vosk stop-word model (Jarvis\vosk, about 40 MB) - step 4 copies it.
@@ -1359,6 +1412,18 @@ S. SET-UP (once)
     3. Copy the export over live (only if step 2 said OK twice):
          robocopy "$tmp\Skins\Spaceship" $live /E /XO /R:1 /W:1 /XD "$tmp\Skins\Spaceship\@Resources\Data" "$tmp\Skins\Spaceship\@Resources\Backups" /XF Settings.inc State.inc Apps.ini
          "robocopy exit $LASTEXITCODE  (0-7 = OK, 8+ = failed)"
+    3b. Add new settings to live Settings.inc (keeps every live value; your Control Center choices stay).
+        Reads the repo's WORKING copy (it has your personal values; the committed one has them blank):
+         $rs = "$src\@Resources\Settings.inc"; $ls = "$live\@Resources\Settings.inc"
+         $have = @{}; foreach ($l in Get-Content $ls) { if ($l -match '^\s*([^;\[\s][^=]*)=') { $have[$matches[1].Trim()] = 1 } }
+         $add = @(); $note = @()
+         foreach ($l in Get-Content $rs) {
+           if ($l -match '^\s*;') { $note += $l }
+           elseif ($l -match '^\s*([^\[\s][^=]*)=') { if (-not $have[$matches[1].Trim()]) { $add += $note + $l }; $note = @() }
+           else { $note = @() } }
+         if ($add) { Add-Content -LiteralPath $ls -Value $add -Encoding ASCII }
+         "added $(@($add | Where-Object { $_ -notmatch '^\s*;' }).Count) setting(s)"
+       Live Settings.inc is plain ASCII with one [Variables] section, so adding at the end is safe.
     4. Copy the Vosk model (not in git; skip if live already has @Resources\Jarvis\vosk):
          robocopy "$src\@Resources\Jarvis\vosk" "$live\@Resources\Jarvis\vosk" /E /R:1 /W:1 /NFL /NDL
          "robocopy exit $LASTEXITCODE  (0-7 = OK, 8+ = failed)"
@@ -1371,7 +1436,8 @@ S. SET-UP (once)
     UNDO (same window, or set $bak/$live again to the backup folder's name first):
          robocopy $bak $live /E /R:1 /W:1
        then refresh Rainmeter and restart JARVIS. Undo puts old files back but does not delete files the
-       copy added (e.g. Jarvis\vosk); they are harmless.
+       copy added (e.g. Jarvis\vosk); they are harmless. It also restores Settings.inc as it was before
+       step 3b.
   S2. Put kokoro-v1.0.onnx next to kokoro-v1.0.int8.onnx in the live voices folder, or re-run Setup.
   S3. Control Center > JARVIS: WHISPER DEVICE = AUTO, WHISPER = small.en, MODEL = llama3.1:8b.
       Leave BARGE-IN = WAKE, STOP KEY = END, DUCK MUSIC = ON, MICROPHONE = your usual one.
@@ -2513,6 +2579,8 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
 
 --------------------------------------------------------------------------------------------------------
 TEST BEFORE PHASE 7   (added 2026-10-14; the ONE combined live test of everything built since the 18:25 copy)
+  MOVED 2026-10-15 (the user): no longer before Phase 7. These T-items run as part of LIVE TEST AFTER
+  PHASE 7 (block after Phase 7). Items already overtaken are listed there ("CHANGES TO T1-T10").
 --------------------------------------------------------------------------------------------------------
   Why: live runs b82b3b5 + FR5 N1-N3 (the then-uncommitted N1-N3 work, later committed in 4e51364;
   copied ~18:25, backup C:\Users\Senai\Rainmeter\Spaceship-backup-20261014-182522).
@@ -2565,8 +2633,8 @@ TEST BEFORE PHASE 7   (added 2026-10-14; the ONE combined live test of everythin
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
-  BEFORE STARTING (the user, 2026-10-14): the PHASE 6 LIVE TEST CHECKLIST must be done first. If it is not,
-  stop and do that with the user.
+  BEFORE STARTING: (the user, 2026-10-15, replaces the 2026-10-14 rule) the live tests are NOT a gate any
+  more; they all run after Phase 7 (LIVE TEST AFTER PHASE 7). Read "PHASE 7 MUST KNOW" in CURRENT STATE.
   DECIDED by the user 2026-10-14 (Q&A before Phase 7; these override the tables below where they differ):
     - 7-0 action table: YES, build it first. Show the user the exact layout for approval before building.
     - 7a microphone: all of mute/unmute (mute asks first), level (set / up / down a bit), which mic and
@@ -2790,6 +2858,85 @@ Unverified until the live run: every one of these, because fakes cannot connect 
 Risk: muting the microphone or turning Bluetooth off can cut you off from him. That is why both ask first
 and why the click always works.
 Rollback: revert the commit. Each action is undone by its opposite or in Windows settings.
+
+
+--------------------------------------------------------------------------------------------------------
+LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing here)
+--------------------------------------------------------------------------------------------------------
+  When: once Phase 7 is built, committed (user's word) and copied to live (user's word, backup first).
+  Nothing in this block has had a live run yet. Order: PART 1, then PART 2, then PART 3.
+  Rules: the user pastes log lines (Claude never reads jarvis.log or Data\); each step is PASS / FAIL;
+  every FAIL becomes a finding with a proposed fix or "park", the user picks; Phase 10 (tone) items are
+  only noted. Lines to paste: "route: ... -> ...", "ear:", "capability:", "interpreter:", "reminder",
+  "sleep:", "transcript:", "wake word heard", "train:", "stop words", "timing:".
+
+  PART 1   Phase 7's own live test: "Your live test after Phase 7" just above (steps 1-8).
+
+  PART 2   S2-8 .. S2-13 (the 2026-10-14 live-log audit, built 2026-10-15). Each step names the bug.
+  A. Voice
+    A1. "Hey Jarvis, change my wallpaper." -> "I can't do that yet."; log "capability: display not built
+        yet - said so" and "route: ... -> refused - not built".
+        BUG: he answered "done" for settings that do not exist (S2-8 truth layer). NOTE: the 2026-10-15
+        version of this step used brightness; Phase 7 builds brightness, so use a thing still not built
+        (wallpaper, Wi-Fi off, hotspot, hibernate). Also say "make the screen dimmer" if brightness is
+        NOT built yet.
+    A2. "Hey Jarvis, set a timer for 1 minute." then within 3 s, no wake word: "Never mind Jarvis, undo."
+        -> "Removed that timer." straight away (no "do you want me to undo" question).
+        BUG: undo needed a second yes, took 11.8 s, and "never mind" ended the turn so the timer stayed
+        (S2-10 + undo regex).
+    A3. Right after any reply, say to the room: "Mom, the pasta is boiling over." -> "Are you talking to
+        me, sir?" (or another ROOM_ASKS line). Answer "No." -> quiet; log "ear: unsure - asked" and
+        "route: ear ... -> asked if for me". Also say "uh huh" after a reply -> nothing, log
+        "route: ear ... -> not for me - quiet".
+        BUG: follow-ups ended "randomly" (the old follow-up depended on the lane; command replies only
+        listened for "undo"), and room talk was either answered or dropped with no question (S2-10).
+    A4. "Hey Jarvis, can you tell me if I have any alarms tomorrow?" -> the alarm list only, no calendar
+        events; the log shows a rule route (remind list), not chat.
+        BUG: this phrasing went to the model, which mixed a calendar exam into the alarms and contradicted
+        itself (S2-8 alarm routing + calendar label).
+    A5. "Hey Jarvis, put my PC in sleep mode." -> asks; answer "Yes, Jarvis." -> the screen goes off and
+        the PC enters standby; log "sleep: suspend refused (error N) - screen off for Modern Standby"
+        (normal on this PC). Wake it with a key: it comes back normally.
+        BUG: "sleep mode" phrasings went to chat, "Yes, Jarvis" was not taken as a yes, and Windows
+        refused SetSuspendState on this Modern Standby PC ("Windows refused to sleep") (S2-11).
+    A6. "Hey Jarvis, restart" -> asks; say "no" -> nothing happens, log "-> left - no yes". (Optional
+        real restart: say yes, keep "shutdown /a" ready, 10 s delay.)
+        BUG: short phrasings (restart / reboot / shut down / lock it) did not route (S2-11).
+  B. Control Center
+    B1. Mouse wheel on a long list (JARVIS tab): 1 row per notch.
+        BUG: 2 rows per notch, felt like jumping (S2-13).
+    B2. Click anywhere on the scroll bar track: the list jumps there.
+    B3. Hold the button on the track and drag: the list follows in steps. Report: follows WHILE moving,
+        or only on release (Rainmeter may not send hover while a button is held; release still works).
+        BUG: the bar was drawn but could not be dragged (S2-13).
+    B4. JARVIS tab > CALL ME > CHANGE, type a name, Enter -> the row shows it. Then "Hey Jarvis, hello."
+        -> "Hello, <name>." and the ear stays open about 3 s. CLEAR -> NO NAME.
+        BUG: no way to set the name he calls you (S2-12).
+    B5. CALL ME with an apostrophe or quote (O'Neil) -> saves as ONeil, nothing breaks.
+        BUG: an apostrophe broke the InputText bang (S2-12 2nd pass).
+    B6. SYSTEM > SLEEP -> screen off, PC in standby, wakes normally (never hibernates: no boot screen).
+        BUG: ShipCore "sleep" failed on Modern Standby the same way voice sleep did (S2-11).
+  C. Log quality (leave him idle ~2 minutes with normal room sound, then paste)
+    C1. Every turn has exactly one "route: ... -> <result>" line, and no words you said appear in it.
+    C2. Any "route: false_wake ... -> nothing said" / "route: silence ..." lines: these should explain
+        the speech events every ~29 s seen 2026-10-14 (live wake sensitivity is 0.3).
+        BUG: those events left no route line (S2-9).
+    C3. After WAKE TRAINING: "train: Hey from N word samples" (not "Hey peaks 0.00").
+        BUG: the 0.00 line read as "learned nothing" though the word checks never use that score (S2-9).
+  D. Things to keep an eye on: an odd "I can't do that yet" for a real question ("why is my screen
+     dim?" must be answered, not refused); "Are you talking to me, sir?" asked too often.
+
+  PART 3   The older combined test: TEST BEFORE PHASE 7 T1-T10 (block before PHASE 7) and, through its T8,
+  the PHASE 6 LIVE TEST CHECKLIST (Phase 5 alarms, 6a, 6b M1-M4b, 6j, 6i, F1-F7).
+  CHANGES TO T1-T10 since they were written (2026-10-15):
+    - T1 copy to live: already done from the working tree; do the normal copy after Phase 7 instead.
+    - T2 JarvisCallMe by hand: replaced by the CALL ME row (B4).
+    - T3a: live JarvisWakeSensitivity is 0.3; STRICTER to 0.50 is still the user's call.
+    - T6 L6 "5 s undo window": replaced by the open ear (JarvisFollowUpWait, default 3 s, 8 s after a
+      question) and undo with no extra yes (A2, A3). F5 "Were you talking to me?" is now ROOM_ASKS
+      ("Are you talking to me, sir?").
+    - T7 SLEEP: on this PC sleep = screen off into Modern Standby (B6), not S3.
+  Afterwards: list every finding with a fix or "park"; the user picks; update CURRENT STATE.
 
 
 --------------------------------------------------------------------------------------------------------
@@ -3412,6 +3559,145 @@ S2-7  MEMORY EDITOR IN THE CONTROL CENTER
   jarvis_cmd.txt (FORGETFACT <n>) so the daemon is the only writer (no two writers on one file). Undo
   works the same as a spoken "forget".
   Risk: Lua row count; a long list needs paging (10 per page).
+
+  S2-8 .. S2-13 come from the user's 2026-10-14 live log + VS Code diagnostics. All six were
+  implemented 2026-10-15 (uncommitted; each has a STATUS line below).
+  The user's rule for them: fix the pipeline and strengthen the infrastructure, do not patch. S2-8 and
+  S2-9 go first; the others lean on them.
+
+--------------------------------------------------------------------------------------------------------
+S2-8  TRUTH LAYER (he must not be ABLE to claim a change that did not happen)
+--------------------------------------------------------------------------------------------------------
+  Seen: he said he changed brightness (a Phase 7 setting that does not exist yet). "Can you tell me if I
+  have any alarms for tomorrow?" went to chat, which called a calendar event (MATH 251 - Exam II) an
+  alarm, invented "Class Due times", then two turns later said "I don't have any record of setting an
+  alarm for 9:00 AM". "Have you been?" -> an invented meeting with "the Emperor" (tone part: Phase 10).
+  Cause: CLAIM (jarvis.py ~l.1896) only knows alarm/timer/reminder/volume words and a short "I've set..."
+  list, so no_claims() (~l.1958) lets "I've dimmed the screen" through. The near-miss catch (~l.2170)
+  only fires when the sentence STARTS with set/turn/change...; "can you dim the screen" goes to the model.
+  Calendar events and user alarms sit in the chat context without a label telling them apart.
+  Fix (infrastructure, not one more regex word):
+    - One capability table in code: what exists (alarm, timer, reminder, volume, mute, lock, media, apps,
+      sleep, restart...) and what does not yet (brightness, Bluetooth, mic, Wi-Fi, display...). Phase 7's
+      7-0 action table IS this table; build it once and both use it.
+    - A request that names a setting with no capability gets a fixed reply by code ("I can't do that
+      yet.") before the model is called. Code decides; the model never sees it.
+    - Chat may never state a change: the claim filter covers every verb and every setting in the table.
+      A state answer ("is it muted?", "what alarms do I have?") comes only from a read-back by code.
+    - Alarm/timer/reminder QUESTIONS always take the rule lane (one answer, every phrasing). Calendar
+      events reach the chat prompt labelled as calendar, never as alarms.
+  Reuse: route(), no_claims(), did_add()/DID, run_action(), remind_reply().
+  Risk: over-blocking a real question ("why is my screen dim?"): questions stay chat, only requests are
+  stopped; route check + test_jarvis cases for both.
+  STATUS 2026-10-15: done. CAPABILITY check in route(): UNBUILT topics (brightness, Bluetooth, Wi-Fi,
+  night light, dark mode, wallpaper, mic, hibernate, sign out...) + a request verb -> CANT "I can't do
+  that yet." by code, logged "capability: not built yet - said so"; questions ("why is my screen dim?")
+  stay chat. CLAIM covers many more I-verbs, "I'll <verb>", "<setting> is now on/off/..." and "Done".
+  Alarm questions in every tested phrasing go to the rule list; calendar lines are labelled "(calendar
+  events, not alarms or reminders)". Limit: UNBUILT is a regex list, not yet the 7-0 action table.
+  2nd pass 2026-10-15: UNBUILT is now a named table, UNBUILT_CAPS (brightness, bluetooth, wifi, display,
+  microphone, account, power plan, keyboard light, notifications); the log names the row: "capability:
+  brightness not built yet - said so". Built = ACTIONS + the reminder / volume / media lanes. Phase 7-0
+  folds both into one action table (still needs the user's layout approval).
+
+--------------------------------------------------------------------------------------------------------
+S2-9  OUTCOME LOG (every claim checkable from the log)
+--------------------------------------------------------------------------------------------------------
+  Seen: rule-lane replies have no "jarvis:" line; actions log only the action name; "never mind, undo"
+  took 11.8 s and two spoken lines with no outcome line; a "remind cancel" left no "reminder cancelled"
+  line (it most likely took the "Which one?" / "Okay, I left them" path, ~l.2985-2996, which logs
+  nothing); "interpreter: fallback (ValueError)" hides the reason interpret() raised.
+  Fix: every route ends in one outcome line: lane, action, target CLASS (never your words), result read
+  back (done / left / refused + why). Log the interpret() refusal reason. A wake check that learned
+  nothing (training "Hey peaks 0.00 (26 examples)") is dropped from "your checks", with a log line.
+  Also unexplained, log enough to find it: speech events every ~29 s with no route (23:25:10, 25:39,
+  26:08, 26:37, 27:04).
+  Risk: log size; one line per turn, no words of yours.
+  STATUS 2026-10-15: done in part. interpreter fallback logs its reason ("not what was said", "volume not
+  said", "no preset", "incomplete", else the exception type); reminder ops log "N match - asked which",
+  "no clear pick - left them", "none matched"; the ear logs "not for me - stayed quiet" / "unsure -
+  asked"; capability refusals log. NOT done: the "Hey peaks 0.00" check is kept (a bare "Hey" scoring 0
+  is expected); the ~29 s speech events need the user's next log to trace.
+  2nd pass 2026-10-15: every turn that heard speech now ends its route line with "-> <result>": done /
+  failed / left - no yes / refused - not built / refused - unclear command / answered / said / error /
+  stopped. Turns that logged no route before now do: "route: false_wake via rule ... -> nothing said",
+  "route: silence ... -> asked again / nothing said", "route: ear ... -> not for me - quiet / asked if
+  for me". The ~29 s events should now show up as one of these (live wake sensitivity 0.3 points at
+  false wakes). "Hey peaks 0.00": the word styles ("Hey", bare "Jarvis") learn from word samples and
+  never use that score, so the line now reads "train: Hey from 26 word samples"; the check stays.
+
+--------------------------------------------------------------------------------------------------------
+S2-10  ONE EAR WINDOW + "ARE YOU TALKING TO ME, SIR?"
+--------------------------------------------------------------------------------------------------------
+  Seen: follow-ups end "randomly". Cause: in exchange()'s fixed() (~l.3900) the follow-up depends on the
+  lane: command replies only re-listen for undo (and drop anything else: "follow-up: ended (not an
+  undo)"); courtesy and enders return without it. Undo also asks "Do you want me to undo that?" first.
+  Fix: one window after EVERY reply, every lane: listen 3 s with no wake word.
+    - Nothing heard: back to standby.
+    - Heard: deterministic code scores whether it was for him (command shape, his name, a question, you/
+      your, length, sense). Clearly for him: run it as a normal turn. Unsure: ask, flexible wording
+      ("Are you talking to me, sir?"). Not for him or no sense: stay quiet.
+    - The model may help classify; it never authorises anything (CLAUDE.md section 5).
+    - Undo is just one thing the window accepts; a clear undo target runs without the extra yes.
+    - Stop words keep ending everything (they work today).
+  Reuse: listen(wait=3) / follow_wait(), room_talk(), ROOM_ASK, NO_FOLLOW, ENDERS.
+  Risk: TV / people in the room: the "stay quiet" branch is the default when unsure-and-nonsense.
+  STATUS 2026-10-15: done. One "ear" mode after every reply (commands, courtesy hello, chat); "Cancelled."
+  and NO_FOLLOW still end it. Window = JarvisFollowUpWait (default now 3 s), 8 s after a question or an
+  offer. directed() (code only): name / a command route / question words / "?" / you-your -> run it;
+  3+ words otherwise -> asks (ROOM_ASKS rotate: "Are you talking to me, sir?"...); shorter -> quiet.
+  Undo in the window runs at once, also "Never mind Jarvis, undo". The old undo-ask step is gone.
+
+--------------------------------------------------------------------------------------------------------
+S2-11  SLEEP, RESTART AND OTHER SYSTEM COMMANDS BLOCKED
+--------------------------------------------------------------------------------------------------------
+  Seen: the user reports sleep, restart and others are blocked. Not yet known which path: the voice
+  path needs a plain yes within 15 s (~l.1607); act_sleep raises "Windows refused to sleep"; or the
+  Control Center SYSTEM buttons. First step: the user says which (voice or button) and pastes the log
+  lines. Fix that path; the spoken yes stays (safety).
+  Risk: these act on the PC; test restart with "shutdown /a" ready (10 s delay).
+  STATUS 2026-10-15: done for the voice path. Short phrasings now route (sleep, sleep mode, put my PC in
+  sleep mode, restart, reboot, shut down, power off, lock, lock it); the yes now accepts "Yes, Jarvis" /
+  "yes sir" (is_yes). The confirmation stays. Buttons not changed (no report they fail).
+  2nd pass 2026-10-15, ROOT CAUSE: this PC has Modern Standby only (powercfg /a: Standby S0 Low Power
+  Idle + Hibernate; S1-S3 not available). SetSuspendState fails there (ERROR_NOT_SUPPORTED), so both
+  voice sleep ("Windows refused to sleep") and the SYSTEM > SLEEP button (ShipCore "sleep") failed.
+  Fix in both: if SetSuspendState fails, broadcast SC_MONITORPOWER off (PostMessage HWND_BROADCAST,
+  WM_SYSCOMMAND 0xF170, 2), which is how S0 PCs enter standby; only both failing is an error. jarvis.py
+  logs "sleep: suspend refused (error N) - screen off for Modern Standby". Restart / shutdown use
+  shutdown.exe and were never blocked by this. Sources: learn.microsoft.com/en-us/windows/win32/Power/
+  system-power-states ; community.osr.com/discussion/comment/304430.
+
+--------------------------------------------------------------------------------------------------------
+S2-12  "CALL ME" NAME ROW
+--------------------------------------------------------------------------------------------------------
+  JarvisCallMe is read already (courtesy lines, ~l.3933). Getting new keys into live is solved by COPY TO
+  LIVE step 3b. Left: a CALL ME row in Control Center > JARVIS PERSONALIZATION (7e) with a Rainmeter
+  InputText to type the name; written to Settings.inc like the other rows.
+  Risk: InputText needs its own meter; check it in the Control Center layout first.
+  STATUS 2026-10-15: done. CALL ME row before PERSONALITY: CHANGE opens [mInput] (InputText), CLEAR
+  empties it. SetCallMe strips control chars and = ; [ ] # " ' % and caps at 30. A hello keeps the ear
+  open. Limit: an apostrophe typed in the box breaks the bang (stripped name never has one).
+  2nd pass 2026-10-15: [mInput] now hands the text over as """$UserInput$""" into a variable and
+  SetCallMe() reads it, so an apostrophe or quote no longer breaks the bang (it is stripped on save).
+
+--------------------------------------------------------------------------------------------------------
+S2-13  CONTROL CENTER SMOOTH SCROLL + SCROLL BAR
+--------------------------------------------------------------------------------------------------------
+  Seen: too sensitive, jumps. Cause: OnScroll (Scripts/control.lua ~l.793) moves 2 whole rows per notch;
+  the list clamps a first ROW (~l.699-703); the bar (~l.761) is drawn but cannot be dragged.
+  Fix: scroll in pixels at a fixed rate per notch (eased over a few frames), and a bar you can drag.
+  Risk: Rainmeter redraw rate; ease only while moving, idle costs nothing.
+  STATUS 2026-10-15: done within Rainmeter's limits. 1 row per notch (was 2); clicking the bar track
+  (hit slot H1_47, OnBar) jumps there. NOT possible in Rainmeter: drag, pixel-smooth scrolling.
+  2nd pass 2026-10-15: drag added: the track is 16 hit slices (H1_47..H1_62); mouse-down starts a drag,
+  hovering a slice while dragging jumps there, mouse-up / leaving the window ends it (1/16 steps).
+  Correction: pixel-smooth scrolling IS possible (Rainmeter Container meters clip), but it means
+  redrawing the Control Center list, so it waits for the user's approval; rows still move 1 per notch.
+
+  Dev tooling (small, any time): VS Code's warnings are mostly the wrong interpreter (pywebrtc_audio IS
+  in %LOCALAPPDATA%\SpaceshipHUD\venv): point the workspace at that venv, mypy ignore_missing_imports.
+  Check `used` at jarvis.py ~l.1189 (may be unbound on the GPU branch). The rest are false positives.
 
 Sources for Stage 2
   https://semantic-router.readthedocs.io/en/latest/

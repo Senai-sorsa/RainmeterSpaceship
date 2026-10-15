@@ -361,7 +361,7 @@ def context(text=None, kind=None):
             when = start.strftime("%a %d %b") + ("" if m.group(3) == "1" else start.strftime(" %H:%M"))
             events.append(f"{when} - {m.group(5)}" + (f" ({m.group(4)})" if m.group(4) else ""))
     if events:
-        lines.append("Upcoming calendar events: " + "; ".join(events[:6]))
+        lines.append("Upcoming calendar events: " + "; ".join(events[:6]) + " (calendar events, not alarms or reminders)")
     apps = re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M) if "apps" in want else []
     if apps:
         lines.append("Open apps: " + ", ".join(a.replace(".exe", "") for a in apps[:20]))
@@ -803,7 +803,8 @@ def interpret(model, text):
         if len(routes) > 1 and any(r[1] == "set" and r[2][1] is None for r in routes):
             raise ValueError("incomplete")
     except Exception as e:
-        log(f"interpreter: fallback ({type(e).__name__})")
+        why = str(e) if str(e) in ("not what was said", "volume not said", "no preset", "incomplete") else type(e).__name__
+        log(f"interpreter: fallback ({why})")                  # our own reasons only, never the model's or your words
         return None
     log(f"interpreter: {len(routes)} commands, {time.time() - t0:.1f}s" if routes else "interpreter: no command")
     return None if not routes else routes[0] if len(routes) == 1 else ("multi", None, routes, None)
@@ -1060,11 +1061,11 @@ def unduck():
 
 
 def follow_wait():
-    """Seconds a follow-up waits for you to start talking: JarvisFollowUpWait, default 10, kept to 3-30."""
+    """Seconds a follow-up waits for you to start talking: JarvisFollowUpWait, default 3, kept to 3-30."""
     try:
-        return max(3.0, min(30.0, float(setting("JarvisFollowUpWait", "10"))))
+        return max(3.0, min(30.0, float(setting("JarvisFollowUpWait", "3"))))
     except ValueError:
-        return 10.0
+        return 3.0
 
 
 def _listen(patience=6):
@@ -1856,7 +1857,11 @@ def act_lock(_):
 
 def act_sleep(_):
     # asked directly so the answer comes back (rundll32 always exits 0); it returns once the PC wakes again
-    if not ctypes.windll.powrprof.SetSuspendState(0, 1, 0):
+    if ctypes.windll.powrprof.SetSuspendState(0, 1, 0):
+        return
+    # S2-11: Modern Standby laptops (S0, no S3) refuse it; turning the screen off is how they enter standby
+    log(f"sleep: suspend refused (error {ctypes.GetLastError()}) - screen off for Modern Standby")
+    if not ctypes.windll.user32.PostMessageW(0xFFFF, 0x0112, 0xF170, 2):   # broadcast WM_SYSCOMMAND SC_MONITORPOWER off
         raise OSError("Windows refused to sleep")
 
 
@@ -1883,19 +1888,54 @@ YES = {"yes", "yeah", "yep", "yup", "sure", "confirm", "confirmed", "do it", "go
        "okay", "please do", "yes please", "yes do it", "yes go ahead", "yes confirm", "yes i confirm", "i confirm"}
 
 
+def is_yes(answer):
+    """A plain yes; his name, "sir" or "now" around it is fine ("Yes, Jarvis." / "yes sir"). "yes, but don't" is not."""
+    said = " ".join(re.sub(r"[^a-z]+", " ", (answer or "").lower()).split())
+    extra = [re.escape(n.strip().lower()) for n in setting("JarvisNameAliases", "").split(",") if n.strip()]
+    around = "|".join(["jarvis", "sir", "now"] + NAMES + extra)
+    return re.sub(rf"^(?:(?:{around}) )+|(?: (?:{around}))+$", "", said) in YES
+
+
 def confirmed(pending, answer, now):
     """True only for a plain yes to this pending action before it expires."""
-    said = " ".join(re.sub(r"[^a-z]+", " ", (answer or "").lower()).split())
-    return said in YES and now < pending["expires"]
+    return is_yes(answer) and now < pending["expires"]
 DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)|wipe (my|the)|delete (all|every|my files|windows)|rm -rf|"
                     r"disable (the )?(antivirus|defender|firewall)|hack|brick|destroy|nuke|blow up|kill (all|every)", re.I)
 NAMES = "travis jervis javis jarvus service droves drovis".split()   # how Whisper writes "Jarvis" (JarvisNameAliases adds more)
 NEAR_MISS = "I heard a command but couldn't work it out. Try: set a timer for one minute."
 CLAIM_LINE = "I didn't catch that as a command, so nothing changed. Say it again, like: set an alarm for 7 AM."
 # a chat answer that says something was done: nothing runs on the chat path, so it cannot be true
+# S2-8: any "I did it" / "it is now on" about a setting, the PC or an app; "I'll dim it" promises the same lie
 CLAIM = re.compile(r"\b(?:alarm|timer|reminder|volume)s? (?:is |has been |was )?(?:set|added|changed|now|snoozed)\b|"
-                   r"\bi(?:['’]ve| have) (?:set|turned|changed|opened|closed|muted|unmuted|added|created|scheduled|"
-                   r"adjusted|connected|cancelled|canceled|snoozed|moved)\b", re.I)
+                   r"\bi(?:['’]ve| have| just)? (?:just )?(?:set|turned|changed|opened|closed|muted|unmuted|"
+                   r"added|created|scheduled|adjusted|connected|disconnected|cancelled|canceled|snoozed|moved|dimmed|"
+                   r"brightened|lowered|raised|increased|decreased|reduced|enabled|disabled|switched|activated|"
+                   r"deactivated|toggled|paired|restarted|rebooted|locked|launched|shut|powered)\b|"
+                   r"\bi(?:['’]ll| will) (?:now )?(?:set|turn|change|open|close|mute|unmute|dim|brighten|lower|raise|"
+                   r"enable|disable|switch|connect|disconnect|restart|reboot|lock|shut|put)\b|"
+                   r"\b(?:brightness|bluetooth|wi-?fi|night light|dark mode|light mode|screen|display|wallpaper|headphones|"
+                   r"microphone|mic|computer|pc|laptop)(?: is| has been| was)? (?:now (?:at )?\d|(?:now )?(?:on|off|enabled|"
+                   r"disabled|dimmed|brighter|darker|connected|disconnected|set to|lowered|raised|increased|decreased|"
+                   r"reduced|changed|adjusted|turned (?:on|off|up|down)|locked|restarting|shutting down|going to sleep)\b)|"
+                   r"^(?:done|all set)\b", re.I)
+CANT = "I can't do that yet."
+# S2-8 capability table, the part not built yet: a request for one is said by code before the model (it would answer
+# "done"). What IS built: ACTIONS, the reminder / volume / media lanes. Phase 7-0 folds both into one action table.
+UNBUILT_CAPS = {
+    "brightness": r"brightness|brighter|dimmer|dim|darker",
+    "bluetooth": r"bluetooth|headphones|earbuds|airpods",
+    "wifi": r"wi-?fi|airplane mode|flight mode|hotspot",
+    "display": r"night ?light|dark mode|light mode|wallpaper|(?:desktop )?background|resolution|screen ?saver",
+    "microphone": r"microphone|mic",
+    "account": r"hibernat\w*|sign (?:me )?out|log (?:me )?(?:off|out)",
+    "power plan": r"battery saver|power mode",
+    "keyboard light": r"keyboard (?:light|backlight)",
+    "notifications": r"do not disturb|focus assist",
+}
+UNBUILT = re.compile(r"\b(?:" + "|".join(f"(?P<{k.replace(' ', '_')}>{v})" for k, v in UNBUILT_CAPS.items()) + r")\b")
+UNBUILT_ASK = re.compile(r"(?:i (?:want|need) (?:you )?to |i'?d like (?:you )?to )?(?:set|turn|change|make|dim|brighten|"
+                         r"darken|lower|raise|increase|decrease|reduce|boost|switch|connect|disconnect|pair|unpair|enable|"
+                         r"disable|activate|deactivate|toggle|put|hibernate|sign|log|mute|unmute|open|start)\b")
 
 
 def strip_name(text):
@@ -2012,7 +2052,8 @@ def route(text):
     whole = cmd = re.sub(r"^(hey |ok |okay )?(jarvis[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
     if text.strip().endswith("?") and cmd == t and not named:   # "Jarvis, ...?" was a command before the name moved out
         cmd = ""
-    if re.fullmatch(r"undo(?: that| it)?|put it back|cancel that|take that back", whole):
+    if re.fullmatch(rf"(?:(?:no|oh|oops|wait|actually|never ?mind|{'|'.join(['jarvis'] + NAMES)})[,.!]? +)*"
+                    r"(?:undo(?: that| it)?|put it back|cancel that|take that back)", whole):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
         return ("say", None, None, "Okay, never mind.")
@@ -2098,13 +2139,17 @@ def route(text):
     m = re.search(r"\b(?:is|do i have)\s+(.+?)\s+installed\b|\b(?:what|which|list)\b.*\b(?:apps|applications|programs)\b.*\binstalled\b", t)
     if m:
         return ("apps", None, (m.group(1) or "").strip(), None)
-    if re.match(r"lock (the |my )?(pc|computer|screen|laptop)\b", cmd):
+    pc = r"(?:the |my |this )?(?:pc|computer|laptop|system|machine)"
+    if re.match(r"lock (the |my )?(pc|computer|screen|laptop)\b", cmd) or re.fullmatch(rf"lock(?: it| up| {pc})?", cmd):
         return ("act", "lock", None, "You want me to lock the PC. Confirm with yes.")
-    if re.match(r"(go to sleep|put (the |my )?(pc|computer|laptop) to sleep|sleep (the |my )?(pc|computer|laptop))\b", cmd):
+    if (re.match(r"(go to sleep|put (the |my )?(pc|computer|laptop) to sleep|sleep (the |my )?(pc|computer|laptop))\b", cmd)
+            or re.fullmatch(rf"(?:go into |enter )?sleep(?: mode)?|(?:put|set|send) (?:it |{pc} )?(?:in|on|to|into) sleep(?: mode)?", cmd)):
         return ("act", "sleep", None, "You want me to put the PC to sleep. Confirm with yes.")
-    if re.match(r"(restart|reboot) (the |my )?(pc|computer|laptop|system)\b", cmd):
+    if re.match(r"(restart|reboot) (the |my )?(pc|computer|laptop|system)\b", cmd) or re.fullmatch(rf"(?:restart|reboot)(?: it| {pc})?", cmd):
         return ("act", "restart", None, "You're asking me to restart the PC. Confirm with yes.")
-    if re.match(r"(shut ?down|power off|turn off) (the |my )?(pc|computer|laptop|system)\b", cmd):
+    if (re.match(r"(shut ?down|power off|turn off) (the |my )?(pc|computer|laptop|system)\b", cmd)
+            or re.fullmatch(rf"shut ?down(?: {pc})?|shut (?:it|{pc}) (?:down|off)|power (?:off|down)(?: it| {pc})?|"
+                            rf"power (?:it|{pc}) (?:off|down)", cmd)):
         return ("act", "shutdown", None, "You're asking me to shut down the PC. Confirm with yes.")
     m = re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd)
     if m:
@@ -2166,6 +2211,10 @@ def route(text):
     if parts and all(p[0] in ("remind", "level") and p[1] != "flip" and not (p[1] == "set" and p[2][1] is None)
                      or p[0] == "act" and p[3] is None for p in parts):       # a set with no time would ask: not split
         return ("multi", None, parts, None)
+    cap = UNBUILT.search(cmd) if UNBUILT_ASK.match(cmd) else None
+    if cap or re.fullmatch(r"hibernate(?: it| (?:the |my )?(?:pc|computer|laptop))?|(?:sign|log) (?:me )?(?:out|off)", cmd):
+        log(f"capability: {cap.lastgroup.replace('_', ' ') if cap else 'account'} not built yet - said so")
+        return ("say", None, None, CANT)
     # a command that no parser above took: said plainly, never handed to the model (it would answer "done")
     if (re.match(r"(?:i (?:want|need) (?:you )?to |i'?d like (?:you )?to )?(?:set|turn|change|open|close|mute|cancel|"
                  r"connect|snooze|switch)\b", cmd)
@@ -2788,8 +2837,11 @@ def reminder_cmd(t, cmd, now):
     """A timer or reminder command -> ("list", kind) | ("cancel", kind, words) | ("set", kind, due, label, time as said);
     anything else -> None. due is None when no time was heard (he then asks)."""
     # alarms are saved as reminders labelled "alarm": kind "alarm" would read as a weekly rule (repeats, next_due)
+    # "can you tell me if i have any alarms..." is "do i have any alarms...": by rule, never the model
+    t = re.sub(r"^(?:(?:can|could|would|will) you (?:please )?)?(?:tell me|check|see|let me know|find out) (?:if|whether) (?=i have )",
+               "do ", t)
     if re.match(r"(?:do i have|have i (?:got|set)|(?:what|which)(?: are)?|what time(?:'s| is)|(?:list|show)(?: me)?|when(?:'s| is)|"
-                r"how long (?:until|till|before)|is) (?:an? |any |all |my |the |next )*alarms?\b", t):
+                r"how long (?:until|till|before)|is|are there|is there|any) (?:an? |any |all |my |the |next )*alarms?\b", t):
         return ("list", "alarm")
     # "move my alarm to 8", "change the 7 am alarm to 8", "make the timer 10 minutes", "add 5 minutes to the timer":
     # (words that say which one, the new time; or for "add", None and the seconds added). No time read: not this
@@ -2984,6 +3036,7 @@ def remind_reply(op, args, quiet):
     if op in ("cancel", "move"):
         if len(gone) > 1 and (op == "move" or not words and not args[1].startswith("all")):   # "turn off my alarm" with 2
             name = lambda r: clock(r[0], now) if is_alarm(r) else describe(r, now)
+            log(f"reminder {op}: {len(gone)} match - asked which")
             reply_line(f"You have {len(gone)} {kind}s: {' and '.join(map(name, gone))}. Which one?", quiet)
             S.set(state="listening", level=0.0)
             answer = hear()
@@ -2993,9 +3046,11 @@ def remind_reply(op, args, quiet):
             if not (op == "cancel" and re.search(r"\b(?:both|all|every|them)\b", answer)):
                 pick, said = find_items(gone, answer, kind, now) if answer else ([], [])
                 if not said or not pick or (op == "move" and len(pick) > 1):
+                    log(f"reminder {op}: no clear pick - left them")
                     return "Okay, I left them."
                 gone = pick
         if not gone:
+            log(f"reminder {op}: none matched")
             others = "; ".join(describe(r, now) for r in items)
             return f"I don't see {'an' if kind == 'alarm' else 'a'} {kind} like that." + (f" You have: {others}." if others else "")
         if op == "move":
@@ -3686,7 +3741,43 @@ COURTESY = ((re.compile(rf"(?:{_OK}(?:thanks|thank you|thank you so much|thank y
             (re.compile(rf"{_OK}(?:goodbye|bye|bye bye|see you|see you later)(?: jarvis)?"), "Goodbye{name}."),
             (re.compile(rf"{_OK}good ?night(?: jarvis)?"), "Good night{name}."),
             (re.compile(r"(?:oh )?(?:sorry|my bad)(?: jarvis)?"), "No problem."))
-ROOM_ASK = "Were you talking to me?"
+ROOM_ASKS = ("Are you talking to me, sir?", "Was that for me, sir?", "Sorry, were you speaking to me, sir?")
+_asked_room = [0]
+HEARD_ASK = re.compile(r"(?:what|who|where|when|why|how|which|is|are|am|was|were|can|could|would|will|do|does|did|should|"
+                       r"shall|have|has|tell|show|give|play|stop|read|find|search|check|open|close|make|put|set|turn|"
+                       r"remind|cancel|add|remove|undo|repeat|say|explain|help|what's|how's|where's|who's|let's)\b")
+
+
+def room_ask():
+    """S2-10: the "not for me?" question, in turn so it doesn't sound canned."""
+    _asked_room[0] += 1
+    return ROOM_ASKS[_asked_room[0] % len(ROOM_ASKS)]
+
+
+def directed(text, answering):
+    """S2-10, decided by code (the model never decides): was speech in the open-ear window for him? "yes": run it;
+    "ask": unsure, ask; "no": a fragment or noise, stay quiet. answering: he just asked something or offered."""
+    said = strip_name(text)
+    words = re.findall(r"[a-z']+", said.lower().replace("’", "'"))
+    if not words:
+        return "no"
+    if said != text or "jarvis" in words or answering:
+        return "yes"
+    r = route(said)
+    if r[0] != "chat":                                         # a command, a guard, a fixed reply: it was meant for him
+        return "yes"
+    plain = " ".join(words)
+    if ENDERS.fullmatch(plain) or any(rx.fullmatch(plain) for rx, _ in COURTESY):   # "thanks" / "no": answered as before
+        return "yes"
+    if "?" in text or {"you", "your", "you're", "yourself", "yours"} & set(words) or HEARD_ASK.match(plain):
+        return "yes"
+    return "ask" if len(words) >= 3 else "no"
+
+
+def ear_wait():
+    """S2-10: the open-ear window after a reply: JarvisFollowUpWait (3 s); 8 s when he asked or offered something."""
+    asked = (recent["me"] or "").rstrip().endswith("?") or time.time() < offer.get("expires", 0)
+    return max(follow_wait(), 8.0) if asked else follow_wait()
 
 
 def room_talk(text):
@@ -3797,10 +3888,6 @@ def command_reply(kind, action, target, prompt, quiet):
     return None
 
 
-UNDO_SAID = re.compile(r"\b(?:undo|remove)\b", re.I)
-UNDO_WAIT = 5                                                 # seconds after a command reply that listen for "undo"
-
-
 def ask_yes(prompt, quiet):
     """Every confirmation: ask, listen up to 15 s, and True only for a plain yes (the shared YES set)."""
     reply_line(prompt, quiet)
@@ -3814,7 +3901,7 @@ def ask_yes(prompt, quiet):
 
 def turn(tier, follow=0, woke=False):
     """One exchange, then follow-ups without the wake word (JarvisFollowUp) for as long as you keep answering
-    (D2, no cap): after a chat or info answer anything goes; after a command only "undo" / "remove" for 5 s.
+    (D2, no cap): S2-10, after any reply his ear stays open (ear_wait) and directed() decides if it was for him.
     A loop, not recursion, so a long talk never grows the stack. `woke`: started by the wake word."""
     mode = None
     while True:
@@ -3827,7 +3914,7 @@ def turn(tier, follow=0, woke=False):
 
 
 def exchange(tier, follow, woke, mode, left):
-    """One turn. mode: None, or what the last one left open ("follow" / "undo"); what this one leaves open goes in
+    """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
     global history, last_turn
     if not busy.acquire(blocking=False):
@@ -3868,7 +3955,7 @@ def exchange(tier, follow, woke, mode, left):
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio = listen(patience=UNDO_WAIT if mode == "undo" else follow_wait()) if follow else listen()
+        audio = listen(patience=ear_wait()) if follow else listen()
         if audio is None or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
@@ -3881,46 +3968,58 @@ def exchange(tier, follow, woke, mode, left):
             return
         log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
         log(f"you: {text}")
+        way.update(kind="silence", via="rule", result="nothing said")   # replaced below once words came
         if not text and woke:                                  # FR6 L9: likely a false wake - end quietly
+            way.update(kind="false_wake")
             log("transcript: nothing after the wake word - ended quietly")
             return
         if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
+            way.update(result="asked again")
             quiet = muted()
             reply_line("Sorry, I didn't catch that.", quiet)
-            left["again"] = not quiet and "follow"
+            left["again"] = not quiet and "ear"
             return
         if not text or cancel.is_set():
             return
-        if mode == "undo" and not UNDO_SAID.search(text):     # the undo window: other room sound gets no answer
-            log("follow-up: ended (not an undo)")
+        answering = time.time() < offer.get("expires", 0) or (recent["me"] or "").rstrip().endswith("?")
+        heard_as = directed(text, answering) if mode == "ear" else "yes"
+        if heard_as != "yes":
+            way.update(kind="ear", result="not for me - quiet" if heard_as == "no" else "asked if for me")
+        if heard_as == "no":                                   # a fragment or room noise: no answer, the window ends
+            log("ear: not for me - stayed quiet")
+            return
+        if heard_as == "ask":                                  # unsure: ask once; "yes" answers what was said
+            log("ear: unsure - asked")
+            convo_add("U", text)
+            reply_line(room_ask(), muted())
+            offer.clear()
+            offer.update(room=text, expires=time.time() + 30 + follow_wait())
+            left["again"] = not muted() and "ear"
             return
         convo_add("U", text)
         quiet = muted()
+        for k in ("kind", "via", "result"):                   # words came: each path below sets its own
+            way.pop(k)
 
         def fixed(reply):
             """Say a fixed reply, keep it in the chat history, and listen once more unless he was told to drop it."""
             global history, last_turn
+            way["result"] = ("refused - not built" if reply == CANT else "refused - unclear command" if reply == NEAR_MISS
+                             else way.get("result") or "said")
             reply_line(reply, quiet)
             active(text)
             # stamped, so "7:00 AM tomorrow" in the reply still means the right day after midnight
             history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {text}"},
                         {"role": "assistant", "content": reply}]
             last_turn = time.time()
-            # [F]: chat and info listen again; a command only for "undo", and only if it changed something now
-            fresh = undo and undo[0] >= way.get("t", 0) + UNDO_FOR
-            left["again"] = (not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
-                     and ("follow" if way.get("lane") != "command" else "undo" if fresh else None))
+            # S2-10: after any reply the ear stays open ("undo" is just one thing it can hear); not after "Cancelled."
+            left["again"] = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply) and "ear"
         S.set(err="")
-        if mode == "undo":                                     # "undo that" / "remove it" right after a change: ask first
-            way.update(kind="undo", via="rule", lane="command")
-            what = did[-1][1] if did else "that"
-            fixed(undo_last() if ask_yes(f"Do you want me to undo that - {what}?", quiet) else "Okay, I left it.")
-            return
         fact = offer.pop("fact", None) if time.time() < offer.get("expires", 0) else None
         room = offer.pop("room", None) if time.time() < offer.get("expires", 0) else None
         offer.clear()
         plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
-        if room and plain in YES:                              # "Were you talking to me?" "Yes": answer what was said
+        if room and is_yes(text):                              # "Are you talking to me, sir?" "Yes": answer what was said
             text = room
         if fact and (plain in YES or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
             way.update(kind="memory", action="save", via="rule", lane="command")
@@ -3932,6 +4031,7 @@ def exchange(tier, follow, woke, mode, left):
             way.update(kind="courtesy", via="rule")
             name = setting("JarvisCallMe", "").strip()
             reply_line(polite.replace("{name}", f", {name}" if name else ""), quiet)
+            left["again"] = not quiet and polite.startswith("Hello") and "ear"   # a hello is the start of a talk
             return
         if text != room and (polite or ENDERS.fullmatch(said)):
             way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
@@ -3967,9 +4067,9 @@ def exchange(tier, follow, woke, mode, left):
         way.update(kind=kind, action=action, via=via)
         if kind == "room":                                     # asked once; a "yes" answers it in full
             log("transcript: not for me? asked")
-            reply_line(ROOM_ASK, quiet)
+            reply_line(room_ask(), quiet)
             offer.update(room=text, expires=time.time() + 30 + follow_wait())
-            left["again"] = not quiet and "follow"
+            left["again"] = not quiet and "ear"
             return
         if kind == "heard":
             fixed(f"I heard: {recent['you']}" if recent["you"] else "I haven't heard anything yet.")
@@ -4004,8 +4104,10 @@ def exchange(tier, follow, woke, mode, left):
             # two-phase: ask, and listen for the answer (15 s) without another click
             if ask_yes(prompt, quiet):
                 ok = run_action(action, target)
+                way["result"] = "done" if ok else "failed"
                 fixed(("Added." if action == "todo" else "Done.") if ok else "That didn't work.")
             else:
+                way["result"] = "left - no yes"
                 log(f"action {action} not confirmed")
                 fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else "Cancelled.")
             return
@@ -4075,6 +4177,7 @@ def exchange(tier, follow, woke, mode, left):
             problem(f"{model} gave no answer - try again, or pick another model in Control Center > JARVIS")
             return
         log(f"jarvis: {reply}")
+        way["result"] = "answered"
         recent["me"] = reply
         if not apart:
             history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
@@ -4084,11 +4187,12 @@ def exchange(tier, follow, woke, mode, left):
         if fact:                                               # M4a-3: one offer; the next turn's yes saves it
             reply_line("Want me to remember that?", quiet)
             offer.update(fact=fact, expires=time.time() + 30 + follow_wait())
-        left["again"] = not quiet and not cancel.is_set() and "follow"   # fixed replies set it in fixed()
+        left["again"] = not quiet and not cancel.is_set() and "ear"   # fixed replies set it in fixed()
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
         live("")
     except Exception as e:
+        way["result"] = "error"
         log(f"turn failed: {e!r}")
         problem(str(e).split("\n")[0][:110])
         live("")
@@ -4097,7 +4201,8 @@ def exchange(tier, follow, woke, mode, left):
             act = way.get("action")
             act = f" {act}" if isinstance(act, str) and re.fullmatch(r"[a-z_]+", act) else ""
             tag = f"{way['lane']}." if "lane" in way else ""
-            log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s")
+            done = "stopped" if cancel.is_set() else way.get("result", "said")
+            log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s -> {done}")
         S.set(state="idle", level=0.0)
         busy.release()
 
@@ -4260,7 +4365,8 @@ def train_wake():
                         oww.reset()
                         pos.append(get_reference_clip_features(c, oww, "hey_jarvis", threshold=WAKE_FLOOR, N=3))
                 pos = word[name] if name in WORD_STYLES else np.vstack(pos)
-                log(f"train: {label} peaks {peak:.2f} ({len(pos)} examples)")
+                log(f"train: {label} " + (f"from {len(pos)} word samples" if name in WORD_STYLES
+                                          else f"peaks {peak:.2f} ({len(pos)} examples)"))
                 if len(pos) == 0:                              # never reached the floor / no speech heard: that way stays off
                     if os.path.exists(path):
                         os.remove(path)                        # an older check must not outlive this training

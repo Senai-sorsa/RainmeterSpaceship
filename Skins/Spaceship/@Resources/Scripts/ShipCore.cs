@@ -62,6 +62,7 @@ public static class ShipCore
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr hProc, uint flags, StringBuilder sb, ref uint size);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
     [DllImport("powrprof.dll")] static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
@@ -83,7 +84,8 @@ public static class ShipCore
         {
             if (cmd == "brightness" && args.Length > 1) { SetBrightness(int.Parse(args[1])); return 0; }
             if (cmd == "mic" && args.Length > 1) { MicVolume.Set(int.Parse(args[1]) / 100f); return 0; }
-            if (cmd == "sleep") return SetSuspendState(false, false, false) ? 0 : 1;   // rundll32 can't pass the "no hibernate" flag
+            if (cmd == "sleep")   // rundll32 can't pass the "no hibernate" flag; Modern Standby (S0, no S3) refuses it: screen off = standby
+                return SetSuspendState(false, false, false) || PostMessage((IntPtr)0xFFFF, 0x0112, (IntPtr)0xF170, (IntPtr)2) ? 0 : 1;
             if (cmd == "focus" && args.Length > 2)
             {
                 Init(Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath)));   // @Resources\Bin\.. (for the log)
