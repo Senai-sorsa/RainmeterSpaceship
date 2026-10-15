@@ -81,7 +81,7 @@ from jarvislib.memory import (ACTIVE_TTL, EARLIER, FOLLOW_START, GIST_AGE, GIST_
     fact_save, facts_about, file_talk, gist_day, gist_for, gist_ok, gisting, keywords, load_gist, load_memory,
     load_topics, recall, recall_on, recompact, related, save_gist, save_memory, save_topics, talk_forget, talk_list,
     topic_text, topics_about)
-from jarvislib.routing import (ACTIONS, AI_CUES, AI_NOT, AI_PROMPT, AI_SCHEMA, AI_WORDS, CANT, CLAIM, CLAIM_LINE,
+from jarvislib.routing import (ACTION_TABLE, ACTIONS, AI_CUES, AI_NOT, AI_PROMPT, AI_SCHEMA, AI_WORDS, CANT, CLAIM, CLAIM_LINE,
     CMD_WORDS, FILLER, KEEP, NEAR_MISS, ORDINALS, PHRASES, REFER, SOUNDALIKE, UNBUILT, UNBUILT_ASK, UNBUILT_CAPS,
     _words, as_said, ask_ai, fix_route, holds_words, interpret, no_claims, pick_last, route, strip_name, tidy)
 from jarvislib.prompt import (ABOUT_ME, ASKING, BLOCKS, BLOCK_EXAMPLES, BRIEFING, INFO_PROMPT, MOODS, SYSTEM,
@@ -118,7 +118,12 @@ def load_meaning():
 ACTIONS_LOGGED = ("close", "open", "volume", "media")           # targets that are app names or levels, never your words
 
 
-def run_action(action, target):
+def run_action(action, target, pending=None):
+    """Run one table action. An "ask" row runs only when the caller passes the pending action the user said yes to."""
+    row = ACTION_TABLE.get(action)
+    if row and row.risk == "ask" and pending != (action, target):
+        log(f"action {action} refused: needs a confirmed yes")
+        return False
     try:
         before = (speakers() if action in ("volume", "mute", "unmute") else target if action in ("replace_fact", "forget_facts")
                   else None)
@@ -959,7 +964,7 @@ def exchange(tier, follow, woke, mode, left):
         if kind == "act":
             # two-phase: ask, and listen for the answer (15 s) without another click
             if ask_yes(prompt, quiet):
-                ok = run_action(action, target)
+                ok = run_action(action, target, pending=(action, target))
                 way["result"] = "done" if ok else "failed"
                 unsure = prompt.startswith("Did you say: ")    # then say what really happened, as an unasked command does
                 fixed(("Added." if action == "todo" else done_line(action, target) if unsure else "Done.") if ok else "That didn't work.")

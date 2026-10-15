@@ -145,10 +145,17 @@ assert keys == [0xB0] and j.done_line("media", "next") == "Sent."
 j.log = lambda *a: None
 failed = []
 j.problem = lambda msg, popup=True: failed.append(msg)
-assert j.run_action("shutdown", None) and ran[-1] == ["shutdown", "/s", "/t", "10"] and not failed
+assert j.run_action("shutdown", None, ("shutdown", None)) and ran[-1] == ["shutdown", "/s", "/t", "10"] and not failed
 assert not j.run_action("format disk", None), "only listed actions can run"
+# 7-0: the action table. An "ask" row never runs without the pending action the user said yes to
+assert set(j.ACTIONS) == set(j.ACTION_TABLE) and all(r.risk in ("read", "change", "ask") and r.desc for r in j.ACTION_TABLE.values())
+for name, row in j.ACTION_TABLE.items():
+    if row.risk == "ask":
+        ran.clear()
+        assert not j.run_action(name, None) and not ran, f"{name}: ask-first, refused without a yes"
+        assert not j.run_action(name, None, ("other", None)) and not ran, "a yes for another action is not a yes"
 _Done.returncode = 1190                                           # non-zero exit code
-assert not j.run_action("restart", None)
+assert not j.run_action("restart", None, ("restart", None))
 _Done.returncode = 0
 
 
@@ -157,7 +164,7 @@ def _hang(args, **kw):
 
 
 j.subprocess.run = _hang                                          # the command never comes back
-assert not j.run_action("shutdown", None)
+assert not j.run_action("shutdown", None, ("shutdown", None))
 j.subprocess.run = _run
 
 
@@ -171,18 +178,18 @@ j.speakers = lambda **kw: _api_down(kw)
 assert not j.run_action("volume", ("set", 30)) and vol == [100]
 j.speakers = _speakers
 ran.clear()
-assert not j.run_action("close", "notepad.exe") and not ran, "missing target: nothing is sent"
-assert not j.run_action("close", "chrome.exe") and ran == [["taskkill", "/IM", "chrome.exe"]], "asked, but it stayed open"
+assert not j.run_action("close", "notepad.exe", ("close", "notepad.exe")) and not ran, "missing target: nothing is sent"
+assert not j.run_action("close", "chrome.exe", ("close", "chrome.exe")) and ran == [["taskkill", "/IM", "chrome.exe"]], "asked, but it stayed open"
 now_t = int(j.time.time())
 j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else f"T {now_t - 60}\nW explorer.exe\n"
 ran.clear()
-assert not j.run_action("close", "chrome.exe"), "a stale window list (ShipCore stopped) proves nothing"
+assert not j.run_action("close", "chrome.exe", ("close", "chrome.exe")), "a stale window list (ShipCore stopped) proves nothing"
 j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else ""
 ran.clear()
-assert not j.run_action("close", "chrome.exe"), "an unreadable window list (mid-swap) is not 'closed'"
+assert not j.run_action("close", "chrome.exe", ("close", "chrome.exe")), "an unreadable window list (mid-swap) is not 'closed'"
 j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else f"T {now_t}\nW explorer.exe\n"
 ran.clear()
-assert j.run_action("close", "chrome.exe"), "closed once the window is gone"
+assert j.run_action("close", "chrome.exe", ("close", "chrome.exe")), "closed once the window is gone"
 assert len(failed) == 9, failed
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 j.time.sleep = real_sleep
@@ -786,7 +793,7 @@ j.setting = lambda name, default="": "0" if name == "JarvisFollowUp" else defaul
 turns = iter(["Set a timer for 10 minutes.", "Lock my computer.", "Yes."])
 j.muted, j.listen, j.transcribe = lambda: False, lambda: "audio", lambda a: next(turns)
 real_run_action = j.run_action
-j.run_action = lambda action, target: acted.append(action) or True
+j.run_action = lambda action, target, pending=None: acted.append(action) or True
 j.turn(0)
 assert asked[-1] == "Timer set for 10 minutes." and states[-1] == idle and not j.busy.locked()
 j.turn(0)
@@ -988,10 +995,10 @@ assert mem("forget car") == "Forgotten: my car is red." and j.load_memory() == [
 assert j.undo_last() == "Put back: my car is red." and j.load_memory() == ["my friend Oscar is tall", "my car is red"]
 assert mem("forget the") == "I don't have that." and len(j.load_memory()) == 2
 j.save_memory(["my dentist is on Fridays", "my bike is in the shed"])      # P0-03: a confirmed replace / forget can be undone
-assert real_run_action("replace_fact", ("my dentist is on Fridays", "my dentist is on Mondays")) and j.load_memory()[0] == "my dentist is on Mondays"
+assert real_run_action("replace_fact", ("my dentist is on Fridays", "my dentist is on Mondays"), ("replace_fact", ("my dentist is on Fridays", "my dentist is on Mondays"))) and j.load_memory()[0] == "my dentist is on Mondays"
 assert j.undo_last() == "Put back: my dentist is on Fridays." and j.load_memory() == ["my dentist is on Fridays", "my bike is in the shed"]
-assert real_run_action("forget_facts", ["my bike is in the shed"]) and j.undo_last() == "Put back: my bike is in the shed."
-assert real_run_action("forget_all", None) and j.load_memory() == [] and j.undo_last().startswith("Put back: ") and len(j.load_memory()) == 2
+assert real_run_action("forget_facts", ["my bike is in the shed"], ("forget_facts", ["my bike is in the shed"])) and j.undo_last() == "Put back: my bike is in the shed."
+assert real_run_action("forget_all", None, ("forget_all", None)) and j.load_memory() == [] and j.undo_last().startswith("Put back: ") and len(j.load_memory()) == 2
 j.save_memory(["my dentist is on Fridays"])
 
 # ---- to-do by voice: asked first, appended to the note (never rewritten, never created), the text kept out of the log
@@ -1030,10 +1037,10 @@ with open(note, "rb") as f:
     assert f.read() == b"- [ ] old\n- [ ] buy milk\n- [ ] call the bank\n"
 logged, keep = [], j.log
 j.log = logged.append
-assert real_run_action("todo", "secret item") is True and "secret" not in "".join(logged)
+assert real_run_action("todo", "secret item", ("todo", "secret item")) is True and "secret" not in "".join(logged)
 os.remove(note)
 n = len(said)
-assert real_run_action("todo", "secret item") is False and not os.path.exists(note)     # a missing note is not created
+assert real_run_action("todo", "secret item", ("todo", "secret item")) is False and not os.path.exists(note)     # a missing note is not created
 assert "secret" not in "".join(logged) + said[-1][0] and tmp not in "".join(logged) + said[-1][0] and len(said) == n + 1
 j.log = keep
 
@@ -1350,7 +1357,7 @@ assert j.run_action("volume", ("step", 10)) and vol == [55]
 j.time.time = lambda: real_time() + 121
 assert j.undo_last() == "There's nothing to undo." and vol == [55]
 j.time.time = real_time
-assert j.run_action("lock", None) and j.undo_last() == "I can't undo that."
+assert j.run_action("lock", None, ("lock", None)) and j.undo_last() == "I can't undo that."
 j.save_reminders([])
 do("set a timer for 10 minutes")
 assert j.undo_last() == "Removed that timer." and j.load_reminders() == []
@@ -1583,7 +1590,7 @@ assert "You ran nothing in this session." in j.system_prompt("What did you do?")
 assert "WHAT YOU ACTUALLY DID" not in j.system_prompt("Tell me a joke.")
 real_actions = j.ACTIONS
 j.ACTIONS = dict(real_actions, lock=lambda _: None, sleep=lambda _: 1 / 0)
-assert j.run_action("lock", None) and not j.run_action("sleep", None)
+assert j.run_action("lock", None, ("lock", None)) and not j.run_action("sleep", None, ("sleep", None))
 j.ACTIONS = real_actions
 j.memory_reply("save", "my bike is red")
 r = j.route("set a timer for 10 minutes")
@@ -1840,14 +1847,14 @@ assert (kind, action) == ("act", "forget_talk") and prompt == (
 assert len(j.load_topics()) == 2                                              # nothing is gone before the yes
 logged, keep = [], j.log
 j.log = logged.append
-assert j.run_action(action, gone) and [t["kw"] for t in j.load_topics()] == [["carbonara", "dinner", "good", "pasta", "recipe", "try"]]
+assert j.run_action(action, gone, (action, gone)) and [t["kw"] for t in j.load_topics()] == [["carbonara", "dinner", "good", "pasta", "recipe", "try"]]
 j.log = keep
 assert logged == ["action: forget_talk "]                                    # no words of the talk in the log
 assert j.route("What do you remember about the Eiffel Tower?")[3] == j.NO_TALK
 j.save_gist([("2026-01-02", "The user likes the Eiffel Tower")], "2026-10")           # P0-06: a compacted gist line is forgotten too
 kind, action, gone, prompt = j.route("forget what we said about the Eiffel Tower")
 assert action == "forget_talk" and gone == ["The user likes the Eiffel Tower"] and "Forget 1 earlier item about that" in prompt, (gone, prompt)
-assert j.run_action(action, gone) and j.load_gist() == ([], "2026-10")                  # the #month header stays
+assert j.run_action(action, gone, (action, gone)) and j.load_gist() == ([], "2026-10")                  # the #month header stays
 assert j.route("forget what we said about the Eiffel Tower")[3] == j.NO_TALK
 assert j.route("Forget that my dentist is on Fridays.")[:2] == ("memory", "forget")   # facts: as before
 with open(j.TOPICS_FILE, "w", encoding="utf-8") as f:
@@ -2407,7 +2414,7 @@ acts, listens = [], [0]
 real_ask_ai, real_interpret, real_filler = j.ask_ai, j.interpret, j.filler
 j.ask_ai, j.filler = (lambda text, r: True), (lambda *a: None)
 j.interpret = lambda model, text: (j.stop_now("click"), ("act", "volume", "30", None))[1]
-j.run_action = lambda action, target: acts.append(action) or True
+j.run_action = lambda action, target, pending=None: acts.append(action) or True
 j.muted, j.transcribe = (lambda: False), (lambda a: "make it louder")
 j.listen = lambda **k: listens.__setitem__(0, listens[0] + 1) or "audio"
 j.setting = default_setting

@@ -2,6 +2,7 @@
 import os
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from .actions import MEDIA_KEYS, act_close, act_lock, act_open, act_sleep, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import speakers_mute
@@ -136,23 +137,36 @@ def forget_talk(gone):
         save_gist([(d, f) for d, f in rows if f not in gone], month)
 
 
-ACTIONS = {
-    "lock": act_lock,
-    "sleep": act_sleep,
-    "restart": lambda _: run_ok(["shutdown", "/r", "/t", "10"]),
-    "shutdown": lambda _: run_ok(["shutdown", "/s", "/t", "10"]),
-    "close": act_close,
-    "open": act_open,
-    "mute": lambda _: speakers_mute(True),
-    "unmute": lambda _: speakers_mute(False),
-    "volume": act_volume,
-    "media": lambda key: press_key(MEDIA_KEYS[key]),
-    "todo": lambda item: act_todo(item),
-    "forget_all": lambda _: save_memory([]),
-    "forget_talk": forget_talk,                                                     # M2b, after the read-back
-    "forget_facts": lambda gone: save_memory([f for f in load_memory() if f not in gone]),           # M4a, after the read-back
-    "replace_fact": lambda pair: save_memory([pair[1] if f == pair[0] else f for f in load_memory()]),
+@dataclass(frozen=True)
+class Action:
+    """One row of the action table (7-0). Only these can ever run; risk is decided here, never by the model."""
+    run: object                    # run(target): does it, raises on failure
+    risk: str                      # "read" | "change" | "ask": an "ask" row runs only with the confirmed pending action
+    desc: str
+    check: object = None           # check(target): what Windows reports afterwards (the reply); None = done_line
+    phrases: object = None         # new rows: the regex route() matches; the old rows keep their parser in route()
+
+
+ACTION_TABLE = {
+    "lock": Action(act_lock, "ask", "lock the PC"),
+    "sleep": Action(act_sleep, "ask", "put the PC to sleep"),
+    "restart": Action(lambda _: run_ok(["shutdown", "/r", "/t", "10"]), "ask", "restart the PC"),
+    "shutdown": Action(lambda _: run_ok(["shutdown", "/s", "/t", "10"]), "ask", "shut the PC down"),
+    "close": Action(act_close, "ask", "close an app"),
+    "open": Action(act_open, "change", "open an app"),
+    "mute": Action(lambda _: speakers_mute(True), "change", "mute the sound"),
+    "unmute": Action(lambda _: speakers_mute(False), "change", "unmute the sound"),
+    "volume": Action(act_volume, "change", "set or step the volume"),
+    "media": Action(lambda key: press_key(MEDIA_KEYS[key]), "change", "press a media key"),
+    "todo": Action(lambda item: act_todo(item), "ask", "add a to-do"),
+    "forget_all": Action(lambda _: save_memory([]), "ask", "forget every saved fact"),
+    "forget_talk": Action(forget_talk, "ask", "forget earlier talks"),                         # M2b, after the read-back
+    "forget_facts": Action(lambda gone: save_memory([f for f in load_memory() if f not in gone]), "ask",
+                           "forget some saved facts"),                                         # M4a, after the read-back
+    "replace_fact": Action(lambda pair: save_memory([pair[1] if f == pair[0] else f for f in load_memory()]), "ask",
+                           "replace a saved fact"),
 }
+ACTIONS = {name: a.run for name, a in ACTION_TABLE.items()}    # the callers' and tests' name for the handlers
 
 NEAR_MISS = "I heard a command but couldn't work it out. Try: set a timer for one minute."
 CLAIM_LINE = "I didn't catch that as a command, so nothing changed. Say it again, like: set an alarm for 7 AM."
