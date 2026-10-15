@@ -365,6 +365,20 @@ for heard in ("What's the weather like today?", "what is the forecast for tomorr
     assert j.no_data(heard, set()) == "I can't look that up yet.", heard
 for heard in ("write a story about a storm", "what's a good name for a weather app", "explain how a news feed works", "tell me a joke"):
     assert j.no_data(heard, set()) is None, heard
+# 7-A8: "open <app>" brings an app that is already open forward (ShipCore focus) and starts one that is not
+ran, started, _ow, _sf, _ro, _ex = [], [], j.open_windows, j.os.startfile, j.run_ok, j.os.path.exists
+j.open_windows, j.os.startfile, j.run_ok, j.os.path.exists = (lambda: ["chrome.exe"]), started.append, ran.append, (lambda p: True)
+try:
+    j.act_open(("Google Chrome", "C:/Apps/chrome.exe"))
+    assert ran and ran[0][1:] == ["focus", "chrome.exe", "C:/Apps/chrome.exe"] and not started, (ran, started)
+    ran.clear()
+    j.act_open(("Notepad", "C:/Apps/notepad.exe"))                  # not running: started as before
+    assert not ran and started == ["C:/Apps/notepad.exe"]
+    started.clear()
+    j.act_open(("Calculator", "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"))
+    assert not ran and started == ["shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"], started
+finally:
+    j.open_windows, j.os.startfile, j.run_ok, j.os.path.exists = _ow, _sf, _ro, _ex
 class _Reg:                                                      # a fake winreg: nothing of the real registry is touched
     HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, vals = 1, 1, 2, 4, {"AppsUseLightTheme": 0, "SystemUsesLightTheme": 0}
     class _K:
