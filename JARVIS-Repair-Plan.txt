@@ -2688,6 +2688,7 @@ REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, 
         (confirmed() checks is_yes + expiry). Check in Phase 7 / the live test.
   REFACTOR PROGRESS (update after each step: step, commit, what moved, checks)
     R1  test_jarvis proxy; test_jarvis OK, check_route same as HEAD.
+    R2  base (paths, settings, log, State, lock, convo_add/live) -> jarvislib\base.py; RES default now ..\..; test_jarvis OK, check_route 0 changed.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
