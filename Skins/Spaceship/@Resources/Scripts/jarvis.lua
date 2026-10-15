@@ -21,7 +21,9 @@ local seq = { idle = nil, active = nil }   -- { dir, pattern, n, first }
 local fIdle, fAct = 0, 0
 local rot1, rot2, rot3, yaw, sweep = 0, 0, 0, 0, 0
 local js = { state = 'offline', level = 0, t = 0, say = '', err = '', pop = nil }
-local popSeen = nil                          -- last pop-up request handled (POP <n> open|close)
+local hudSeen = nil                          -- last HUD setting request handled (HUD <n> <name>); only names in HUD_OK are obeyed
+local HUD_OK = { stealth = function() SKIN:Bang('!CommandMeasure', 'mScript', 'SetOverride(3)', 'Spaceship\\Controller') end }
+local popSeen = nil                         -- last pop-up request handled (POP <n> open|close)
 local mutedSent = nil
 local lvl, act = 0, 0                        -- smoothed voice / mic level, echo opacity
 local bars = {}                              -- side data bars (smoothed heights)
@@ -106,7 +108,8 @@ local function readState()
     elseif k == 'LEVEL' then s.level = tonumber(v) or 0
     elseif k == 'SAY' then s.say = v
     elseif k == 'ERR' then s.err = v
-    elseif k == 'POP' then s.pop = v end
+    elseif k == 'POP' then s.pop = v
+    elseif k == 'HUD' then s.hud = v end
   end
   f:close()
   if os.time() - s.t > 8 then s.state = 'offline'; s.level = 0 end
@@ -259,6 +262,14 @@ local function pollState()
       elseif act == 'close' then SKIN:Bang('!DeactivateConfig', 'Spaceship\\Overlay\\Jarvis') end
     end
     popSeen = js.pop
+  end
+  -- Jarvis asked for a HUD setting by voice (7-A6): the first value read after a (re)load is only remembered, never obeyed
+  if js.hud and js.hud ~= hudSeen then
+    if hudSeen ~= nil then
+      local run = HUD_OK[string.match(js.hud, '%S+$') or '']
+      if run then run() end
+    end
+    hudSeen = js.hud
   end
 end
 

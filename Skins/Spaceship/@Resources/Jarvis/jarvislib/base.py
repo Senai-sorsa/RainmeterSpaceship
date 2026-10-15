@@ -75,10 +75,11 @@ class State:
     def __init__(self):
         self.state, self.level, self.say, self.err = "idle", 0.0, "", ""
         self.pop_n, self.pop = 0, "none"
+        self.hud_n, self.hud = 0, "none"
         self.lock = threading.Lock()
         self.last_write = 0.0
 
-    def set(self, state=None, level=None, say=None, err=None, force=True, pop=None):
+    def set(self, state=None, level=None, say=None, err=None, force=True, pop=None, hud=None):
         with self.lock:
             if state in ("speaking", "thinking", "listening") and cancel.is_set():
                 state = None                                    # stopped: a late write from a dying turn never shows
@@ -92,12 +93,14 @@ class State:
                 self.err = err[:120]
             if pop is not None:
                 self.pop_n, self.pop = self.pop_n + 1, pop
+            if hud is not None:
+                self.hud_n, self.hud = self.hud_n + 1, hud
             now = time.time()
             if not force and now - self.last_write < 0.05:      # level updates: at most 20 per second
                 return
             self.last_write = now
             body = (f"T {int(now)}\nSTATE {self.state}\nLEVEL {self.level:.3f}\nSAY {self.say}\nERR {self.err}\n"
-                    f"POP {self.pop_n} {self.pop}\n")
+                    f"POP {self.pop_n} {self.pop}\nHUD {self.hud_n} {self.hud}\n")
             tmp = STATE_FILE + ".tmp"
             try:
                 with open(tmp, "w", encoding="utf-8") as f:
@@ -113,6 +116,16 @@ class State:
 
 
 S = State()
+
+# 7-A6: the HUD settings he may change by voice. A fixed whitelist; the Lua side has its own copy and ignores anything else.
+# The HUD (not Python) writes the real setting, so Rainmeter stays the only writer of Settings.inc.
+HUD_SETTINGS = ("stealth",)
+
+
+def set_setting(name):
+    if name not in HUD_SETTINGS:
+        raise ValueError("not a setting he may change")
+    S.set(hud=name)
 cancel = threading.Event()
 busy = threading.Lock()
 mic = threading.Lock()                  # whoever has the microphone open holds this: the wake word or a turn, never both

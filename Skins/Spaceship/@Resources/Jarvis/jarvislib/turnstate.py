@@ -16,7 +16,7 @@ last = {}             # M1b: the list he just read out or the one thing he acted
 # (facts and reminders), snoozes and undo; questions about him get it in the prompt (DID_ASK).
 did = []
 DID = {"lock": "locked the PC", "sleep": "put the PC to sleep", "restart": "started a restart", "shutdown": "started a shutdown",
-       "brightness": "changed the screen brightness", "theme": "switched dark or light mode", "page": "opened a settings page", "bluetooth": "turned Bluetooth on", "bluetooth_off": "turned Bluetooth off", "power": "switched the power mode", "screenshot": "took a screenshot", "desktop": "showed the desktop", "recycle": "emptied the recycle bin", "mic_mute": "muted the microphone", "mic_unmute": "unmuted the microphone", "mic_level": "changed the microphone level",
+       "brightness": "changed the screen brightness", "theme": "switched dark or light mode", "page": "opened a settings page", "stealth": "went into stealth mode", "bluetooth": "turned Bluetooth on", "bluetooth_off": "turned Bluetooth off", "power": "switched the power mode", "screenshot": "took a screenshot", "desktop": "showed the desktop", "recycle": "emptied the recycle bin", "mic_mute": "muted the microphone", "mic_unmute": "unmuted the microphone", "mic_level": "changed the microphone level",
        "mute": "muted the sound", "unmute": "unmuted the sound", "volume": "changed the volume", "media": "pressed a media key",
        "todo": "added a to-do", "forget_all": "forgot all saved facts", "forget_talk": "forgot earlier talks",
        "forget_facts": "forgot saved facts", "replace_fact": "replaced a saved fact", "fact": "saved a fact",

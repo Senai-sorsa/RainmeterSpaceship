@@ -359,6 +359,34 @@ try:
         pass
 finally:
     j.subprocess.run = _run
+# 7-A6: stealth by voice: asks first, only the whitelisted name goes to the HUD, no voice undo
+for heard in ("stealth mode", "go into stealth mode", "turn on stealth mode", "enter stealth"):
+    assert j.route(heard)[:3] == ("act", "stealth", None) and "Confirm with yes" in j.route(heard)[3], heard
+assert j.route("mute yourself") == ("act", "mute", None, None)
+assert j.route("what is stealth mode")[0] == "chat"
+sent = []
+_ss = j.set_setting
+j.set_setting = sent.append
+try:
+    assert not j.run_action("stealth", None) and sent == []                    # ask-first: refused without the yes
+    assert j.run_action("stealth", None, ("stealth", None)) and sent == ["stealth"]
+    assert j.undo_last() == "I can't undo that."                         # it cannot be put back by voice
+finally:
+    j.set_setting = _ss
+try:
+    j.set_setting("PerfOverride")
+    assert False, "only whitelisted names may be sent"
+except ValueError:
+    pass
+import re as _re
+_jb = sys.modules["jarvislib.base"]
+_sf0, _jb.STATE_FILE = _jb.STATE_FILE, os.path.join(tempfile.mkdtemp(), "jarvis.txt")   # never the live Data folder
+try:
+    j.set_setting("stealth")
+    with open(_jb.STATE_FILE, encoding="utf-8") as f:
+        assert _re.search(r"^HUD \d+ stealth$", f.read(), _re.M)
+finally:
+    _jb.STATE_FILE = _sf0
 # 7-A9: a live-internet question gets a plain "can't look that up", not a guess; ordinary talk is not caught
 for heard in ("What's the weather like today?", "what is the forecast for tomorrow", "any news today", "what's the latest news", "bitcoin price",
               "what's the exchange rate for euros"):

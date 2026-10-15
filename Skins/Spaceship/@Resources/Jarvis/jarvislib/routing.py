@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_bluetooth, act_open, act_page, act_power, POWER_NAMES, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
+from .base import set_setting
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
@@ -159,6 +160,7 @@ ACTION_TABLE = {
     "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
     "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
+    "stealth": Action(lambda _: set_setting("stealth"), "ask", "put the HUD in STEALTH"),
     "bluetooth": Action(act_bluetooth, "change", "turn the Bluetooth radio on or off"),
     "bluetooth_off": Action(lambda _: act_bluetooth("off"), "ask", "turn the Bluetooth radio off"),
     "power": Action(act_power, "ask", "switch the power plan"),
@@ -434,6 +436,10 @@ def route(text):
             return ("say", None, None, "I don't switch to power saver: it can slow the processor and the network, and I need both.")
         key = "balanced" if want == "balanced" else "performance"
         return ("act", "power", key, f"You want me to switch the power mode to {POWER_NAMES[key]}. Confirm with yes.")
+    if re.fullmatch(r"(?:go (?:in)?to |enter |turn on |switch to |activate |put yourself in )(?:the )?stealth(?: mode)?|stealth(?: mode)?", cmd):
+        return ("act", "stealth", None, "You want me to go into stealth mode. After that I only answer in the pop-up and I can't undo it by voice; you leave it in the Control Center. Confirm with yes.")
+    if re.fullmatch(r"(?:mute|silence) yourself", cmd):
+        return ("act", "mute", None, None)                    # his voice is the sound he makes: the same mute as "mute"
     m = (re.fullmatch(r"(?:turn|switch) (on|off) (?:the |my )?bluetooth", cmd) or re.fullmatch(r"(?:turn|switch) (?:the |my )?bluetooth (on|off)", cmd)
          or re.fullmatch(r"(?:(enable)|(disable)) (?:the |my )?bluetooth", cmd))
     if m:                                                      # 7b: off asks first, it cuts a Bluetooth mouse or headset
