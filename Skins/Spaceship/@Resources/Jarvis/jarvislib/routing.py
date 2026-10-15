@@ -21,9 +21,11 @@ from .turnstate import last, undo
 # Lock, sleep, restart, shutdown, open, close, memory and to-do are not on its list: those stay pattern-only.
 AI_CUES = {"alarm_set": r"alarm|wake|woken|get me up", "reminder_set": r"remind|ping me|heads.?up", "timer_set": r"timer",
            "schedule_list": r"alarm|remind|timer|schedul", "schedule_cancel": r"alarm|remind|timer|schedul",
-           "volume_set": r"volume|sound|audio|speaker|music", "volume_step": r"volume|sound|audio|speaker|music|louder|quieter|crank",
+           "volume_set": r"volume|sound|audio|speaker|music", "volume_step": r"volume|sound|audio|speaker|music|louder|quieter|quiet|soft|softer|loud|crank|turn (?:it|that|this) (?:up|down)",
            "volume_level": r"volume|sound|loud|muted", "mute": r"mute|silen", "unmute": r"unmute|sound|audio|speaker",
            "media": r"pause|resume|skip|next (?:song|track)|previous|song|track|music"}
+AI_DOWN = re.compile(r"\b(?:down|lower|quieter|softer|less|decrease|reduce)\b|\b(?:too loud|be quiet)\b")   # which way a step goes
+AI_UP = re.compile(r"\b(?:up|louder|raise|more|increase|boost|crank)\b|\btoo (?:quiet|soft)\b|\bcan'?t hear\b|\bbarely hear\b")
 AI_WORDS = re.compile(r"\b(?:" + "|".join(AI_CUES.values()) + ")")
 AI_NOT = re.compile(r"(?:how|why|what|when|who|where|which|whose|should|shall|is|are|was|were|do|does|did|has|had)\b|"
                     r".*\b(?:yesterday|earlier|ago|last (?:night|week)|explain|tell me about)\b")
@@ -87,6 +89,12 @@ def interpret(model, text):
             n = c.get("number")
             if intent == "volume_set" and not (isinstance(n, int) and 0 <= n <= 100 and n in nums):
                 raise ValueError("volume not said")
+            down, step_by = False, ""
+            if intent == "volume_step":
+                down, up = bool(AI_DOWN.search(low)), bool(AI_UP.search(low))
+                if down == up:                                 # neither way, or both ("be quiet, turn up"): do not guess
+                    raise ValueError("not what was said")
+                step_by = f" by {n}" if isinstance(n, int) and 1 <= n <= 100 and n in nums else ""
             sentence = {
                 "alarm_set": f"set an alarm {at}".strip(),
                 "reminder_set": f"remind me {label if re.match(r'(?:to|about|that) ', label) or not label else 'to ' + label} {at}".strip(),
@@ -95,7 +103,7 @@ def interpret(model, text):
                 "schedule_cancel": (f"cancel all {noun}s" if re.search(r"\b(?:all|every)\b", low) and not spec
                                     else f"cancel the {noun} for {spec}" if spec else f"cancel the {noun}"),
                 "volume_set": f"set the volume to {n}",
-                "volume_step": "turn it down" if re.search(r"\b(?:down|lower|quieter|decrease|reduce|softer)\b", low) else "turn it up",
+                "volume_step": f"turn it {'down' if down else 'up'}{step_by}",
                 "volume_level": "what's the volume", "mute": "mute", "unmute": "unmute",
                 "media": {"playpause": "pause", "next": "next track", "prev": "previous track"}.get(label, ""),
             }[intent]

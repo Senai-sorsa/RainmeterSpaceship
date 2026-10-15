@@ -1882,6 +1882,14 @@ both = j.interpret("m", "get me up at 7 and ping me to cook in 10 minutes")
 assert both[0] == "multi" and [p[2][0] for p in both[2]] == ["alarm", "reminder"] and both[2][1][2][2] == "to cook", both
 ai([{"intent": "volume_step"}])
 assert j.interpret("m", "knock the volume down a notch") == ("act", "volume", ("step", -10), None)
+ai([{"intent": "volume_step"}])                                    # P0-01: "too loud" is DOWN; both or neither way is refused
+assert j.interpret("m", "the music is too loud") == ("act", "volume", ("step", -10), None)
+assert j.interpret("m", "make the music a bit softer") == ("act", "volume", ("step", -10), None)
+assert j.interpret("m", "the music is too quiet") == ("act", "volume", ("step", 10), None)
+assert j.interpret("m", "um just be quiet, turn up the music") is None
+ai([{"intent": "volume_step", "number": 20}])                      # the number said is kept; one not said is dropped
+assert j.interpret("m", "knock the volume down by 20") == ("act", "volume", ("step", -20), None)
+assert j.interpret("m", "knock the volume down by 5") == ("act", "volume", ("step", -10), None)
 ai([{"intent": "media", "label": "next"}])
 assert j.interpret("m", "bin this song") == ("act", "media", "next", None)
 for text, cmds in (("wake me at 7", [{"intent": "alarm_set", "when": "at 7 am"}]),               # an invented am
