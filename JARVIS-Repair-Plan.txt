@@ -132,7 +132,8 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
         INFO-04 informational, no action.
     - MOVED INTO LATER PHASES: BUG-06 (run_action does not check confirmation itself) -> 7-0;
       INFO-01 (HUD data in the prompt without delimiters) -> PHASE 10.
-    - WAITING FOR THE USER (nothing deleted; these are untracked AND gitignored, so git cannot undo a delete):
+    - DELETED on the user's word 2026-10-15 (untracked + gitignored, so not in git; a copy went to the
+      session scratch folder ...\391026c5-...\scratchpad\deleted-backup, temp, may be gone):
         ARCH-01 Skins\Spaceship\Spaceship\ = 60 files (not ~3,270 as the report says), all also in the active
                skin: 44 identical, 16 older (dated 2026-10-10; active 10-11..10-15). Only .gitignore,
                .graphifyignore, graphify-out and the reviews mention it; tools\package.py does not.
