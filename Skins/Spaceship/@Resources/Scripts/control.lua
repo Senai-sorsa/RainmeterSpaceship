@@ -460,6 +460,7 @@ local JCOLORS = {
 local WHISPERS = { 'tiny.en', 'base.en', 'small.en', 'medium.en' }
 
 local function jset(key, value, quiet)
+  if type(value) == 'string' then value = value:gsub('%c', '') end   -- a line break would write a second line into Settings.inc
   writeVar('Settings.inc', key, value)
   SKIN:Bang('!SetVariable', key, value, 'Spaceship\\Center\\Sphere')       -- the hologram picks it up live
   if not quiet then say(key .. ' = ' .. (value == '' and '(default)' or tostring(value))) end

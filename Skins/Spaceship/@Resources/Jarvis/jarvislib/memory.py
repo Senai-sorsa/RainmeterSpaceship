@@ -337,7 +337,7 @@ def recompact(now, stop=lambda: False):
     for i, (d, g) in enumerate(old):
         if len(merged) >= 30 or stop():                        # shortcut: about 10 merges a month; plenty at 200+ lines
             break
-        group = [j for j in range(i, len(old)) if j not in gone and len(keywords(g) & keywords(old[j][1]) - {"user"}) >= 2]
+        group = [j for j in range(i, len(old)) if j not in gone and len((keywords(g) & keywords(old[j][1])) - {"user"}) >= 2]
         if i in gone or len(group) < 2:
             continue
         text = "\n".join(old[j][1] for j in group)

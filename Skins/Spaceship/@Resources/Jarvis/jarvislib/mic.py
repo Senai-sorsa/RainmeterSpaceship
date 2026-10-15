@@ -152,5 +152,4 @@ def _listen(patience=6):
     
     if cancel.is_set() or not started:
         return None
-    import numpy as np
     return np.concatenate(frames)

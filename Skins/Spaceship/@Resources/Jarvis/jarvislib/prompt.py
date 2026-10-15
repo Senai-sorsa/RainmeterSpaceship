@@ -55,6 +55,7 @@ def wants(text, kind=None):
 
 
 def context(text=None, kind=None):
+    # review INFO-01: window titles, notes and media names go into the prompt as-is; Phase 10 delimits them as data
     want = wants(text, kind)
     lines = [f"Now:{datetime.now().strftime('%A %d %B %Y, %H:%M (%I:%M %p)')}"]
     if "pc" in want:
