@@ -312,7 +312,7 @@ def route(text):
     # "no, AM" / "I meant the evening" just after a clock time was set: moved 12 hours (remind_reply). "Morning." alone
     # is a greeting, so a part of the day needs the "no" / "I meant" in front
     m = re.fullmatch(r"((?:no,? |i meant |make (?:it|that) )*)(?:in the |the |at )?(a\.? ?m|p\.? ?m|morning|afternoon|evening|night)", whole)
-    if m and (m.group(1) or len(m.group(2)) <= 4) and undo and undo[1] == "reminder" and time.time() < undo[0]:
+    if m and (m.group(1) or len(m.group(2)) <= 4) and undo and undo[1] in ("reminder", "flip") and time.time() < undo[0]:
         return ("remind", "flip", ("alarm", "am" if m.group(2) == "morning" or m.group(2)[:2] in ("a.", "am", "a ") else "pm"), None)
     # read from Windows each time (turn), never from what the model or the chat remembers
     if re.fullmatch(r"what(?:'s| is) the (?:current )?volume(?: at| set to| now)?|how loud is it|is (?:it|the sound|the volume) muted", whole):

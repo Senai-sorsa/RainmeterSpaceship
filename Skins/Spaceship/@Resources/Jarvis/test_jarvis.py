@@ -987,6 +987,11 @@ j.save_memory(["my friend Oscar is tall", "my car is red"])                # who
 assert mem("forget car") == "Forgotten: my car is red." and j.load_memory() == ["my friend Oscar is tall"]
 assert j.undo_last() == "Put back: my car is red." and j.load_memory() == ["my friend Oscar is tall", "my car is red"]
 assert mem("forget the") == "I don't have that." and len(j.load_memory()) == 2
+j.save_memory(["my dentist is on Fridays", "my bike is in the shed"])      # P0-03: a confirmed replace / forget can be undone
+assert real_run_action("replace_fact", ("my dentist is on Fridays", "my dentist is on Mondays")) and j.load_memory()[0] == "my dentist is on Mondays"
+assert j.undo_last() == "Put back: my dentist is on Fridays." and j.load_memory() == ["my dentist is on Fridays", "my bike is in the shed"]
+assert real_run_action("forget_facts", ["my bike is in the shed"]) and j.undo_last() == "Put back: my bike is in the shed."
+assert real_run_action("forget_all", None) and j.load_memory() == [] and j.undo_last().startswith("Put back: ") and len(j.load_memory()) == 2
 j.save_memory(["my dentist is on Fridays"])
 
 # ---- to-do by voice: asked first, appended to the note (never rewritten, never created), the text kept out of the log
@@ -1465,6 +1470,10 @@ assert both[0] == "multi" and [p[:2] for p in both[2]] == [("remind", "set"), ("
 assert j.route("cancel my alarm and set one for 8")[3] == j.NEAR_MISS
 for text in ("lock my computer and mute", "tell me a joke and set a timer", "set a timer and set an alarm for 7"):
     assert j.route(text)[0] != "multi", text
+j.save_reminders([])
+j.undo.clear()
+talk(1, words="Set an alarm for 7 am and remind me to cook in 10 minutes.")   # P0-03: "undo that" takes back both
+assert len(j.load_reminders()) == 2 and j.undo_last() == "Removed that reminder. Removed that alarm." and j.load_reminders() == []
 j.save_reminders([])
 talk(1, words="Set an alarm for 7 am and set a timer for 10 minutes.")
 assert asked[-1].startswith("Alarm set for 7:00 AM") and "Timer set for 10 minutes." in asked[-1] and len(j.load_reminders()) == 2
@@ -1983,6 +1992,14 @@ assert sorted(datetime.fromtimestamp(r[0]).strftime("%H:%M") for r in j.load_rem
 assert j.undo_last().startswith("Put back: alarm at 8:00 AM")
 assert sorted(datetime.fromtimestamp(r[0]).strftime("%H:%M") for r in j.load_reminders()) == ["07:00", "08:00"]
 assert which("change my alarm to 9", "") == "Okay, I left them." and asked[-1].endswith("Which one?")
+j.save_reminders([])                                               # P0-03: undo after "no, PM" puts the alarm back, not deletes it
+j.undo.clear()
+do("set an alarm for 7 am")
+first = j.load_reminders()
+assert do("no, PM").startswith("Changed to") and j.load_reminders() != first
+assert do("no, AM").startswith("Changed to") and j.load_reminders() == first         # a flip can be flipped again
+do("no, PM")
+assert j.undo_last().startswith("Put back: alarm at 7:00 AM") and j.load_reminders() == first
 j.save_reminders([])
 j.time.time = lambda: 2e9                                          # N7: whole seconds, so the stored round() cannot cost one
 do("set a timer for 10 minutes")

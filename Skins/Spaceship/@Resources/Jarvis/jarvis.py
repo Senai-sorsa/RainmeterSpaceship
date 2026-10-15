@@ -120,7 +120,13 @@ ACTIONS_LOGGED = ("close", "open", "volume", "media")           # targets that a
 
 def run_action(action, target):
     try:
-        before = speakers() if action in ("volume", "mute", "unmute") else None
+        before = (speakers() if action in ("volume", "mute", "unmute") else target if action in ("replace_fact", "forget_facts")
+                  else None)
+        if action == "forget_all":                             # what was there, so "undo that" can put it back
+            try:
+                before = load_memory()
+            except (OSError, ValueError):
+                pass                                           # an unreadable file is still cleared, only not undoable
         ACTIONS[action](target)
         log(f"action: {action} {target if target and action in ACTIONS_LOGGED else ''}")   # your words stay out of the log
         did_add(action, target)
@@ -158,7 +164,7 @@ def hear(**opts):
 def can_undo(what, before=None):
     """Keep the one change "undo that" reverses; before=None marks a change that cannot be put back."""
     undo[:] = [time.time() + UNDO_FOR, what, before]
-    if what in ("fact", "forget", "cancel", "move", "reminder"):   # run_action records its own
+    if what in ("fact", "forget", "cancel", "move", "flip", "reminder"):   # run_action records its own
         did_add(what, before)
 
 
@@ -171,6 +177,13 @@ def undo_last():
     undo.clear()
     if before is None:
         return "I can't undo that."
+    if what == "multi":                                        # newest first; each step says what it did
+        said = []
+        for step in reversed(before):
+            undo[:] = step
+            said.append(undo_last())
+        undo.clear()
+        return " ".join(said)
     if what in ("volume", "mute", "unmute"):
         ok = run_action("volume", ("set", before[1])) if what == "volume" else run_action("mute" if before[0] else "unmute", None)
         undo.clear()                                           # an undo is not itself undone
@@ -178,7 +191,7 @@ def undo_last():
             return "That didn't work."
         return f"Volume back at {speakers()[1]} percent." if what == "volume" else "Muted." if before[0] else "Unmuted."
     try:
-        if what == "forget":                                   # put back what was forgotten, if not already back
+        if what in ("forget", "forget_all", "forget_facts"):   # put back what was forgotten, if not already back
             facts = load_memory()
             back = [f for f in before if f not in facts]
             if not back:
@@ -187,6 +200,14 @@ def undo_last():
             did_add("undo")
             log(f"fact put back by undo ({len(back)})")
             return "Put back: " + "; ".join(back) + "."
+        if what == "replace_fact":                             # before = (old, new): the old words go back where the new are
+            facts = load_memory()
+            if before[1] not in facts:
+                return "It's already gone."
+            save_memory([before[0] if f == before[1] else f for f in facts])
+            did_add("undo")
+            log("fact replaced back by undo")
+            return f"Put back: {before[0]}."
         if what == "fact":
             facts = load_memory()
             if before not in facts:
@@ -204,6 +225,17 @@ def undo_last():
             did_add("undo")
             log(f"reminder put back by undo ({len(back)})")
             return "Put back: " + "; ".join(describe(r, now) for r in back) + "."
+        if what == "flip":                                     # before = (old rows, new rows) after "no, AM": back to the old half of the day
+            pairs = [(o, n) for o, n in zip(*before) if n in items]
+            if not pairs:
+                return "It's already gone."
+            back = [(o, n) for o, n in pairs if o[0] > now]
+            if not back:
+                return "It's too late to put that back."
+            save_reminders([r for r in items if r not in [n for _, n in back]] + [o for o, _ in back])
+            did_add("undo")
+            log("reminder flip put back by undo")
+            return "Put back: " + "; ".join(describe(o, now) for o, _ in back) + "."
         if what == "move":                                     # back to its old time, if that has not passed
             old, new = before
             if new not in items:
@@ -350,8 +382,9 @@ def remind_reply(op, args, quiet):
         can_undo("cancel", gone)
         return "Cancelled: " + "; ".join(describe(r, now) for r in gone) + "."
     if op == "flip":                                           # "no, AM": what was just set moves to the other half of the day
-        old = [r for r in items if undo and undo[1] == "reminder" and now < undo[0] and r[2] != "timer"
-               and (round(r[0]), round(r[1]), r[2], r[3]) in undo[2]]
+        live = bool(undo) and now < undo[0] and undo[1] in ("reminder", "flip")   # a flip can be flipped again
+        prev = (undo[2] if undo[1] == "reminder" else [(round(r[0]), round(r[1]), r[2], r[3]) for r in undo[2][1]]) if live else []
+        old = [r for r in items if live and r[2] != "timer" and (round(r[0]), round(r[1]), r[2], r[3]) in prev]
         if not old:
             return "There's no alarm to change."
         # shortcut: 12 hours in seconds, an hour off across a daylight-saving change; use the wall clock if that matters
@@ -359,7 +392,7 @@ def remind_reply(op, args, quiet):
                 if (datetime.fromtimestamp(r[0]).hour < 12) != (args[1] == "am") else r[0],) + r[1:] for r in old]
         save_reminders([r for r in items if r not in old] + new)
         log(f"reminder moved 12 hours ({len(new)})")
-        can_undo("reminder", [(round(r[0]), round(r[1]), r[2], r[3]) for r in new])
+        can_undo("flip", (old, new))
         return ("Changed to " if new != old else "It's already set for ") + " and ".join(clock(r[0], now) for r in new) + "."
     _, due, label, said = args
     alarm_set, kind = kind == "alarm", "reminder" if kind == "alarm" else kind
@@ -895,7 +928,14 @@ def exchange(tier, follow, woke, mode, left):
         recent["you"] = text
         extra = ""
         if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
-            replies = [command_reply(*part, quiet) for part in target]
+            replies, steps = [], []
+            for part in target:                                # each part records its own undo: keep them all
+                seen = list(undo)
+                replies.append(command_reply(*part, quiet))
+                if undo and list(undo) != seen:
+                    steps.append(list(undo))
+            if len(steps) > 1:
+                undo[:] = [min(s[0] for s in steps), "multi", steps]
             quiet = muted()
             fixed(" ".join(replies))
             return
