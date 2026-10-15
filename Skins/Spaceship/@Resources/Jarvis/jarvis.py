@@ -681,7 +681,11 @@ def command_reply(kind, action, target, prompt, quiet):
         is_muted, percent = speakers()
         return f"The volume is at {percent} percent" + (", muted." if is_muted else ".")
     if kind == "remind":
-        return remind_reply(action, target, quiet)
+        try:
+            return remind_reply(action, target, quiet)
+        except OSError as e:                                   # save_reminders writes atomically: the old file is still there
+            log(f"reminder {action}: save failed ({e!r})")
+            return "I couldn't save the reminders file, so nothing changed."
     if kind == "memory":
         return memory_reply(action, target)
     if kind == "act" and prompt is None:

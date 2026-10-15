@@ -1971,6 +1971,12 @@ assert do("make the timer 2 minutes").startswith("The timer now has 2 minutes")
 assert j.undo_last().startswith("Put back: ") and j.load_reminders()[0][0] == before + 300
 j.save_reminders([])
 j.undo.clear()
+_save = j.save_reminders                                           # P0-08: a failed save is said, not left to the popup
+j.save_reminders = lambda items: (_ for _ in ()).throw(PermissionError("locked"))
+_k, _op, _args, _ = j.route("set a timer for 10 minutes")
+assert j.command_reply(_k, _op, _args, None, False) == "I couldn't save the reminders file, so nothing changed."
+j.save_reminders = _save
+assert j.load_reminders() == []
 j.time.time = real_time
 # snooze after the ringing stopped: only within 5 minutes of something ringing
 j.rang.clear()
