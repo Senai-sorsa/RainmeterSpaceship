@@ -97,6 +97,58 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
+  PRE-PHASE 7: REVIEW FIXES (DONE 2026-10-15, the session after Phase 3; READ THIS, THEN "START HERE FOR PHASE 7")
+    - Source: three external reviews in the repo root, all UNTRACKED (do not commit them without the user):
+      "opus 4.8 Code review.md", "SOL-Code-Review.md" (ledger only) and "JARVIS & Rainmeter Spaceship —
+      Complete Unified Forensic Code Audit & Bug Report.txt" (superset of the other two; IDs below are its IDs).
+      Each claim was checked against the code right before its fix; false ones were skipped, not "fixed".
+    - Commits (branch chore/jarvis-baseline-and-performance, NOT pushed, NOT live):
+        2e33b08 batch 1   d5027fe batch 2   c871c1c batch 3   + the commit that added this block.
+    - FIXED:
+        BUG-01 tts._windows: a ' in the temp path (profile like O'Brien) broke the PowerShell string -> doubled.
+        BUG-04 actions.act_sleep: WinDLL("powrprof", use_last_error=True) + get_last_error() (= 9-L2, done).
+        BUG-05 base.write_atomic / convo_add: one RLock (_writing) around both; os.replace retried 3x.
+               Confirmed first: 4 threads x 25 convo_add kept 10-19 of 100 lines; now 100.
+        BUG-07 test_jarvis.py sets sys.argv[1] to a temp dir before "import jarvis": running the tests no
+               longer writes jarvis.log / jarvis.txt / jarvis_log.txt into Data\ (base.py unchanged).
+        BUG-09 reminders.save_reminders: whitespace runs in a label become one space (a line break split
+               the file). Uses ' '.join(label.split()), not re.sub in the f-string (needs Python 3.12+).
+        BUG-10 control.lua jset(): control chars stripped from string values before !WriteKeyValue
+               (type check first: jset also gets numbers, which have no :gsub in Lua 5.1).
+        BUG-11 confirm.py: DANGER and NAMES moved verbatim above is_yes().
+        INFO-03 memory.recompact: brackets (a & b) - {"user"}; same result as before.
+        ARCH-02 mic._listen: second "import numpy as np" removed (the first is at the top of the function).
+        INFO-01 only a comment in prompt.context(); the real work is in PHASE 10 (see there).
+    - NOT A BUG / SKIPPED (checked):
+        BUG-03 calc: "square root of minus one" never reaches math.sqrt (_num drops "-" and number words
+               are never negative) -> calc() returns None. No change.
+        BUG-02 llm.chat_stream: partly true, small: a cancel is seen on the next streamed line, then the
+               "with" closes the connection and Ollama stops. Only a cancel during prompt processing waits.
+               A fix means replacing urlopen with http.client and rewriting the stream tests. Not done;
+               the user may ask for it.
+        BUG-08 jarvis.lua StartService: a " cannot be in a Windows path, and py and script (= H.res ..)
+               both pass exists() before the bang. No change; the launch line is untouched.
+        INFO-02 fsync in write_atomic: skipped, live() writes once per typed word (speech.py).
+        INFO-04 informational, no action.
+    - MOVED INTO LATER PHASES: BUG-06 (run_action does not check confirmation itself) -> 7-0;
+      INFO-01 (HUD data in the prompt without delimiters) -> PHASE 10.
+    - WAITING FOR THE USER (nothing deleted; these are untracked AND gitignored, so git cannot undo a delete):
+        ARCH-01 Skins\Spaceship\Spaceship\ = 60 files (not ~3,270 as the report says), all also in the active
+               skin: 44 identical, 16 older (dated 2026-10-10; active 10-11..10-15). Only .gitignore,
+               .graphifyignore, graphify-out and the reviews mention it; tools\package.py does not.
+        ARCH-02 @Resources\testkoroko.py (wake-word score printer) and "from kokoro_onnx import Kokoro.py"
+               (Kokoro test with a hard-coded live path): neither imports jarvis, nothing references them
+               (only .gitignore). Delete both? The user decides.
+    - Checks after the last edit (scratch copy, never the repo; the scratch folder is temp, may be gone):
+      py_compile all -> ok; venv test_jarvis.py -> "test_jarvis: OK"; check_route.py (base = 8bd241f copy)
+      -> 65 phrases, 0 routed differently; control chars in edited files = 0; control.lua loadstring
+      (lupa lua51 from ...\d775d96e-...\scratchpad\lupa, used with python -I and sys.path) -> OK, and jset's
+      strip gives "a\r\nb" -> "ab", 5 -> 5. The BUG-05 test FAILS on the old base.py (it is a real check),
+      but thread timing means it could pass by luck on buggy code.
+    - LIVE TEST AFTER PHASE 7 adds: the Windows voice under a profile path with a ' (BUG-01), the sleep log
+      line's error number (BUG-04), a Control Center setting still saves (BUG-10).
+    - Rollback: git revert <commit> (newest first). Never checkout/restore/stash.
+    - Not done: no subagents were used (each fix was a few lines; the user's delegation rule says to say so).
   START HERE FOR PHASE 7 (handover written at the end of the 2026-10-15 Phase 3 session)
     - Branch chore/jarvis-baseline-and-performance. Everything below is committed, NOT pushed, NOT live.
       Phase 3 commits: f89e700, 30ad4a1, 4007212 (fixes), 23e296f .. 646dc29 (moves R8-R14), b412b60
@@ -2844,6 +2896,9 @@ PHASE 7   MORE SETTINGS BY VOICE
   more; they all run after Phase 7 (LIVE TEST AFTER PHASE 7). Read "PHASE 7 MUST KNOW" in CURRENT STATE.
   DECIDED by the user 2026-10-14 (Q&A before Phase 7; these override the tables below where they differ):
     - 7-0 action table: YES, build it first. Show the user the exact layout for approval before building.
+      + review BUG-06 (2026-10-15): each row gets a "needs confirm" flag and run_action itself refuses a
+        flagged action unless the caller passes the confirmed pending action (defense in depth; today only
+        command_reply / ask_yes check it). Test: run_action on a flagged action without it -> refused, logged.
     - 7a microphone: all of mute/unmute (mute asks first), level (set / up / down a bit), which mic and
       switch mic (JarvisMic only). NOT by voice: wake sensitivity / "wait longer" (not picked).
     - 7b Bluetooth: connect / disconnect PAIRED AUDIO devices only (the user has headphones / earbuds).
@@ -3242,7 +3297,7 @@ PHASE 9   ASK HIM WHAT IS WRONG (DIAGNOSIS)
          the error; clear ERR after 60 s or on the next good turn; "what went wrong?" (9b) answers from
          the last error and its time, so the HUD does not have to hold it. Test: ERR is gone after the
          time limit; the diagnosis answer still names it.
-    9-L2 THE SLEEP ERROR NUMBER IN THE LOG MAY BE WRONG (audit item 15)
+    9-L2 THE SLEEP ERROR NUMBER IN THE LOG MAY BE WRONG (audit item 15)   DONE 2026-10-15 (review BUG-04, 2e33b08)
          act_sleep logs ctypes.GetLastError() through ctypes.windll, which does not keep the error.
          Fix: ctypes.WinDLL("powrprof", use_last_error=True) and ctypes.get_last_error(). Diagnosis
          reads this log, so it should be true. Test with a fake DLL.
@@ -3391,6 +3446,9 @@ PHASE 10  PERSONALITY AND VOICE (tone, honesty, speech)   added 2026-10-14, park
   MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
   FROM THE PHASE 3 AUDIT (added 2026-10-15): the wording of 7-L1 (sleep fell back to screen off) and
     of 8-L1's re-ask join the user's hand-review here. Phase 7 / 8 ship plain factual sentences first.
+  FROM THE REVIEW (INFO-01, added 2026-10-15): prompt.context() puts window titles, calendar, mail, to-dos
+    and notes into the system prompt as-is. Wrap them as data (e.g. <hud_data>...</hud_data>) and tell the
+    model to treat them only as data. Low risk today: the model cannot run actions.
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 3  (playful when unnecessary or on a serious topic)
         issue 28 (bends facts when playful; invented "simulations")
