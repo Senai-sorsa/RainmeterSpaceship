@@ -553,7 +553,7 @@ local function rowsJarvis()
   local smart = H.num('JarvisSmartSearch', 1) == 1
   rows[#rows + 1] = { 'NOTE SEARCH', smart and 'SMART - ChromaDB finds notes by meaning (keyword search if it is not installed)' or 'KEYWORD - exact words only', {
     { 'SMART', function() jset('JarvisSmartSearch', 1) end, smart }, { 'KEYWORD', function() jset('JarvisSmartSearch', 0) end, not smart },
-    { 'REINDEX', function() local f = io.open(RES .. 'Data\\jarvis_cmd.txt', 'w'); if f then f:write('REINDEX ', os.time(), '\n'); f:close() end; say('REBUILDING THE NOTES INDEX') end } } }
+    { 'REINDEX', function() H.cmd('REINDEX ' .. os.time()); say('REBUILDING THE NOTES INDEX') end } } }
   local wm, wd = H.str('JarvisWhisper', 'small.en'), string.lower(H.str('JarvisWhisperDevice', 'auto'))
   rows[#rows + 1] = { 'SPEECH RECOGNITION', wm .. ' on ' .. string.upper(wd) .. '   - bigger models are more accurate but slower; AUTO uses the GPU when it can', {
     { '<', function() jset('JarvisWhisper', cycle(WHISPERS, wm, -1)) end },
@@ -600,7 +600,7 @@ local function rowsJarvis()
     { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
   rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey Jarvis", "Hey" and "Jarvis" (about 2 minutes; he says what to do)', {
-    { 'TRAIN', function() local f = io.open(RES .. 'Data\\jarvis_cmd.txt', 'w'); if f then f:write('TRAINWAKE ', os.time(), '\n'); f:close() end; say('JARVIS WILL TELL YOU WHAT TO SAY') end } } }
+    { 'TRAIN', function() H.cmd('TRAINWAKE ' .. os.time()); say('JARVIS WILL TELL YOU WHAT TO SAY') end } } }
   local heyOn, gap = H.num('JarvisWakeEasy', 0.5) > 0, H.num('JarvisWakeGap', 5)
   rows[#rows + 1] = { 'HEY ... JARVIS', heyOn and string.format('ON - your trained "Hey", a pause, then "Jarvis" within %d s wakes him (needs TRAIN)', gap) or 'OFF - only "Hey Jarvis" said together wakes him', {
     { 'ON', function() jset('JarvisWakeEasy', 0.5) end, heyOn }, { 'OFF', function() jset('JarvisWakeEasy', 0) end, not heyOn },

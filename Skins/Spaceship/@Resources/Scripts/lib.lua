@@ -676,6 +676,22 @@ function H.llt()
   return t
 end
 
+-- One line to the Jarvis service (Data\jarvis_cmd.txt): written beside it, then renamed in, so the service never reads
+-- half a line. Windows will not rename onto an existing file, so it is removed first; if that fails, write it directly.
+function H.cmd(s)
+  local dst = H.res .. 'Data\\jarvis_cmd.txt'
+  local tmp = dst .. '.tmp'
+  local f = io.open(tmp, 'w')
+  if not f then return end
+  f:write(s, '\n'); f:close()
+  os.remove(dst)
+  if not os.rename(tmp, dst) then
+    os.remove(tmp)
+    f = io.open(dst, 'w')
+    if f then f:write(s, '\n'); f:close() end
+  end
+end
+
 -- HWiNFO value through the registry gadget; nil when not mapped / not running
 function H.hw(name)
   if num('HW_' .. string.sub(name, 4), -1) < 0 then return nil end

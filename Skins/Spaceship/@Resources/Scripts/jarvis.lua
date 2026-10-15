@@ -392,10 +392,7 @@ function StartService()
   return true
 end
 
-local function command(s)
-  local f = io.open(H.res .. 'Data\\jarvis_cmd.txt', 'w')
-  if f then f:write(s, '\n'); f:close() end
-end
+local function command(s) H.cmd(s) end
 
 function OnClick(z, k)
   if H.num('JarvisEnabled', 1) ~= 1 then return end

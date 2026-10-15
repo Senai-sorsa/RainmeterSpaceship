@@ -299,7 +299,7 @@ def compact(now, stop=lambda: False):
             break
         got = [g for g in got if gist_ok(g, talk)]
         if got:
-            facts += [f"{datetime.fromtimestamp(now):%Y-%m-%d}|{g}" for g in got]
+            facts += [(f"{datetime.fromtimestamp(now):%Y-%m-%d}", g) for g in got]
             gone.append(t["talk"])
         elif t.get("tries", 0) >= 2:
             gone.append(t["talk"])
@@ -308,8 +308,8 @@ def compact(now, stop=lambda: False):
             tried[json.dumps(t["talk"])] = t.get("tries", 0) + 1
     try:
         if facts:                                              # the gist first: a failed topic save repeats, never loses
-            with open(GIST_FILE, "a", encoding="utf-8") as f:
-                f.write("".join(l + "\n" for l in facts))
+            have, month = load_gist()
+            save_gist(have + facts, month)
         topics = load_topics()                                 # again: a turn may have filed talk meanwhile
         for t in topics:
             if json.dumps(t["talk"]) in tried:
