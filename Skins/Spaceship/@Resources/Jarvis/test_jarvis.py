@@ -1,10 +1,48 @@
 """Self-check for jarvis.py: plain asserts, no test framework.  Run:  py -3 -B test_jarvis.py"""
+import builtins
 import os
 import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import jarvis as j
+import jarvis
+
+
+class Everywhere:
+    """j.X = fake sets X in jarvis.py AND in every jarvislib module bound to the same object, so the fake reaches the
+    code that calls X wherever it lives now (refactor R1). A fake for a name no module has fails: it would test nothing."""
+    def __init__(self, main):
+        object.__setattr__(self, "_main", main)
+
+    def _mods(self):
+        return [self._main] + [m for n, m in sorted(sys.modules.items()) if n.startswith("jarvislib.") and m]
+
+    def __getattr__(self, name):
+        for m in self._mods():
+            if name in vars(m):
+                return vars(m)[name]
+        raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        mods = self._mods()
+        if any(name in vars(m) for m in mods):
+            old = getattr(self, name)
+            for m in mods:
+                if name in vars(m) and vars(m)[name] is old:
+                    setattr(m, name, value)
+        elif hasattr(builtins, name):                              # j.open: shadow the builtin in every jarvis module
+            for m in mods:
+                setattr(m, name, value)
+        else:
+            raise AttributeError(f"the test fakes {name}, which no jarvis module has")
+
+    def __delattr__(self, name):
+        for m in self._mods():
+            if name in vars(m):
+                delattr(m, name)
+
+
+j = Everywhere(jarvis)
 j.DUCK_FILE = os.path.join(tempfile.mkdtemp(), "duck.txt")       # never the real Data folder
 j.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
 

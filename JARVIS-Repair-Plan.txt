@@ -97,17 +97,15 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 S2-8..S2-13 session; READ THIS FIRST)
-  NEXT STEP (the user, 2026-10-15): PHASE 7. ALL live testing is moved to AFTER Phase 7 is complete:
-    see "LIVE TEST AFTER PHASE 7" (its own block, right after Phase 7's own live test, before PHASE 8).
+  NEXT STEP (the user, 2026-10-15, later the same day): the REFACTOR block (just before PHASE 7) runs
+    FIRST, step by step (R1 .. RC), then R-END revises Phases 7-10 and STAGE 2, then PHASE 7.
+    S2-8..S2-13 is committed (ad8df7e). See "REFACTOR PROGRESS" inside that block for where it stands.
+    ALL live testing stays AFTER Phase 7 is complete: see "LIVE TEST AFTER PHASE 7".
     "TEST BEFORE PHASE 7" is no longer a gate; its T-items run inside that combined test.
-    Before Phase 7 code: ask the user whether to commit the uncommitted S2-8..S2-13 work first (see
-    HANDOVER 2026-10-15 just below). Phase 7 starts with 7-0: show the user the action-table layout first.
+    Phase 7 starts with 7-0: show the user the action-table layout first.
   HANDOVER 2026-10-15 (what a new chat needs; the older HANDOVER block further down is for tools/habits)
-    - UNCOMMITTED in the working tree (branch chore/jarvis-baseline-and-performance, HEAD bd0dd62):
-      JARVIS-Repair-Plan.txt, Jarvis\jarvis.py, Jarvis\test_jarvis.py, Scripts\ShipCore.cs,
-      Scripts\control.lua, Overlay\Control\Control.ini. Commit only on the user's word, files staged by
-      name. Suggested message: "JARVIS: S2-8..S2-13 - capability table, outcome log, open ear, Modern
-      Standby sleep, CALL ME row, scroll bar drag". Trailer: Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    - S2-8..S2-13 COMMITTED 2026-10-15 as ad8df7e (branch chore/jarvis-baseline-and-performance).
+      The refactor commits follow it. Trailer: Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
     - LIVE = that working tree (5 code files copied with CRLF 2026-10-15 00:35, verified with a CR-stripped
       cmp; Rainmeter refreshed; Bin\ShipCore.exe rebuilt 00:35:45). Backups (newest first):
       C:\Users\Senai\Rainmeter\Spaceship-backup-20261015-003521 (before the 2nd pass) and
@@ -2630,6 +2628,66 @@ TEST BEFORE PHASE 7   (added 2026-10-14; the ONE combined live test of everythin
   T10. Afterwards: Claude lists every finding with a proposed fix or "park"; the user picks. Phase 7 starts
       only when none is left open. Then update CURRENT STATE.
   UNDO of the whole copy: PART D COPY TO LIVE "UNDO" with this copy's backup folder.
+
+--------------------------------------------------------------------------------------------------------
+REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, the user's order)
+  WHY: jarvis.py is one ~4700-line file. Phases 7-10 and STAGE 2 each touch it; smaller modules with
+  clear owners make each later change smaller and safer. No new features, no new dependencies, no UI
+  change. Behaviour must stay the same; the live tests stay where they are (after Phase 7).
+  ADJUSTMENTS (the user, 2026-10-15):
+    1. The refactor runs before Phase 7 (the user overrode Claude's "after" suggestion).
+    2. Tests are made split-safe FIRST (R1), so every later step is checked by the same tests.
+    3. jarvis.py stays the entry point and the integrator: the skin still runs
+       pythonw "<RES>Jarvis\jarvis.py" "<RES>". Leaves move out one at a time, easiest first, into
+       Jarvis\jarvislib\<name>.py; jarvis.py imports them back (from jarvislib.x import ...), so every
+       old name still works as jarvis.<name> (test_jarvis.py, check_voice.py, testkoroko.py).
+    4. The knot (turn / exchange / history / gist / did-undo / wake_loop / main / stop key) goes LAST
+       and is split only where the owner of the state is clear; whatever is not clear stays in jarvis.py.
+    5. Known weaknesses are LOGGED below, NOT fixed in the refactor.
+  CONTRACTS THAT MUST NOT CHANGE (from the Phase 1 audit, 2026-10-15):
+    - Launch line above; the venv / JarvisPython / pyw interpreter order in jarvis.lua; RES = argv[1].
+    - Single instance: Data\jarvis.lock (msvcrt). Quit: QUIT in jarvis_cmd.txt or ~30 s of missed checks.
+    - HUD -> Python: jarvis_cmd.txt "WORD <ts> [arg]" (WAKE, CANCEL, FORGET, REINDEX, TRAINWAKE, QUIT),
+      mtime-polled, ignored when older than 30 s; jarvis_env.txt MUTED 0|1.
+    - Python -> HUD: jarvis.txt (T/STATE/LEVEL/SAY/ERR/POP, atomic, 2 s heartbeat; >8 s = offline),
+      jarvis_log.txt, jarvis_live.txt, jarvis.log, jarvis_models.txt, jarvis_mics.txt, jarvis_duck.txt.
+    - Python-owned data files and Settings.inc keys keep their names and formats.
+    - route() precedence; confirmation (exact yes tied to one pending action, expiry), truth check
+      (no_claims), did/undo; the "route: ..." line; voice and audio lifecycle; logs stay private.
+  HOW EACH STEP IS DONE AND CHECKED
+    - A move is verbatim (code and the comments above it), done by a script that refuses when moved
+      code would need a name still in jarvis.py (no upward imports) or a rebound global ("global X")
+      that jarvis.py still reads. Moved modules import only the std library and earlier jarvislib modules.
+    - Checks after EVERY step, on a scratch copy (never in the repo; importing writes Data\):
+      py_compile of jarvis.py + jarvislib\*.py; test_jarvis.py -> "test_jarvis: OK"; check_route.py
+      HEAD-before-refactor vs now -> no change except the known time-stamp noise line; no control chars.
+    - One commit per step (files staged by name). ROLLBACK of a step: git revert <its commit>.
+    - Moving code into a package changes one path: RES's default (used only without argv) becomes
+      the folder two levels above jarvislib\. Every other path is RES-based and does not move.
+  STEPS (in order; each one a commit)
+    R1  test_jarvis.py: "j" becomes a proxy; "j.X = fake" sets X in jarvis AND in every jarvislib module
+        bound to the same object, so the 258 fakes keep working after a move. DONE 2026-10-15.
+    R2  base: paths, settings, log, State / jarvis.txt writer, lock, convo_add / live.
+    R3+ leaves, one per commit, easiest first: llm (HTTP / chat), AI interpret, hearing (whisper / GPU /
+        transcribe), mic / duck / listen, speech (TTS / stop words / fillers), notes + chroma, actions
+        (+ YES / is_yes / confirmed), calc / convert / facts, memory, reminders / alarms, router.
+        A step whose leaf turns out to depend on the knot is skipped and stays in jarvis.py (noted here).
+    RK  the knot: only clear-owner pieces; the rest stays in jarvis.py as the integrator.
+    RC  clean-up: drop imports jarvis.py no longer uses; confirm check_voice.py and testkoroko.py still
+        import; optional code review.
+    R-END  (BEFORE PHASE 7) revise PHASES 7-10 and STAGE 2 so each item names the module it changes
+        (e.g. 7a microphone -> jarvislib\mic, Phase 9 diagnosis -> the module that owns the state it
+        reads). Show the user the revised items, then Phase 7 starts as before (7-0 first).
+  KNOWN WEAKNESSES (logged 2026-10-15, NOT fixed in the refactor; candidates for later phases)
+    W-a jarvis_cmd.txt is written by Lua non-atomically: a command can be read half-written and lost.
+    W-b The exit write of jarvis.txt is a plain write, not tmp + replace.
+    W-c The daily gist append (jarvis_gist.txt) is not atomic.
+    W-d Seven Settings keys are read by Python but never written by the skin: JarvisLearn, Recall,
+        IdleUnload, GPU, FirstWords, NameAliases, AIRouter.
+    W-e Not yet verified at every call site that a "yes" can only confirm its own pending action
+        (confirmed() checks is_yes + expiry). Check in Phase 7 / the live test.
+  REFACTOR PROGRESS (update after each step: step, commit, what moved, checks)
+    R1  test_jarvis proxy; test_jarvis OK, check_route same as HEAD.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
