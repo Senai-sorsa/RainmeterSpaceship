@@ -147,6 +147,19 @@ failed = []
 j.problem = lambda msg, popup=True: failed.append(msg)
 assert j.run_action("shutdown", None, ("shutdown", None)) and ran[-1] == ["shutdown", "/s", "/t", "10"] and not failed
 assert not j.run_action("format disk", None), "only listed actions can run"
+# 7-L1: a PC that cannot sleep (Modern Standby) only turns the screen off, and the reply says so
+import types as _t
+_wd, _win, _susp = j.ctypes.WinDLL, j.ctypes.windll, [0]
+j.ctypes.WinDLL = lambda *a, **k: _t.SimpleNamespace(SetSuspendState=lambda *x: _susp[0])
+j.ctypes.windll = _t.SimpleNamespace(user32=_t.SimpleNamespace(PostMessageW=lambda *x: 1))
+try:
+    j.ACTIONS["sleep"](None)
+    assert j.done_line("sleep", None) == "This PC can't sleep that way, so I turned the screen off."
+    _susp[0] = 1
+    j.ACTIONS["sleep"](None)
+    assert j.done_line("sleep", None) == "Done."
+finally:
+    j.ctypes.WinDLL, j.ctypes.windll = _wd, _win
 # 7-0: the action table. An "ask" row never runs without the pending action the user said yes to
 assert set(j.ACTIONS) == set(j.ACTION_TABLE) and all(r.risk in ("read", "change", "ask") and r.desc for r in j.ACTION_TABLE.values())
 for name, row in j.ACTION_TABLE.items():

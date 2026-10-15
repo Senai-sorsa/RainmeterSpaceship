@@ -74,6 +74,8 @@ def done_line(action, target):
         return f"Opening {target[0]}."
     if action == "volume":
         return f"Volume at {speakers()[1]} percent."
+    if action == "sleep" and screen_only[0]:
+        return "This PC can't sleep that way, so I turned the screen off."
     return "Sent." if action == "media" else "Done."
 
 
@@ -115,10 +117,15 @@ def act_lock(_):
         raise OSError("Windows refused to lock")
 
 
+screen_only = [False]                                          # 7-L1: the last sleep only turned the screen off
+
+
 def act_sleep(_):
     # asked directly so the answer comes back (rundll32 always exits 0); it returns once the PC wakes again
+    screen_only[0] = False
     if ctypes.WinDLL("powrprof", use_last_error=True).SetSuspendState(0, 1, 0):
         return
+    screen_only[0] = True
     # S2-11: Modern Standby laptops (S0, no S3) refuse it; turning the screen off is how they enter standby
     log(f"sleep: suspend refused (error {ctypes.get_last_error()}) - screen off for Modern Standby")
     if not ctypes.windll.user32.PostMessageW(0xFFFF, 0x0112, 0xF170, 2):   # broadcast WM_SYSCOMMAND SC_MONITORPOWER off

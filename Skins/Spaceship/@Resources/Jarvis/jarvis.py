@@ -967,7 +967,7 @@ def exchange(tier, follow, woke, mode, left):
                 ok = run_action(action, target, pending=(action, target))
                 way["result"] = "done" if ok else "failed"
                 unsure = prompt.startswith("Did you say: ")    # then say what really happened, as an unasked command does
-                fixed(("Added." if action == "todo" else done_line(action, target) if unsure else "Done.") if ok else "That didn't work.")
+                fixed(("Added." if action == "todo" else done_line(action, target) if unsure or action == "sleep" else "Done.") if ok else "That didn't work.")
             else:
                 way["result"] = "left - no yes"
                 log(f"action {action} not confirmed")
