@@ -71,6 +71,10 @@ from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _fille
     filler, filler_done, first_words, muted, play_samples, prepare_fillers, say_text_only, sentences_from, speak_all)
 from jarvislib.calc import (MONTHS, ONES, TENS, UNITS, UNIT_ROWS, WEEKDAYS, _num, _remind_bad, _row, amount, calc,
     clock, convert, fact_answer, for_ear, on_day, unit)
+from jarvislib.actions import (MEDIA_KEYS, act_close, act_lock, act_open, act_sleep, act_volume, best_app, done_line,
+    open_windows, press_key, run_ok, running_window, start_apps)
+from jarvislib.confirm import DANGER, NAMES, YES, confirmed, is_yes
+from jarvislib.stopkey import STOP_KEYS, stop_key_loop
 
 # Matching by meaning (the user, 2026-10-14): a shared word OR a close meaning counts, in 6a, M1, M2 and M4a. The model
 # is ChromaDB's local all-MiniLM-L6-v2; until it is loaded, or without ChromaDB, matching is by words only.
@@ -481,121 +485,6 @@ def interpret(model, text):
     return None if not routes else routes[0] if len(routes) == 1 else ("multi", None, routes, None)
 
 
-def start_apps():
-    """The installed apps the HUD scanned, or None while that list is missing (not the same as no apps)."""
-    out = []
-    try:
-        with open(os.path.join(DATA, "StartApps.txt"), "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                if "|" in line:
-                    name, appid = line.rstrip("\n").split("|", 1)
-                    out.append((name.strip(), appid.strip()))
-    except OSError:
-        return None
-    return out
-
-
-def best_app(name):
-    """The installed app whose name best matches what you said."""
-    want = re.sub(r"[^a-z0-9 ]", "", name.lower()).strip()
-    if not want:
-        return None
-    best, score = None, 0
-    for disp, appid in start_apps() or []:
-        d = disp.lower()
-        if any(x in d for x in ("uninstall", "help", "readme", "documentation")):
-            continue
-        # a prefix needs 3+ letters and anything looser a whole word, so "open e" matches nothing
-        sc = 3 if d == want else (2 if len(want) >= 3 and d.startswith(want) else
-                                  (1 if re.search(r"\b" + re.escape(want) + r"\b", d) else 0))
-        if sc > score or (sc == score and sc and best and len(disp) < len(best[0])):
-            best, score = (disp, appid), sc
-    return best if score else None
-
-
-def running_window(name):
-    """An open app (from the HUD's window list) whose exe matches what you said, e.g. 'chrome' -> chrome.exe."""
-    want = re.sub(r"[^a-z0-9]", "", name.lower())
-    stems = [(exe, re.sub(r"[^a-z0-9]", "", os.path.splitext(exe)[0].lower())) for exe in open_windows()]
-    # exact name first, then a 3+ letter prefix, then a 4+ letter fragment: "close e" must not pick explorer
-    for ok in (lambda s: s == want, lambda s: len(want) >= 3 and s.startswith(want), lambda s: len(want) >= 4 and want in s):
-        for exe, stem in stems:
-            if want and ok(stem):
-                return exe
-    return None
-
-
-def act_volume(change):
-    how, n = change                                           # ("set", 30) or ("step", -10)
-    if how == "step":
-        n += speakers()[1]
-    speakers(volume=max(0, min(100, n)) / 100)
-
-
-MEDIA_KEYS = {"playpause": 0xB3, "next": 0xB0, "prev": 0xB1}
-
-
-def press_key(vk):
-    """Press and release one key. Windows gives no result back, so nobody can tell whether a player took it."""
-    for flags in (0, 2):                                      # down, up
-        ctypes.windll.user32.keybd_event(vk, 0, flags, 0)
-
-
-def done_line(action, target):
-    """What to say after an action that worked: the value Windows reports, never the one asked for."""
-    if action == "open":
-        return f"Opening {target[0]}."
-    if action == "volume":
-        return f"Volume at {speakers()[1]} percent."
-    return "Sent." if action == "media" else "Done."
-
-
-def run_ok(args):
-    """Run one fixed command: anything but exit code 0 within 10 s is a failure (TimeoutExpired / OSError)."""
-    code = subprocess.run(args, creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                          timeout=10).returncode
-    if code:
-        raise OSError(f"{args[0]} ended with code {code}")
-
-
-def open_windows():
-    return re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M)
-
-
-# action handlers: (description for the confirmation, function). Only these can ever run.
-def act_open(app):
-    os.startfile("shell:AppsFolder\\" + app[1]) if not os.path.isabs(app[1]) else os.startfile(app[1])
-
-
-def act_close(exe):
-    if exe not in open_windows():                             # it went away while you were being asked
-        raise OSError("it is not open any more")
-    # taskkill only asks the windows to close, and its exit code is non-zero for any helper process without a
-    # window (a browser has many), so the result is read from the HUD's window list instead (rewritten every 1.5 s)
-    subprocess.run(["taskkill", "/IM", exe], creationflags=NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                   timeout=10)
-    for _ in range(10):
-        time.sleep(0.5)
-        if exe not in open_windows():
-            return
-    raise OSError("it is still open (it may be asking to save)")
-
-
-def act_lock(_):
-    if not ctypes.windll.user32.LockWorkStation():
-        raise OSError("Windows refused to lock")
-
-
-def act_sleep(_):
-    # asked directly so the answer comes back (rundll32 always exits 0); it returns once the PC wakes again
-    if ctypes.windll.powrprof.SetSuspendState(0, 1, 0):
-        return
-    # S2-11: Modern Standby laptops (S0, no S3) refuse it; turning the screen off is how they enter standby
-    log(f"sleep: suspend refused (error {ctypes.GetLastError()}) - screen off for Modern Standby")
-    if not ctypes.windll.user32.PostMessageW(0xFFFF, 0x0112, 0xF170, 2):   # broadcast WM_SYSCOMMAND SC_MONITORPOWER off
-        raise OSError("Windows refused to sleep")
-
-
 ACTIONS = {
     "lock": act_lock,
     "sleep": act_sleep,
@@ -614,25 +503,6 @@ ACTIONS = {
     "replace_fact": lambda pair: save_memory([pair[1] if f == pair[0] else f for f in load_memory()]),
 }
 
-# the whole reply has to be one of these: "yes, but don't" is not a yes
-YES = {"yes", "yeah", "yep", "yup", "sure", "confirm", "confirmed", "do it", "go ahead", "proceed", "affirmative", "ok",
-       "okay", "please do", "yes please", "yes do it", "yes go ahead", "yes confirm", "yes i confirm", "i confirm"}
-
-
-def is_yes(answer):
-    """A plain yes; his name, "sir" or "now" around it is fine ("Yes, Jarvis." / "yes sir"). "yes, but don't" is not."""
-    said = " ".join(re.sub(r"[^a-z]+", " ", (answer or "").lower()).split())
-    extra = [re.escape(n.strip().lower()) for n in setting("JarvisNameAliases", "").split(",") if n.strip()]
-    around = "|".join(["jarvis", "sir", "now"] + NAMES + extra)
-    return re.sub(rf"^(?:(?:{around}) )+|(?: (?:{around}))+$", "", said) in YES
-
-
-def confirmed(pending, answer, now):
-    """True only for a plain yes to this pending action before it expires."""
-    return is_yes(answer) and now < pending["expires"]
-DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)|wipe (my|the)|delete (all|every|my files|windows)|rm -rf|"
-                    r"disable (the )?(antivirus|defender|firewall)|hack|brick|destroy|nuke|blow up|kill (all|every)", re.I)
-NAMES = "travis jervis javis jarvus service droves drovis".split()   # how Whisper writes "Jarvis" (JarvisNameAliases adds more)
 NEAR_MISS = "I heard a command but couldn't work it out. Try: set a timer for one minute."
 CLAIM_LINE = "I didn't catch that as a command, so nothing changed. Say it again, like: set an alarm for 7 AM."
 # a chat answer that says something was done: nothing runs on the chat path, so it cannot be true
@@ -2788,41 +2658,6 @@ def barge_turn(follow):
             return
         time.sleep(0.05)
     turn(hud_tier(), follow, True)
-
-
-STOP_KEYS = {"end": 0x23}                                     # VK_END
-
-
-def stop_key_loop():
-    """JarvisStopKey (End, or off): while he is busy the key stops him, like a click; when idle it is not taken, so it
-    never wakes him and other apps keep it. A hotkey belongs to the thread that made it, so all of it runs here."""
-    import ctypes
-    from ctypes import wintypes
-    user32 = ctypes.windll.user32
-    msg, held, refused = wintypes.MSG(), None, None           # held: the key name now registered; refused: the one Windows said no to
-    while True:
-        try:
-            key = setting("JarvisStopKey", "end").strip().lower()
-            want = key if busy.locked() and key in STOP_KEYS and key != refused else None
-            if held and held != want:
-                user32.UnregisterHotKey(None, 1)
-                held = None
-            if want and not held:
-                if user32.RegisterHotKey(None, 1, 0x4000, STOP_KEYS[want]):   # MOD_NOREPEAT
-                    held = want
-                else:
-                    refused = want                             # not retried until the setting changes
-                    log(f"stop key: Windows refused {want.upper()} (another app has it)")
-                    problem(f"Stop key: {want.upper()} is taken by another app - pick another in Control Center", popup=False)
-            if refused and key != refused:
-                refused = None
-            while user32.PeekMessageW(ctypes.byref(msg), None, 0x0312, 0x0312, 1):   # WM_HOTKEY, PM_REMOVE
-                if held:
-                    stop_now("stop key")
-        except Exception as e:
-            log(f"stop key: {e!r}")
-            time.sleep(5)
-        time.sleep(0.05)
 
 
 # ------------------------------------------------------------------ wake word training (plan R5-6, step 6a)

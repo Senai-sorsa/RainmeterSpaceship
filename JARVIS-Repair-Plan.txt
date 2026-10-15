@@ -2692,6 +2692,7 @@ REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, 
     R3  stopwords, gpu, hearing (whisper / transcribe) -> jarvislib; unload_idle now uses hearing._whisper; test_jarvis OK, check_route 0 changed.
     R4  tts, llm (+ctx_tokens), audio (speakers), mic (listen/duck), notes (vault search + STOP) -> jarvislib; test_jarvis OK, check_route 0 changed.
     R5  speech (play / speak / fillers), calc (+ _num, clock: they and the time parsers need each other) -> jarvislib; test_jarvis OK, check_route only N14 time-stamp noise.
+    R6  actions (apps, volume, keys, lock, sleep; not the ACTIONS table), confirm (YES / is_yes / confirmed / DANGER / NAMES), stopkey -> jarvislib; test_jarvis OK, check_route 0 changed.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
