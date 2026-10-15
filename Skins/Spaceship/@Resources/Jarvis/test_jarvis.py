@@ -121,6 +121,18 @@ def _speakers(mute=None, volume=None):
     return (False, vol[0])
 
 
+micst = [False, 70]                                              # the microphone: (muted, percent)
+
+
+def _mic(mute=None, volume=None):
+    if volume is not None:
+        micst[1] = round(volume * 100)
+    if mute is not None:
+        micst[0] = bool(mute)
+    return tuple(micst)
+
+
+j.mic_volume = _mic
 j.speakers, j.press_key = _speakers, keys.append
 for heard, want in (("set volume to 30", ("set", 30)), ("volume 5 percent", ("set", 5)), ("turn it up", ("step", 10)),
                     ("Jarvis, can you turn the volume down?", ("step", -10)), ("louder", ("step", 10)),
@@ -167,6 +179,24 @@ for name, row in j.ACTION_TABLE.items():
         ran.clear()
         assert not j.run_action(name, None) and not ran, f"{name}: ask-first, refused without a yes"
         assert not j.run_action(name, None, ("other", None)) and not ran, "a yes for another action is not a yes"
+# 7a: the microphone. Said phrases reach the fixed actions; mute asks first; the reply is what Windows reports
+for heard, want in (("mute the microphone", ("act", "mic_mute", None)), ("mute my mic", ("act", "mic_mute", None)),
+                    ("unmute the microphone", ("act", "mic_unmute", None)), ("set the microphone to 80 percent", ("act", "mic_level", ("set", 80))),
+                    ("set my mic to fifty", ("act", "mic_level", ("set", 50))), ("turn the mic up a bit", ("act", "mic_level", ("step", 10))),
+                    ("turn down the microphone", ("act", "mic_level", ("step", -10))), ("lower the microphone", ("act", "mic_level", ("step", -10))),
+                    ("mute", ("act", "mute", None)), ("set the microphone to 150", ("say", None, None))):
+    r = j.route(heard)
+    assert r[:3] == want[:3] and (r[3] is None) == (want[1] != "mic_mute" and want[0] != "say"), (heard, r)
+assert j.route("mute the microphone")[3].endswith("Confirm with yes.")
+micst[:] = [False, 70]
+assert j.run_action("mic_level", ("set", 80)) and micst == [False, 80] and j.done_line("mic_level", None) == "Microphone at 80 percent."
+assert j.undo_last() == "Microphone back at 70 percent." and micst == [False, 70]
+assert j.run_action("mic_level", ("step", 50)) and micst[1] == 100 and j.run_action("mic_level", ("step", -500)) and micst[1] == 0
+assert j.run_action("mic_mute", None, ("mic_mute", None)) and micst[0] and j.done_line("mic_mute", None) == "Microphone muted."
+assert j.undo_last() == "Microphone unmuted." and not micst[0]
+micst[0] = True
+assert j.run_action("mic_unmute", None) and j.done_line("mic_unmute", None) == "Microphone unmuted." and j.undo_last() == "Microphone muted." and micst[0]
+micst[:] = [False, 70]
 _Done.returncode = 1190                                           # non-zero exit code
 assert not j.run_action("restart", None, ("restart", None))
 _Done.returncode = 0
@@ -1258,7 +1288,7 @@ for text in ("Change the screen colour to blue.", "set the volume to 30 decibels
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
 for text in ("turn on bluetooth", "set the brightness to 50", "Travis, connect my headphones", "can you dim the screen",
              "make the screen brighter", "turn up the brightness", "turn off wifi", "turn on night light", "turn on dark mode",
-             "change my wallpaper", "hibernate", "sign out", "log me off", "mute the microphone"):
+             "change my wallpaper", "hibernate", "sign out", "log me off", "switch to the headset microphone"):
     assert j.route(text) == ("say", None, None, j.CANT), (text, j.route(text))
 for text in ("why is my screen dim?", "how do I turn on bluetooth?", "what is screen brightness"):
     assert j.route(text)[0] == "chat", text

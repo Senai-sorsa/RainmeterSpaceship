@@ -4,7 +4,7 @@ import os
 import re
 import subprocess
 import time
-from .audio import speakers
+from .audio import mic_volume, speakers
 from .base import DATA, NO_WINDOW, log, read_kv
 
 
@@ -59,6 +59,13 @@ def act_volume(change):
     speakers(volume=max(0, min(100, n)) / 100)
 
 
+def act_mic_level(change):
+    how, n = change                                           # ("set", 80) or ("step", -10), the same as act_volume
+    if how == "step":
+        n += mic_volume()[1]
+    mic_volume(volume=max(0, min(100, n)) / 100)
+
+
 MEDIA_KEYS = {"playpause": 0xB3, "next": 0xB0, "prev": 0xB1}
 
 
@@ -74,6 +81,9 @@ def done_line(action, target):
         return f"Opening {target[0]}."
     if action == "volume":
         return f"Volume at {speakers()[1]} percent."
+    if action in ("mic_mute", "mic_unmute", "mic_level"):      # read back from Windows, not what was asked
+        is_muted, percent = mic_volume()
+        return "Microphone muted." if is_muted else "Microphone unmuted." if action == "mic_unmute" else f"Microphone at {percent} percent."
     if action == "sleep" and screen_only[0]:
         return "This PC can't sleep that way, so I turned the screen off."
     return "Sent." if action == "media" else "Done."

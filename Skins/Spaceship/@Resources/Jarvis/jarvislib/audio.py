@@ -11,6 +11,15 @@ def _com(obj, slot, *args):
 def speakers(mute=None, volume=None):
     """The default speakers (Core Audio, IAudioEndpointVolume): set mute (True / False) and / or volume (0.0-1.0) when
     given, then return (muted, percent) as Windows reports them. A value Windows did not take raises OSError."""
+    return _endpoint(0, mute, volume)
+
+
+def mic_volume(mute=None, volume=None):
+    """The same for the default microphone (7a): the capture side of Core Audio."""
+    return _endpoint(1, mute, volume)
+
+
+def _endpoint(flow, mute, volume):
     ole, P = ctypes.oledll.ole32, ctypes.c_void_p
 
     def guid(text):
@@ -22,7 +31,7 @@ def speakers(mute=None, volume=None):
     ole.CoCreateInstance(guid("{BCDE0395-E52F-467C-8E3D-C4579291692E}"), None, 23,
                          guid("{A95664D2-9614-4F35-A746-DE8DB63617E6}"), ctypes.byref(devices))
     try:
-        _com(devices, 4, ctypes.c_int(0), ctypes.c_int(1), ctypes.pointer(device))       # GetDefaultAudioEndpoint
+        _com(devices, 4, ctypes.c_int(flow), ctypes.c_int(1), ctypes.pointer(device))    # GetDefaultAudioEndpoint (0 out, 1 in)
         _com(device, 3, guid("{5CDF2C82-841E-4546-9722-0CF74078229A}"), ctypes.c_uint(23), P(None), ctypes.pointer(vol))
         if volume is not None:
             _com(vol, 7, ctypes.c_float(volume), P(None))                                # SetMasterVolumeLevelScalar

@@ -57,7 +57,7 @@ from jarvislib.tts import (_broken, _engines, _kokoro, _kokoro_last, _piper, _re
     _wav_to_array, _windows, resolve_voice, synth_audio, voice_rate)
 from jarvislib.llm import (_moved, chat_json, chat_stream, chat_to_gpu, ctx_tokens, ensure_ollama, http_json,
     installed_models, keep_alive, ollama_on_cpu, pick_model, warm)
-from jarvislib.audio import _com, speakers, speakers_mute
+from jarvislib.audio import _com, mic_volume, speakers, speakers_mute
 from jarvislib.mic import _listen, _mic_missing, duck, follow_wait, list_mics, listen, mic_device, unduck
 from jarvislib.notes import STOP, search_notes, vault_dir
 from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _filler_thread, _filler_voice, _speak_queue,
@@ -125,7 +125,7 @@ def run_action(action, target, pending=None):
         log(f"action {action} refused: needs a confirmed yes")
         return False
     try:
-        before = (speakers() if action in ("volume", "mute", "unmute") else target if action in ("replace_fact", "forget_facts")
+        before = (speakers() if action in ("volume", "mute", "unmute") else mic_volume() if action.startswith("mic_") else target if action in ("replace_fact", "forget_facts")
                   else None)
         if action == "forget_all":                             # what was there, so "undo that" can put it back
             try:
@@ -189,6 +189,14 @@ def undo_last():
             said.append(undo_last())
         undo.clear()
         return " ".join(said)
+    if what.startswith("mic_"):                                # 7a: put the microphone back as it was read before
+        was_muted, percent = before
+        ok = (run_action("mic_level", ("set", percent)) if what == "mic_level"
+              else run_action("mic_mute", None, ("mic_mute", None)) if what == "mic_unmute" else run_action("mic_unmute", None))
+        undo.clear()
+        if not ok:
+            return "That didn't work."
+        return f"Microphone back at {mic_volume()[1]} percent." if what == "mic_level" else "Microphone muted." if was_muted else "Microphone unmuted."
     if what in ("volume", "mute", "unmute"):
         ok = run_action("volume", ("set", before[1])) if what == "volume" else run_action("mute" if before[0] else "unmute", None)
         undo.clear()                                           # an undo is not itself undone
@@ -783,6 +791,12 @@ def exchange(tier, follow, woke, mode, left):
             reply_line("My graphics card is off.", muted())
             return
         S.set(state="listening", level=0.0, err="")
+        try:                                                   # 7a: a click is how a muted microphone comes back
+            if mic_volume()[0]:
+                mic_volume(mute=False)
+                log("microphone: unmuted by the click")
+        except Exception as e:
+            log(f"microphone check failed ({type(e).__name__})")
         if not ensure_ollama():
             problem("Ollama isn't running or installed - run Control Center > JARVIS > SETUP")
             return

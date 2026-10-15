@@ -4,8 +4,8 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from .actions import MEDIA_KEYS, act_close, act_lock, act_open, act_sleep, act_volume, best_app, press_key, run_ok, running_window, start_apps
-from .audio import speakers_mute
+from .actions import MEDIA_KEYS, act_close, act_lock, act_mic_level, act_open, act_sleep, act_volume, best_app, press_key, run_ok, running_window, start_apps
+from .audio import mic_volume, speakers_mute
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
@@ -142,9 +142,7 @@ class Action:
     """One row of the action table (7-0). Only these can ever run; risk is decided here, never by the model."""
     run: object                    # run(target): does it, raises on failure
     risk: str                      # "read" | "change" | "ask": an "ask" row runs only with the confirmed pending action
-    desc: str
-    check: object = None           # check(target): what Windows reports afterwards (the reply); None = done_line
-    phrases: object = None         # new rows: the regex route() matches; the old rows keep their parser in route()
+    desc: str                      # the reply after it is done_line(action, target): read back from Windows
 
 
 ACTION_TABLE = {
@@ -158,6 +156,9 @@ ACTION_TABLE = {
     "unmute": Action(lambda _: speakers_mute(False), "change", "unmute the sound"),
     "volume": Action(act_volume, "change", "set or step the volume"),
     "media": Action(lambda key: press_key(MEDIA_KEYS[key]), "change", "press a media key"),
+    "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
+    "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
+    "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
     "todo": Action(lambda item: act_todo(item), "ask", "add a to-do"),
     "forget_all": Action(lambda _: save_memory([]), "ask", "forget every saved fact"),
     "forget_talk": Action(forget_talk, "ask", "forget earlier talks"),                         # M2b, after the read-back
@@ -417,6 +418,23 @@ def route(text):
             or re.fullmatch(rf"shut ?down(?: {pc})?|shut (?:it|{pc}) (?:down|off)|power (?:off|down)(?: it| {pc})?|"
                             rf"power (?:it|{pc}) (?:off|down)", cmd)):
         return ("act", "shutdown", None, "You're asking me to shut down the PC. Confirm with yes.")
+    mic_word = r"(?:the |my )?(?:mic|microphone)"
+    m = re.match(rf"(mute|unmute) {mic_word}$", cmd)
+    if m:                                                      # 7a: he cannot hear "unmute" once muted, so mute asks first
+        if m.group(1) == "unmute":
+            return ("act", "mic_unmute", None, None)
+        return ("act", "mic_mute", None, "You want me to mute the microphone. I won't hear you after that; click me to "
+                "unmute it. Confirm with yes.")
+    m = (re.match(rf"(?:set|turn|change|put) {mic_word}(?: volume| level)?(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+         or re.match(rf"{mic_word}(?: volume| level)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
+    if m and _num(m.group(1)) is not None:
+        n = _num(m.group(1))
+        return ("act", "mic_level", ("set", int(n)), None) if n <= 100 else ("say", None, None, "I can set it between 0 and 100.")
+    m = (re.match(rf"turn (up|down) {mic_word}(?: volume| level)?(?: (?:a )?(?:bit|little|tad)| slightly)?$", cmd)
+         or re.match(rf"turn {mic_word}(?: volume| level)? (up|down)(?: (?:a )?(?:bit|little|tad)| slightly)?$", cmd)
+         or re.match(rf"(raise|increase|boost|lower|decrease|reduce) {mic_word}(?: volume| level)?(?: (?:a )?(?:bit|little|tad)| slightly)?$", cmd))
+    if m:
+        return ("act", "mic_level", ("step", 10 if m.group(1) in ("up", "raise", "increase", "boost") else -10), None)
     m = re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd)
     if m:
         return ("act", m.group(1), None, None)
