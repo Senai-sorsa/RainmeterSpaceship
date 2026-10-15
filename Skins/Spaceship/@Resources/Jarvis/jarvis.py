@@ -65,7 +65,7 @@ from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _fille
 from jarvislib.calc import (MONTHS, ONES, TENS, UNITS, UNIT_ROWS, WEEKDAYS, _num, _remind_bad, amount, calc,
     clock, convert, fact_answer, for_ear, on_day, unit)
 from jarvislib.actions import (MEDIA_KEYS, act_close, act_lock, act_open, act_sleep, act_volume, best_app, done_line,
-    open_windows, press_key, run_ok, POWER_NAMES, power_key, power_plans, running_window, screen_brightness, start_apps, theme_mode)
+    open_windows, press_key, run_ok, POWER_NAMES, bluetooth_radio, power_key, power_plans, running_window, screen_brightness, start_apps, theme_mode)
 from jarvislib.confirm import DANGER, NAMES, YES, confirmed, is_yes
 from jarvislib.stopkey import STOP_KEYS, stop_key_loop
 from jarvislib.turnstate import DID, DID_ASK, UNDO_FOR, did, did_add, last, offer, recent, undo
@@ -125,7 +125,7 @@ def run_action(action, target, pending=None):
         log(f"action {action} refused: needs a confirmed yes")
         return False
     try:
-        before = (speakers() if action in ("volume", "mute", "unmute") else mic_volume() if action.startswith("mic_") else screen_brightness() if action == "brightness" else theme_mode() if action == "theme" else power_plans()[0] if action == "power" else target if action in ("replace_fact", "forget_facts")
+        before = (speakers() if action in ("volume", "mute", "unmute") else mic_volume() if action.startswith("mic_") else screen_brightness() if action == "brightness" else theme_mode() if action == "theme" else bluetooth_radio() if action in ("bluetooth", "bluetooth_off") else power_plans()[0] if action == "power" else target if action in ("replace_fact", "forget_facts")
                   else None)
         if action == "forget_all":                             # what was there, so "undo that" can put it back
             try:
@@ -189,6 +189,11 @@ def undo_last():
             said.append(undo_last())
         undo.clear()
         return " ".join(said)
+    if what in ("bluetooth", "bluetooth_off"):                 # back to what was read before
+        ok = (run_action("bluetooth", "on") if before == "on"
+              else run_action("bluetooth_off", None, ("bluetooth_off", None)) if before == "off" else False)
+        undo.clear()
+        return f"Bluetooth back {bluetooth_radio()}." if ok else "That didn't work."
     if what == "power":                                        # the plan that was active, if it is one we may switch to
         ok = bool(before) and power_key(before) and run_action("power", before, ("power", before))
         undo.clear()

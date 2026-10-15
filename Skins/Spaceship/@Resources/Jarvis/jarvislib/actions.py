@@ -136,6 +136,39 @@ def act_power(key, plan=None):
         raise OSError("Windows did not switch the power plan")
 
 
+# 7b: the Bluetooth radio (Windows.Devices.Radios, from one fixed PowerShell script). The only thing put into it is the
+# literal "On" or "Off", chosen here from a two-word table, never from speech.
+BT_SCRIPT = """$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$t = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+function Await($op, $type) { $x = $t.MakeGenericMethod($type).Invoke($null, @($op)); $x.Wait(-1) | Out-Null; $x.Result }
+[Windows.Devices.Radios.Radio, Windows.System.Devices, ContentType = WindowsRuntime] | Out-Null
+$radio = (Await ([Windows.Devices.Radios.Radio]::GetRadiosAsync()) ([System.Collections.Generic.IReadOnlyList[Windows.Devices.Radios.Radio]])) | Where-Object { $_.Kind -eq 'Bluetooth' } | Select-Object -First 1
+if (-not $radio) { exit 3 }
+%s
+$radio.State
+"""
+BT_SET = "Await ($radio.SetStateAsync('%s')) ([Windows.Devices.Radios.RadioAccessStatus]) | Out-Null"
+
+
+def bluetooth_radio(state=None):
+    """The Bluetooth radio: set "on" / "off" when given, then return what Windows reports ("on", "off", ...). OSError if the PC
+    has no Bluetooth radio, Windows refuses, or the radio ends up in another state than asked."""
+    script = BT_SCRIPT % (BT_SET % {"on": "On", "off": "Off"}[state] if state else "")
+    out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], creationflags=NO_WINDOW,
+                         capture_output=True, text=True, timeout=25)
+    if out.returncode or not out.stdout.split():
+        raise OSError("Windows has no Bluetooth radio to control" if out.returncode == 3 else "Windows would not change Bluetooth")
+    got = out.stdout.split()[-1].lower()
+    if state and got != state:
+        raise OSError("Bluetooth did not change")
+    return got
+
+
+def act_bluetooth(state):
+    bluetooth_radio(state)
+
+
 def act_mic_level(change):
     how, n = change                                           # ("set", 80) or ("step", -10), the same as act_volume
     if how == "step":
@@ -201,13 +234,15 @@ def done_line(action, target):
         return f"Opening {target[0]}."
     if action == "volume":
         return f"Volume at {speakers()[1]} percent."
+    if action in ("bluetooth", "bluetooth_off"):
+        return f"Bluetooth is {bluetooth_radio()}."
     if action == "power":
         return f"Power mode is {POWER_NAMES.get(power_key(power_plans()[0]), 'a plan I do not switch')}."
     if action == "page":
         key, note = target
         title = PAGES[key][1]
         return (f"Windows has no switch for that, so I opened the {title} settings." if note == "noswitch" else
-                f"I can't read that list yet, so I opened the {title} settings." if note == "nolist" else f"Opening the {title} settings.")
+                f"I can't read that list yet, so I opened the {title} settings." if note == "nolist" else f"I can't connect devices by voice yet, so I opened the {title} settings. Pick it there." if note == "noconnect" else f"Opening the {title} settings.")
     if action == "screenshot":
         return "Screenshot saved in Pictures, Screenshots."
     if action == "recycle":

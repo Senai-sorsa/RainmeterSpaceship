@@ -315,6 +315,50 @@ try:
     assert not j.run_action("power", SAVER, ("power", SAVER)) and pw["active"] == BAL
 finally:
     j.subprocess.run = _run
+# 7b: Bluetooth radio on/off (off asks first), pairing and connecting open the page, undo, nothing from speech in the script
+btst = ["off"]
+btcalls = []
+
+
+def _btrun(args, **k):
+    btcalls.append(args[-1])
+    if "SetStateAsync('On')" in args[-1]:
+        btst[0] = "on"
+    elif "SetStateAsync('Off')" in args[-1]:
+        btst[0] = "off"
+    return _t.SimpleNamespace(returncode=0, stdout=btst[0].capitalize() + " ")
+
+
+_run = j.subprocess.run
+j.subprocess.run = _btrun
+try:
+    for heard in ("turn on bluetooth", "turn bluetooth on", "enable bluetooth", "switch on the bluetooth"):
+        assert j.route(heard) == ("act", "bluetooth", "on", None), (heard, j.route(heard))
+    for heard in ("turn off bluetooth", "turn bluetooth off", "disable my bluetooth"):
+        assert j.route(heard)[:3] == ("act", "bluetooth_off", None) and "Confirm with yes" in j.route(heard)[3], heard
+    assert j.route("pair a new device") == ("act", "page", ("bluetooth", ""), None)
+    for heard in ("connect my airpods", "disconnect from the headphones", "connect to my sony headphones"):
+        assert j.route(heard) == ("act", "page", ("bluetooth", "noconnect"), None), (heard, j.route(heard))
+    assert j.route("how do I turn on bluetooth?")[0] == "chat"
+    btst[0] = "off"
+    assert j.run_action("bluetooth", "on") and btst[0] == "on" and j.done_line("bluetooth", "on") == "Bluetooth is on."
+    assert j.undo_last() == "Bluetooth back off." and btst[0] == "off"
+    assert j.run_action("bluetooth", "on")
+    assert not j.run_action("bluetooth_off", None) and btst[0] == "on"                      # ask-first: refused without the yes
+    assert j.run_action("bluetooth_off", None, ("bluetooth_off", None)) and btst[0] == "off"
+    assert j.undo_last() == "Bluetooth back on." and btst[0] == "on"
+    assert all(c.count("SetStateAsync") <= 1 for c in btcalls) and all("'On'" in c or "'Off'" in c for c in btcalls if "SetStateAsync" in c)
+    assert j.done_line("page", ("bluetooth", "noconnect")).startswith("I can't connect devices by voice yet")
+    j.subprocess.run = lambda args, **k: _t.SimpleNamespace(returncode=3, stdout="")       # a PC with no Bluetooth radio
+    assert not j.run_action("bluetooth", "on")
+    j.subprocess.run = lambda args, **k: _t.SimpleNamespace(returncode=0, stdout="Off")    # Windows says on, radio stays off
+    try:
+        j.bluetooth_radio("on")
+        assert False, "a radio that did not change is an error"
+    except OSError:
+        pass
+finally:
+    j.subprocess.run = _run
 class _Reg:                                                      # a fake winreg: nothing of the real registry is touched
     HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, vals = 1, 1, 2, 4, {"AppsUseLightTheme": 0, "SystemUsesLightTheme": 0}
     class _K:
@@ -383,7 +427,7 @@ assert not j.run_action("close", "chrome.exe", ("close", "chrome.exe")), "an unr
 j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else f"T {now_t}\nW explorer.exe\n"
 ran.clear()
 assert j.run_action("close", "chrome.exe", ("close", "chrome.exe")), "closed once the window is gone"
-assert len(failed) == 12, failed
+assert len(failed) == 13, failed
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 j.time.sleep = real_sleep
 
@@ -1436,7 +1480,7 @@ assert j.route("set the volume to two hundred")[0] != "act" and j.route("set it 
 for text in ("Change the screen colour to blue.", "set the volume to 30 decibels", "please open the settings app"):
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
-for text in ("turn on bluetooth", "Travis, connect my headphones", "turn off wifi", 
+for text in ("unpair my headphones", "turn off wifi", 
              "change my wallpaper", "hibernate", "sign out", "log me off", "switch to the headset microphone"):
     assert j.route(text) == ("say", None, None, j.CANT), (text, j.route(text))
 for text in ("why is my screen dim?", "how do I turn on bluetooth?", "what is screen brightness"):
@@ -1726,7 +1770,7 @@ j.did.clear()
 # S2-8: the log names the capability (a class from the table, never your words)
 caps, keep = [], j.log
 j.log = caps.append
-for text, cap in (("connect my airpods", "bluetooth"), ("turn off wifi", "wifi"),
+for text, cap in (("unpair my headphones", "bluetooth"), ("turn off wifi", "wifi"),
                   ("hibernate", "account"), ("sign out", "account"), ("turn on the keyboard light", "keyboard light")):
     caps.clear()
     assert j.route(text)[3] == j.CANT and f"capability: {cap} not built yet - said so" in caps, (text, caps)

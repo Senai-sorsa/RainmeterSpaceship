@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_page, act_power, POWER_NAMES, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
+from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_bluetooth, act_open, act_page, act_power, POWER_NAMES, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
@@ -159,6 +159,8 @@ ACTION_TABLE = {
     "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
     "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
+    "bluetooth": Action(act_bluetooth, "change", "turn the Bluetooth radio on or off"),
+    "bluetooth_off": Action(lambda _: act_bluetooth("off"), "ask", "turn the Bluetooth radio off"),
     "power": Action(act_power, "ask", "switch the power plan"),
     "page": Action(act_page, "change", "open a Windows settings page"),
     "screenshot": Action(act_screenshot, "change", "take a screenshot"),
@@ -432,6 +434,16 @@ def route(text):
             return ("say", None, None, "I don't switch to power saver: it can slow the processor and the network, and I need both.")
         key = "balanced" if want == "balanced" else "performance"
         return ("act", "power", key, f"You want me to switch the power mode to {POWER_NAMES[key]}. Confirm with yes.")
+    m = (re.fullmatch(r"(?:turn|switch) (on|off) (?:the |my )?bluetooth", cmd) or re.fullmatch(r"(?:turn|switch) (?:the |my )?bluetooth (on|off)", cmd)
+         or re.fullmatch(r"(?:(enable)|(disable)) (?:the |my )?bluetooth", cmd))
+    if m:                                                      # 7b: off asks first, it cuts a Bluetooth mouse or headset
+        if re.search(r"(?:off|disable)", cmd):
+            return ("act", "bluetooth_off", None, "You want me to turn Bluetooth off. That disconnects any Bluetooth mouse or headset. Confirm with yes.")
+        return ("act", "bluetooth", "on", None)
+    if re.fullmatch(r"(?:pair|add|set up) (?:a |an )?(?:new )?(?:bluetooth )?(?:device|headphones|earbuds|speaker|headset|mouse|keyboard)(?: with bluetooth)?|pair bluetooth", cmd):
+        return ("act", "page", ("bluetooth", ""), None)         # pairing needs your OK on screen: never by voice
+    if re.fullmatch(r"(?:connect|disconnect|reconnect)(?: (?:to|from))? (?:my |the )?(?:\w+ )?(?:headphones|earbuds|airpods|headset|speakers?|bluetooth \w+|bluetooth)", cmd):
+        return ("act", "page", ("bluetooth", "noconnect"), None)   # the connect step needs the experiment with you present (7b)
     page = None                                                # 7c/7d: a fixed table of Windows settings pages
     names = (("night light", r"night ?light", 1), ("focus", r"focus(?: assist)?|do not disturb", 1), ("battery saver", r"battery saver", 1),
              ("startup", r"start-?up apps|startup programs", 1), ("apps", r"installed apps|apps and features", 1),
