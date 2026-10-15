@@ -97,6 +97,18 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
+  PHASE 7 STATUS (2026-10-15, branch chore/jarvis-baseline-and-performance, NOT pushed, NOT live, no live test run):
+    BUILT and committed: 7-0 action table (6273fc5), 7-L1 sleep reply (a67b333), 7a mic (bbfb2b9), 7c brightness
+    (5911dc1), dark/light mode (fbde313), settings pages + screenshot + show desktop + recycle bin (9493f41), 7d power
+    mode (46910eb), 7b Bluetooth on/off + pair/connect open the page (e398db2), 7-A9 live-fact guard (138928f),
+    7-A8 focus a running app (fa81967), 7-P log-file test (ecdc719). Live-test steps: PART 1b.
+    WAITING / NOT BUILT: 7-A6 own settings by voice (stealth is a HUD tier set through Rainmeter bangs, and jset
+    writes with !WriteKeyValue; a Python writer would race Rainmeter on Settings.inc and could not make the HUD
+    take the change, so it needs a Lua-side design and the user's word); 7e / 7-A7 Control Center Lua rows and
+    JarvisBtNames; "which microphone" / "use the headset microphone" (needs 7-A6's writer); Bluetooth connect /
+    disconnect of paired audio devices, the connected list and ask_slot() (need the experiment with the user
+    present); Lenovo Legion Toolkit (not verifiable here); the 300-lines vs monthly-archive question for
+    jarvis_log.txt. Rollback: git revert, newest first.
   AUDIT-0 STATUS (2026-10-15, end of the AUDIT-0 session): P0-01..P0-09 and P0-12 FIXED and committed; P0-06
     part 2 skipped (feature); P0-10 half done, the rest WAITS for the user (Settings.inc, Setup-Jarvis.ps1).
     Commits, list, skips and live-test steps: "AUDIT-0" block (STATUS) and "LIVE TEST AFTER PHASE 7" PART 0.
@@ -3251,6 +3263,30 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
         are not appended (P0-10 part).
 
   PART 1   Phase 7's own live test: "Your live test after Phase 7" just above (steps 1-8).
+
+  PART 1b  Phase 7 as built 2026-10-15 (branch chore/jarvis-baseline-and-performance, not pushed, not live).
+           Only fakes were run so far; every real WRITE below is untested.
+    1b-1. Action table: ask-first rows (mic mute, Bluetooth off, power mode, recycle bin) do nothing until you
+          say yes; a bare "yes" with nothing pending does nothing (7-0).
+    1b-2. "Go to sleep" when sleep is off: he says the screen was turned off instead (7-L1).
+    1b-3. Mic: "mute the microphone" asks first, then mutes; "unmute the mic"; "mic up a bit" (+10 percent);
+          "set the mic to 40"; "undo". Click the orb while the mic is muted: it unmutes (click path untested).
+    1b-4. Brightness: "brightness 50", "a bit brighter" (+10), "0" is allowed, "above 100" gets an answer,
+          "undo"; the level he says is the one Windows reports.
+    1b-5. "Dark mode" / "light mode" / "turn off dark mode": apps AND Windows change; he reads the result back; "undo".
+    1b-6. Settings pages: "open sound settings", "night light" / "turn on focus" (he says Windows has no switch and
+          opens the page), "what starts with windows" (opens Startup apps), "are there updates".
+    1b-7. "Take a screenshot": a new file in Pictures\Screenshots, else he says it failed. "Show the desktop".
+    1b-8. "Empty the recycle bin": asks first, says it cannot be undone, then empties it.
+    1b-9. Power mode: "balanced mode" (asks, reads back, undo). "Best performance" says the PC has no such plan
+          if only Balanced is listed. "Power saver" is refused with a reason.
+    1b-10. Bluetooth: "turn bluetooth on" / "turn bluetooth off" (off asks first); he says the state Windows
+          reports; "undo". "Pair a new device" opens the Bluetooth page. "Connect my headphones" opens the page and
+          says he cannot connect by voice yet.
+    1b-11. "What's the weather" / news / prices: "I can't look that up yet." (7-A9), no model guess.
+    1b-12. "Open Chrome" (or any app already running): the existing window comes to the front, no second copy;
+          an app not running starts as before (7-A8).
+
 
   PART 2   S2-8 .. S2-13 (the 2026-10-14 live-log audit, built 2026-10-15). Each step names the bug.
   A. Voice
