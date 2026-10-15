@@ -3058,6 +3058,12 @@ writers = [threading.Thread(target=lambda n=n: [real_convo_add("U", f"{n} {i}") 
 with open(jb.CONVO_FILE, encoding="utf-8") as f:
     assert len(f.read().splitlines()) == 100
 jb.CONVO_FILE = real_convo
+# 7-P: the log pop-up file is a display file. Only convo_add may use it; the model never reads it back as memory
+import glob as _glob
+_users = [os.path.basename(p) for p in _glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), "jarvislib", "*.py"))
+          + [os.path.join(os.path.dirname(os.path.abspath(__file__)), "jarvis.py")]
+          if p.endswith("base.py") is False and "CONVO_FILE" in open(p, encoding="utf-8", errors="ignore").read().replace("CONVO_FILE,", "")]
+assert _users == [], _users                                  # jarvis.py only imports the name; base.py holds convo_add
 # review BUG-09: a line break in a label stays one reminder
 j.save_reminders([(time.time() + 900, time.time(), "reminder", "to call\nmum\r\n")])
 assert [r[3] for r in j.load_reminders()] == ["to call mum"]
