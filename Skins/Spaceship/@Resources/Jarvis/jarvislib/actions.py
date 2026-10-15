@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import time
+import winreg
 from .audio import mic_volume, speakers
 from .base import DATA, NO_WINDOW, log, read_kv
 
@@ -81,6 +82,25 @@ def act_brightness(change):
     screen_brightness(max(0, min(100, n)))
 
 
+THEME_KEY = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+
+
+def theme_mode(mode=None):
+    """Windows colour mode: set "dark" or "light" for the apps AND Windows itself (0 = dark), then return what the registry says.
+    Only two fixed values are ever written. Mixed values read as "mixed"."""
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, THEME_KEY, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as key:
+        if mode is not None:
+            for name in ("AppsUseLightTheme", "SystemUsesLightTheme"):
+                winreg.SetValueEx(key, name, 0, winreg.REG_DWORD, 0 if mode == "dark" else 1)
+        got = {winreg.QueryValueEx(key, n)[0] for n in ("AppsUseLightTheme", "SystemUsesLightTheme")}
+    return "dark" if got == {0} else "light" if got == {1} else "mixed"
+
+
+def act_theme(mode):
+    if mode not in ("dark", "light") or theme_mode(mode) != mode:
+        raise OSError("Windows did not take the colour mode")
+
+
 def act_mic_level(change):
     how, n = change                                           # ("set", 80) or ("step", -10), the same as act_volume
     if how == "step":
@@ -103,6 +123,8 @@ def done_line(action, target):
         return f"Opening {target[0]}."
     if action == "volume":
         return f"Volume at {speakers()[1]} percent."
+    if action == "theme":
+        return f"{theme_mode().capitalize()} mode is on."
     if action == "brightness":
         return f"Brightness is at {screen_brightness()} percent."
     if action in ("mic_mute", "mic_unmute", "mic_level"):      # read back from Windows, not what was asked

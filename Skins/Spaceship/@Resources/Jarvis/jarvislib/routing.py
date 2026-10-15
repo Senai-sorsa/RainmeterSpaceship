@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_sleep, act_volume, best_app, press_key, run_ok, running_window, start_apps
+from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_sleep, act_theme, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
@@ -159,6 +159,7 @@ ACTION_TABLE = {
     "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
     "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
+    "theme": Action(act_theme, "change", "switch Windows and the apps to dark or light mode"),
     "brightness": Action(act_brightness, "change", "set or step the screen brightness"),
     "todo": Action(lambda item: act_todo(item), "ask", "add a to-do"),
     "forget_all": Action(lambda _: save_memory([]), "ask", "forget every saved fact"),
@@ -419,6 +420,11 @@ def route(text):
             or re.fullmatch(rf"shut ?down(?: {pc})?|shut (?:it|{pc}) (?:down|off)|power (?:off|down)(?: it| {pc})?|"
                             rf"power (?:it|{pc}) (?:off|down)", cmd)):
         return ("act", "shutdown", None, "You're asking me to shut down the PC. Confirm with yes.")
+    m = (re.fullmatch(r"(?:switch|change|go|turn) (?:on |to |over to |back to )?(?:the )?(dark|light) (?:mode|theme)", cmd)
+         or re.fullmatch(r"(?:use|enable|set|put) (?:the )?(dark|light) (?:mode|theme)(?: on)?", cmd)
+         or re.fullmatch(r"(?:turn off|disable) (?:the )?(dark|light) (?:mode|theme)", cmd) or re.fullmatch(r"(dark|light) (?:mode|theme)", cmd))
+    if m:                                                      # 7c: both the apps and Windows; "turn off dark mode" is light
+        return ("act", "theme", m.group(1) if not cmd.startswith(("turn off", "disable")) else ("light" if m.group(1) == "dark" else "dark"), None)
     bright = r"(?:the |my )?(?:screen |display )?brightness"      # 7c: "a bit" is 10 percent, 0 is allowed
     bit = r"(?: (?:a )?(?:bit|little|tad)| slightly)?"
     m = (re.match(rf"(?:set|turn|change|put|bring) {bright}(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)

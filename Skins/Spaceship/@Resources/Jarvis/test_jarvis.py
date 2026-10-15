@@ -50,7 +50,7 @@ j.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
 
 # no disk, no sound card, no processes: fixed app list, fixed window list, recorded mute calls and commands
 real_start_apps, real_transcribe, mic_listen = j.start_apps, j.transcribe, j.listen
-real_brightness = j.screen_brightness
+real_brightness, real_theme = j.screen_brightness, j.theme_mode
 j.start_apps =lambda: [("Google Chrome", "Chrome"), ("Microsoft Edge", "MSEdge"), ("Notepad", "notepad")]
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 muted_to, ran = [], []
@@ -132,6 +132,16 @@ def _bright(percent=None):
 
 
 j.screen_brightness = _bright
+themest = ["dark"]                                               # the Windows colour mode
+
+
+def _theme(mode=None):
+    if mode is not None:
+        themest[0] = mode
+    return themest[0]
+
+
+j.theme_mode = _theme
 micst = [False, 70]                                              # the microphone: (muted, percent)
 
 
@@ -212,6 +222,28 @@ try:
         pass
 finally:
     j.subprocess.run = _run
+# 7c: dark and light mode: both registry values, only two fixed values, read back; "turn off dark mode" is light
+for heard, want in (("switch to dark mode", "dark"), ("turn on light mode", "light"), ("dark mode", "dark"), ("use the light theme", "light"),
+                    ("turn off dark mode", "light"), ("turn off light mode", "dark"), ("go to dark mode", "dark")):
+    assert j.route(heard) == ("act", "theme", want, None), (heard, j.route(heard))
+assert j.route("why is dark mode better?")[0] == "chat"
+themest[0] = "dark"
+assert j.run_action("theme", "light") and themest[0] == "light" and j.done_line("theme", "light") == "Light mode is on."
+assert j.undo_last() == "Back to dark mode." and themest[0] == "dark"
+class _Reg:                                                      # a fake winreg: nothing of the real registry is touched
+    HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, vals = 1, 1, 2, 4, {"AppsUseLightTheme": 0, "SystemUsesLightTheme": 0}
+    class _K:
+        __enter__, __exit__ = lambda s: s, lambda s, *a: None
+    OpenKey = lambda s, *a: s._K()
+    SetValueEx = lambda s, key, name, r, t, v: s.vals.__setitem__(name, v)
+    QueryValueEx = lambda s, key, name: (s.vals[name], 4)
+_wr, j.winreg = j.winreg, _Reg()
+try:
+    assert real_theme() == "dark" and real_theme("light") == "light" and _Reg.vals == {"AppsUseLightTheme": 1, "SystemUsesLightTheme": 1}
+    _Reg.vals["AppsUseLightTheme"] = 0
+    assert real_theme() == "mixed"
+finally:
+    j.winreg = _wr
 # 7a: the microphone. Said phrases reach the fixed actions; mute asks first; the reply is what Windows reports
 for heard, want in (("mute the microphone", ("act", "mic_mute", None)), ("mute my mic", ("act", "mic_mute", None)),
                     ("unmute the microphone", ("act", "mic_unmute", None)), ("set the microphone to 80 percent", ("act", "mic_level", ("set", 80))),
@@ -1319,7 +1351,7 @@ assert j.route("set the volume to two hundred")[0] != "act" and j.route("set it 
 for text in ("Change the screen colour to blue.", "set the volume to 30 decibels", "please open the settings app"):
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
-for text in ("turn on bluetooth", "Travis, connect my headphones", "turn off wifi", "turn on night light", "turn on dark mode",
+for text in ("turn on bluetooth", "Travis, connect my headphones", "turn off wifi", "turn on night light",
              "change my wallpaper", "hibernate", "sign out", "log me off", "switch to the headset microphone"):
     assert j.route(text) == ("say", None, None, j.CANT), (text, j.route(text))
 for text in ("why is my screen dim?", "how do I turn on bluetooth?", "what is screen brightness"):
