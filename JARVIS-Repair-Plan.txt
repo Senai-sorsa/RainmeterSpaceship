@@ -112,7 +112,12 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
   AUDIT-0 STATUS (2026-10-15, end of the AUDIT-0 session): P0-01..P0-09 and P0-12 FIXED and committed; P0-06
     part 2 skipped (feature); P0-10 half done, the rest WAITS for the user (Settings.inc, Setup-Jarvis.ps1).
     Commits, list, skips and live-test steps: "AUDIT-0" block (STATUS) and "LIVE TEST AFTER PHASE 7" PART 0.
-    NEXT: Phase 7, in its own new session, starting at 7-0 (show the user the action-table layout first).
+    NEXT (handoff 2026-10-15): start PHASE 8 (FOLLOW-UP TIMING AND SOUNDS, 8-A1..A6) in a new session. Phase 7 is built
+    except the WAITING list in PHASE 7 STATUS above. The user will run ALL live tests at the very end (PART 0, 1, 1b, 2, 3).
+    Method for every slice: read the code first; edit; copy the Jarvis folder to a scratch dir; py_compile; venv
+    test_jarvis.py must print "test_jarvis: OK"; check_route.py old vs new; commit by file name. Never git add Settings.inc
+    (skip-worktree), Data\, logs, weights. No push or deploy. Edit scripts: do not use bash heredocs for text with
+    backslashes (they get halved); use the Write tool or Edit.
   GEMINI AUDIT SORTED (2026-10-15, after the review fixes; plan text only, no code touched, nothing committed):
     rebuilding_jarvis.md (repo root, untracked, do not commit without the user) was split with the user's
     word on every feature item. NEW ORDER: AUDIT-0 (bug fixes P0-01..P0-12 minus P0-11) -> Phase 7 -> 8 -> 9 ->
