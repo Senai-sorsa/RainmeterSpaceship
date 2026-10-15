@@ -132,6 +132,17 @@ def chat_to_gpu(model):
     return True
 
 
+def chat_json(model, schema, system, user, predict, timeout):
+    """One answer in a JSON schema, parsed (AI router, compaction); raises when the model is down or answers nonsense."""
+    opts = {"num_ctx": ctx_tokens(), "temperature": 0, "num_predict": predict}   # chat's num_ctx: no model reload
+    if not gpu():
+        opts["num_thread"] = cpu_threads()
+    out = http_json("/api/chat", {"model": model, "stream": False, "format": schema, "keep_alive": keep_alive(),
+                                  "options": opts, "messages": [{"role": "system", "content": system},
+                                                                {"role": "user", "content": user}]}, timeout=timeout)
+    return json.loads(out["message"]["content"])
+
+
 def chat_stream(model, messages, temperature=0.5):
     opts = {"num_ctx": ctx_tokens(), "temperature": temperature, "num_predict": 160}
     if not gpu():

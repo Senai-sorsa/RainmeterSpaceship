@@ -200,19 +200,21 @@ def convo_add(who, text):
             with open(CONVO_FILE, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.read().splitlines()[-299:]
         lines.append(f"{who}|{int(time.time())}|{text}")
-        tmp = CONVO_FILE + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
-        os.replace(tmp, CONVO_FILE)
+        write_atomic(CONVO_FILE, "\n".join(lines) + "\n")
     except OSError:
         pass
 
 
 def live(text):
     try:
-        tmp = LIVE_FILE + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(f"J|{int(time.time())}|{re.sub(chr(10), ' ', text)}\n" if text else "")
-        os.replace(tmp, LIVE_FILE)
+        write_atomic(LIVE_FILE, f"J|{int(time.time())}|{re.sub(chr(10), ' ', text)}\n" if text else "")
     except OSError:
         pass
+
+
+def write_atomic(path, text):
+    """Write a whole file so a reader never sees half of it: a .tmp beside it, then one rename."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)

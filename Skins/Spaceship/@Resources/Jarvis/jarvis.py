@@ -51,15 +51,15 @@ from jarvislib import hearing
 from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE,
     MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State,
     busy, cancel, convo_add, live, log, mic, missing_packages, name_until, problem, rainmeter_running, read_kv,
-    setting, settings, single_instance, stop_now, todo_note)
+    setting, settings, single_instance, stop_now, todo_note, write_atomic)
 from jarvislib.stopwords import STOP_PHRASES, StopWords, far, far_add, saying, stop_heard
 from jarvislib.gpu import cpu_in_use, cpu_threads, gpu
 from jarvislib.hearing import (HINT, PHANTOM, _cuda_dlls, _decode, _gpu_try, _load_whisper, _whisper_dev,
     _whisper_lock, _whisper_to_gpu, gpu_watch, heard_score, no_loops, no_repeats, real_words, transcribe, whisper)
 from jarvislib.tts import (_broken, _engines, _kokoro, _kokoro_last, _piper, _resolved, _voice_dev, _voice_gpu_off,
     _wav_to_array, _windows, resolve_voice, synth_audio, voice_rate)
-from jarvislib.llm import (_moved, chat_stream, chat_to_gpu, ctx_tokens, ensure_ollama, http_json, installed_models,
-    keep_alive, ollama_on_cpu, pick_model, warm)
+from jarvislib.llm import (_moved, chat_json, chat_stream, chat_to_gpu, ctx_tokens, ensure_ollama, http_json,
+    installed_models, keep_alive, ollama_on_cpu, pick_model, warm)
 from jarvislib.audio import _com, speakers, speakers_mute
 from jarvislib.mic import _listen, _mic_missing, duck, follow_wait, list_mics, listen, mic_device, unduck
 from jarvislib.notes import STOP, search_notes, vault_dir
@@ -425,15 +425,9 @@ def interpret(model, text):
     heard = set(_words(text))
     nums = {_num(w) for w in heard} - {None}
     said = lambda s: all(w in heard or w in ("at", "in", "for", "to", "the", "and") or _num(w) in nums for w in _words(s))
-    opts = {"num_ctx": ctx_tokens(), "temperature": 0, "num_predict": 160}   # chat's num_ctx: no model reload
-    if not gpu():
-        opts["num_thread"] = cpu_threads()
     try:
-        out = http_json("/api/chat", {"model": model, "stream": False, "format": AI_SCHEMA, "keep_alive": keep_alive(),
-                                      "options": opts, "messages": [
-                                          {"role": "system", "content": AI_PROMPT.replace("{now}", datetime.now().strftime("%A %d %B %Y, %I:%M %p"))},
-                                          {"role": "user", "content": text}]}, timeout=8)
-        cmds = [c for c in json.loads(out["message"]["content"])["commands"] if c.get("intent") != "chat"]
+        prompt = AI_PROMPT.replace("{now}", datetime.now().strftime("%A %d %B %Y, %I:%M %p"))
+        cmds = [c for c in chat_json(model, AI_SCHEMA, prompt, text, 160, 8)["commands"] if c.get("intent") != "chat"]
         sets = [c for c in cmds if c.get("intent") == "alarm_set"]
         if len(sets) > 1 and len(sets) == len(cmds) and not any(str(c.get("when", "")).startswith("in ") for c in sets):
             # "alarms for 7 and 8 am": one sentence, so route() gives the am / pm said last to each
@@ -956,10 +950,7 @@ def load_memory():
 
 
 def save_memory(facts):
-    tmp = MEMORY_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write("".join(fact + "\n" for fact in facts))
-    os.replace(tmp, MEMORY_FILE)
+    write_atomic(MEMORY_FILE, "".join(fact + "\n" for fact in facts))
 
 
 def facts_about(x):
@@ -1304,10 +1295,7 @@ def load_reminders():
 
 
 def save_reminders(items):
-    tmp = REMIND_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write("".join(f"{due:.0f}|{created:.0f}|{kind}|{label}\n" for due, created, kind, label in items))
-    os.replace(tmp, REMIND_FILE)
+    write_atomic(REMIND_FILE, "".join(f"{due:.0f}|{created:.0f}|{kind}|{label}\n" for due, created, kind, label in items))
 
 
 def describe(r, now):
@@ -1747,10 +1735,7 @@ def load_topics():
 
 
 def save_topics(topics):
-    tmp = TOPICS_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(topics, f)
-    os.replace(tmp, TOPICS_FILE)
+    write_atomic(TOPICS_FILE, json.dumps(topics))
 
 
 def topic_text(t):
@@ -1898,10 +1883,7 @@ def load_gist():
 
 
 def save_gist(lines, month):
-    tmp = GIST_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write("".join(f"{l}\n" for l in ([f"#month {month}"] if month else []) + [f"{d}|{g}" for d, g in lines]))
-    os.replace(tmp, GIST_FILE)
+    write_atomic(GIST_FILE, "".join(f"{l}\n" for l in ([f"#month {month}"] if month else []) + [f"{d}|{g}" for d, g in lines]))
 
 
 def gist_for(text):
@@ -1924,14 +1906,8 @@ def gist_ok(fact, talk):
 
 def ask_gist(model, talk):
     """The model's facts for some talk, unchecked; None when the model is down or answers nonsense."""
-    opts = {"num_ctx": ctx_tokens(), "temperature": 0, "num_predict": 200}
-    if not gpu():
-        opts["num_thread"] = cpu_threads()
     try:
-        out = http_json("/api/chat", {"model": model, "stream": False, "format": GIST_SCHEMA, "keep_alive": keep_alive(),
-                                      "options": opts, "messages": [{"role": "system", "content": GIST_PROMPT},
-                                                                    {"role": "user", "content": talk}]}, timeout=60)
-        return [" ".join(str(f).replace("|", "/").split()) for f in json.loads(out["message"]["content"])["facts"]][:3]
+        return [" ".join(str(f).replace("|", "/").split()) for f in chat_json(model, GIST_SCHEMA, GIST_PROMPT, talk, 200, 60)["facts"]][:3]
     except Exception as e:
         log(f"compaction: model not usable ({type(e).__name__})")
         return None
@@ -3030,7 +3006,6 @@ if __name__ == "__main__":
         if owner:                                              # tell the HUD we're gone (shows OFFLINE)
             unduck()                                           # QUIT while he listened: put the volume back now
             try:
-                with open(STATE_FILE, "w", encoding="utf-8") as f:
-                    f.write("T 0\nSTATE idle\n")
+                write_atomic(STATE_FILE, "T 0\nSTATE idle\n")
             except OSError:
                 pass
