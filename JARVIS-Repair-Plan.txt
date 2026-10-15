@@ -122,7 +122,7 @@ CURRENT STATE (end of the 2026-10-14 session: redesign slices A-H + audit 2 comm
     - REDESIGN H clean-up scan (nothing left unused)                                             560206c
     - AUDIT 2: Settings.inc personal paths blank in git (skip-worktree locally), N13 alarm tests pin
       the clock, SLEEP button never hibernates, DST-safe alarm roll-over, KOKORO_VOICES deleted,
-      Setup step 4b2 (Vosk model), COPY TO LIVE from git, this TEST BEFORE PHASE 7 block    (see AUDIT 2)
+      Setup step 4b2 (Vosk model), COPY TO LIVE from git, this TEST BEFORE PHASE 7 block        f91ec33
   LIVE (C:\Users\Senai\Rainmeter\Skins\Spaceship): b82b3b5 + the FR5 N1-N3 work, copied ~18:25 on
     2026-10-14 (backup C:\Users\Senai\Rainmeter\Spaceship-backup-20261014-182522). Its first run gave
     FIX ROUND 6 (L1-L10), which the redesign answers. Slices A-H and audit 2 are NOT live; live has no
@@ -2482,7 +2482,7 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
       never read (deleted later, see AUDIT 2 below); JarvisWakeHard and JarvisAIRouter have no Control
       Center row (settings only).
     - Copy-to-live must copy Jarvis\vosk (or run Setup-Jarvis.ps1 step 4b2 on the live copy).
-  AUDIT 2 FIXES BUILT 2026-10-14 (ponytail audit of the whole repo; NOT committed, NOT live):
+  AUDIT 2 FIXES BUILT 2026-10-14 (ponytail audit of the whole repo; committed f91ec33, NOT live):
     1. Settings.inc: the repo is public and the committed copy held 4 personal paths (LltPath,
        ObsidianTodo, ObsidianVault, JarvisVault). The next commit has them blank (staged in the index
        only); the local file keeps its values and is marked skip-worktree, so git ignores local edits to
@@ -2509,7 +2509,7 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
       live test (it should sleep, not hibernate).
     - Also: Setup-Jarvis.ps1 step 4b2 (Vosk stop-word model, asks first, SHA256 pinned) and COPY TO LIVE
       (PART D) now copies the committed version via git archive, plus Jarvis\vosk.
-    - Rollback: git revert of its commit; for Settings.inc also git update-index --no-skip-worktree.
+    - Rollback: git revert f91ec33; for Settings.inc also git update-index --no-skip-worktree.
 
 --------------------------------------------------------------------------------------------------------
 TEST BEFORE PHASE 7   (added 2026-10-14; the ONE combined live test of everything built since the 18:25 copy)
