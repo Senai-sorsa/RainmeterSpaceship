@@ -171,10 +171,17 @@ j.speakers = _speakers
 ran.clear()
 assert not j.run_action("close", "notepad.exe") and not ran, "missing target: nothing is sent"
 assert not j.run_action("close", "chrome.exe") and ran == [["taskkill", "/IM", "chrome.exe"]], "asked, but it stayed open"
-j.read_kv = lambda name: "W chrome.exe\n" if not ran else "W explorer.exe\n"
+now_t = int(j.time.time())
+j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else f"T {now_t - 60}\nW explorer.exe\n"
+ran.clear()
+assert not j.run_action("close", "chrome.exe"), "a stale window list (ShipCore stopped) proves nothing"
+j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else ""
+ran.clear()
+assert not j.run_action("close", "chrome.exe"), "an unreadable window list (mid-swap) is not 'closed'"
+j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else f"T {now_t}\nW explorer.exe\n"
 ran.clear()
 assert j.run_action("close", "chrome.exe"), "closed once the window is gone"
-assert len(failed) == 7, failed
+assert len(failed) == 9, failed
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 j.time.sleep = real_sleep
 
@@ -2049,6 +2056,14 @@ assert j.hear() == "Yes." and j.confirmed({"expires": 2}, j.hear(), 1)
 j.transcribe = lambda audio: "Jarvis"                             # the name alone stays as said
 assert j.hear() == "Jarvis"
 j.listen, j.transcribe = real_listen, real_tr
+# a confirmation: an unsure "Okay." (a cough, Whisper's noise phrase) is never a yes; a clear one is
+real_hear, real_rl = j.hear, j.reply_line
+j.hear, j.reply_line = lambda: "Okay.", lambda text, quiet: None
+j.heard_score[0] = -1.5
+assert not j.ask_yes("Shut down the computer? Confirm with yes.", True)
+j.heard_score[0] = -0.3
+assert j.ask_yes("Shut down the computer? Confirm with yes.", True)
+j.hear, j.reply_line, j.heard_score[0] = real_hear, real_rl, 0.0
 
 # 3b: a command Whisper got slightly wrong is corrected; chat is never rewritten
 j.setting = lambda name, default="": default

@@ -103,7 +103,9 @@ def act_close(exe):
                    timeout=10)
     for _ in range(10):
         time.sleep(0.5)
-        if exe not in open_windows():
+        text = read_kv("windows.txt")                         # gone only by a fresh list: an unreadable or stale one proves nothing
+        t = re.match(r"T (\d+)", text)
+        if t and time.time() - int(t.group(1)) < 10 and exe not in re.findall(r"^W (.+)$", text, re.M):
             return
     raise OSError("it is still open (it may be asking to save)")
 

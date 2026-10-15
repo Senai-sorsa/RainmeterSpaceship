@@ -2260,7 +2260,8 @@ def ask_yes(prompt, quiet):
     answer = hear()
     if answer:
         convo_add("U", answer)
-    return confirmed(pending, answer, time.time()) and not cancel.is_set()
+    # a yes Whisper was unsure of (a cough read as "Okay.") never confirms
+    return confirmed(pending, answer, time.time()) and heard_score[0] >= -1.0 and not cancel.is_set()
 
 
 def turn(tier, follow=0, woke=False):
@@ -2331,7 +2332,7 @@ def exchange(tier, follow, woke, mode, left):
             problem("Speech recognition isn't installed - run Control Center > JARVIS > SETUP")
             return
         log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
-        log(f"you: {text}")
+        log(f"you: {len(text.split())} words")                # counts only: the words stay in the pop-up log
         way.update(kind="silence", via="rule", result="nothing said")   # replaced below once words came
         if not text and woke:                                  # FR6 L9: likely a false wake - end quietly
             way.update(kind="false_wake")
@@ -2540,7 +2541,7 @@ def exchange(tier, follow, woke, mode, left):
         if not reply and not cancel.is_set():
             problem(f"{model} gave no answer - try again, or pick another model in Control Center > JARVIS")
             return
-        log(f"jarvis: {reply}")
+        log(f"jarvis: {len(reply)} characters")
         way["result"] = "answered"
         recent["me"] = reply
         if not apart:
