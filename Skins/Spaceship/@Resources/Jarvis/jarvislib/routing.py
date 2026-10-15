@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_page, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
+from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_page, act_power, POWER_NAMES, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
@@ -159,6 +159,7 @@ ACTION_TABLE = {
     "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
     "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
+    "power": Action(act_power, "ask", "switch the power plan"),
     "page": Action(act_page, "change", "open a Windows settings page"),
     "screenshot": Action(act_screenshot, "change", "take a screenshot"),
     "desktop": Action(lambda _: press_keys(0x5B, 0x44), "change", "show the desktop"),
@@ -201,7 +202,6 @@ UNBUILT_CAPS = {
     "display": r"wallpaper|(?:desktop )?background|resolution|screen ?saver",
     "microphone": r"microphone|mic",
     "account": r"hibernat\w*|sign (?:me )?out|log (?:me )?(?:off|out)",
-    "power plan": r"power mode",
     "keyboard light": r"keyboard (?:light|backlight)",
 }
 UNBUILT = re.compile(r"\b(?:" + "|".join(f"(?P<{k.replace(' ', '_')}>{v})" for k, v in UNBUILT_CAPS.items()) + r")\b")
@@ -423,6 +423,15 @@ def route(text):
             or re.fullmatch(rf"shut ?down(?: {pc})?|shut (?:it|{pc}) (?:down|off)|power (?:off|down)(?: it| {pc})?|"
                             rf"power (?:it|{pc}) (?:off|down)", cmd)):
         return ("act", "shutdown", None, "You're asking me to shut down the PC. Confirm with yes.")
+    m = (re.fullmatch(r"(?:set|switch|change|put|turn) (?:the |my )?(?:power )?(?:mode|plan)(?: of the (?:pc|computer|laptop))? (?:to|on) (?:the )?(.+?)(?: (?:power )?(?:mode|plan))?", cmd)
+         or re.fullmatch(r"(?:use|switch to|go to|enable) (?:the )?(.+?) (?:power )?(?:mode|plan)", cmd)
+         or re.fullmatch(r"(best performance|high performance|balanced|power saver|battery saver) (?:power )?(?:mode|plan)", cmd))
+    if m and re.fullmatch(r"balanced|(?:best|high|max(?:imum)?) performance|performance|power saver|battery saver|saver|ultimate performance", m.group(1)):
+        want = m.group(1)
+        if "saver" in want:
+            return ("say", None, None, "I don't switch to power saver: it can slow the processor and the network, and I need both.")
+        key = "balanced" if want == "balanced" else "performance"
+        return ("act", "power", key, f"You want me to switch the power mode to {POWER_NAMES[key]}. Confirm with yes.")
     page = None                                                # 7c/7d: a fixed table of Windows settings pages
     names = (("night light", r"night ?light", 1), ("focus", r"focus(?: assist)?|do not disturb", 1), ("battery saver", r"battery saver", 1),
              ("startup", r"start-?up apps|startup programs", 1), ("apps", r"installed apps|apps and features", 1),

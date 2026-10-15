@@ -282,6 +282,39 @@ try:
     j.act_screenshot(None)
 finally:
     j.press_keys, j.pictures_folder, j.time.sleep = _pk, _pf, _sl
+# 7d: power mode: only Balanced / Best performance, only plans the machine lists, asks first, read back, undo
+BAL, HIGH, SAVER = "381b4222-f694-41f0-9685-ff5bb260df2e", "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", "a1841308-3541-4fab-bc81-f71556f20b4a"
+pw = {"active": BAL, "listed": [BAL, HIGH, SAVER], "calls": []}
+
+
+def _powercfg(args, **k):
+    pw["calls"].append(args)
+    if args[1] == "/setactive":
+        pw["active"] = args[2]
+        return _t.SimpleNamespace(returncode=0, stdout="")
+    ids = pw["listed"] if args[1] == "/list" else [pw["active"]]
+    return _t.SimpleNamespace(returncode=0, stdout=" ".join(f"Power Scheme GUID: {g}  (x)" for g in ids))
+
+
+_run = j.subprocess.run
+j.subprocess.run = _powercfg
+try:
+    assert j.route("switch the power mode to balanced")[:3] == ("act", "power", "balanced") and "Confirm with yes" in j.route("best performance mode")[3]
+    assert j.route("set the power plan to best performance")[2] == "performance" and j.route("use the balanced power mode")[2] == "balanced"
+    r = j.route("switch to power saver mode")
+    assert r[0] == "say" and "power saver" in r[3] and j.route("battery saver mode")[0] == "say"
+    assert not j.run_action("power", "performance") and pw["active"] == BAL           # ask-first: refused without the yes
+    assert j.run_action("power", "performance", ("power", "performance")) and pw["active"] == HIGH
+    assert j.done_line("power", "performance") == "Power mode is Best performance."
+    assert j.undo_last() == "Power mode back to Balanced." and pw["active"] == BAL
+    pw["listed"] = [BAL]                                         # this PC lists only Balanced: no performance plan, nothing switched
+    assert not j.run_action("power", "performance", ("power", "performance")) and pw["active"] == BAL
+    assert not j.run_action("power", SAVER, ("power", SAVER)) and pw["active"] == BAL   # a raw id outside the allowed list never runs
+    assert all(a[1] != "/setactive" or a[2] in (BAL, HIGH) for a in pw["calls"])
+    pw["listed"] = [BAL, HIGH, SAVER]
+    assert not j.run_action("power", SAVER, ("power", SAVER)) and pw["active"] == BAL
+finally:
+    j.subprocess.run = _run
 class _Reg:                                                      # a fake winreg: nothing of the real registry is touched
     HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, vals = 1, 1, 2, 4, {"AppsUseLightTheme": 0, "SystemUsesLightTheme": 0}
     class _K:
@@ -350,7 +383,7 @@ assert not j.run_action("close", "chrome.exe", ("close", "chrome.exe")), "an unr
 j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else f"T {now_t}\nW explorer.exe\n"
 ran.clear()
 assert j.run_action("close", "chrome.exe", ("close", "chrome.exe")), "closed once the window is gone"
-assert len(failed) == 9, failed
+assert len(failed) == 12, failed
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 j.time.sleep = real_sleep
 

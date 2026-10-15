@@ -101,6 +101,41 @@ def act_theme(mode):
         raise OSError("Windows did not take the colour mode")
 
 
+# 7d: power plans. Only plans that keep the CPU, GPU, microphone and network running; the ids are fixed Windows ids and a
+# plan counts only if the machine lists it (powercfg /list). Power saver is never picked.
+POWER_OK = {"balanced": ("381b4222-f694-41f0-9685-ff5bb260df2e",),
+            "performance": ("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", "e9a42b02-d5df-448d-aa00-03f14749eb61")}
+POWER_NAMES = {"balanced": "Balanced", "performance": "Best performance"}
+
+
+def power_plans():
+    """(active plan id, ids the machine lists) read from powercfg; one fixed command, nothing from speech."""
+    def run(arg):
+        out = subprocess.run(["powercfg", arg], creationflags=NO_WINDOW, capture_output=True, text=True, timeout=10)
+        if out.returncode:
+            raise OSError("powercfg ended with code %d" % out.returncode)
+        return out.stdout.lower()
+    listed = re.findall(r"guid: ([0-9a-f-]{36})", run("/list"))
+    active = re.search(r"guid: ([0-9a-f-]{36})", run("/getactivescheme"))
+    return (active.group(1) if active else None), listed
+
+
+def power_key(guid):
+    return next((k for k, ids in POWER_OK.items() if guid in ids), None)
+
+
+def act_power(key, plan=None):
+    """Switch to a plan from POWER_OK that the machine lists, then check powercfg reports it active.
+    `key` is "balanced" / "performance", or a plan id (undo: the one that was active, only if it is in POWER_OK)."""
+    _, listed = power_plans()
+    guid = next((g for g in (POWER_OK.get(key) or (key,)) if g in listed and power_key(g)), None)
+    if not guid:
+        raise OSError("this PC has no such power plan")
+    subprocess.run(["powercfg", "/setactive", guid], creationflags=NO_WINDOW, capture_output=True, timeout=10, check=True)
+    if power_plans()[0] != guid:
+        raise OSError("Windows did not switch the power plan")
+
+
 def act_mic_level(change):
     how, n = change                                           # ("set", 80) or ("step", -10), the same as act_volume
     if how == "step":
@@ -166,6 +201,8 @@ def done_line(action, target):
         return f"Opening {target[0]}."
     if action == "volume":
         return f"Volume at {speakers()[1]} percent."
+    if action == "power":
+        return f"Power mode is {POWER_NAMES.get(power_key(power_plans()[0]), 'a plan I do not switch')}."
     if action == "page":
         key, note = target
         title = PAGES[key][1]

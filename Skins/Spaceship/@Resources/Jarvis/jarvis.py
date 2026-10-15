@@ -65,7 +65,7 @@ from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _fille
 from jarvislib.calc import (MONTHS, ONES, TENS, UNITS, UNIT_ROWS, WEEKDAYS, _num, _remind_bad, amount, calc,
     clock, convert, fact_answer, for_ear, on_day, unit)
 from jarvislib.actions import (MEDIA_KEYS, act_close, act_lock, act_open, act_sleep, act_volume, best_app, done_line,
-    open_windows, press_key, run_ok, running_window, screen_brightness, start_apps, theme_mode)
+    open_windows, press_key, run_ok, POWER_NAMES, power_key, power_plans, running_window, screen_brightness, start_apps, theme_mode)
 from jarvislib.confirm import DANGER, NAMES, YES, confirmed, is_yes
 from jarvislib.stopkey import STOP_KEYS, stop_key_loop
 from jarvislib.turnstate import DID, DID_ASK, UNDO_FOR, did, did_add, last, offer, recent, undo
@@ -125,7 +125,7 @@ def run_action(action, target, pending=None):
         log(f"action {action} refused: needs a confirmed yes")
         return False
     try:
-        before = (speakers() if action in ("volume", "mute", "unmute") else mic_volume() if action.startswith("mic_") else screen_brightness() if action == "brightness" else theme_mode() if action == "theme" else target if action in ("replace_fact", "forget_facts")
+        before = (speakers() if action in ("volume", "mute", "unmute") else mic_volume() if action.startswith("mic_") else screen_brightness() if action == "brightness" else theme_mode() if action == "theme" else power_plans()[0] if action == "power" else target if action in ("replace_fact", "forget_facts")
                   else None)
         if action == "forget_all":                             # what was there, so "undo that" can put it back
             try:
@@ -189,6 +189,10 @@ def undo_last():
             said.append(undo_last())
         undo.clear()
         return " ".join(said)
+    if what == "power":                                        # the plan that was active, if it is one we may switch to
+        ok = bool(before) and power_key(before) and run_action("power", before, ("power", before))
+        undo.clear()
+        return f"Power mode back to {POWER_NAMES.get(power_key(before))}." if ok else "That didn't work."
     if what == "theme":
         ok = before != "mixed" and run_action("theme", before)
         undo.clear()
