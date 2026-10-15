@@ -97,6 +97,23 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
+  GEMINI AUDIT SORTED (2026-10-15, after the review fixes; plan text only, no code touched, nothing committed):
+    rebuilding_jarvis.md (repo root, untracked, do not commit without the user) was split with the user's
+    word on every feature item. NEW ORDER: AUDIT-0 (bug fixes P0-01..P0-12 minus P0-11) -> Phase 7 -> 8 -> 9 ->
+    10 -> 11 -> Stage 2. Where things went: AUDIT-0 (just before PHASE 7); "FROM THE GEMINI AUDIT" blocks
+    under Phase 7 (7-A1..A10), Phase 8 (8-A1..A6), Phase 9 (9-A1..A3), Phase 10; new PHASE 11 (after Phase 10);
+    Stage 2 (S2-15..S2-34 + the P2 mapping, before "Sources for Stage 2").
+    The user's decisions: no 5 s timer lease (7-0 keeps the confirmed-pending check); 8a obeys Slice D;
+    alarms pop-up only in QUIET; own-settings voice = stealth / mute only; Legion Toolkit only if installed;
+    "think hard" (8e) moved to Stage 2; foreground-app awareness to Stage 2; push-to-talk hotkey REJECTED;
+    FFT voice gate to Stage 2 (measure first); reference resolution and the alias table to Phase 11.
+    Audit claims are unverified until each fix is checked against the code (a few spot checks held up).
+    HOW THE USER WORKS FROM HERE (2026-10-15): a SEPARATE session per phase: AUDIT-0 / Phase 7, then 8, 9, 10,
+    each in its own new chat that starts at this block. Only after Phase 10 are all comprehensive live tests
+    run, as ONE combined test. Each phase session therefore ADDS its live-test steps to "LIVE TEST AFTER
+    PHASE 7" (the block now covers Phase 7 and earlier only) and does not run any live test itself.
+    rebuilding_jarvis.md is now COMMITTED (the user said "commit everything"); it is the source text for the
+    P0 patches and the P2 drafts, so keep it in the repo root.
   PRE-PHASE 7: REVIEW FIXES (DONE 2026-10-15, the session after Phase 3; READ THIS, THEN "START HERE FOR PHASE 7")
     - Source: three external reviews in the repo root, all UNTRACKED (do not commit them without the user):
       "opus 4.8 Code review.md", "SOL-Code-Review.md" (ledger only) and "JARVIS & Rainmeter Spaceship —
@@ -2871,6 +2888,34 @@ REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, 
            ding / reply_line / turn_id passed in before it can move).
 
 --------------------------------------------------------------------------------------------------------
+AUDIT-0   BUG FIXES FROM THE GEMINI AUDIT   (added 2026-10-15; the user: DO THESE BEFORE PHASE 7)
+--------------------------------------------------------------------------------------------------------
+  Source: rebuilding_jarvis.md section 3 (P0-01..P0-12; it holds the patch text). Untracked, do not commit it
+  without the user. Same rule as the review fixes: check each claim against the code right before its fix
+  (line numbers in the audit may be wrong); a false claim is skipped and noted, not "fixed". One fix at a
+  time, test_jarvis OK + check_route 0 of 65 changed after each (PART E); no live test (it joins the
+  combined test after Phase 7); commit only on the user's word.
+  P0-01 interpret(): "music is too loud" steps volume UP and the step number is dropped (routing.py AI_CUES /
+        volume direction). Checked: AI_CUES exists in routing.py:22.
+  P0-02 Low-confidence Whisper gate (heard_score < -1.0) for remind / memory / multi mutations; keep
+        done_line() after "Did you say ...". Check against the Slice D confirmation flow first.
+  P0-03 Three broken undo_last() paths: flip, replace_fact, multi. Check against the Slice D undo window.
+  P0-04 "Yes, Jarvis" / "Yes, sir" on the memory offer; "continue" and "carry on" into YES. Checked:
+        confirm.py YES has no "continue" (it is the item the Phase 7 DECIDED block already promised).
+  P0-05 check_voice.py writes into live Data\ and misses TTS logs: point it at a temp dir like BUG-07.
+  P0-06 talk_forget ignores gist lines; single-fact questions answered by code.
+  P0-07 snooze_for(): "again in ten", "5 minutes more", bare numbers.
+  P0-08 save_reminders() calls in remind_reply() unguarded against OSError.
+  P0-09 Timer-move fractional-second flake in test_jarvis.py (~l.1968): make the test deterministic.
+  P0-10 Settings.inc duplicate headers and JarvisCallMe=Senai; Apply-SpaceshipUpdate.ps1 comment bug;
+        Setup-Jarvis.ps1 absolute paths. Settings.inc is skip-worktree with blank paths in git: NEVER git add
+        it as it is on disk; change the git copy only with the user, and the live copy never without a backup.
+  P0-12 Atomic save_gist in memory.compact() (= 9-L3, then done) and an atomic tmp+rename of jarvis_cmd.txt in
+        jarvis.lua (the write half of 8-L2; 8d's typed text is still Phase 8).
+  P0-11 is NOT here: brightness / mic wiring is a feature and moved to Phase 7 (7-A2).
+  Rollback: git revert <commit>, newest first. Never checkout / restore / stash.
+
+--------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
   MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
   FROM THE PHASE 3 AUDIT (added 2026-10-15; build with Phase 7, test in LIVE TEST AFTER PHASE 7)
@@ -2893,6 +2938,28 @@ PHASE 7   MORE SETTINGS BY VOICE
          Fix: act_sleep returns a marker for the fallback; the reply says "This PC can't sleep that way,
          so I turned the screen off." (fact only; tone goes to the Phase 10 review). Test: a fake
          SetSuspendState that returns 0 -> the reply is not "Done.".
+  FROM THE GEMINI AUDIT (rebuilding_jarvis.md, 2026-10-15; accepted by the user, mostly merges)
+    7-A1 (P1-01) = 7-0 + BUG-06. DECIDED: no 5 s timer lease. run_action refuses a needs-confirm row unless
+         the caller passes the confirmed pending action. Nothing else added.
+    7-A2 (P1-07, P0-11) = 7a mic + 7c brightness. The ShipCore setters already exist; wire them in the new
+         ActionSpec form and take them out of UNBUILT_CAPS. Not a bug fix any more (moved from AUDIT-0).
+    7-A3 (P1-16) = 7b Bluetooth, paired audio only, with the headphone-naming row. P1-22 ask_slot(): written
+         only when 7b's "which one?" needs it, then reused by the others.
+    7-A4 (P1-08) = 7d power mode. Windows plans as decided; Lenovo Legion Toolkit (llt.ps1) ONLY if it is
+         installed, and with the same rule (never a mode that stops the CPU / GPU / mic / network, list
+         checked by code, a yes first, undo).
+    7-A5 (P1-18) = 7c / 7d (dark-light, screenshot, show desktop, recycle bin, ms-settings pages). Merged.
+    7-A6 (P1-19) JARVIS's own settings by voice: ONE set_setting() in base.py with a fixed whitelist of
+         stealth / mute himself only (as decided), undo, same control-char strip as jset. Style / voice stay
+         in Phase 10. No "set any setting".
+    7-A7 (P1-21, P1-30) = 7e + 7-P: sub-sections, memory row, the log / memory test, and the 7 hidden
+         Python-only settings get Control Center rows (same jset writer, rows only added, none removed).
+    7-A8 (P1-24) NEW: "open <app>" focuses the window if the app already runs (ShipCore.exe focus) instead of
+         starting a second copy. Test with a fake process list.
+    7-A9 (P1-26) NEW: live-fact guard in no_data(): weather / news / prices questions get a plain "I can't
+         look that up yet" and not a guess. Plain factual wording now; wording joins the Phase 10 review;
+         S2-5 (online basics) replaces it.
+    7-A10 (P1-17) = 7-L1 above. Merged.
   BEFORE STARTING: (the user, 2026-10-15, replaces the 2026-10-14 rule) the live tests are NOT a gate any
   more; they all run after Phase 7 (LIVE TEST AFTER PHASE 7). Read "PHASE 7 MUST KNOW" in CURRENT STATE.
   DECIDED by the user 2026-10-14 (Q&A before Phase 7; these override the tables below where they differ):
@@ -3218,6 +3285,18 @@ PHASE 8   FOLLOW-UP TIMING AND SOUNDS
          text, which makes this matter. Fix with 8d: Lua writes jarvis_cmd.tmp, removes the old file,
          renames (Lua's os.rename fails if the target exists); Python already skips a missing or bad file.
          Test: a half-written file is ignored and the next good one runs.
+  FROM THE GEMINI AUDIT (2026-10-15, decided by the user; these override the older text below where they differ)
+    8-A1 (P1-02) = 8-L1: also a 0.3 s guard after the prompt and drop an answer made only of the prompt's own
+         words. Merged. Uses the Vosk echo-cancel path only if it is on (no new echo canceller).
+    8-A2 (P1-03) NEW: on barge-in, history and convo_add keep only the words he actually spoke, not the whole
+         planned reply. Small; owner: the module that holds the history. Test: a fake interrupted reply ->
+         only the spoken part is saved.
+    8-A3 (P1-04) = 8a, but it OBEYS SLICE D: follow-ups after chat / info replies only, no cap, and after a
+         command reply only the 5 s "undo / remove" window. 8a's 3 s direct / 3-10 s name-prefixed timing stays.
+    8-A4 (P1-09) = 8b (JarvisChimeVolume, BootSound=0). Merged.
+    8-A5 (P1-10) = 8c. DECIDED: during QUIET an alarm is a pop-up only (no sound). Merged.
+    8-A6 (P1-11) = 8d + 8-L2 (typed yes must come from the same channel). Merged.
+    8e "Think hard" is MOVED to Stage 2 (S2-16) by the user: do not build it in this phase.
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 17 (follow-up only within 3 seconds, or "Jarvis ..." within 10 seconds)
         issue 1  ("Jarvis online" off, startup noises much quieter)
@@ -3306,6 +3385,14 @@ PHASE 9   ASK HIM WHAT IS WRONG (DIAGNOSIS)
          memory.compact appends to jarvis_gist.txt; a crash mid-write can leave one cut line, which
          load_gist then reads as a short fact. Fix: write the whole file with base.write_atomic (load,
          add, write; the file is small), like every other store. Test: the save goes through write_atomic.
+         (The Gemini audit lists the same fix as P0-12; it is built in AUDIT-0, so this one is then DONE.)
+  FROM THE GEMINI AUDIT (2026-10-15, accepted by the user)
+    9-A1 (P1-17) = 9-L1 above: ERR cleared after 60 s or on the next good turn; "what went wrong?" answers
+         from the stored error and its time. Merged, not new.
+    9-A2 (P1-27) Pre-made fillers: a "diag" filler ("Checking the system.", already in 9a step 2) is added to
+         FILLERS with this phase. The "thinking" filler goes with S2-16 (deep model).
+    9-A3 (P1-25) If foreground-app info is wanted for a diagnosis answer, read it once on demand (no polling).
+         The polling version is S2-17.
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 21 (system logs, Task Manager information, which processes overload the system, "I could
         just ask him what the issue is")
@@ -3495,7 +3582,27 @@ Also holds (added 2026-10-14 from the user's feature list):
   6e style rules, the persona card draft, and how the ABOUT THE USER note is used. Claude TELLS the user it
   is time for this review and shows it all in one place. The user reads it, customizes it by hand, and
   gives feedback. Nothing in Phase 10 is built, and Claude does not move on, until that feedback is in.
+  FROM THE GEMINI AUDIT (rebuilding_jarvis.md, 2026-10-15; all accepted by the user, merged, not new):
+    P1-12 clause-aware TTS chunking, short-sentence joining, 20 ms cross-fade = 6g (voice block).
+    P1-13 speakable() normalizer before synth = 6e (voice block; the voice part does not wait for the review).
+    P1-14 <hud_data> delimiters = INFO-01 above (as planned, with the code of this phase).
+    P1-15 "natural" default persona, serious-topic auto-switch, identity line = 6c / 6h. The audit's 4th
+          PERSONALITY button must keep the Control Center row count (INV-6); tone goes through the hand review.
+    P1-29 Kokoro voice-vector blending = the custom-voices idea above. Idea only, no code before the user says.
 
+
+--------------------------------------------------------------------------------------------------------
+PHASE 11  LEFT-OVERS FROM THE GEMINI AUDIT   (added 2026-10-15; after Phases 7-10 are built and live-tested)
+--------------------------------------------------------------------------------------------------------
+  Small items the user accepted but wants after the combined live test. Each still gets goal / scope /
+  acceptance / rollback (CLAUDE.md section 3) and the user's word before it starts.
+  11a (P1-23) Reference resolution for calendar and to-do: "the second one", "delete that". Needs a short-lived
+      "last list I read" in turnstate.py; it must not weaken undo / confirm (a reference never confirms).
+  11b (P1-28) User-learned alias table Data\jarvis_aliases.json ("when I say X I mean app Y"). Learns ONLY after
+      a spoken yes (shared YES set); an alias can only point at an app / name that already exists in the
+      fixed tables, goes through ACTIONS and confirm.py, never written by the model. Data\ stays out of git.
+      Relates to issue 10 (autocorrect).
+  Rejected by the user instead of phase 11: P1-06 push-to-talk hotkey.
 
 FIX ROUND 3   FROM THE THIRD LIVE TEST (added 2026-10-14)
   Round 1, plain code (built, waiting for the user's live test):
@@ -4028,6 +4135,48 @@ S2-14  GUI AUTOMATION: WHEN IT HELPS, WHEN IT HURTS   (the user's idea, 2026-10-
   Verdict (for the user to confirm): yes for read-only checks (which dialog is open, did the toggle
   change) and a short list of no-API settings; no for closing apps (already safe) and no as a general way
   to run commands.
+
+FROM THE GEMINI AUDIT (rebuilding_jarvis.md, added 2026-10-15; the user's word per item)
+  MOVED HERE FROM THE AUDIT'S "PHASE 1" (small addons the user parked):
+    S2-15 (P1-05) Voice-band (FFT) gate + shorter end-of-turn patience for short commands in mic._listen().
+          Risky: it changes when he decides you are done. Only if the live test shows noise / lag problems;
+          benchmark on this mic first. Vosk stop (no echo) and half-duplex stay as they are.
+    S2-16 (P1-20) "Think hard" deep model (was 8e): JarvisModelDeep, empty = off, loaded only for that
+          question (keep_alive 0). Measure load time and VRAM beside Whisper / qwen3 4B first (the user
+          chose qwen3 4B for all lanes). Needs the "thinking" filler. Builds on S2-1.
+    S2-17 (P1-25) Foreground app awareness (FG <exe> from ShipCore). Privacy + background cost: process
+          name only, no window titles, off by default, measured first (R2, R4). Phase 9 reads on demand.
+    REJECTED by the user: P1-06 push-to-talk hotkey.
+  THE AUDIT'S "PHASE 2" (P2-01..P2-25), merged with what is already here (no duplicate entries):
+    P2-01 diagnostics            = PHASE 9 (the audit's own text says so). Its "1-minute silent watch" is NEW
+                                   and breaks R2 (nothing in the background): only as a Stage 2 add-on to Phase 9.
+    P2-02 semantic router        = S2-1 (same design, MiniLM already loaded).
+    P2-03 Open-Meteo / RSS       = S2-5.        P2-05 headless Claude Code worktree = S2-2.
+    P2-08 screen vision          = S2-3.        P2-09 memory editor = S2-7.
+    P2-12 UIAutomation           = S2-14 (read-only + toggle by AutomationId, verdict already there).
+    P2-18 custom wake word       = S2-4 (+ JarvisName in Phase 10).
+    P2-04 routines engine        NEW, S2-18: named multi-step routines out of ActionSpec steps; one ask_yes
+                                   for the whole list; batch undo. Depends on 7-0.
+    P2-06 IPC bus (pipe/TCP)     NEW, S2-19: replaces the 100 ms file polling. Opens a channel: needs a
+                                   security plan; the file contract stays as fallback.
+    P2-07 per-app audio mixer    NEW, S2-20: "mute Spotify", smart ducking (IAudioSessionManager2).
+    P2-10 MCP bridge             NEW, S2-21: read-only tools to Claude Code (S2-2), mounts behind ActionSpec.
+    P2-11 document / code index  NEW, S2-22: notes search beyond .md (PDF, code) with citations.
+    P2-13 citation chips         NEW, S2-23: clickable chips in the pop-up (jarvislog.lua).
+    P2-14 task planner           NEW, S2-24: pause / resume / cancel multi-step jobs (builds on S2-18).
+    P2-15 SQLite memory          NEW, S2-25: one database for topics / gist; jarvis_memory.txt stays editable.
+    P2-16 Home Assistant bridge  NEW, S2-26: token via DPAPI, never in git (R3).
+    P2-17 Gmail headers / calendar creation  NEW, S2-27: opt-in; creation behind ask_yes.
+    P2-19 clipboard / PDF summarizer  NEW, S2-28.
+    P2-20 engineering data toolkit    NEW, S2-29: deterministic maths, no model arithmetic.
+    P2-21 GPU governor           NEW, S2-30: ties to 6i and Fix Round 6; measure first.
+    P2-22 research reports       NEW, S2-31: saves a cited note after ask_yes.
+    P2-23 speaker verification   NEW, S2-32: TV / other voices cannot wake or confirm.
+    P2-24 telemetry panel        NEW, S2-33: Control Center health readout; shares data with Phase 9.
+    P2-25 phone / LAN endpoint   NEW, S2-34: default OFF, opens a port, needs its own security review.
+  Each NEW entry: the audit's table row (rebuilding_jarvis.md section 5) is the first draft only. Every one
+  needs its own plan under rules R1-R4 and the user's approval before anything is built. The audit's
+  guesses (exact libraries, file names, scores) are unverified.
 
 Sources for Stage 2
   https://semantic-router.readthedocs.io/en/latest/
