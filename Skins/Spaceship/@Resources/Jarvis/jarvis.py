@@ -699,7 +699,10 @@ def understand(text, model, quiet, room):
         if read:
             kind, action, target, prompt = read
             via = "ai-reread"
-    if kind == "act" and prompt is None and heard_score[0] < -1.0:   # Whisper was unsure: never act on a guess
+    changes = ((kind == "act" and prompt is None) or kind == "multi"           # D1: every command that changes something
+               or (kind == "remind" and action in ("set", "cancel", "move", "flip", "snooze"))
+               or (kind == "memory" and action in ("save", "forget")))
+    if changes and heard_score[0] < -1.0:                      # Whisper was unsure: never act on a guess
         prompt = f"Did you say: {text}?"
     return Decision(kind, action, target, prompt, via)
 
@@ -927,6 +930,13 @@ def exchange(tier, follow, woke, mode, left):
         # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
         recent["you"] = text
         extra = ""
+        if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
+            if not ask_yes(prompt, quiet):                     # an act asks below, with the same prompt
+                way["result"] = "left - no yes"
+                log(f"{kind} {action} not confirmed (Whisper unsure)")
+                fixed("Cancelled.")
+                return
+            prompt = None
         if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
             replies, steps = [], []
             for part in target:                                # each part records its own undo: keep them all
@@ -951,7 +961,8 @@ def exchange(tier, follow, woke, mode, left):
             if ask_yes(prompt, quiet):
                 ok = run_action(action, target)
                 way["result"] = "done" if ok else "failed"
-                fixed(("Added." if action == "todo" else "Done.") if ok else "That didn't work.")
+                unsure = prompt.startswith("Did you say: ")    # then say what really happened, as an unasked command does
+                fixed(("Added." if action == "todo" else done_line(action, target) if unsure else "Done.") if ok else "That didn't work.")
             else:
                 way["result"] = "left - no yes"
                 log(f"action {action} not confirmed")

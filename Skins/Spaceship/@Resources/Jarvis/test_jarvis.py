@@ -2144,6 +2144,36 @@ back = iter(["set the volume to 30"])
 j.heard_score[0] = 0.0
 j.turn(0)
 assert vol[0] == 30 and not any(a.startswith("Did you say") for a in asked), asked
+asked.clear()                                                      # P0-02: the same gate for the other commands that change something
+for heard, answer in (("set an alarm for 7 am", "no"), ("remember that my cat is called Tom", "no")):
+    j.save_reminders([])
+    back = iter([heard, answer])
+    j.heard_score[0] = -1.5
+    j.turn(0)
+    assert asked[0] == f"Did you say: {heard}?" and asked[-1] == "Cancelled." and j.load_reminders() == [], (heard, asked)
+    assert "my cat is called Tom" not in j.load_memory()
+    asked.clear()
+
+
+def _sure_yes(audio):                                              # the question was unsure, the yes after it is not
+    word = next(back, "")
+    j.heard_score[0] = 0.0 if word == "yes" else j.heard_score[0]
+    return word
+
+
+j.transcribe = _sure_yes
+back = iter(["set an alarm for 7 am", "yes"])                    # a yes Whisper was sure of: it runs
+j.heard_score[0] = -1.5
+j.turn(0)
+assert asked[0] == "Did you say: set an alarm for 7 am?" and len(j.load_reminders()) == 1, asked
+j.save_reminders([])
+asked.clear()
+back = iter(["set the volume to 30", "yes"])                      # the act then says the real volume, not just "Done."
+j.heard_score[0] = -1.5
+j.turn(0)
+assert asked[0] == "Did you say: set the volume to 30?" and asked[-1] == "Volume at 30 percent." and vol[0] == 30, asked
+vol[0] = 40
+j.transcribe = lambda a: next(back, "")
 n, asked[:] = len(prompts), []
 back = iter(["Tell me a joke."])
 j.heard_score[0] = -1.5
