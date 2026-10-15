@@ -101,15 +101,16 @@ foreach ($t in $targets) {
   $set = Join-Path $t '@Resources\Settings.inc'
   if (Test-Path $set) {
     $text = Get-Content $set -Raw
-    $adds = @()
+    $adds = @(); $pending = @(); $real = @()
     foreach ($line in (Get-Content (Join-Path $here 'settings-add.txt'))) {
-      if ($line -match '^\s*;' -or $line.Trim() -eq '') { $adds += $line; continue }
+      if ($line -match '^\s*;' -or $line.Trim() -eq '') { $pending += $line; continue }
       $key = ($line -split '=', 2)[0].Trim()
-      if ($text -notmatch "(?m)^\s*$([regex]::Escape($key))\s*=") { $adds += $line } else { $adds += $null }
+      # the comment lines above a key go in only with that key, never when the key already exists
+      if ($text -notmatch "(?m)^\s*$([regex]::Escape($key))\s*=") { $adds += $pending; $adds += $line; $real += $line }
+      $pending = @()
     }
-    $real = $adds | Where-Object { $_ -and $_ -notmatch '^\s*;' -and $_.Trim() -ne '' }
     if ($real) {
-      Add-Content -Path $set -Value ("`r`n" + (($adds | Where-Object { $_ -ne $null }) -join "`r`n"))
+      Add-Content -Path $set -Value ("`r`n" + ($adds -join "`r`n"))
       Write-Host "  Settings.inc: added $(@($real).Count) new setting(s)"
     }
     $m = [regex]::Match($text, '(?m)^\s*LltPath\s*=\s*(.+?)\s*$')
