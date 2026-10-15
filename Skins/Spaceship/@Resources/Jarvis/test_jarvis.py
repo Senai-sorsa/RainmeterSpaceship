@@ -387,6 +387,46 @@ try:
         assert _re.search(r"^HUD \d+ stealth$", f.read(), _re.M)
 finally:
     _jb.STATE_FILE = _sf0
+# 7-A6b: which microphone he listens to, by voice: a name that matches exactly one listed device, asks first, undo
+_mics = {"headset": "Headset Microphone (USB Audio)", "array": "Microphone Array (Realtek)"}
+_pm = j.pick_mic
+j.pick_mic = lambda t: "" if t == "default" else _mics[t] if t in _mics else ["a", "b"] if t == "mic" else None
+_set, sent, _cur = j.setting, [], ["Microphone Array (Realtek)"]
+_ss = j.set_setting
+j.set_setting = lambda n, v="": (sent.append((n, v)), _cur.__setitem__(0, v))
+j.setting = lambda n, d="": _cur[0] if n == "JarvisMic" else _set(n, d)
+try:
+    r = j.route("use the headset microphone")
+    assert r[:3] == ("act", "micdev", "Headset Microphone (USB Audio)") and "Confirm with yes" in r[3], r
+    assert j.route("use the default mic")[:3] == ("act", "micdev", "")
+    assert j.route("use the webcam microphone")[0] == "say" and "can't find" in j.route("use the webcam microphone")[3]
+    assert j.route("use the mic microphone")[0] == "say" and "More than one" in j.route("use the mic microphone")[3]
+    assert j.route("which microphone are you using")[3] == "I'm using the Microphone Array (Realtek) microphone."
+    assert j.route("mute the microphone")[1] != "micdev"
+    assert not j.run_action("micdev", "Headset Microphone (USB Audio)") and sent == []          # ask-first
+    assert j.run_action("micdev", "Headset Microphone (USB Audio)", ("micdev", "Headset Microphone (USB Audio)"))
+    assert sent == [("mic", "Headset Microphone (USB Audio)")]
+    assert j.done_line("micdev", "Headset Microphone (USB Audio)").startswith("Listening through Headset Microphone")
+    assert j.undo_last() == "Back to Microphone Array (Realtek)." and sent[-1] == ("mic", "Microphone Array (Realtek)")
+finally:
+    j.pick_mic, j.setting, j.set_setting = _pm, _set, _ss
+import re as _re2
+_jb2 = sys.modules["jarvislib.base"]
+_sf1, _jb2.STATE_FILE = _jb2.STATE_FILE, os.path.join(tempfile.mkdtemp(), "jarvis.txt")
+try:
+    j.set_setting("mic", "Head\nset\x00 Mic")                  # control characters never reach the setting file
+    with open(_jb2.STATE_FILE, encoding="utf-8") as f:
+        assert _re2.search(r"^HUD \d+ mic Headset Mic$", f.read(), _re2.M)
+finally:
+    _jb2.STATE_FILE = _sf1
+_jm = sys.modules["jarvislib.mic"]
+_mf = _jm.MICS_FILE
+_jm.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
+with open(_jm.MICS_FILE, "w", encoding="utf-8") as f:
+    f.write("Headset Microphone (USB Audio)\nMicrophone Array (Realtek)\n")
+assert _jm.pick_mic("headset") == "Headset Microphone (USB Audio)" and _jm.pick_mic("array") == "Microphone Array (Realtek)"
+assert len(_jm.pick_mic("microphone")) == 2 and _jm.pick_mic("webcam") is None and _jm.pick_mic("the Windows default") == ""
+_jm.MICS_FILE = _mf
 # 7-A9: a live-internet question gets a plain "can't look that up", not a guess; ordinary talk is not caught
 for heard in ("What's the weather like today?", "what is the forecast for tomorrow", "any news today", "what's the latest news", "bitcoin price",
               "what's the exchange rate for euros"):
@@ -1529,7 +1569,7 @@ for text in ("Change the screen colour to blue.", "set the volume to 30 decibels
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
 for text in ("unpair my headphones", "turn off wifi", 
-             "change my wallpaper", "hibernate", "sign out", "log me off", "switch to the headset microphone"):
+             "change my wallpaper", "hibernate", "sign out", "log me off"):
     assert j.route(text) == ("say", None, None, j.CANT), (text, j.route(text))
 for text in ("why is my screen dim?", "how do I turn on bluetooth?", "what is screen brightness"):
     assert j.route(text)[0] == "chat", text

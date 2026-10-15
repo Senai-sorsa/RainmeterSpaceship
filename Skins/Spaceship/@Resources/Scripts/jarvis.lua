@@ -22,7 +22,8 @@ local fIdle, fAct = 0, 0
 local rot1, rot2, rot3, yaw, sweep = 0, 0, 0, 0, 0
 local js = { state = 'offline', level = 0, t = 0, say = '', err = '', pop = nil }
 local hudSeen = nil                          -- last HUD setting request handled (HUD <n> <name>); only names in HUD_OK are obeyed
-local HUD_OK = { stealth = function() SKIN:Bang('!CommandMeasure', 'mScript', 'SetOverride(3)', 'Spaceship\\Controller') end }
+local HUD_OK = { stealth = function() SKIN:Bang('!CommandMeasure', 'mScript', 'SetOverride(3)', 'Spaceship\\Controller') end,
+                 mic = function(v) H.save('JarvisMic', (v:gsub('%c', ''))) end }
 local popSeen = nil                         -- last pop-up request handled (POP <n> open|close)
 local mutedSent = nil
 local lvl, act = 0, 0                        -- smoothed voice / mic level, echo opacity
@@ -266,8 +267,9 @@ local function pollState()
   -- Jarvis asked for a HUD setting by voice (7-A6): the first value read after a (re)load is only remembered, never obeyed
   if js.hud and js.hud ~= hudSeen then
     if hudSeen ~= nil then
-      local run = HUD_OK[string.match(js.hud, '%S+$') or '']
-      if run then run() end
+      local name, val = string.match(js.hud, '^%d+ (%S+) ?(.*)$')
+      local run = HUD_OK[name or '']
+      if run then run(val or '') end
     end
     hudSeen = js.hud
   end

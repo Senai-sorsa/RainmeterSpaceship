@@ -119,13 +119,13 @@ S = State()
 
 # 7-A6: the HUD settings he may change by voice. A fixed whitelist; the Lua side has its own copy and ignores anything else.
 # The HUD (not Python) writes the real setting, so Rainmeter stays the only writer of Settings.inc.
-HUD_SETTINGS = ("stealth",)
+HUD_SETTINGS = ("stealth", "mic")                  # "mic" takes a value: part of an input device's name ("" = the Windows default)
 
 
-def set_setting(name):
+def set_setting(name, value=""):
     if name not in HUD_SETTINGS:
         raise ValueError("not a setting he may change")
-    S.set(hud=name)
+    S.set(hud=name + (" " + re.sub(r"[\x00-\x1f\x7f]", "", value) if name == "mic" else ""))   # same control-char strip as jset
 cancel = threading.Event()
 busy = threading.Lock()
 mic = threading.Lock()                  # whoever has the microphone open holds this: the wake word or a turn, never both

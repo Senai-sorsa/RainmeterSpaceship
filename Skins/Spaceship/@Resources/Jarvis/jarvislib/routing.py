@@ -7,6 +7,7 @@ from datetime import datetime
 from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_bluetooth, act_open, act_page, act_power, POWER_NAMES, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
 from .base import set_setting
+from .mic import pick_mic
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
@@ -160,6 +161,7 @@ ACTION_TABLE = {
     "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
     "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
+    "micdev": Action(lambda t: set_setting("mic", t), "ask", "change which microphone he listens to"),
     "stealth": Action(lambda _: set_setting("stealth"), "ask", "put the HUD in STEALTH"),
     "bluetooth": Action(act_bluetooth, "change", "turn the Bluetooth radio on or off"),
     "bluetooth_off": Action(lambda _: act_bluetooth("off"), "ask", "turn the Bluetooth radio off"),
@@ -438,6 +440,16 @@ def route(text):
         return ("act", "power", key, f"You want me to switch the power mode to {POWER_NAMES[key]}. Confirm with yes.")
     if re.fullmatch(r"(?:go (?:in)?to |enter |turn on |switch to |activate |put yourself in )(?:the )?stealth(?: mode)?|stealth(?: mode)?", cmd):
         return ("act", "stealth", None, "You want me to go into stealth mode. After that I only answer in the pop-up and I can't undo it by voice; you leave it in the Control Center. Confirm with yes.")
+    if re.fullmatch(r"(?:which|what) (?:microphone|mic)(?: are you using| is (?:he|jarvis) using| do you use)?|which (?:microphone|mic) is (?:selected|in use)", cmd):
+        return ("say", None, None, "I'm using the " + (setting("JarvisMic", "") + " microphone." if setting("JarvisMic", "") else "Windows default microphone."))
+    m = re.fullmatch(r"(?:use|switch to|change to|listen (?:with|through|on)|set) (?:the |my )?(.+?) (?:microphone|mic)(?: please)?", cmd)
+    if m and not re.fullmatch(r"(?:mute|unmute)", m.group(1)):
+        got = pick_mic(m.group(1))
+        if got is None:
+            return ("say", None, None, f"I can't find a microphone with '{m.group(1)}' in its name. Say more of the name, or pick it in the Control Center.")
+        if isinstance(got, list):
+            return ("say", None, None, f"More than one microphone has '{m.group(1)}' in its name. Say more of the name.")
+        return ("act", "micdev", got, f"You want me to listen through {got or 'the Windows default microphone'}. Confirm with yes.")
     if re.fullmatch(r"(?:mute|silence) yourself", cmd):
         return ("act", "mute", None, None)                    # his voice is the sound he makes: the same mute as "mute"
     m = (re.fullmatch(r"(?:turn|switch) (on|off) (?:the |my )?bluetooth", cmd) or re.fullmatch(r"(?:turn|switch) (?:the |my )?bluetooth (on|off)", cmd)

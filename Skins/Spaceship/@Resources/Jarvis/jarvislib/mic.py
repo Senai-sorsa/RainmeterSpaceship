@@ -1,5 +1,6 @@
 """mic: moved verbatim from jarvis.py (refactor). See JARVIS-Repair-Plan.txt, REFACTOR."""
 import os
+import re
 import time
 from .audio import speakers
 from .base import DUCK_FILE, MICS_FILE, S, cancel, log, mic, problem, setting
@@ -37,6 +38,20 @@ def mic_device():
         _mic_missing[0] = want
         log(f"microphone '{want}' not found - using the Windows default")
     return None
+
+
+def pick_mic(term):
+    """The one listed input device whose name holds `term` (the words you said): its full name, "" for the Windows default,
+    None if none matches, a list if several do. Reads the same list the Control Center shows."""
+    if re.fullmatch(r"(?:the )?(?:windows |system |normal |usual )?default", term.strip().lower()):
+        return ""
+    try:
+        with open(MICS_FILE, encoding="utf-8") as f:
+            names = [n.strip() for n in f if n.strip()]
+    except OSError:
+        return None
+    hits = [n for n in names if term.strip().lower() in n.lower()]
+    return hits[0] if len(hits) == 1 else hits or None
 
 
 def list_mics():

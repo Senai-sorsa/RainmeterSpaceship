@@ -230,6 +230,8 @@ def press_key(vk):
 
 def done_line(action, target):
     """What to say after an action that worked: the value Windows reports, never the one asked for."""
+    if action == "micdev":                                     # the HUD writes the setting a moment later: this is what was asked
+        return f"Listening through {target}. It applies the next time I listen." if target else "Back to the Windows default microphone."
     if action == "open":
         return f"Opening {target[0]}."
     if action == "volume":
