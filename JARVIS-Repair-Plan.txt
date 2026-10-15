@@ -2321,6 +2321,22 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
     - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), with new tests for
       info_blocks, lane_of, the fixed no-data replies (no model call) and the info prompt at temperature 0;
       route check 75 phrases, 0 differences.
+  SLICE D BUILT 2026-10-14 (offline checks only; live test with all slices at the end):
+    - DECIDED by the user: follow-ups have NO cap (D2 wins over the plan's JarvisFollowUpMax). Only chat
+      and info replies listen again, for as long as you keep answering. After a command reply that changed
+      something ("Timer set ..."): a 5 s window where only "undo" / "remove" counts; he asks "Do you want me
+      to undo that - <what>?" and a yes runs the normal undo path. Anything else in that window: no reply.
+    - All yes-confirmations share ask_yes() (the act confirm and the undo ask), with the one YES set.
+    - turn() is now a loop around exchange() (no recursion). L6: the Control Center FOLLOW-UP text says what
+      it does now. L7: WAKE TRAINING names the real styles ("Hey Jarvis", "Hey", "Jarvis").
+    - Lanes: "fact" (the clock, sums) and "level" (the volume read-out) count as info.
+    - CHANGED FROM THE PLAN: no JarvisFollowUpMax, no reroute (no caller before there is a task lane); the
+      wake rows (JarvisWakeEasy / Hard / Gap) move to slice G.
+    - Bug found offline: a `return` inside exchange()'s try dropped the follow-up mode, so exchange() now
+      writes it into a dict that turn() passes in.
+    - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), with new tests for the
+      timer -> "Undo that." -> yes / no window and the uncapped chat follow-ups; route check 75 phrases,
+      0 differences.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE

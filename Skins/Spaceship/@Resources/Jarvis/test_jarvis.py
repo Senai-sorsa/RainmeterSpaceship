@@ -1001,9 +1001,19 @@ def talk(times, mute=False, follow="1", words="Tell me a joke."):
 
 
 assert talk(1) == 2                                               # he answers, then listens once more and hears nothing
-assert talk(99) == 4                                              # three follow-ups in a row, then the wake word again
+assert talk(30) == 31                                             # D2: no cap, he listens until you stop answering
 assert talk(99, mute=True) == 1 and talk(99, follow="0") == 1     # shown instead of spoken, or switched off: none
-assert talk(99, words="Set a timer for 10 minutes.") == 4         # fixed replies get them too (live test 3)
+n = len(prompts)
+assert talk(99, words="Set a timer for 10 minutes.") == 2 and len(prompts) == n   # slice D: a command opens only the
+j.save_reminders([])                                              # undo window, and other words there get no answer
+for answer, left in (("yes", 0), ("no", 1)):                      # "undo" in the window is asked first, the shared yes
+    seq = iter(["Set a timer for 10 minutes.", "Undo that.", answer])
+    heard[0], speaks[0] = 0, 3
+    j.muted, j.listen, j.transcribe = (lambda: False), _listen, (lambda a: next(seq, ""))
+    j.turn(0)
+    assert heard[0] == 3 and len(j.load_reminders()) == left, (answer, heard, j.load_reminders())
+    assert asked[-1] == ("Removed that timer." if left == 0 else "Okay, I left it."), asked[-2:]
+    j.save_reminders([])
 j.save_reminders([])
 assert "BRIEFING:" not in prompts[-1]
 talk(1, words="Good morning.")
@@ -1360,7 +1370,7 @@ j.undo.clear()
 routes, keep = [], j.log
 j.log = lambda line: routes.append(line) if line.startswith("route:") else None
 for words, want in (("Tell me a joke.", "route: chat.chat via model, total "),
-                    ("What's the volume?", "route: command.level via rule, total "),
+                    ("What's the volume?", "route: info.level via rule, total "),
                     ("Set a timer for 10 minutes.", "route: command.remind set via rule, total "),
                     ("New topic.", "route: new_topic via rule, total "),
                     ("Show me what you've said.", "route: log via rule, total ")):

@@ -3597,7 +3597,7 @@ def watchdog(started):
 
 
 turn_id = [0.0]
-NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left them|Cancelled)\.$")   # he was told to drop it: no follow-up
+NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left (?:them|it)|Cancelled)\.$")   # he was told to drop it: no follow-up
 # a whole reply that means "stop" / "we're done", in any turn: he stops without answering (FR6 L1). Also Whisper's
 # stock "Thank you." on noise (FR6 L4): a real thanks needs no answer either
 _END = (r"(?:(?:ok|okay|alright|great|cool|perfect|no|nah|oh) )?(?:thanks|thank you(?: so much)?|that's all|that's it|"
@@ -3685,7 +3685,7 @@ def info_blocks(text):
 
 
 def lane_of(kind, blocks):
-    if kind in ("notes", "apps", "brief") or kind == "chat" and blocks:
+    if kind in ("notes", "apps", "brief", "fact", "level") or kind == "chat" and blocks:   # fact: the clock, sums
         return "info"
     return "chat" if kind in ("chat", "guard") else "command"
 
@@ -3724,13 +3724,41 @@ def command_reply(kind, action, target, prompt, quiet):
     return None
 
 
+UNDO_SAID = re.compile(r"\b(?:undo|remove)\b", re.I)
+UNDO_WAIT = 5                                                 # seconds after a command reply that listen for "undo"
+
+
+def ask_yes(prompt, quiet):
+    """Every confirmation: ask, listen up to 15 s, and True only for a plain yes (the shared YES set)."""
+    reply_line(prompt, quiet)
+    pending = {"expires": time.time() + 15}                    # counted from the end of the spoken prompt
+    S.set(state="listening", level=0.0)
+    answer = hear()
+    if answer:
+        convo_add("U", answer)
+    return confirmed(pending, answer, time.time()) and not cancel.is_set()
+
+
 def turn(tier, follow=0, woke=False):
-    """One exchange. After a spoken answer (chat or a command) he listens once more without the wake word
-    (JarvisFollowUp), at most three times in a row: `follow` counts them. `woke`: started by the wake word."""
+    """One exchange, then follow-ups without the wake word (JarvisFollowUp) for as long as you keep answering
+    (D2, no cap): after a chat or info answer anything goes; after a command only "undo" / "remove" for 5 s.
+    A loop, not recursion, so a long talk never grows the stack. `woke`: started by the wake word."""
+    mode = None
+    while True:
+        left = {}                                              # exchange() fills "again"; survives its early returns
+        exchange(tier, follow, woke, mode, left)
+        mode = left.get("again")
+        if not mode or setting("JarvisFollowUp", "1") != "1" or cancel.is_set():
+            return
+        follow, woke = follow + 1, False
+
+
+def exchange(tier, follow, woke, mode, left):
+    """One turn. mode: None, or what the last one left open ("follow" / "undo"); what this one leaves open goes in
+    left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
     global history, last_turn
     if not busy.acquire(blocking=False):
         return
-    again = False
     way = {}                                                   # 6j: which path answered; logged once in finally
     cancel.clear()
     turn_id[0] = time.time()
@@ -3767,7 +3795,7 @@ def turn(tier, follow=0, woke=False):
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio = listen(patience=follow_wait()) if follow else listen()
+        audio = listen(patience=UNDO_WAIT if mode == "undo" else follow_wait()) if follow else listen()
         if audio is None or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
@@ -3786,16 +3814,18 @@ def turn(tier, follow=0, woke=False):
         if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
             quiet = muted()
             reply_line("Sorry, I didn't catch that.", quiet)
-            again = not quiet
+            left["again"] = not quiet and "follow"
             return
         if not text or cancel.is_set():
+            return
+        if mode == "undo" and not UNDO_SAID.search(text):     # the undo window: other room sound gets no answer
+            log("follow-up: ended (not an undo)")
             return
         convo_add("U", text)
         quiet = muted()
 
         def fixed(reply):
             """Say a fixed reply, keep it in the chat history, and listen once more unless he was told to drop it."""
-            nonlocal again
             global history, last_turn
             reply_line(reply, quiet)
             active(text)
@@ -3803,8 +3833,16 @@ def turn(tier, follow=0, woke=False):
             history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {text}"},
                         {"role": "assistant", "content": reply}]
             last_turn = time.time()
-            again = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
+            # [F]: chat and info listen again; a command only for "undo", and only if it changed something now
+            fresh = undo and undo[0] >= way.get("t", 0) + UNDO_FOR
+            left["again"] = (not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
+                     and ("follow" if way.get("lane") != "command" else "undo" if fresh else None))
         S.set(err="")
+        if mode == "undo":                                     # "undo that" / "remove it" right after a change: ask first
+            way.update(kind="undo", via="rule", lane="command")
+            what = did[-1][1] if did else "that"
+            fixed(undo_last() if ask_yes(f"Do you want me to undo that - {what}?", quiet) else "Okay, I left it.")
+            return
         fact = offer.pop("fact", None) if time.time() < offer.get("expires", 0) else None
         room = offer.pop("room", None) if time.time() < offer.get("expires", 0) else None
         offer.clear()
@@ -3812,7 +3850,7 @@ def turn(tier, follow=0, woke=False):
         if room and plain in YES:                              # "Were you talking to me?" "Yes": answer what was said
             text = room
         if fact and (plain in YES or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
-            way.update(kind="memory", action="save", via="rule")
+            way.update(kind="memory", action="save", via="rule", lane="command")
             fixed(memory_reply("save", fact))
             return
         said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(text).lower().replace("’", "'")).split())
@@ -3858,7 +3896,7 @@ def turn(tier, follow=0, woke=False):
             log("transcript: not for me? asked")
             reply_line(ROOM_ASK, quiet)
             offer.update(room=text, expires=time.time() + 30 + follow_wait())
-            again = not quiet
+            left["again"] = not quiet and "follow"
             return
         if kind == "heard":
             fixed(f"I heard: {recent['you']}" if recent["you"] else "I haven't heard anything yet.")
@@ -3890,19 +3928,12 @@ def turn(tier, follow=0, woke=False):
                 fixed(reply)
                 return
         if kind == "act":
-            # two-phase: stage it, ask, and listen for the answer (15 s) without another click
-            pending = {"action": action, "target": target}
-            reply_line(prompt, quiet)
-            pending["expires"] = time.time() + 15              # counted from the end of the spoken prompt
-            S.set(state="listening", level=0.0)
-            answer = hear()
-            if answer:
-                convo_add("U", answer)
-            if confirmed(pending, answer, time.time()) and not cancel.is_set():
-                ok = run_action(pending["action"], pending["target"])
+            # two-phase: ask, and listen for the answer (15 s) without another click
+            if ask_yes(prompt, quiet):
+                ok = run_action(action, target)
                 fixed(("Added." if action == "todo" else "Done.") if ok else "That didn't work.")
             else:
-                log(f"action {action} not confirmed ({answer!r})")
+                log(f"action {action} not confirmed")
                 fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else "Cancelled.")
             return
         if kind == "notes":
@@ -3980,7 +4011,7 @@ def turn(tier, follow=0, woke=False):
         if fact:                                               # M4a-3: one offer; the next turn's yes saves it
             reply_line("Want me to remember that?", quiet)
             offer.update(fact=fact, expires=time.time() + 30 + follow_wait())
-        again = not quiet and not cancel.is_set()             # fixed replies set it in fixed()
+        left["again"] = not quiet and not cancel.is_set() and "follow"   # fixed replies set it in fixed()
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
         live("")
@@ -3996,10 +4027,6 @@ def turn(tier, follow=0, woke=False):
             log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s")
         S.set(state="idle", level=0.0)
         busy.release()
-        # in finally, so a fixed reply's `return` gets here too. The lock is free for an instant: a reminder that
-        # came due while he spoke goes first, and this then simply ends
-        if again and follow < 3 and setting("JarvisFollowUp", "1") == "1" and not cancel.is_set():
-            turn(tier, follow + 1)
 
 
 # ------------------------------------------------------------------ wake word ("Hey Jarvis")
