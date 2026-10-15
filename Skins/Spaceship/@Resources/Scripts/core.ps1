@@ -19,8 +19,10 @@ try {
     $out = & $csc /nologo /target:winexe /optimize+ "/out:$exe" /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Security.dll /r:System.Management.dll $cs 2>&1 | Out-String
     $code = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
-    if ($code -ne 0) { Add-Content $log "$(Get-Date -f s) core: build failed`r`n$out"; Write-Output 'core=buildfailed'; exit 1 }
-    Add-Content $log "$(Get-Date -f s) core: built ShipCore.exe"
+    if ($code -ne 0) {
+      Add-Content $log "$(Get-Date -f s) core: build failed`r`n$out"; Write-Output 'core=buildfailed'
+      if (-not (Test-Path $exe)) { exit 1 }                # the old exe is still there: start it below rather than leave the helper down
+    } else { Add-Content $log "$(Get-Date -f s) core: built ShipCore.exe" }
   }
   if (-not (Get-Process ShipCore -ErrorAction SilentlyContinue)) {
     Start-Process -FilePath $exe -ArgumentList @('watch', "`"$res`"") -WindowStyle Hidden

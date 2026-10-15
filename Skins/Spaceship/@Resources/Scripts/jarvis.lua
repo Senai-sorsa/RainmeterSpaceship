@@ -28,6 +28,7 @@ local bars = {}                              -- side data bars (smoothed heights
 local lastCmd = 0
 local note = nil                             -- short caption override: { text, until }
 local startedAt = nil                        -- when we last launched the service (to spot a failed start)
+local autoTried = false                      -- JarvisAutoStart is tried once per HUD load
 
 -- Control Center > JARVIS settings (read live)
 local function colorSetting(key, default)
@@ -248,26 +249,29 @@ local function drawScene(c, st, col, W, D)
   end
 end
 
+local function pollState()
+  readState()
+  -- Jarvis asked for the log pop-up (muted speakers, STEALTH, or "show me what you've said")
+  if js.pop and js.pop ~= popSeen then
+    if popSeen ~= nil then
+      local act = string.match(js.pop, '%S+$')
+      if act == 'open' then SKIN:Bang('!ActivateConfig', 'Spaceship\\Overlay\\Jarvis', 'Jarvis.ini')
+      elseif act == 'close' then SKIN:Bang('!DeactivateConfig', 'Spaceship\\Overlay\\Jarvis') end
+    end
+    popSeen = js.pop
+  end
+end
+
 function Update()
   frame = frame + 1
   if frame % 20 == 1 then H.refreshTier() end
   if H.tier >= 3 then
     if frame % 40 == 1 then local c = H.canvas(1); for k = 1, 8 do H.hideText(1, k) end; H.hideSprite(1, 1); H.hideSprite(1, 2); c:flush() end
+    if frame % 30 == 1 then pollState() end      -- STEALTH: replies and reminders come as the pop-up only, so keep reading
     return 0
   end
   local every = ({ [0] = 1, [1] = 2, [2] = 4 })[H.tier] or 4
-  if frame % 3 == 1 then
-    readState()
-    -- Jarvis asked for the log pop-up (muted speakers, or "show me what you've said")
-    if js.pop and js.pop ~= popSeen then
-      if popSeen ~= nil then
-        local act = string.match(js.pop, '%S+$')
-        if act == 'open' then SKIN:Bang('!ActivateConfig', 'Spaceship\\Overlay\\Jarvis', 'Jarvis.ini')
-        elseif act == 'close' then SKIN:Bang('!DeactivateConfig', 'Spaceship\\Overlay\\Jarvis') end
-      end
-      popSeen = js.pop
-    end
-  end
+  if frame % 3 == 1 then pollState() end
   -- tell Jarvis whether the speakers are muted (or at 0 %): then he answers in the pop-up instead
   if frame % 30 == 2 then
     local v = H.val('mVol', 50)
@@ -278,7 +282,11 @@ function Update()
     end
   end
   -- JarvisAutoStart=1: start the service ~5 s after the HUD loads if it isn't already running
-  if frame == 150 and H.num('JarvisAutoStart', 1) == 1 and H.num('JarvisEnabled', 1) == 1 and js.state == 'offline' then StartService() end
+  -- once, from ~5 s in (or when the HUD first leaves STEALTH)
+  if frame >= 150 and not autoTried then
+    autoTried = true
+    if H.num('JarvisAutoStart', 1) == 1 and H.num('JarvisEnabled', 1) == 1 and js.state == 'offline' then StartService() end
+  end
   if frame > 1 and frame % every ~= 0 then return 0 end
   local st = js.state
   if H.num('JarvisEnabled', 1) ~= 1 then st = 'idle' end

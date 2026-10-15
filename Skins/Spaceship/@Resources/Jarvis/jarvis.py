@@ -3028,6 +3028,7 @@ if __name__ == "__main__":
         raise
     finally:
         if owner:                                              # tell the HUD we're gone (shows OFFLINE)
+            unduck()                                           # QUIT while he listened: put the volume back now
             try:
                 with open(STATE_FILE, "w", encoding="utf-8") as f:
                     f.write("T 0\nSTATE idle\n")
