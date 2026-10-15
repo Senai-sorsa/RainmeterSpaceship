@@ -97,8 +97,10 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 S2-8..S2-13 session; READ THIS FIRST)
-  NEXT STEP (the user, 2026-10-15, later the same day): the REFACTOR block (just before PHASE 7) runs
-    FIRST, step by step (R1 .. RC), then R-END revises Phases 7-10 and STAGE 2, then PHASE 7.
+  NEXT STEP (2026-10-15): the REFACTOR block (just before PHASE 7) is DONE through R-END (commits cd3c17c ..
+    see REFACTOR PROGRESS). Next: the refactor's integration check (the user's "Phase 3": start JARVIS
+    from the skin and run a short smoke test, on the user's word; copy to live first, PART D), then PHASE 7.
+    jarvis.py is now ~3030 lines; much of the MAP below moved into Jarvis\jarvislib\ (search by name).
     S2-8..S2-13 is committed (ad8df7e). See "REFACTOR PROGRESS" inside that block for where it stands.
     ALL live testing stays AFTER Phase 7 is complete: see "LIVE TEST AFTER PHASE 7".
     "TEST BEFORE PHASE 7" is no longer a gate; its T-items run inside that combined test.
@@ -2678,6 +2680,67 @@ REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, 
     R-END  (BEFORE PHASE 7) revise PHASES 7-10 and STAGE 2 so each item names the module it changes
         (e.g. 7a microphone -> jarvislib\mic, Phase 9 diagnosis -> the module that owns the state it
         reads). Show the user the revised items, then Phase 7 starts as before (7-0 first).
+  R-END  DONE 2026-10-15: where things live now, and where each later item goes.
+    WHO OWNS WHAT (Jarvis\jarvislib\*.py; modules import only the std library and modules above them in
+    this list, never jarvis.py)
+      base       paths, Data\ file names, settings() / setting(), log, problem, State (jarvis.txt writer),
+                 the single-instance lock, convo_add / live (the pop-up log and live line)
+      gpu        gpu(), cpu_threads(), cpu_in_use()
+      hearing    Whisper: load, move to the GPU, transcribe, phantom / loop / repeat filters (_whisper)
+      stopwords  the stop words heard while he speaks (Vosk), StopWords
+      tts        voice engines (Kokoro, Piper, Windows), resolve_voice, synth_audio, voice_rate
+      llm        Ollama: http_json, models, keep_alive, warm, GPU / CPU, chat_stream, ctx_tokens
+      audio      speakers (Windows audio endpoint), speakers_mute
+      mic        listen / _listen, mic_device, list_mics, duck / unduck, follow_wait
+      notes      vault_dir, search_notes
+      speech     play_samples, speak_all and the speak queue, first_words, muted, fillers, say_text_only
+      calc       calc, convert, units, fact_answer, _num, clock, WEEKDAYS / MONTHS
+      actions    the OS actions: open / close apps, volume, media keys, lock, sleep, run_ok, done_line
+      confirm    YES, is_yes, confirmed, DANGER, NAMES (the one place a "yes" is judged)
+      stopkey    the End-key stop loop
+      turnstate  the turn's short-term memory: undo, recent, offer, last, did / did_add, DID_ASK
+      todo       act_todo
+      jarvis.py  the integrator and the knot: meaning / context / system prompt, sensors, AI interpret,
+                 autocorrect, the ACTIONS table, NEAR_MISS / CLAIM / CANT / UNBUILT_CAPS, route, run_action,
+                 reply_line, can_undo / undo_last, memory, reminders / alarms / ding, ChromaDB, topics /
+                 gist / recall, turn / exchange, room / ear, wake word + training, main / preload / unload_idle.
+    RULES FOR NEW CODE (Phases 7-10, STAGE 2)
+      - A new subsystem gets its own jarvislib module; jarvis.py imports it and wires it in. A module
+        never imports jarvis.py (if it needs something from the knot, the call stays in jarvis.py).
+      - Adding to an existing module: put it in the module that owns that state (table above).
+      - test_jarvis.py: keep writing "j.X = fake"; the proxy reaches every jarvislib module by itself.
+      - Change a "global X" in a module only inside that module; elsewhere use module.X (see unload_idle).
+      - Checks per step as in "HOW EACH STEP IS DONE AND CHECKED" above (check_route compares HEAD
+        before the step against the working tree).
+    WHERE EACH LATER ITEM GOES
+      7-0  ACTIONS table + run_action: jarvis.py. The action functions: actions.py. Yes: confirm.py.
+      7a   microphone: mic.py (device, level); its route words: jarvis.py route / ACTIONS.
+      7b   Bluetooth: actions.py, or a new jarvislib\radio.py if it grows past ~60 lines.
+      7c/7d settings: actions.py (volume also audio.py; voice and rate: tts.py); the power-mode guard
+           (Phase 7 decisions): actions.py + confirm.py.
+      7    undo for all settings (Phase 7 decisions): record in turnstate.undo / did_add; undo_last: jarvis.py.
+      7e   Control Center: skin files only; memory counts come from jarvis.py (memory stays there).
+      8a   follow-up windows: turn() in jarvis.py + mic.follow_wait / _listen.
+      8b   sounds: chime and ding in jarvis.py, playback speech.play_samples.
+      8c   quiet during class: speech.muted + turn() in jarvis.py.
+      8d   type to him: the command-file loop in jarvis.py main (a NEW command word; the existing ones
+           and their format stay) + exchange.
+      8e   "think hard": llm.py (model / options) + route in jarvis.py.
+      9    diagnosis: a new jarvislib\diag.py (9b snapshot, 9c logs, 9d rules table) reading gpu.py,
+           llm.ollama_on_cpu, hearing._whisper_dev, base.State. sensors / HW_LINES are still in
+           jarvis.py (they need load_reminders / span): move them into diag.py when 9b is built, if
+           those two can be passed in. 9e actions go through ACTIONS + confirm.py as today.
+      10   personality: SYSTEM / MOODS / system_prompt (jarvis.py), fillers + first_words (speech.py),
+           voice (tts.py). The user's hand-review comes first, as before.
+      S2-1 one pipeline: this IS the knot (route / understand / lane_of / exchange). S2-1 is the time
+           to split it, along the three clusters named under RK.
+      S2-2 Claude Code, S2-3 vision, S2-5 weather / news: each a new module; any OS action through
+           ACTIONS + confirm.py; keys outside git (S2-5).
+      S2-4 wake name: wake word code is in jarvis.py; it can become jarvislib\wake.py once ding /
+           reply_line / turn_id are passed in.
+      S2-6 voice blending: tts.py.   S2-7 memory editor: skin + memory in jarvis.py.
+      S2-8..S2-13: built (ad8df7e), only the live test is left. Truth layer and outcome log: jarvis.py;
+           sleep: actions.act_sleep; scroll bar: skin.
   KNOWN WEAKNESSES (logged 2026-10-15, NOT fixed in the refactor; candidates for later phases)
     W-a jarvis_cmd.txt is written by Lua non-atomically: a command can be read half-written and lost.
     W-b The exit write of jarvis.txt is a plain write, not tmp + replace.
@@ -2696,9 +2759,11 @@ REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, 
     R7  turnstate (undo / recent / offer / last / did / DID_ASK / did_add: the turn's short-term memory), todo (act_todo) -> jarvislib; test_jarvis OK, check_route clean.
     RK  stopped: the rest is three circular clusters tied into turn / exchange (memory <-> can_undo / undo_last <-> reminders; route <-> AI interpret / autocorrect; topics <-> gist <-> meaning / system prompt). No clear owner boundary, so they stay in jarvis.py (adjustment 4).
     RC  dropped dead imports (deque, math, msvcrt, queue, tempfile) and two loop-variable names; the jarvislib re-imports stay as the facade (jarvis.X still works). check_voice.py names resolve; testkoroko.py does not import jarvis (audit note was wrong). Copy-to-live (git archive + robocopy /E) carries jarvislib\ with no change. test_jarvis OK, check_route 0 changed (time stamps now blanked in the compare).
+    R-END  module map + where each Phase 7-10 / STAGE 2 item goes (block above); a MODULES pointer under each phase heading.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
+  MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
   BEFORE STARTING: (the user, 2026-10-15, replaces the 2026-10-14 rule) the live tests are NOT a gate any
   more; they all run after Phase 7 (LIVE TEST AFTER PHASE 7). Read "PHASE 7 MUST KNOW" in CURRENT STATE.
   DECIDED by the user 2026-10-14 (Q&A before Phase 7; these override the tables below where they differ):
@@ -3007,6 +3072,7 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
 
 --------------------------------------------------------------------------------------------------------
 PHASE 8   FOLLOW-UP TIMING AND SOUNDS
+  MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 17 (follow-up only within 3 seconds, or "Jarvis ..." within 10 seconds)
         issue 1  ("Jarvis online" off, startup noises much quieter)
@@ -3080,6 +3146,7 @@ Rollback: the settings. The original wav files stay in the folder.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 9   ASK HIM WHAT IS WRONG (DIAGNOSIS)
+  MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 21 (system logs, Task Manager information, which processes overload the system, "I could
         just ask him what the issue is")
@@ -3218,6 +3285,7 @@ Rollback: revert the commit. Nothing is installed, stored or changed on the syst
 
 --------------------------------------------------------------------------------------------------------
 PHASE 10  PERSONALITY AND VOICE (tone, honesty, speech)   added 2026-10-14, parked; not built yet
+  MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 3  (playful when unnecessary or on a serious topic)
         issue 28 (bends facts when playful; invented "simulations")
@@ -3452,6 +3520,7 @@ the 0.5 s speech length in Phase 4 are choices, not sourced values.
 ========================================================================================================
 STAGE 2   THE LARGER IDEAS (added 2026-10-14 from the user's feature list; AFTER Phases 7-10 are done)
 ========================================================================================================
+  MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
 Why a separate stage: each item here is big, crosses several files or systems, or brings in a new
 service. None starts until Phases 7-10 are built and live-tested. Each item gets its own plan (goal,
 scope, non-goals, acceptance, validation, risks, rollback; CLAUDE.md section 3) and the user's approval.
