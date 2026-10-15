@@ -34,7 +34,6 @@ Every problem is logged to Data\\jarvis.log, shown on the hologram (ERR) and add
 """
 import ctypes
 import gc
-import json
 import os
 import re
 import sys
@@ -43,7 +42,7 @@ import time
 import urllib.error
 import urllib.request
 import wave
-from collections import Counter, namedtuple
+from collections import namedtuple
 from datetime import datetime
 from jarvislib import hearing
 from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE,
