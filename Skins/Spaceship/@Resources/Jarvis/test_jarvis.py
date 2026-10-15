@@ -1331,6 +1331,10 @@ for text, want in (("at 7 o'clock", "13 19:00"), ("at 7 in the morning", "14 07:
 for text in ("at 2 hours", "at a picture", "at 7 and 8", "at seven minutes", "at the stars at 9"):
     assert j.when(text, at3) is None, text
 assert datetime.fromtimestamp(j.when("at 7", at3 + 6 * 3600)).strftime("%d %H:%M") == "14 07:00"   # from 9 PM: the morning
+# the alarm tests below read the clock: pin it to 3 AM today (still ticking), so they pass at any hour
+at_3am = datetime.now().replace(hour=3, minute=0, second=0, microsecond=0).timestamp() - real_time()
+j.time.time = lambda: real_time() + at_3am
+assert j.clock(cmd("set an alarm for 2 am")[2]) == "2:00 AM tomorrow"            # a time already gone: the next day
 for text in ("set an alarm for 1900 hours", "Set an alarm for 7 o'clock.", "set an alarm for 7 in the morning",
              "set an alarm for seven am", "set an alarm for 7 tonight", "set an alarm for 7 a.m. tomorrow",
              "yo can you set an alarm for 7", "I need an alarm at 7"):
@@ -1342,6 +1346,7 @@ j.save_reminders([])
 said_back = do("set alarms for 7 and 8 am")
 assert said_back.startswith("Alarms set for 7:00 AM") and "and 8:00 AM" in said_back and len(j.load_reminders()) == 2
 assert j.undo_last() == "Removed those 2 alarms." and j.load_reminders() == []
+j.time.time = real_time
 # "no, AM": the alarm just set moves 12 hours; with nothing just set it is not a correction
 assert j.route("No, AM.")[1] != "flip"
 do("set an alarm for 7 pm")
@@ -1810,6 +1815,7 @@ assert j.route("turn it up by 20") == ("act", "volume", ("step", 20), None)
 assert j.route("turn the volume down by 5")[2] == ("step", -5) and j.route("turn it up by banana")[0] == "chat"
 
 # cancel with two alarms asks which; the answer picks one, both, or none
+j.time.time = lambda: real_time() + at_3am
 j.save_reminders([])
 j.undo.clear()
 
@@ -1843,6 +1849,7 @@ assert do("make the timer 2 minutes").startswith("The timer now has 2 minutes")
 assert j.undo_last().startswith("Put back: ") and j.load_reminders()[0][0] == before + 300
 j.save_reminders([])
 j.undo.clear()
+j.time.time = real_time
 # snooze after the ringing stopped: only within 5 minutes of something ringing
 j.rang.clear()
 assert do("snooze for 10 minutes") == "Nothing is ringing right now." and j.load_reminders() == []

@@ -337,11 +337,15 @@ local function rowsPerf()
   }
 end
 
+local function core(cmd)
+  SKIN:Bang('["' .. RES .. 'Bin\\ShipCore.exe" ' .. cmd .. ' "' .. RES .. '"]')
+end
+
 local function rowsSystem()
   local function go(cmd) return function() SKIN:Bang(cmd) end end
   return {
     { 'LOCK', 'Lock the PC', { { 'LOCK', go('["rundll32.exe" "user32.dll,LockWorkStation"]') } } },
-    { 'SLEEP', 'Suspend (hibernates if hibernation is on)', { { 'SLEEP', go('["rundll32.exe" "powrprof.dll,SetSuspendState 0,1,0"]') } } },
+    { 'SLEEP', 'Sleep the PC', { { 'SLEEP', function() core('sleep') end } } },
     { 'RESTART', 'Restart in 5 seconds', { { armed == 'restart' and 'CONFIRM' or 'RESTART', function() if arm('restart') then SKIN:Bang('["shutdown.exe" "/r /t 5"]') end end, armed == 'restart' } } },
     { 'SHUT DOWN', 'Power off in 5 seconds', { { armed == 'shutdown' and 'CONFIRM' or 'SHUT DOWN', function() if arm('shutdown') then SKIN:Bang('["shutdown.exe" "/s /t 5"]') end end, armed == 'shutdown' } } },
     { 'DISPLAY', 'Resolution, HDR, refresh', { { 'OPEN', go('["ms-settings:display"]') } } },
@@ -387,10 +391,6 @@ local function dataFile(name)
   f:close()
   t.age = age
   return t
-end
-
-local function core(cmd)
-  SKIN:Bang('["' .. RES .. 'Bin\\ShipCore.exe" ' .. cmd .. ' "' .. RES .. '"]')
 end
 
 local function touch(name)

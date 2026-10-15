@@ -8,6 +8,7 @@
                                                        exact versions, so your other Python programs are untouched
     3. Ollama + a model                              - the AI brain (runs locally on your GPU)
     4. Optional: Kokoro-82M natural voice (~400 MB) - otherwise the built-in Windows voice
+       Optional: wake word, stop words (Vosk, ~41 MB), smart note search
   Then writes the Jarvis settings into Settings.inc and refreshes the HUD.
 
 .EXAMPLE
@@ -114,6 +115,24 @@ if (Ask 'Install the "Hey Jarvis" wake word (openWakeWord, small, runs on the CP
   & $vpy -c "import openwakeword; openwakeword.utils.download_models(model_names=['hey_jarvis']); print('wake word model ready')"
   if ($LASTEXITCODE -eq 0) { Set-Setting 'JarvisWakeWord' '1'; Write-Host 'Say "Hey Jarvis" to wake him (turn it off in Control Center > JARVIS > WAKE WORD).' }
   else { Write-Host 'Wake word install failed - clicking the hologram still works.' -ForegroundColor Yellow }
+}
+
+# ------------------------------------------------------------------ 4b2. Stop words while he speaks (Vosk)
+Step 'Stop words ("stop", "be quiet" while he talks)'
+$vosk = Join-Path $PSScriptRoot 'vosk'
+$vname = 'vosk-model-small-en-us-0.15'
+if (Test-Path (Join-Path $vosk "$vname\am")) { Write-Host 'Stop-word model found.' }
+elseif (Ask 'Install the stop-word model (Vosk, ~41 MB download, 68 MB on disk, runs on the CPU only while he talks)?') {
+  $zip = Join-Path $env:TEMP "$vname.zip"
+  try {
+    Invoke-WebRequest -Uri "https://alphacephei.com/vosk/models/$vname.zip" -OutFile $zip -UseBasicParsing
+    # pinned: the exact file tested with Jarvis (2026-10-14)
+    if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne '30F26242C4EB449F948E42CB302DD7A686CB29A3423A8367F99FF41780942498') { throw 'the download does not match the expected file' }
+    New-Item -ItemType Directory -Force -Path $vosk | Out-Null
+    Expand-Archive -Path $zip -DestinationPath $vosk -Force
+    Write-Host 'Stop-word model ready.'
+  } catch { Write-Host "Stop-word model not installed ($($_.Exception.Message)) - a click or the stop key still stops him." -ForegroundColor Yellow }
+  finally { Remove-Item $zip -ErrorAction SilentlyContinue }
 }
 
 # ------------------------------------------------------------------ 4c. Smart note search (ChromaDB)

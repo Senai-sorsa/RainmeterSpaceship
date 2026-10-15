@@ -1136,7 +1136,6 @@ _voice_dev = [None]         # "cuda" or "cpu": where the Kokoro voice runs
 _voice_gpu_off = [0.0]      # after a GPU failure of the voice: the CPU until then
 _broken = {}                # voice file -> when it may be tried again (a missing or unsupported file: never)
 _kokoro_last = [None]       # the Kokoro voice last used (logged whenever it changes)
-KOKORO_VOICES = ("bm_lewis", "bm_george", "bm_fable", "bm_daniel", "bf_emma", "am_michael", "am_adam", "af_heart")
 
 
 def voice_rate():
@@ -2721,7 +2720,8 @@ def when(s, now):
         ts = [day.replace(hour=h).timestamp() for h in hours]
         # today's own weekday with its time gone: the same day next week
         return min([t for t in ts if t > now] or [(day + timedelta(days=7)).replace(hour=h).timestamp() for h in hours])
-    return min(t if t > now else t + 86400 for t in (day.replace(hour=h).timestamp() for h in hours))
+    # gone today: the same clock time tomorrow (a calendar day, so a daylight-saving change cannot shift it an hour)
+    return min((d if d.timestamp() > now else d + timedelta(days=1)).timestamp() for d in (day.replace(hour=h) for h in hours))
 
 
 def span(sec, s="s"):

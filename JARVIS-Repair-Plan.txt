@@ -70,10 +70,9 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
       Rules first, embedder second, model last; its output only through the said-words checks.
 
   W4. TESTS AND CHECK SCRIPTS
-    - N13 (test clock): the alarm tests expect a 7:00 AM alarm to be "today", so they fail after 7 AM local
-      time. Run with a TZ that makes local time 00:00-07:00: TZ=ABC+N means local = UTC - N hours (e.g.
-      TZ=ABC-4 and ABC-1 in the evening). If a run fails on a "7:00 AM" line, try another TZ and run HEAD
-      the same way. Real fix (not done): freeze the clock in the test.
+    - N13 (test clock): FIXED 2026-10-14 (AUDIT 2). The alarm tests pin the clock to 3 AM, so no TZ is
+      needed. A new test that reads the clock must pin it the same way (j.time.time = lambda: real_time()
+      + at_3am, then restore it).
     - N14 (check_route.py): a route with a due time can show as "different" while both sides print the
       same tuple. Treat that one line as noise.
     - Tests that assert a log line ("route: ...") break when the route line format changes; update them
@@ -97,7 +96,8 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - Stage by name and read the staged list. Never commit Data\, logs, weights, keys.
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
-CURRENT STATE (end of the 2026-10-14 session that built Phase 6b and 6j; READ THIS FIRST)
+CURRENT STATE (end of the 2026-10-14 session: redesign slices A-H + audit 2 committed; READ THIS FIRST)
+  NEXT STEP: "TEST BEFORE PHASE 7" (its own block, just before PHASE 7). Nothing else comes first.
   Done (built, tested by test_jarvis + route check, committed on branch chore/jarvis-baseline-and-performance,
   NOT pushed, main is behind):
     - Fix Rounds 1, 2, 4 (Round 3 not built), Phase 1-4, status-only hologram          d7386dd, 301c22f
@@ -112,31 +112,35 @@ CURRENT STATE (end of the 2026-10-14 session that built Phase 6b and 6j; READ TH
     - 6j (T11) route + timing log                                                                aa3a48d
     - Audit fixes (ponytail audit 2026-10-14): whole-word "forget" + undo, unreadable note skipped,
       meaning cache 1000                                                                          b82b3b5
-  PHASE 6 CODE IS FINISHED. What is left of Phase 6 needs the user (Claude cannot do these alone):
-    1. (DONE) Commit 6j (aa3a48d) and the audit fixes (b82b3b5).
-    2. COPY TO LIVE (PART D, "COPY TO LIVE"; on the user's word; back up first). Live is still 301c22f, so
-       this copy brings in everything since: 123d829, 23b290c, 1036282, a74b235, c33d37f, aa3a48d, b82b3b5.
-    3. The ONE full live test: "PHASE 6 LIVE TEST CHECKLIST" (end of PHASE 6, after "Your live test after
-       Phase 6"). It also covers the Phase 5 live test and the 6a live test that were never run. The user
-       pastes log lines (route: / timing: / compaction: / topics: lines); Claude never reads Data\.
-    4. 6i (GPU spikes) and 6f (model compare): MEASURE ONLY on the live run, report the numbers, change
-       anything only on approval. 6f downloads a model only on approval.
-    5. Fix what the live test finds (each fix: test first, smallest change, the gates, commit on the word).
-  RULE (the user, 2026-10-14): the PHASE 6 LIVE TEST (step 3) must be DONE before any Phase 7 work starts.
-    A new session must not begin Phase 7 until the user has run it and its findings are fixed or parked.
-  FIX ROUND 5 N1-N3 BUILT 2026-10-14 (user's request; repo only, NOT committed, NOT live): three trained
-    checks (Hey Jarvis / Hey / bare Jarvis), wake_way W0/HV/HJ, Whisper loop filter, "Were you talking to
-    me?". Tests OK (py -3 and venv, TZ=ABC-4 / ABC-1 for N13). Its live test is part F1-F7 of the PHASE 6
-    LIVE TEST CHECKLIST. Needs: commit on the user's word, copy to live, STRICTER to 0.50, TRAIN.
-  After Phase 6: FIX ROUND 5 live test (above), then PHASE 7 (more settings by voice; starts with 7-0, one action table; all its questions
+    - FIX ROUND 5 N1-N3 (three trained wake checks, Whisper loop filter, "Were you talking to me?")
+      and REDESIGN slices A (gates) + B (understand)                                             4e51364
+    - REDESIGN C lanes + no-data reply (L10)                                                     7cd186d
+    - REDESIGN D follow-up gate, 5 s undo window, shared yes (L6, L7)                            08cb9c7
+    - REDESIGN E pop-up types at speaking pace (L8)                                              6a55c5a
+    - REDESIGN F stop words while he speaks, Vosk + echo cancelling (L1)                         f910b76
+    - REDESIGN G wake rows, stricter default (L5, L7, L9)                                        4061766
+    - REDESIGN H clean-up scan (nothing left unused)                                             560206c
+    - AUDIT 2: Settings.inc personal paths blank in git (skip-worktree locally), N13 alarm tests pin
+      the clock, SLEEP button never hibernates, DST-safe alarm roll-over, KOKORO_VOICES deleted,
+      Setup step 4b2 (Vosk model), COPY TO LIVE from git, this TEST BEFORE PHASE 7 block    (see AUDIT 2)
+  LIVE (C:\Users\Senai\Rainmeter\Skins\Spaceship): b82b3b5 + the FR5 N1-N3 work, copied ~18:25 on
+    2026-10-14 (backup C:\Users\Senai\Rainmeter\Spaceship-backup-20261014-182522). Its first run gave
+    FIX ROUND 6 (L1-L10), which the redesign answers. Slices A-H and audit 2 are NOT live; live has no
+    Jarvis\vosk yet. COPY TO LIVE (PART D) now copies the committed version (git archive HEAD) plus vosk.
+  RULES (the user, 2026-10-14):
+    - No Phase 7 work until TEST BEFORE PHASE 7 is done and all its findings are fixed or parked.
+    - PHASE 10 (personality and voice) is parked: its FIRST step is telling the user the personality
+      review is due and waiting for the user's hand review. The voice part (6e, 6g) only on the user's word.
+    - Copy to live, commit, push: only on the user's word; copy to live always backs up first.
+    - Claude never reads @Resources\Data\ or jarvis.log; the user pastes lines.
+    - Settings.inc is skip-worktree (AUDIT 2 fix 1): never git add it with the personal paths in it.
+  After the test: PHASE 7 (more settings by voice; starts with 7-0, one action table; all its questions
     are answered, see the two DECIDED blocks). STAGE 2 (end of file) holds the larger ideas from the
-    user's 2026-10-14 feature list; nothing there starts before Phases 7-10. PHASE 10 (personality
-    and voice) is parked: its FIRST step is telling the user the personality review is due and waiting for
-    the user's hand customization and feedback. The voice part (6e, 6g) starts only on the user's word.
-  Still open, not scheduled: R5-1, R5-2, R5-3 (command path, volume direction, follow-up), R5-6 step 6b
-    (REPLACED by FIX ROUND 5 N1; needs the "train:" numbers), R5-5 (only if needed), Fix Round 3, N13 (test clock bug: run tests
-    with a TZ that makes local time between midnight and 7 AM, see N13), N19 ("again in ten" snooze phrase). In Control Center: check WHISPER = small.en (the R5-0
-    log showed base.en) and train the wake word (WAKE TRAINING > TRAIN), then send the three "train:" lines.
+    user's 2026-10-14 feature list; nothing there starts before Phases 7-10.
+  Still open, not scheduled: R5-1, R5-2, R5-3 (command path, volume direction, follow-up; re-check them
+    in the test, the redesign may have fixed them), R5-5 (only if needed), Fix Round 3, N19 ("again in
+    ten" snooze phrase), 6i (GPU spikes) and 6f (model compare): measure only on the live run. Git history
+    still holds the old Settings.inc paths: a rewrite is the user's decision (not done).
   Naming trap: "6a" in R5-6 and N13/N14/N16 means R5-6 step 6a (wake training). "Phase 6a" / "S1" is the
     relevance fix. M1-M4b are the slices of Phase 6b. T1-T14 are the tasks in tasks/todo.md.
   The STATUS list below is the history, oldest first. A "NEXT:" in an older entry is superseded by this
@@ -388,6 +392,8 @@ STATUS (2026-10-14, history log; newest at the bottom)
     Not done in the audit: most of the Lua, ShipCore.cs, tools\.
 
 HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 6b / 6j session)
+  OLDER THAN CURRENT STATE: its git list ends at b82b3b5 and its waiting steps are replaced. Read CURRENT
+  STATE and TEST BEFORE PHASE 7 first; use this block only for the tool list and working habits.
   Start here: read CURRENT STATE above, then this block, then tasks\todo.md. Check the tools (top of file)
   and list them for the user. Then ask the user which of CURRENT STATE's waiting steps comes first.
   Git
@@ -1279,7 +1285,7 @@ Found while building Phases 2-4 (new issues)
       not listen. Say "Hey Jarvis" again.
   N12. LIMIT. The STOP KEY row offers END or OFF only. A hand-typed other value in Settings.inc shows END in
       the row but registers nothing.
-  N13. TEST BUG (found 2026-10-14 while building 6a; not fixed). [Also in BUGS TO WATCH OUT FOR, top.] test_jarvis l.1238 "set an alarm for 7 am"
+  N13. TEST BUG (found 2026-10-14 while building 6a; FIXED later on 2026-10-14, see AUDIT 2 in the REDESIGN). [Also in BUGS TO WATCH OUT FOR, top.] test_jarvis l.1238 "set an alarm for 7 am"
       expects "You already have an alarm for 7:00 AM." and the "move my alarm" line after it expects no
       "tomorrow". After 7 AM local time the reply adds "tomorrow", so the run stops there and every test
       after it (Phase 4 barge-in, 6a training) is skipped. Fails at commit 8494cee too, so not a regression.
@@ -1319,32 +1325,53 @@ S. SET-UP (once)
       Or do it yourself with the "COPY TO LIVE" commands just below.
 
   COPY TO LIVE (PowerShell, run yourself; one block at a time, all in the SAME window)
-    Repo skin: C:\Users\Senai\RainmeterSpaceship\Skins\Spaceship
+    Copies the COMMITTED version (git HEAD), not the working folder, so half-done edits never go live.
+    Repo:      C:\Users\Senai\RainmeterSpaceship
     Live skin: C:\Users\Senai\Rainmeter\Skins\Spaceship
-    Skipped on purpose: @Resources\Data\ (memory, reminders, logs), @Resources\Backups\, Settings.inc
-    (your personal values; new settings use the code defaults) and State.inc (runtime UI state Rainmeter
-    writes; only its values differ). /E without /MIR only adds and overwrites, it never deletes live files.
-    Untracked repo files (e.g. the two stray test .py files in @Resources) are copied too if present.
-    On 2026-10-14 these tracked files differed from live: Jarvis\Setup-Jarvis.ps1, jarvis.py,
-    test_jarvis.py, requirements-gpu.txt (new), Scripts\control.lua, Scripts\jarvis.lua, State.inc (skipped).
+    Skipped on purpose: @Resources\Data\ (memory, reminders, logs; only Data\zones.lua is in git and it is
+    already live), @Resources\Backups\, Settings.inc (your personal values; the committed copy has the
+    personal paths BLANK, so it must never be copied; new settings use the code defaults), State.inc and
+    Apps.ini (the skin rewrites both at runtime). /E without /MIR only adds and overwrites, it never deletes
+    live files. git archive stamps every file with the commit time, so /XO still lets the copy overwrite
+    older live files. Icons are not in git, so the runtime icons are never touched.
+    Not in git: the Vosk stop-word model (Jarvis\vosk, about 40 MB) - step 4 copies it.
+    The venv (%LOCALAPPDATA%\SpaceshipHUD\venv) is shared by repo and live; it already has vosk and
+    pywebrtc-audio, so nothing is installed.
 
+    0. Check what HEAD is (it is what goes live; uncommitted changes do NOT go live):
+         git -C C:\Users\Senai\RainmeterSpaceship log --oneline -1
+         git -C C:\Users\Senai\RainmeterSpaceship status --short
     1. Back up the live skin (outside Skins\, so Rainmeter does not load it as a skin):
-         $src  = "C:\Users\Senai\RainmeterSpaceship\Skins\Spaceship"
+         $repo = "C:\Users\Senai\RainmeterSpaceship"
+         $src  = "$repo\Skins\Spaceship"
          $live = "C:\Users\Senai\Rainmeter\Skins\Spaceship"
-         $bak  = "C:\Users\Senai\Rainmeter\Spaceship-backup-$(Get-Date -Format yyyyMMdd-HHmmss)"
+         $stamp = Get-Date -Format yyyyMMdd-HHmmss
+         $bak  = "C:\Users\Senai\Rainmeter\Spaceship-backup-$stamp"
          robocopy $live $bak /E /R:1 /W:1 /NFL /NDL
          "robocopy exit $LASTEXITCODE  (0-7 = OK, 8+ = failed)"
-    2. Copy the repo over live (only if step 1 said OK):
-         robocopy $src $live /E /XO /R:1 /W:1 /XD "$src\@Resources\Data" "$src\@Resources\Backups" /XF Settings.inc State.inc
+    2. Export HEAD to a temp folder (only if step 1 said OK):
+         $tmp = "$env:TEMP\spaceship-export-$stamp"
+         git -C $repo archive --format=tar -o "$tmp.tar" HEAD Skins/Spaceship
+         "git exit $LASTEXITCODE  (0 = OK)"
+         New-Item -ItemType Directory $tmp | Out-Null
+         & "$env:WINDIR\System32\tar.exe" -xf "$tmp.tar" -C $tmp
+         "tar exit $LASTEXITCODE  (0 = OK)"
+    3. Copy the export over live (only if step 2 said OK twice):
+         robocopy "$tmp\Skins\Spaceship" $live /E /XO /R:1 /W:1 /XD "$tmp\Skins\Spaceship\@Resources\Data" "$tmp\Skins\Spaceship\@Resources\Backups" /XF Settings.inc State.inc Apps.ini
          "robocopy exit $LASTEXITCODE  (0-7 = OK, 8+ = failed)"
-       /XO skips repo files older than the live copy: the skin rewrites some icons and Icons\_index.txt
-       at runtime, and without /XO the copy would put the older repo versions back.
-    3. Reload: & "C:\Program Files\Rainmeter\Rainmeter.exe" !RefreshApp
-       then restart JARVIS and wait for STANDBY.
+    4. Copy the Vosk model (not in git; skip if live already has @Resources\Jarvis\vosk):
+         robocopy "$src\@Resources\Jarvis\vosk" "$live\@Resources\Jarvis\vosk" /E /R:1 /W:1 /NFL /NDL
+         "robocopy exit $LASTEXITCODE  (0-7 = OK, 8+ = failed)"
+       If the repo has no vosk folder either: run Setup-Jarvis.ps1 in the live Jarvis folder; step 4b2 asks
+       before it downloads.
+    5. Remove the temp export:  Remove-Item -Recurse -Force $tmp, "$tmp.tar"
+    6. Reload: & "C:\Program Files\Rainmeter\Rainmeter.exe" !RefreshApp
+       then restart JARVIS and wait for STANDBY. ShipCore.exe rebuilds itself on load when ShipCore.cs is
+       newer (core.ps1).
     UNDO (same window, or set $bak/$live again to the backup folder's name first):
          robocopy $bak $live /E /R:1 /W:1
        then refresh Rainmeter and restart JARVIS. Undo puts old files back but does not delete files the
-       copy added (e.g. requirements-gpu.txt); they are harmless.
+       copy added (e.g. Jarvis\vosk); they are harmless.
   S2. Put kokoro-v1.0.onnx next to kokoro-v1.0.int8.onnx in the live voices folder, or re-run Setup.
   S3. Control Center > JARVIS: WHISPER DEVICE = AUTO, WHISPER = small.en, MODEL = llama3.1:8b.
       Leave BARGE-IN = WAKE, STOP KEY = END, DUCK MUSIC = ON, MICROPHONE = your usual one.
@@ -2419,7 +2446,7 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
       once and works as before ("Hey Jarvis" or a click stops him).
     - Installed (approved): vosk 0.3.45, pywebrtc-audio 0.2.0 (+ srt) into the venv; pinned in
       requirements.txt. Model vosk-model-small-en-us-0.15 (41 MB zip, 68 MB unpacked) in Jarvis\vosk,
-      git-ignored. NOT in Setup-Jarvis.ps1 yet (ask the user): a fresh install has no stop words.
+      git-ignored. Setup-Jarvis.ps1 step 4b2 downloads it (asks first; SHA-256 pinned; added 2026-10-14).
     - Cost (measured offline): model load 0.27 s, about +130 MB RAM once loaded (on his first reply);
       about 4 % of one CPU core while he speaks, nothing otherwise.
     - Offline echo test (Windows voice as his reply, a 40 ms room echo, the user's "stop" mixed in):
@@ -2452,9 +2479,89 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
       read; (4) every Jarvis* key in Settings.inc is read by jarvis.py or the skins. Result: nothing the
       slices left unused (they replaced code in place), so no code was deleted.
     - Found but left alone (older than the redesign, not this slice's job): KOKORO_VOICES (jarvis.py) is
-      never read; JarvisWakeHard and JarvisAIRouter have no Control Center row (settings only).
-    - Still open: the Vosk model download in Setup-Jarvis.ps1 (user to decide); copy-to-live must copy
-      Jarvis\vosk.
+      never read (deleted later, see AUDIT 2 below); JarvisWakeHard and JarvisAIRouter have no Control
+      Center row (settings only).
+    - Copy-to-live must copy Jarvis\vosk (or run Setup-Jarvis.ps1 step 4b2 on the live copy).
+  AUDIT 2 FIXES BUILT 2026-10-14 (ponytail audit of the whole repo; NOT committed, NOT live):
+    1. Settings.inc: the repo is public and the committed copy held 4 personal paths (LltPath,
+       ObsidianTodo, ObsidianVault, JarvisVault). The next commit has them blank (staged in the index
+       only); the local file keeps its values and is marked skip-worktree, so git ignores local edits to
+       it. Blank is supported: status.ps1 Resolve-Llt searches the usual folders, the to-do / vault rows
+       say "not set", ObsidianVault is read by nothing. TRAP: before a slice changes Settings.inc on
+       purpose, run git update-index --no-skip-worktree on it, and stage the change without the 4 values.
+       The old values stay in the git history; rewriting it is the user's decision (not done).
+    2. N13 FIXED: the alarm tests pin the clock to 3 AM today (still ticking) and then restore it. New
+       test: "set an alarm for 2 am" at 3 AM says "2:00 AM tomorrow" (a time already gone rolls to the
+       next day; when() did that already). No TZ needed any more.
+    3. SLEEP button (Control Center, SYSTEM): rundll32 cannot pass SetSuspendState's arguments, so it
+       could hibernate. Now ShipCore.exe sleep calls SetSuspendState(false, false, false). core.ps1
+       rebuilds ShipCore.exe on the next skin load (ShipCore.cs is newer). control.lua: core() moved
+       above rowsSystem() so the row can use it. Row text "Sleep the PC".
+    4. KOKORO_VOICES deleted (never read).
+    5. Daylight saving: when() rolled a gone time to tomorrow by adding 24 hours, so on a clock-change
+       night "7 AM" became 6 or 8 AM. Now it adds one calendar day (timedelta(days=1) on the local
+       datetime). Checked under TZ=CST6CDT on both change nights: old 06:00 / 08:00, new 07:00 / 07:00.
+       Repeating alarms already used timedelta.
+    - Checks: test_jarvis OK at the real clock (22:13 local) and TZ=ABC-4 / ABC-1 / ABC+10 / ABC-14 (py -3),
+      real clock and ABC-4 (venv); after fix 5 again OK at the real clock, ABC-4, ABC+10 and CST6CDT
+      (py -3) and the real clock (venv); py_compile OK; route check 75 phrases, 0 differences; ShipCore.cs
+      compiled to the scratchpad with csc, exit 0. No Lua interpreter: the SLEEP button is checked in the
+      live test (it should sleep, not hibernate).
+    - Also: Setup-Jarvis.ps1 step 4b2 (Vosk stop-word model, asks first, SHA256 pinned) and COPY TO LIVE
+      (PART D) now copies the committed version via git archive, plus Jarvis\vosk.
+    - Rollback: git revert of its commit; for Settings.inc also git update-index --no-skip-worktree.
+
+--------------------------------------------------------------------------------------------------------
+TEST BEFORE PHASE 7   (added 2026-10-14; the ONE combined live test of everything built since the 18:25 copy)
+--------------------------------------------------------------------------------------------------------
+  Why: live runs b82b3b5 + FR5 N1-N3 (the then-uncommitted N1-N3 work, later committed in 4e51364;
+  copied ~18:25, backup C:\Users\Senai\Rainmeter\Spaceship-backup-20261014-182522).
+  Everything after that (redesign slices A-H, audit 2) has passed only the offline checks (test_jarvis,
+  route check, py_compile). This test is the gate: Phase 7 starts only when it is done and every finding
+  is fixed or parked (the user's rule). A new session starts HERE: read CURRENT STATE, then this block.
+  Rules for the session that runs it: Claude never reads @Resources\Data\ or jarvis.log; the user pastes
+  lines. Each finding: test first, smallest change, the gates, a commit on the user's word, copy to live
+  again (with a new backup). Phase 10 (tone) items are only noted, never fixed here.
+
+  T1. Copy to live (on the user's word): PART D "COPY TO LIVE" steps 0-6 (copies git HEAD, backs up live
+      first, copies Jarvis\vosk). Check every exit code. Refresh Rainmeter, restart JARVIS, STANDBY.
+  T2. Settings.inc is never copied, so set by hand in the LIVE Settings.inc if wanted: JarvisCallMe=<your
+      name> (greetings / courtesy use it). Edit the live file, not the repo one.
+  T3. Control Center > JARVIS, in this order:
+      a. WAKE WORD: STRICTER until it shows 0.50.
+      b. WAKE TRAINING > TRAIN (about 2 min: "Hey Jarvis", "Hey", bare "Jarvis", 15 s quiet). Paste the
+         "train:" lines and the "wake: your checks:" line (should list Hey Jarvis, Hey, bare Jarvis).
+      c. WHISPER = small.en.
+      d. MODEL (< >): the user's choice: qwen3:4b-instruct-2507-q4_K_M (already pulled; see SLICE B MODEL
+         CHECK: 53/76 vs 29/76, +500 MiB VRAM) or keep the current one. Restart JARVIS after a change.
+  T4. Wake: FIX ROUND 5 items F1-F4 (PHASE 6 LIVE TEST CHECKLIST). Paste the "wake word heard (score,
+      way)" lines.
+  T5. Stop words while he speaks (slice F, L1), on SPEAKERS (not headphones):
+      a. Ask 10 things whose answers contain "stop", "quiet" or "enough" (e.g. "what does a stop sign
+         mean?"): 0 false stops.
+      b. Say "stop" 10 times in the middle of long replies: 9+ stop him. Paste the "stop words" lines.
+  T6. One normal conversation that covers:
+      - L2 "About 20%." right after a volume exchange -> sets the volume (or asks to confirm).
+      - L4 a quiet short "Thank you." after a wake -> dropped, no model reply.
+      - L6 follow-ups: he listens again only after a question or an addressed reply, at most the FOLLOW-UP
+        limit; after a setting change, "undo" within 5 s puts it back.
+      - L8 the pop-up text types at his speaking pace (muted: reading pace).
+      - L10 a calendar question with nothing on the calendar -> the fixed "nothing" reply, no invented event.
+      - F5 (long ramble -> "Were you talking to me?" once) and F6 (a question -> answered, no ask).
+      - Greetings and courtesy ("good morning", "thanks") use JarvisCallMe if set.
+  T7. Control Center check (no Lua interpreter here, so this is the first real run of the control.lua
+      changes): JARVIS tab: HEY ... JARVIS row (ON / OFF, gap - / +), FOLLOW-UP wait - / +, BARGE-IN texts
+      name the stop words, WAKE TRAINING text. SYSTEM tab: SLEEP ("Sleep the PC") must SLEEP, not
+      hibernate (wake it with a key / the mouse; a hibernate shows the boot screen). The first skin load
+      rebuilds Bin\ShipCore.exe from ShipCore.cs (core.ps1).
+  T8. The rest of the PHASE 6 LIVE TEST CHECKLIST (Phase 5 alarms, 6a, 6b M1-M4b, 6j, 6i), plus F5-F7.
+      Alarms: also "set an alarm for <an hour already gone today>" -> "... tomorrow".
+  T9. Lines to paste back (per FAIL: what you said, what he did, roughly when): "route:", "timing:",
+      "wake ...", "train:", "transcript: dropped", the stop-word lines. Leave out "you:" lines unless you
+      choose to include them.
+  T10. Afterwards: Claude lists every finding with a proposed fix or "park"; the user picks. Phase 7 starts
+      only when none is left open. Then update CURRENT STATE.
+  UNDO of the whole copy: PART D COPY TO LIVE "UNDO" with this copy's backup folder.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE

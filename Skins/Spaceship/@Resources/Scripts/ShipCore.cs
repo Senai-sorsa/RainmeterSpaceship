@@ -61,6 +61,7 @@ public static class ShipCore
     [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr hProc, uint flags, StringBuilder sb, ref uint size);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    [DllImport("powrprof.dll")] static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
@@ -82,6 +83,7 @@ public static class ShipCore
         {
             if (cmd == "brightness" && args.Length > 1) { SetBrightness(int.Parse(args[1])); return 0; }
             if (cmd == "mic" && args.Length > 1) { MicVolume.Set(int.Parse(args[1]) / 100f); return 0; }
+            if (cmd == "sleep") return SetSuspendState(false, false, false) ? 0 : 1;   // rundll32 can't pass the "no hibernate" flag
             if (cmd == "focus" && args.Length > 2)
             {
                 Init(Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath)));   // @Resources\Bin\.. (for the log)
