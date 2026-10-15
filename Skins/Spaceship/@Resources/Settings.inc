@@ -230,6 +230,8 @@ JarvisBlackBackground=0
 ; Jarvis "about me" note (Control Center > JARVIS > ABOUT ME)
 JarvisProfile=
 JarvisVoice=Jarvis\kokoro\kokoro-v1.0.onnx
+; what JARVIS calls you in greetings and goodbyes (empty = no name)
+JarvisCallMe=Senai
    JarvisKokoroVoice=bm_lewis
    JarvisSilence=2
    JarvisWakeWord=1

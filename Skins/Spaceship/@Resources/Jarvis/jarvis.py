@@ -49,7 +49,7 @@ import time
 import urllib.error
 import urllib.request
 import wave
-from collections import Counter
+from collections import Counter, namedtuple
 from datetime import datetime, timedelta
 
 RES = (sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")).strip().strip('"')
@@ -921,8 +921,33 @@ def _decode(model, audio):
     segs = list(model.transcribe(audio, vad_filter=True, hotwords="Jarvis", initial_prompt=HINT, **opts)[0])
     if not segs:
         segs = list(model.transcribe(audio, vad_filter=False, **opts)[0])
+    segs = no_loops(segs)
     heard_score[0] = min((getattr(s, "avg_logprob", 0.0) for s in segs), default=0.0)
-    return real_words(" ".join(s.text for s in segs).strip())
+    return real_words(no_repeats(" ".join(s.text for s in segs).strip()))
+
+
+def no_loops(segs):
+    """FR5 N2: drop the segments Whisper itself rates as a loop or as silence (its own limits: compression ratio
+    above 2.4; no-speech above 0.6 while unsure, avg log-prob below -1). Only counts go to the log."""
+    keep = [s for s in segs if getattr(s, "compression_ratio", 0.0) <= 2.4
+            and not (getattr(s, "no_speech_prob", 0.0) > 0.6 and getattr(s, "avg_logprob", 0.0) < -1.0)]
+    if len(keep) < len(segs):
+        log(f"transcript: dropped (loop) {len(segs) - len(keep)} of {len(segs)} parts")
+    return keep
+
+
+def no_repeats(text):
+    """"Okay. Okay. Okay." -> "Okay.": a sentence said 3+ times in a row is kept once (Whisper's repetition loop)."""
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    same = [re.sub(r"[^\w']+", "", p.lower()) for p in parts]  # "Okay." and "okay" are the same sentence
+    res, i = [], 0
+    while i < len(parts):
+        k = i
+        while k + 1 < len(parts) and same[k + 1] == same[i]:
+            k += 1
+        res += parts[i:k + 1] if k - i < 2 else [parts[i]]
+        i = k + 1
+    return " ".join(res)
 
 
 def transcribe(audio):
@@ -3567,10 +3592,72 @@ def watchdog(started):
 
 turn_id = [0.0]
 NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left them|Cancelled)\.$")   # he was told to drop it: no follow-up
-# a whole follow-up reply that means "we're done": he stops without answering
-ENDERS = re.compile(r"(?:(?:ok|okay|alright|great|cool|perfect|no|nah) )?(?:thanks|thank you|that's all|that's it|no thanks|"
-                    r"no thank you|nope|no|goodbye|bye|i'm good|i'm fine|nothing|stop|all good|cheers|quiet|never mind|enough)(?: jarvis)?")
+# a whole reply that means "stop" / "we're done", in any turn: he stops without answering (FR6 L1). Also Whisper's
+# stock "Thank you." on noise (FR6 L4): a real thanks needs no answer either
+_END = (r"(?:(?:ok|okay|alright|great|cool|perfect|no|nah|oh) )?(?:thanks|thank you(?: so much)?|that's all|that's it|"
+        r"no thanks|no thank you|nope|no|goodbye|bye|i'm good|i'm fine|nothing|stop(?: it| talking)?|all good|cheers|"
+        r"(?:be )?quiet|shut up|shush|hush|never mind|(?:that's )?enough)(?: jarvis)?")
+ENDERS = re.compile(rf"{_END}(?: {_END})*")
+# courtesy: a whole reply that is only manners gets a short proper answer from code, no model, no follow-up.
+# "{name}" becomes ", <JarvisCallMe>" (nothing when that setting is empty)
+_OK = r"(?:(?:ok|okay|alright|great|cool|perfect|oh) )?"
+COURTESY = ((re.compile(rf"(?:{_OK}(?:thanks|thank you|thank you so much|thank you very much|thanks a lot|cheers|"
+                        r"much appreciated)(?: jarvis)? ?)+"), "You're welcome."),
+            (re.compile(r"(?:hello|hi|hey|hiya|howdy|greetings)(?: there)?(?: jarvis)?"), "Hello{name}."),
+            (re.compile(rf"{_OK}(?:goodbye|bye|bye bye|see you|see you later)(?: jarvis)?"), "Goodbye{name}."),
+            (re.compile(rf"{_OK}good ?night(?: jarvis)?"), "Good night{name}."),
+            (re.compile(r"(?:oh )?(?:sorry|my bad)(?: jarvis)?"), "No problem."))
+ROOM_ASK = "Were you talking to me?"
+
+
+def room_talk(text):
+    """FR5 N3: long talk with no question, no "you" and not his name: likely meant for someone else in the room."""
+    words = re.findall(r"[a-z']+", text.lower().replace("’", "'"))
+    return len(words) >= 25 and "?" not in text and not {"you", "your", "you're", "jarvis"} & set(words)
+
+
 NEW_TOPIC = re.compile(r"(?:(?:ok|okay|alright),? )?(?:let'?s )?(?:(?:start|have) )?(?:a )?(?:new |change (?:the )?)(?:topic|subject)(?:[,.!?:;-]+\s*|\s*$)", re.I)
+
+
+# REDESIGN slice B: what the turn means, decided once. via: rule, context or ai-reread
+Decision = namedtuple("Decision", "kind action target prompt via")
+LEVEL = re.compile(r"(?:(?:about|around|roughly|maybe|like|make it|to|at|um|uh|so|and)\s+)*(.+?)\s*(%| ?percent)?")
+VOLUME_DID = ("changed the volume", "muted the sound", "unmuted the sound")
+
+
+def level_fix(text):
+    """L2: a lone level ("About 20%.") is a half-heard volume command. Right after a volume change it sets it;
+    otherwise only "N percent" counts, and he asks first. None: not a lone level."""
+    m = LEVEL.fullmatch(" ".join(re.sub(r"[^a-z0-9% ]", " ", text.lower()).split()))
+    n = m and _num(m.group(1))
+    if n is None or n > 100:
+        return None
+    if did and did[-1][1] in VOLUME_DID and time.time() - did[-1][0] <= ACTIVE_TTL:
+        return Decision("act", "volume", ("set", int(n)), None, "context")
+    if m.group(2):
+        return Decision("act", "volume", ("set", int(n)), f"Did you mean the volume at {int(n)} percent?", "context")
+    return None
+
+
+def understand(text, model, quiet, room):
+    """Rules first, then the last exchange, then the model only on a miss. kind "room": likely not for him."""
+    kind, action, target, prompt = fix_route(text, route(text))
+    via = "rule"
+    if kind == "chat":
+        lone = level_fix(strip_name(text))
+        if lone:                                               # still asked back below if Whisper was unsure
+            kind, action, target, prompt, via = lone
+        elif text != room and room_talk(text):
+            return Decision("room", None, None, None, "rule")
+    if ask_ai(text, (kind, action, target, prompt)):           # a missed command: the AI's reading, checked, or as before
+        filler("confirm_wait", quiet)                          # "One moment." while the model reads it; the answer waits for it
+        read = interpret(model, text)
+        if read:
+            kind, action, target, prompt = read
+            via = "ai-reread"
+    if kind == "act" and prompt is None and heard_score[0] < -1.0:   # Whisper was unsure: never act on a guess
+        prompt = f"Did you say: {text}?"
+    return Decision(kind, action, target, prompt, via)
 
 
 def command_reply(kind, action, target, prompt, quiet):
@@ -3591,9 +3678,9 @@ def command_reply(kind, action, target, prompt, quiet):
     return None
 
 
-def turn(tier, follow=0):
+def turn(tier, follow=0, woke=False):
     """One exchange. After a spoken answer (chat or a command) he listens once more without the wake word
-    (JarvisFollowUp), at most three times in a row: `follow` counts them."""
+    (JarvisFollowUp), at most three times in a row: `follow` counts them. `woke`: started by the wake word."""
     global history, last_turn
     if not busy.acquire(blocking=False):
         return
@@ -3647,6 +3734,9 @@ def turn(tier, follow=0):
             return
         log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
         log(f"you: {text}")
+        if not text and woke:                                  # FR6 L9: likely a false wake - end quietly
+            log("transcript: nothing after the wake word - ended quietly")
+            return
         if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
             quiet = muted()
             reply_line("Sorry, I didn't catch that.", quiet)
@@ -3655,9 +3745,6 @@ def turn(tier, follow=0):
         if not text or cancel.is_set():
             return
         convo_add("U", text)
-        if follow and ENDERS.fullmatch(" ".join(re.sub(r"[^a-z' ]", " ", text.lower().replace("’", "'")).split())):
-            log("follow-up: ended by you")
-            return
         quiet = muted()
 
         def fixed(reply):
@@ -3673,11 +3760,25 @@ def turn(tier, follow=0):
             again = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
         S.set(err="")
         fact = offer.pop("fact", None) if time.time() < offer.get("expires", 0) else None
+        room = offer.pop("room", None) if time.time() < offer.get("expires", 0) else None
         offer.clear()
         plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
+        if room and plain in YES:                              # "Were you talking to me?" "Yes": answer what was said
+            text = room
         if fact and (plain in YES or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
             way.update(kind="memory", action="save", via="rule")
             fixed(memory_reply("save", fact))
+            return
+        said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(text).lower().replace("’", "'")).split())
+        polite = text != room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
+        if polite and not (woke and heard_score[0] < -1.0):  # a weak "Thank you." after a wake is Whisper's noise phrase
+            way.update(kind="courtesy", via="rule")
+            name = setting("JarvisCallMe", "").strip()
+            reply_line(polite.replace("{name}", f", {name}" if name else ""), quiet)
+            return
+        if text != room and (polite or ENDERS.fullmatch(said)):
+            way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
+            log("control: ended by you")
             return
         m = NEW_TOPIC.match(strip_name(text))
         way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
@@ -3705,24 +3806,22 @@ def turn(tier, follow=0):
             if not quiet:
                 speak_all([reply])
             return
-        kind, action, target, prompt = fix_route(text, route(text))
-        way.update(kind=kind, action=action)
+        kind, action, target, prompt, via = understand(text, model, quiet, room)
+        way.update(kind=kind, action=action, via=via)
+        if kind == "room":                                     # asked once; a "yes" answers it in full
+            log("transcript: not for me? asked")
+            reply_line(ROOM_ASK, quiet)
+            offer.update(room=text, expires=time.time() + 30 + follow_wait())
+            again = not quiet
+            return
         if kind == "heard":
             fixed(f"I heard: {recent['you']}" if recent["you"] else "I haven't heard anything yet.")
             return
         if kind == "again":
             fixed(recent["me"] or "I haven't said anything yet.")
             return
-        if ask_ai(text, (kind, action, target, prompt)):       # a missed command: the AI's reading, checked, or as before
-            filler("confirm_wait", quiet)                      # "One moment." while the model reads it; the answer waits for it
-            read = interpret(model, text)
-            if read:
-                kind, action, target, prompt = read
-                way.update(kind=kind, action=action, via="ai-reread")
         if cancel.is_set():                                    # stopped while the model read it: nothing runs
             return
-        if kind == "act" and prompt is None and heard_score[0] < -1.0:   # Whisper was unsure: never act on a guess
-            prompt = f"Did you say: {text}?"
         # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
         recent["you"] = text
         extra = ""
@@ -3874,7 +3973,7 @@ def barge_turn(follow):
             log("barge-in: the stopped turn didn't end - not listening")
             return
         time.sleep(0.05)
-    turn(hud_tier(), follow)
+    turn(hud_tier(), follow, True)
 
 
 STOP_KEYS = {"end": 0x23}                                     # VK_END
@@ -3913,12 +4012,34 @@ def stop_key_loop():
 
 
 # ------------------------------------------------------------------ wake word training (plan R5-6, step 6a)
-# Your own "Hey Jarvis", "Hey ... Jarvis" and bare "Jarvis" become small checks next to the normal score (step 6b).
+# Your own "Hey Jarvis", "Hey" and "Jarvis" become small checks next to the normal score (Fix Round 5 N1).
 # The recordings stay in memory and are never written; only the checks are saved, as Data\wake_<style>.pkl.
 WAKE_STYLES = (("hey_jarvis", "Hey Jarvis", 'say "Hey Jarvis"'),
-               ("hey_pause", "Hey ... Jarvis", 'say "Hey", wait a moment, then "Jarvis"'),
+               ("hey", "Hey", 'say just "Hey"'),
                ("jarvis", "bare Jarvis", 'say just "Jarvis"'))
 WAKE_FLOOR = 0.1                       # the lowest normal score a moment needs to count as an example
+WORD_STYLES = ("hey", "jarvis")        # single words: examples are the moments with speech, not a normal score
+                                       # (the normal model knows only the whole phrase, a bare "Hey" may never score)
+
+
+def heard_speech(oww):
+    """The speech filter heard speech 0.4-0.56 s ago, the same frames openWakeWord itself checks."""
+    vad = list(getattr(getattr(oww, "vad", None), "prediction_buffer", []))[-7:-4]
+    return bool(vad) and max(vad) >= 0.5
+
+
+def speech_feats(clip, oww):
+    """The openWakeWord features of every 80 ms moment of `clip` in which the speech filter hears speech."""
+    import numpy as np
+    out = []
+    oww.reset()
+    if hasattr(oww, "vad"):
+        oww.vad.prediction_buffer.clear()             # reset() keeps it: the last clip's speech would count here
+    for i in range(0, len(clip) - 1280, 1280):
+        oww.predict(clip[i:i + 1280])
+        if heard_speech(oww):
+            out.append(oww.preprocessor.get_features(oww.model_inputs["hey_jarvis"]))
+    return np.vstack(out) if out else np.empty((0, oww.model_inputs["hey_jarvis"], 96))
 
 
 # shortcut: a click stops it only between clips (at most 15 s late); a stoppable recorder if that ever matters
@@ -3961,11 +4082,19 @@ def train_wake():
             neg = record(15)
             if cancel.is_set():
                 return
-            oww = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+            try:                                               # the speech filter picks the moments of a bare word
+                oww = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx", vad_threshold=0.5)
+            except Exception as e:
+                log(f"train: without the speech filter ({type(e).__name__}) - Hey and bare Jarvis stay off")
+                oww = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
             pad = np.zeros(16000, dtype=np.int16)              # the model scores 0 for its first frames
             oww.reset()
             negf = get_reference_clip_features(np.concatenate([pad, neg]), oww, "hey_jarvis", threshold=0.0, N=1)
+            word = {n: np.vstack([speech_feats(np.concatenate([pad, c]), oww) for c in clips[n]]) for n in WORD_STYLES}
             made = 0
+            old = os.path.join(DATA, "wake_hey_pause.pkl")     # the dropped "Hey ... Jarvis" style
+            if os.path.exists(old):
+                os.remove(old)
             for name, label, _ in WAKE_STYLES:
                 path = os.path.join(DATA, f"wake_{name}.pkl")
                 peak, pos = 0.0, []
@@ -3973,15 +4102,19 @@ def train_wake():
                     c = np.concatenate([pad, c])
                     oww.reset()
                     peak = max([peak] + [oww.predict(c[i:i + 1280])["hey_jarvis"] for i in range(0, len(c) - 1280, 1280)])
-                    oww.reset()
-                    pos.append(get_reference_clip_features(c, oww, "hey_jarvis", threshold=WAKE_FLOOR, N=3))
-                pos = np.vstack(pos)
+                    if name not in WORD_STYLES:
+                        oww.reset()
+                        pos.append(get_reference_clip_features(c, oww, "hey_jarvis", threshold=WAKE_FLOOR, N=3))
+                pos = word[name] if name in WORD_STYLES else np.vstack(pos)
                 log(f"train: {label} peaks {peak:.2f} ({len(pos)} examples)")
-                if len(pos) == 0:                              # never reached the floor: that way stays off
+                if len(pos) == 0:                              # never reached the floor / no speech heard: that way stays off
                     if os.path.exists(path):
                         os.remove(path)                        # an older check must not outlive this training
                     continue
-                check = train_verifier_model(np.vstack([pos, negf]), np.array([1] * len(pos) + [0] * len(negf)))
+                # "Hey" learns that your "Jarvis" is not it, and the other way round
+                other = [word[o] for o in WORD_STYLES if o != name and name in WORD_STYLES]
+                neg_all = np.vstack([negf] + other)
+                check = train_verifier_model(np.vstack([pos, neg_all]), np.array([1] * len(pos) + [0] * len(neg_all)))
                 with open(path + ".tmp", "wb") as f:
                     pickle.dump(check, f)
                 os.replace(path + ".tmp", path)
@@ -3994,11 +4127,42 @@ def train_wake():
             S.set(state="idle", level=0.0)
 
 
+def wake_way(score, held, mine, now, hey_until, need, easy, hard, gap):
+    """Which way wakes him on this 80 ms moment (or None), and until when a "Hey" waits for "Jarvis".
+    score: the normal "Hey Jarvis" score; held: it was >= need on the moment before too; mine: your trained checks'
+    scores by style (only while speech is heard). "Hey" alone never wakes him."""
+    if score >= need and held:                                 # W0, the backup: 2 moments in a row
+        return "W0", 0.0
+    if score >= WAKE_FLOOR and mine.get("hey_jarvis", 0.0) >= 0.5:   # HV: a soft "Hey Jarvis" in your voice
+        return "HV", 0.0
+    if now <= hey_until and mine.get("jarvis", 0.0) >= hard:   # HJ: your "Jarvis" within `gap` s of your "Hey"
+        return "HJ", 0.0
+    if easy > 0 and mine.get("hey", 0.0) >= easy and now > hey_until:
+        hey_until = now + gap
+    return None, hey_until
+
+
+def wake_checks():
+    """Your trained checks from Data\\wake_<style>.pkl; a missing or broken one leaves that way off."""
+    import pickle
+    checks = {}
+    for name, _, _ in WAKE_STYLES:
+        path = os.path.join(DATA, f"wake_{name}.pkl")
+        if os.path.exists(path):
+            try:
+                with open(path, "rb") as f:
+                    checks[name] = pickle.load(f)
+            except Exception as e:
+                log(f"wake: check {name} not loaded ({type(e).__name__})")
+    return checks
+
+
 def wake_loop():
     import numpy as np
     model, stream, warned = None, None, False
     off, mic_bad, best, minute = None, False, 0.0, time.time()   # why it is off (logged once per change); top score this minute
     heard_talk, no_vad = 0, False                              # 80 ms blocks heard while he speaks; "voice" without a VAD logged
+    checks, last_score, hey_until = None, 0.0, 0.0             # your trained checks (loaded with the model); FR5 N1
 
     def load(**vad):
         import openwakeword
@@ -4054,6 +4218,10 @@ def wake_loop():
                     stream.start()
                     model.reset()
                     mic_bad = False
+                    found = wake_checks() if getattr(model, "vad", None) is not None else {}   # re-read: a training may
+                    if checks is None or set(found) != set(checks):                               # have just ended
+                        log(f"wake: your checks: {', '.join(found) or 'none (train in Control Center)'}")
+                    checks, last_score, hey_until = found, 0.0, 0.0
                 except Exception as e:
                     if stream is None:
                         mic.release()
@@ -4086,10 +4254,24 @@ def wake_loop():
                 need = min(need + 0.2, 0.95)                   # his own voice is in the room too
                 if follow is None and time.time() < name_until[0]:   # he is saying "Jarvis" himself
                     continue
-            if follow is None and max(scores.values()) >= need:
+            score, held, last_score, way = max(scores.values()), last_score >= need, max(scores.values()), None
+            if follow is None and talking and score >= need:   # over his voice: the normal score alone, as before
                 follow = 0
+            elif follow is None and not talking:
+                mine = {}
+                if checks and heard_speech(model):             # silence costs nothing
+                    feats = model.preprocessor.get_features(model.model_inputs["hey_jarvis"])
+                    mine = {n: float(c.predict_proba(feats)[0][-1]) for n, c in checks.items()}
+                try:
+                    easy, hard = (float(setting("JarvisWakeEasy", "0.5")), float(setting("JarvisWakeHard", "0.35")))
+                    gap = float(setting("JarvisWakeGap", "5"))
+                except ValueError:
+                    easy, hard, gap = 0.5, 0.35, 5.0
+                way, hey_until = wake_way(score, held, mine, time.time(), hey_until, need, easy, hard, gap)
+                follow = 0 if way else None
             if follow is not None:
-                log(f"wake word heard ({max(scores.values()):.2f})" if not talking else f"barge-in ({'voice' if follow else 'wake'})")
+                last_score, hey_until = 0.0, 0.0
+                log(f"wake word heard ({score:.2f}, {way})" if not talking else f"barge-in ({'voice' if follow else 'wake'})")
                 if talking:
                     stop_now("barge-in")
                 drop()
@@ -4097,7 +4279,7 @@ def wake_loop():
                 if talking:
                     threading.Thread(target=barge_turn, args=(follow,), daemon=True).start()
                 else:
-                    threading.Thread(target=turn, args=(hud_tier(),), daemon=True).start()
+                    threading.Thread(target=turn, args=(hud_tier(), 0, True), daemon=True).start()
                 time.sleep(1.0)                                # let the turn take the microphone
         except ImportError as e:
             if not warned:

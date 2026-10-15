@@ -49,12 +49,13 @@ CURRENT STATE (end of the 2026-10-14 session that built Phase 6b and 6j; READ TH
     - Checkpoint A: M1 active window, meaning match, M1b last results, M2a/M2b topic memory     a74b235
     - Checkpoint B: M4a facts (T4-T6), M4b what he really did (T7), M3a/M3b compaction (T8/T9),
       everything about the voice moved to PHASE 10                                               c33d37f
-    - 6j (T11) route + timing log: BUILT and tested, NOT committed yet (see STATUS) -> commit on the
-      user's word, then the live copy.
+    - 6j (T11) route + timing log                                                                aa3a48d
+    - Audit fixes (ponytail audit 2026-10-14): whole-word "forget" + undo, unreadable note skipped,
+      meaning cache 1000                                                                          b82b3b5
   PHASE 6 CODE IS FINISHED. What is left of Phase 6 needs the user (Claude cannot do these alone):
-    1. Commit 6j + the plan update (on the user's word; stage files by name).
+    1. (DONE) Commit 6j (aa3a48d) and the audit fixes (b82b3b5).
     2. COPY TO LIVE (PART D, "COPY TO LIVE"; on the user's word; back up first). Live is still 301c22f, so
-       this copy brings in everything since: 123d829, 23b290c, 1036282, a74b235, c33d37f and 6j.
+       this copy brings in everything since: 123d829, 23b290c, 1036282, a74b235, c33d37f, aa3a48d, b82b3b5.
     3. The ONE full live test: "PHASE 6 LIVE TEST CHECKLIST" (end of PHASE 6, after "Your live test after
        Phase 6"). It also covers the Phase 5 live test and the 6a live test that were never run. The user
        pastes log lines (route: / timing: / compaction: / topics: lines); Claude never reads Data\.
@@ -63,12 +64,18 @@ CURRENT STATE (end of the 2026-10-14 session that built Phase 6b and 6j; READ TH
     5. Fix what the live test finds (each fix: test first, smallest change, the gates, commit on the word).
   RULE (the user, 2026-10-14): the PHASE 6 LIVE TEST (step 3) must be DONE before any Phase 7 work starts.
     A new session must not begin Phase 7 until the user has run it and its findings are fixed or parked.
-  After Phase 6: PHASE 7 (more settings by voice; starts with 7-0, one action table). PHASE 10 (personality
+  FIX ROUND 5 N1-N3 BUILT 2026-10-14 (user's request; repo only, NOT committed, NOT live): three trained
+    checks (Hey Jarvis / Hey / bare Jarvis), wake_way W0/HV/HJ, Whisper loop filter, "Were you talking to
+    me?". Tests OK (py -3 and venv, TZ=ABC-4 / ABC-1 for N13). Its live test is part F1-F7 of the PHASE 6
+    LIVE TEST CHECKLIST. Needs: commit on the user's word, copy to live, STRICTER to 0.50, TRAIN.
+  After Phase 6: FIX ROUND 5 live test (above), then PHASE 7 (more settings by voice; starts with 7-0, one action table; all its questions
+    are answered, see the two DECIDED blocks). STAGE 2 (end of file) holds the larger ideas from the
+    user's 2026-10-14 feature list; nothing there starts before Phases 7-10. PHASE 10 (personality
     and voice) is parked: its FIRST step is telling the user the personality review is due and waiting for
     the user's hand customization and feedback. The voice part (6e, 6g) starts only on the user's word.
   Still open, not scheduled: R5-1, R5-2, R5-3 (command path, volume direction, follow-up), R5-6 step 6b
-    (W1-W3, needs the "train:" numbers), R5-5 (only if needed), Fix Round 3, N13 (test clock bug: run tests
-    with TZ=ABC+12), N19 ("again in ten" snooze phrase). In Control Center: check WHISPER = small.en (the R5-0
+    (REPLACED by FIX ROUND 5 N1; needs the "train:" numbers), R5-5 (only if needed), Fix Round 3, N13 (test clock bug: run tests
+    with a TZ that makes local time between midnight and 7 AM, see N13), N19 ("again in ten" snooze phrase). In Control Center: check WHISPER = small.en (the R5-0
     log showed base.en) and train the wake word (WAKE TRAINING > TRAIN), then send the three "train:" lines.
   Naming trap: "6a" in R5-6 and N13/N14/N16 means R5-6 step 6a (wake training). "Phase 6a" / "S1" is the
     relevance fix. M1-M4b are the slices of Phase 6b. T1-T14 are the tasks in tasks/todo.md.
@@ -306,12 +313,27 @@ STATUS (2026-10-14, history log; newest at the bottom)
     in the 28aef137 scratchpad, or reverse the diff.
     PHASE 6 CODE IS NOW COMPLETE. NEXT: commit on the user's word -> copy to live on the user's word -> the
     PHASE 6 LIVE TEST CHECKLIST -> 6i / 6f measure.
+  - 2026-10-14: 6j committed as aa3a48d. Then a ponytail audit of jarvis.py (report only) found 4 things,
+    fixed and committed as b82b3b5 (jarvis.py +29/-6, test_jarvis.py +16):
+      1. "forget X" matched parts of words ("forget car" deleted "my friend Oscar ...") and a single forget
+         could not be undone. Now holds_words() matches whole words (route() and memory_reply), and
+         can_undo("forget", gone) + an undo_last "forget" branch put the facts back ("Put back: ...").
+      2. chroma_index: one note it could not open (locked / deleted mid-sync) set failed=True and turned
+         smart search off until restart. Now that note is skipped and retried on the next pass.
+      3. Tests for 1 and 2.
+      4. vec() cache limit 500 -> 1000 (warm-up: 23 examples + 200 topics + 50 facts + gist lines, and
+         the gist has no hard cap, so it could pass 500 and empty itself). About 12 KB an entry.
+    Checks: py_compile OK; test_jarvis OK under TZ=ABC-8 with py -3 and venv. TZ=ABC+12 FAILED at that
+    hour on HEAD too (see N13 update), so not a regression. Not live. Rollback: git revert b82b3b5.
+    Not done in the audit: most of the Lua, ShipCore.cs, tools\.
 
 HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 6b / 6j session)
   Start here: read CURRENT STATE above, then this block, then tasks\todo.md. Check the tools (top of file)
   and list them for the user. Then ask the user which of CURRENT STATE's waiting steps comes first.
   Git
     - Branch chore/jarvis-baseline-and-performance. Not pushed. main (c5ff4a5) is behind it.
+        b82b3b5  audit fixes: whole-word forget + undo, skip unreadable notes, meaning cache 1000
+        aa3a48d  Phase 6j route + timing log; plan: Phase 6 code done, live test checklist, handover
         c33d37f  Phase 6 Checkpoint B: M4a (T4-T6), M4b, M3a, M3b; voice to Phase 10
         a74b235  Phase 6 Checkpoint A: M1, meaning match, M1b, M2a, M2b; tone to Phase 10
         1036282  Phase 6a (S1), Phase 6 re-plan, plan handover
@@ -323,8 +345,8 @@ HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 6b
         301c22f  Phase 3 + Phase 4 + plan handover            <- THE LIVE SKIN IS STILL THIS
         d7386dd  Phase 2, 2e/2f, Rounds 2/4, status-only hologram
         7bf9e14  this plan (first version)
-    - Uncommitted at the end of the session (waiting for the user's word): 6j in jarvis.py / test_jarvis.py,
-      and this plan, tasks\plan.md, tasks\todo.md. The user's untracked suggestions file stays untracked.
+    - All code is committed (b82b3b5). This plan's latest edit may be uncommitted: check git status. The
+      user's untracked suggestions file stays untracked.
     - Never "git checkout" / "git restore" / "git stash" to undo something; never "git add ."; stage files by
       name and read the staged list before every commit; commit only on the user's word. Commit trailer:
       "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>". Rollback of any step: git revert <commit>.
@@ -336,7 +358,10 @@ HANDOVER FOR A NEW CONVERSATION (rewritten at the end of the 2026-10-14 Phase 6b
     - Copy jarvis.py and test_jarvis.py to a scratch folder and run there, never in the repo (importing
       jarvis.py writes Data\jarvis.txt):  TZ=ABC+12 py -3 -I test_jarvis.py   and the same with
       %LOCALAPPDATA%\SpaceshipHUD\venv\Scripts\python.exe. Both must print "test_jarvis: OK", exit 0.
-      TZ=ABC+12 works around N13. A full run takes about a minute.
+      The TZ works around N13 ONLY if it makes the test's local time between midnight and 7 AM: TZ=ABC+N
+      means local = UTC - N hours. Pick N from the current UTC hour (e.g. TZ=ABC-8 at 19:00 UTC). If a run
+      fails on an alarm "7:00 AM" line, try another TZ and run HEAD the same way to compare.
+      A full run takes about a minute.
     - Route check: py -3 -I check_route.py <old jarvis.py> <new jarvis.py> (65 phrases). Expect no
       differences except the N14 time-stamp line ("set a timer for 10 minutes": old and new print the same).
       check_route.py lives in the scratchpads below; if they are gone, ask the user before rewriting it.
@@ -1200,6 +1225,10 @@ Found while building Phases 2-4 (new issues)
       after it (Phase 4 barge-in, 6a training) is skipped. Fails at commit 8494cee too, so not a regression.
       Workaround used: run with TZ=ABC+12 (local time before 7 AM). Fix if wanted: freeze the clock or
       accept "tomorrow" in those lines (test only, about 3 lines).
+      UPDATE 2026-10-14 (audit fixes): at 19:01 UTC, TZ=ABC+12 gives 07:01 local and the run failed EARLIER,
+      at the "Alarms set for 7:00 AM ... and 8:00 AM" assert (HEAD l.1247); TZ=ABC+3/+5/+9/-4 failed at the
+      "already have an alarm for 7:00 AM" assert (HEAD l.1729). Same on HEAD, so not a regression.
+      TZ=ABC-8 (03:01 local) passed. So no fixed TZ always works; the real fix (freeze the clock) is worth it.
   N14. CHECK SCRIPT. check_route.py flags "remind me to cook in 20 minutes" as different although both
       sides print the same tuple (a time-based due value). route() was not touched in 6a. Treat this one
       line as noise until the script compares without the timestamp.
@@ -1503,6 +1532,9 @@ BEFORE ROUND 5: FIXING PREVIOUS ISSUES (written 2026-10-14 from the user's live 
 
   R5-6  Wake word: the normal filter plus three trained checks (user's design 2026-10-14; it replaces the
     earlier ideas). Built BEFORE R5-1 (user's order). In wake_loop() plus a training step.
+    CHANGED 2026-10-14: step 6b below (W1-W3) is REPLACED by FIX ROUND 5 N1 (before Phase 7): W2 and W3
+    are removed, and "Hey" then "Jarvis" within 5 s takes their place. Step 6a (training) stays, with
+    one change: the "hey_pause" style becomes "hey" (your bare "Hey"); see N1.
     How openWakeWord 0.6.0 really works (read in the installed library, model.py / custom_verifier_model.py):
       - hey_jarvis gives ONE score per 80 ms for the whole phrase. There is no separate "Hey" or "Jarvis" model.
       - A "custom verifier" is a tiny logistic-regression model (scikit-learn, already in the venv) on the
@@ -2006,12 +2038,318 @@ PHASE 6 LIVE TEST CHECKLIST (added 2026-10-14; the ONE live test after all of Ph
       "compaction:" log line (counts only). A game or LITE must not start it.
   6j: every turn logs one "route:" line; paste ten of them with their "timing:" lines.
   6i: watch Task Manager > GPU during a few turns (then the 6i nvidia-smi measurement, on approval).
+  FIX ROUND 5 (added 2026-10-14 at the user's request; built in the repo, comes with the same copy to live):
+    - Setup: Control Center WAKE WORD: press STRICTER until it shows 0.50 (live was 0.30). Then TRAIN once
+      (about 2 min: "Hey Jarvis", then "Hey", then bare "Jarvis", then 15 s of quiet). Paste the "train:"
+      lines and the "wake: your checks:" line (should list Hey Jarvis, Hey, bare Jarvis).
+    - F1 "Hey Jarvis" 10 times at normal voice from your seat: 9+ wake. Then 10 times softly: count them.
+      Paste the "wake word heard (score, way)" lines (way = W0, HV or HJ).
+    - F2 "Hey" ... 2 seconds ... "Jarvis": wakes (way HJ). "Hey" ... 7 seconds ... "Jarvis": does NOT wake.
+    - F3 bare "Jarvis" alone, 5 times: does NOT wake.
+    - F4 30 minutes of normal room talk / a video with speech near the mic, no wake word: 0 wakes.
+    - F5 a long sentence not meant for him (after a wake, ramble 25+ words with no "you" or question): he
+      asks "Were you talking to me?" once. "Yes" -> he answers what you said. Again, "No" -> he stops.
+    - F6 a question after a wake ("what's the name for it?"): answered as before, no "Were you talking to me?".
+    - F7 if a "transcript: dropped (loop)" line appears, paste it; a reply of "Okay. Okay. Okay. ..." must not.
 
+
+--------------------------------------------------------------------------------------------------------
+FIX ROUND 5   BEFORE PHASE 7: HE WAKES ON NOISE   (added 2026-10-14 from the user's feature list)
+--------------------------------------------------------------------------------------------------------
+  Order: after the PHASE 6 LIVE TEST, before any Phase 7 work. Same rules as every phase (one at a time,
+  tests, the user's live test, commit only on the user's word).
+  The user's report: "it keeps picking up noise and misreading it as me speaking". The user's design:
+  remove the bare "Jarvis" and the "Hey ... Jarvis" (pause) ways; make everything stricter: an easy check
+  for "Hey" (0.1), then a harder check for "Jarvis" (0.35) that must come within 5 s; keep the normal
+  "Hey Jarvis" check at about 0.35 as the backup.
+
+  What the code does TODAY (read 2026-10-14, jarvis.py):
+    - Only W0 exists: one hey_jarvis score per 80 ms >= JarvisWakeSensitivity (0.35 live), with the Silero
+      speech filter at 0.5 (wake_loop ~l.4069-4089). R5-6 step 6b (W1-W3) was NEVER built; only the
+      training (6a, train_wake + WAKE_STYLES) is. So the bare-"Jarvis" and pause ways cannot be the cause yet.
+    - Other places that can turn noise into "you speaking": the follow-up window (no wake word needed,
+      Fix Round 3), barge-in "voice" mode (any 0.56 s of speech while he talks), and Whisper phantom lines
+      (partly filtered in Round 4).
+  So the first step is to find WHICH path fires, not to guess.
+
+  N0. Measure (no code; the user pastes lines, Claude never reads the log)
+    For 2-3 false wakes, paste the lines around them: "wake word heard (0.xx)" or "barge-in (...)", the
+    "transcript:" and "route:" lines. Plus the "wake: best 0.xx this minute" lines from 10 quiet minutes.
+    This says: W0 at 0.35-0.5 (the threshold is too low for this room), the follow-up window, or barge-in.
+    EVIDENCE ALREADY IN (chat history the user pasted 2026-10-14, live build 301c22f, the user never said
+    "Hey Jarvis" in any of them):
+      - 3 false wakes in about 45 minutes (at +0, +32 min, +45 min), all room speech ("Okay. So that's
+        it. I'm going to go ahead...", "...in the mail for me.", "I'm still in four loop, so what's the
+        name for it?"). None contains "Jarvis".
+      - Each came 13-32 minutes after his last reply, so NOT the follow-up window (10 s) and NOT barge-in
+        (only while he speaks). That leaves W0, the normal check at 0.35, firing on room talk. This
+        supports raising the backup to 0.5 (N1). Still wanted: the "wake word heard (0.xx)" lines of these
+        three, to see their scores.
+      - The first transcript ends in "Okay." about 12 times: a Whisper repetition loop (N2).
+      - He answered all three as if spoken to him, with jokes, and promised an action he cannot do (N3, and
+        Phase 10).
+
+  N1. R5-6 step 6b REDESIGNED (replaces W1-W3 above; the user's design + Claude's recommendation,
+      approved by the user 2026-10-14)
+    - Removed: W2 ("Hey ... Jarvis" as one style) and W3 (bare "Jarvis" wakes by itself).
+    - "Hey" NEVER wakes him. It only makes him wait up to 5 s for "Jarvis". Nothing is recorded or
+      transcribed during the wait.
+    - The three trainings (WAKE_STYLES becomes "hey_jarvis", "hey", "jarvis"; the "hey_pause" style and
+      any old wake_hey_pause.pkl are dropped, never loaded):
+        1. "Hey Jarvis"  6 times -> wake_hey_jarvis.pkl  (YOUR voice saying the whole phrase)
+        2. "Hey"         6 times -> wake_hey.pkl         (NEW: your "Hey" alone)
+        3. "Jarvis"      6 times -> wake_jarvis.pkl      (your "Jarvis" alone)
+        then 15 s of normal talk (the "not him" examples; "okay", "so", "all right" are good to include,
+        since those woke him in the log).
+    - Why "Hey" needs its own training: openWakeWord's shipped model only knows the whole phrase "Hey
+      Jarvis" and scores mostly on the "...Jarvis" part, so its score is a poor "Hey" detector. Your own
+      "Hey" check is. Training detail: the "hey" and "jarvis" clips are cut where the speech filter hears
+      speech, not where the shipped score is above 0.1 (a bare "Hey" may never reach 0.1). The checks then
+      run only on frames where the speech filter hears speech (silence costs nothing).
+    - The ways to wake (any one):
+        HJ. Your "Hey" check >= 0.5 (JarvisWakeEasy; easy) opens a 5 s wait (JarvisWakeGap = 5); inside it
+            your "Jarvis" check >= 0.35 (JarvisWakeHard; the user's number, tuned from the training numbers)
+            and speech heard -> he wakes. Log "wake word heard (0.xx, HJ)".
+        HV. The shipped score >= 0.1 AND your "Hey Jarvis" check >= 0.5 (a soft "Hey Jarvis" in your
+            voice). Log "(0.xx, HV)".
+        W0. Backup: the shipped score >= 0.5 (JarvisWakeSensitivity 0.35 -> 0.5; the user sets it in the
+            Control Center, or the default changes), as today otherwise. Log "(0.xx, W0)".
+      Noise must now pass the shipped model at 0.5, or fool YOUR "Hey" and then YOUR "Jarvis" in order
+      within 5 s, or the shipped model AND your "Hey Jarvis" check together.
+    - Also stricter (cheap): S1. a score must hold 2 frames in a row (160 ms), not one. openWakeWord's
+      predict() has this built in (patience); check the name in the installed 0.6.0 first.
+    - Do these exist ready-made? The shipped "hey_jarvis" model does (W0, no training). The three checks
+      do not: they are made from YOUR voice on purpose (the docs: tuned to one speaker and room). Training
+      is built (6a, Control Center > WAKE WORD > TRAIN), about 2 minutes, once; again after a mic change.
+      It reaches the live skin only with the copy to live. Train AFTER this round is built (the "hey"
+      style is new).
+    - Unverified until trained: whether your "Hey" check separates "Hey" from "okay" / "hey there"
+      well, and the right JarvisWakeHard. If a style's check cannot be made, that way stays off and the
+      others still work; with no .pkl at all only W0 (at 0.5) + S1 remain.
+    Cost: logistic regression on features openWakeWord already computes, only while speech is heard; no
+      Whisper, no GPU. Measure idle CPU before / after (6j-style lines).
+    Tests (fakes): "Hey" alone never wakes; "Hey" then "Jarvis" within 5 s wakes; "Jarvis" after 6 s does
+      not; "Jarvis" without "Hey" does not; HV at shipped 0.2 + check 0.6 wakes, check 0.3 does not; W0 at
+      0.45 does not, at 0.5 for 2 frames does, for 1 frame does not; no .pkl -> W0 + S1 only; a
+      wake_hey_pause.pkl present is never loaded; JarvisWakeEasy=0 -> HJ off.
+    Live test: train; B1 (10x "Hey Jarvis" normal voice, aim 9+; 10x soft); "Hey ... (2 s) ... Jarvis"
+      wakes; a bare "Jarvis" does not; B2 (30 min of normal room talk / video / music: 0 false wakes; the
+      log above had 3 in 45 min).
+    Rollback: git revert; JarvisWakeSensitivity back to 0.35; delete Data\wake_*.pkl.
+    Risk: stricter = a soft "Hey Jarvis" from far away may need a second try. The training numbers and B1
+      set the trade-off.
+
+  N2. Whisper repetition loops ("Okay. Okay. Okay..." x12 in the log; about 10 lines in transcribe(), ~l.920)
+    - faster-whisper gives each segment compression_ratio, avg_logprob and no_speech_prob. Drop a segment
+      Whisper itself rates as a loop or as silence (its own defaults: compression ratio above 2.4; or
+      no-speech above 0.6 with avg log-prob below -1). Then collapse any sentence repeated 3+ times in a
+      row into one. condition_on_previous_text is already False.
+    - Log "transcript: dropped (loop)" with counts only, never the words.
+    - Check the attribute names in the installed faster-whisper first (Context7 + the venv).
+    Tests: a fake segment list with a 2.6 ratio is dropped; "Okay. Okay. Okay. Okay." -> "Okay."; a normal
+    sentence is unchanged.
+
+  N3. Room talk answered as if it were for him (decide with the user before building)
+    - After N1, far fewer of these reach him. For what still does: a transcript that is NOT a command,
+      NOT a question to him and is long room talk (e.g. 25+ words, no "you" / his name) is handled one of
+      two ways, the user picks: (a) dropped silently, log "transcript: dropped (not for me)"; or (b) one
+      short "Were you talking to me?" with a 3 s follow-up.
+    - Commands and questions are never dropped by this.
+    Tests: the three log lines above -> (a) or (b); "what's the weather like today" -> answered.
+
+
+--------------------------------------------------------------------------------------------------------
+FIX ROUND 6   LIVE FINDINGS AFTER THE FR5 COPY (2026-10-14 evening)   MUST BE FIXED BEFORE PHASE 7
+--------------------------------------------------------------------------------------------------------
+  The user's first run after copying FR5 to live (copy ~18:25, JARVIS restarted 18:49). RECORDED ONLY:
+  the user said not to plan these fixes yet. They are to be solved by the REDESIGN (the plan that follows
+  this round) rather than patched one by one; each one is a test case for it. None may stay open at Phase 7.
+  The user's list (their words, shortened):
+    L1. "Stop", "shut up", "be quiet" do not interrupt him while he speaks. Whisper should keep listening
+        for them while he talks. In listening mode they should be checked FIRST, and anything meaning
+        "stop / be quiet" means he simply does not speak.
+    L2. "Set the volume to 20%" can still fail.
+    L3. Older issues are still there (not itemised by the user).
+    L4. He hallucinates the user saying things, e.g. "Thank you."
+    L5. "Hey ... Jarvis" does not work well ("was it trained?").
+    L6. Control Center says he is limited to 3 follow-ups.
+    L7. More places where the Control Center does not match the new changes.
+    L8. Chat replies appear instantly instead of typing at speaking speed.
+    L9. "3 Jarvis's keep on waking him up" (false / repeated wakes).
+    L10. He keeps responding to things and hallucinating nonsense.
+  What the pasted log shows (facts read from the user's paste; Claude still never reads Data\):
+    - 18:46-18:49 was the OLD code (wake lines have no way tag). After the 18:49 restart: "wake: your checks:
+      none" (not trained yet, so HV and HJ are off: explains L5), "whisper base.en" (not small.en),
+      model llama3.2:3b. Wakes at 0.41 and 0.50 as W0: the sensitivity is still the live 0.30 (STRICTER
+      not pressed yet).
+    - L2: "About 20%." (a misheard / half-heard command) went to chat and got a joke; the next "Set the
+      volume to 20%." worked (action: volume set 20).
+    - L4: "Thank you." transcribed after a 0.31 wake (old code) and answered by the model.
+    - L9: five wakes with no transcript after them (18:46:55, 18:48:03, 18:48:22, 18:55:46, 18:55:59).
+    - L10: the model invented a meeting with "the Emperor at 19:00", then changed the story when asked;
+      "Okay. Oh, okay." in a follow-up got an invented reply; "Were you talking to me?" was answered
+      "I was. Just chatting with you". Follow-up listening opens after every reply (click -> listening
+      0.4 s), so room sound right after a reply reaches the model.
+    - Fixed-rule turns ("Never mind.") were fine (route: say via rule, about 2 s).
+  Control Center facts (control.lua, read 2026-10-14): FOLLOW-UP row says "3 in a row at most" (the code
+    does stop at 3: jarvis.py "follow < 3"); WAKE TRAINING row still says "Hey ... Jarvis" (FR5 changed it
+    to "Hey"); no rows for JarvisWakeEasy / JarvisWakeHard / JarvisWakeGap / JarvisFollowUpWait.
+
+
+--------------------------------------------------------------------------------------------------------
+REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6; done BEFORE Phase 7)
+--------------------------------------------------------------------------------------------------------
+  Full plan with sources: C:\Users\Senai\.claude\plans\linear-rolling-shell.md (kept outside the repo).
+  Why: turn() is one long chain of special cases; nothing decides once what kind of turn it is, so noise,
+  hallucinated "Thank you.", misheard commands and info questions all reach the chat model (L1-L10).
+  Shape (all in jarvis.py, a new PIPELINE section, same process and threads):
+    listen -> Whisper -> [H] hearing gate (drop noise / known Whisper phrases on weak evidence)
+      -> [C] control check FIRST (stop, shut up, be quiet, never mind, yes / no, new topic, show log)
+      -> [S] understand(): route() + fix_route() (0 ms) -> MiniLM embedding sorter (LANE_EXAMPLES, a
+         few ms) -> ONE JSON model call only when unsure (interpret() extended: lane + corrected text,
+         sees the last exchange, accepted only through the existing said-words checks) -> unsure: chat
+      -> lane: command (code runs it, 0 model calls) | info (data only; no data = fixed reply, no model)
+               | chat (talk; may only OFFER an action) | task (several steps; stub until Phase 7 / S2-2)
+         each lane = its own prompt + context recipe + tools on the SAME loaded model, same num_ctx
+      -> a lane may reroute once (never twice) -> [O] one output sink (pop-up types at speaking pace)
+      -> [F] follow-up gate (chat / info only; JarvisFollowUpMax, the Control Center shows the same value)
+  User decisions 2026-10-14:
+    - Stop while speaking: Vosk keyword spotter (new dependency, installed only at slice F with approval)
+      with NO echo: echo cancelling fed with his own played samples + ignore a stop word he is saying
+      himself + live echo test (10 replies with "stop" on speakers: 0 false stops; 10 real stops: >= 9).
+      No Windows wheel for an echo canceller -> stop and ask the user.
+    - Model: qwen3 4B for all lanes (user pulls it; tag and think:false checked with Context7 first;
+      measured against the current model on the phrase list before switching).
+    - Rollout: replace directly, no old/new switch. Each slice its own commit; rollback = git revert.
+  Slices (each: approval -> build -> tests -> user live test -> commit on the user's word):
+    M0 baseline (CPU / RAM / VRAM, timing lines) + replay test of today's routes
+    A  hearing gate + control check (L4, L9 empty wakes, L10 noise, L1 between replies)
+    B  understand() + embedding sorter + last-exchange context (L2)
+    C  lanes; info no-data reply (L10)
+    D  reroute + follow-up gate + Control Center sync (L6, L7)
+    E  output sink, typing at speaking pace (L8)
+    F  stop while speaking: Vosk + echo cancelling (L1)
+    G  wake: user first sets STRICTER 0.50, TRAIN, Whisper small.en; code only if still needed (L5, L9)
+    H  clean-up of code the slices left unused; then re-run the Phase 6 checklist + F1-F7 (L3)
+  Phases 7-10 and Stage 2 then build on lanes: P7 settings = command entries / task lane, P8 = [F],
+  P9 = info source "self", P10 = per-lane prompts (hand-reviewed), S2-1 = this design, S2-2 = task tool.
+  Known gaps (later): smart end-of-turn detection, speaker ID, hardware-grade echo cancelling.
+  M0 BASELINE (measured 2026-10-14 evening, JARVIS pid started 18:49, idle, no Ollama model loaded):
+    - GPU: RTX 5070 Laptop, 12231 MiB; 150 MiB in use, 0 % busy (JARVIS has a CUDA context; Whisper base.en).
+    - JARVIS (pythonw): 1806 MB RAM; idle 5.0 % of ONE core over 10 s (20 logical cores). Ollama: 75 MB.
+    - Per-turn timings: from the 6j lines in the user's next pasted log (Claude does not read Data\).
+    - Route check (this session's scratchpad m0\check_route.py = the 65-phrase check + 10 FR6 phrases):
+      HEAD vs working copy (FR5): 75 phrases, 0 differences; kinds: chat 43, act 16, remind 11, notes 2,
+      say 2, fact 1.
+    - FR6 phrases today: "about 20%", "thank you", "okay oh okay", "shut up", "be quiet", "that's enough",
+      "stop", "were you talking to me", "do I have a meeting tonight" ALL route to chat, ask_ai False,
+      room_talk False. (ENDERS only catches stop words inside a follow-up.) "set the volume to 20%" -> act
+      volume. These are the "before" values for slices A-C.
+  MODEL CHECK (2026-10-14): qwen3:4b-instruct-2507-q4_K_M pulled (2.5 GB; non-thinking build, accepts
+    think:false). 3 test prompts vs llama3.2:3b: about the same speed (0.2-1.0 s), +600 MiB VRAM (3182 vs
+    2594 MiB in use); read "About 20%." after a volume talk as a command (llama3.2: "remind"). JarvisModel
+    NOT switched yet: the full phrase-list measurement is part of slice B.
+  BRANCH IDEA (user, 2026-10-14: statement -> category -> subcategory -> task): evaluated.
+    - Used by current assistants as a NAME structure (Alexa domain -> intent -> slots, Rasa retrieval
+      intents, hierarchical semantic routers), but they classify in ONE step, not level by level.
+    - Level by level multiplies the errors (3 levels at 95 % each = 86 %) and adds a delay per level when
+      a model decides; with about 30 actions one flat step is more accurate and faster.
+    - Adopted only as naming: every action gets a path lane.group.action (command.volume.set,
+      info.pc.temps, chat, task.settings.multi). route() / the sorter / the JSON call still return the
+      final action in one step. Costs nothing at run time; makes the Control Center list, logs and
+      Stage 2 additions easier. Added in slice B (Decision.path) and C (LANES registry).
+  SLICE A BUILT 2026-10-14 (uncommitted, waiting for the user's live test):
+    - ENDERS now ends ANY turn quietly (was: follow-ups only) and also catches shut up, be quiet,
+      that's enough, stop it / stop talking, shush, hush, and repeats ("Thank you. Thank you."). Runs
+      after the offer yes / fact checks and before every route, so these never reach the model (L1, L4).
+    - Nothing heard after the WAKE WORD ends quietly (L9); a click still gets "Sorry, I didn't catch
+      that." once. turn(tier, follow, woke): the wake loop and barge_turn pass woke=True.
+    - Not added (kept behaviour): bare "okay" / "yes" stay normal answers, because after a chat question
+      they mean yes. "Okay oh okay" still goes to chat; slice B decides it.
+    - Changed tests: a new-turn "Never mind." now ends quietly (was: "Okay, never mind.").
+    - COURTESY (the user, 2026-10-14: "thank you" still gets "you're welcome"; its own category of brief,
+      proper 1-3 word replies that add nothing): a table COURTESY checked just before ENDERS, from code,
+      no model, no follow-up: thanks / thank you / cheers (also "okay thanks Jarvis", repeats) ->
+      "You're welcome."; bye / goodbye / see you -> "Goodbye."; good night -> "Good night."; sorry / my
+      bad -> "No problem.". "No thank you" stays silent (a decline). One guard for L4: a "Thank you."
+      right after a WAKE that Whisper was unsure of (heard_score < -1) is treated as noise: silence.
+      Words outside the table ("thanks for the help with my essay") go on as before. Lane name later:
+      courtesy (part of [C], not a model lane).
+      Greetings added (the user, 2026-10-14): hello / hi / hey / hiya / howdy (+ there, + Jarvis) ->
+      "Hello, <name>."; goodbyes and good night end with the name too ("Goodbye, <name>."). The name is the
+      new setting JarvisCallMe in Settings.inc (empty = no name; no Control Center row yet, edit the
+      file). "Good morning / afternoon / evening" stay the briefing.
+    - Checks: py_compile OK; test_jarvis OK with py -3 and the venv, TZ=ABC-4 and ABC-1; route check 75
+      phrases, 0 differences.
+  SLICE B BUILT 2026-10-14 (uncommitted, waiting for the user's live test):
+    - understand(text, model, quiet, room) -> Decision(kind, action, target, prompt, via). It holds what
+      turn() did between "route" and "act": route() + fix_route(), the room-talk check, ask_ai +
+      interpret, and the "Did you say ...?" check when Whisper was unsure. Same behaviour; turn() calls it
+      once. via is rule / context / ai-reread and shows in the 6j route line.
+    - L2 fix (level_fix, code, no model): a lone level that route() sent to chat ("About 20%.", "twenty
+      percent", "around 30"). Right after a volume / mute change (did[], within ACTIVE_TTL 120 s) it sets
+      the volume; otherwise only "N percent" counts and he asks first: "Did you mean the volume at 20
+      percent?" (the normal yes / no confirm). A bare number with no volume talk ("Seven.") stays chat.
+    - CHANGED FROM THE PLAN: Decision.path and the embedding sorter move to slice C. Without lanes they
+      would change nothing (code with no effect yet). think:false not added: llama3.2 and the qwen3
+      instruct-2507 tag do not think, so it changes nothing; add it only if a thinking model is chosen.
+    - MODEL CHECK (interpret() only, 148 phrases = route check + r4 list + FR6, TZ=ABC-4, scratchpad):
+        llama3.2:3b  median 0.24 s, max 1.76 s, VRAM 2370 MiB; commands read like the rules 29/76;
+                     chat lines turned into a command 3 (new song please, two alarm questions)
+        qwen3 4B     median 0.26 s, max 0.50 s, VRAM 2896 MiB; 53/76; 1 (new song please)
+      Only 4 of the 148 really reach the model (ask_ai). There qwen3 missed "Set the volume to about
+      20%." (llama3.2 read it); level_fix now catches the plain "About 20%." without the model.
+      Chat answers not measured yet. JarvisModel NOT switched: the user decides.
+    - Checks: py_compile OK; test_jarvis OK with py -3 and the venv, TZ=ABC-4 and ABC-1; route check 75
+      phrases, 0 differences (the checker now freezes the clock: "in 20 minutes" differed by microseconds).
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
   BEFORE STARTING (the user, 2026-10-14): the PHASE 6 LIVE TEST CHECKLIST must be done first. If it is not,
   stop and do that with the user.
+  DECIDED by the user 2026-10-14 (Q&A before Phase 7; these override the tables below where they differ):
+    - 7-0 action table: YES, build it first. Show the user the exact layout for approval before building.
+    - 7a microphone: all of mute/unmute (mute asks first), level (set / up / down a bit), which mic and
+      switch mic (JarvisMic only). NOT by voice: wake sensitivity / "wait longer" (not picked).
+    - 7b Bluetooth: connect / disconnect PAIRED AUDIO devices only (the user has headphones / earbuds).
+      Other device types and Wi-Fi networks: no. Radio on/off + device list as in 7b. The connect
+      experiment is done with the user present on their headphones.
+    - 7c: brightness (main screen is a LAPTOP panel), settings pages, dark / light mode. NOT: Wi-Fi on/off,
+      sound output switch.
+    - JARVIS's own settings by voice: stealth / mute himself, and style / voice ("be brief", "change your
+      voice"). Style / voice belongs to PHASE 10: hold it until the user's Phase 10 hand review. NOT:
+      follow-up on/off by voice.
+    - 7d: the 2026-10-13 list stands (power mode, screenshot, show desktop, recycle bin, start-up apps,
+      Windows Update check, storage).
+    - Ask first ("Confirm with yes"): mic mute, Bluetooth off, empty recycle bin (plan), PLUS power mode
+      changes, Bluetooth connect / disconnect, and stealth / mute himself.
+    - Reply wording: state the real result read back from Windows ("Brightness is at 60 percent.",
+      "Connected to <device>."). No quips (tone is Phase 10).
+    - "A bit" = 10 percent (mic level, brightness).
+    - "Take a screenshot" = full screen, saved (Win+PrintScreen -> Pictures\Screenshots).
+  DECIDED by the user 2026-10-14, second round (answers ALL open Phase 7 customization questions):
+    - Headphones: NOT typed into a setting by hand. A Control Center row (JARVIS SETTINGS, 7e) lists the
+      PAIRED audio devices; for each the user sets two things: the Bluetooth name (picked from the list
+      Windows gives) and the name the user will call it ("headphones", "airpods", any words). Several
+      devices allowed. "Connect my airpods" matches the user's own name first, then the Bluetooth name
+      (best_app() style fuzzy match). Stored as JarvisBtNames = "<bt name>=<spoken name>;..." in
+      Settings.inc (device names only, not logged).
+    - Brightness can go to 0 percent (no floor).
+    - Dark / light mode switches BOTH the apps and Windows itself (both registry values).
+    - Undo covers every new change to a number or an on/off switch: brightness, mic level, mic mute,
+      Bluetooth on/off and connect/disconnect, dark mode, power mode, his own stealth / mute. "Undo that"
+      puts the previous value back (read from Windows before the change), the same can_undo / undo_last
+      path the alarms use. Actions that cannot be undone (recycle bin, screenshot) say so.
+    - Power mode: he may NEVER pick a mode that stops his own functions. Allowed: the Windows modes that
+      keep the CPU, GPU, microphone and network running (Best performance, Balanced). Battery saver /
+      a plan that turns the GPU or network off is refused with the reason. The list of allowed plan ids is
+      read from the machine once and checked by code, never by the model.
+    - He can also OPEN: Wi-Fi settings, apps (Installed apps / Startup apps pages), storage settings
+      (fixed ms-settings: links in the settings-pages table).
+    - Yes words: the SAME confirmation as every other command - yes, go ahead, continue, proceed, and
+      anything meaning yes. One shared YES set (jarvis.py l.1779). "continue" and "carry on" are missing
+      from it today and are added there (so every confirmation gains them, not just Phase 7).
+    - Yes window: as the existing confirmations (unchanged).
 --------------------------------------------------------------------------------------------------------
 Fixes:  issue 13 ("or anything else")
         issue 20 (microphone settings, Bluetooth settings, "connect to ___")
@@ -2153,6 +2491,21 @@ Rules for every new action
   backlight, Lenovo fan and performance modes. For these he opens the page or says he cannot.
   The near-miss catch (1d) learns the new nouns: airplane, hotspot, screen, power, recycle, screenshot.
 
+7e. Control Center: JARVIS split into sections (added 2026-10-14 from the user's feature list; Lua only,
+    about 30 lines in control.lua rowsJarvis(); no new behaviour, the same jset() writes)
+    Under the JARVIS heading, three sub-headings; the existing rows are only moved:
+      JARVIS SETTINGS          how he runs: SERVICE, JARVIS on/off + auto-start, MODEL, FAST MODEL,
+                               WHISPER, MIC, WAKE WORD (+ TRAIN), BARGE-IN, STOP KEY, follow-up, AI router.
+      JARVIS PERSONALIZATION   who he is: personality / style, the about-me note, hologram colours, and
+                               later the name (Phase 10) and the voice (Phase 10).
+      JARVIS MEMORY            "N facts remembered" + OPEN (the memory file in Notepad, like LOG opens the
+                               log) + FORGET ALL (asks first, as today's Forget()). He re-reads the file
+                               on the next question, so a hand edit takes effect without a restart
+                               (load_memory() reads the file each call; check before building).
+    A per-fact list with delete buttons is bigger: Stage 2 (S2-7).
+    Tests: Lua syntax check (PART E); every row from before is still present exactly once (a scratch
+    script lists the row names before and after). Live: each row still works.
+
 Tests (fakes)
   - "airplane mode off" turns back on only the radios the fake recorded as turned off by him.
   - Recycle bin, refresh rate and airplane mode on do nothing without a yes.
@@ -2205,6 +2558,37 @@ Small and independent: it can be done at any point.
   - The boot sound is played by Rainmeter itself, which has no volume control either. Smallest fix: a
     quieter copy of the wav, made once by a small script, with the original kept beside it.
   - BootSound=0 turns the boot sound off completely.
+
+8c. Quiet during class (added 2026-10-14 from the user's feature list; about 25 lines)
+  - The HUD already writes Data\calendar.txt every 10 min (E <start>|<end>|<allday>|<label>|<title>) and
+    jarvis.py already reads it (l.352). No new calendar plugin or login is needed.
+  - Setting JarvisQuietCalendar = the label of the calendar that holds the classes (e.g. "School"); empty =
+    off. While a timed (not all-day) event of that calendar is running, he is QUIET: he still wakes and
+    works, but every reply is the HUD pop-up only, as in STEALTH. No sound, no chime.
+  - "You can talk" / "speak normally" (or a click on a Control Center button) ends QUIET for that event
+    only. The next class starts quiet again.
+  - Alarms during QUIET: pop-up only (ASK THE USER before building: is a silent alarm in class OK?).
+  - Event titles are not logged and not spoken; the log says "quiet: class until 10:45".
+  Tests: a fake calendar.txt with an event now -> quiet; an all-day event -> not; "you can talk" -> speaks
+  until the next event; empty setting -> never quiet.
+
+8d. Type to him (added 2026-10-14 from the user's feature list; about 40 lines)
+  - A text box (Rainmeter's built-in InputText plugin) on the hologram's right-click or in the Control
+    Center. Enter writes "ASK <unix> <text>" to Data\jarvis_cmd.txt, the same file a click already uses.
+  - The daemon runs that text through the SAME turn as speech (route(), confirmations, the claim check),
+    with no Whisper and no listening. The reply is shown as text, and spoken unless muted / QUIET.
+  - Typed text is treated like spoken text: untrusted. Cut at 500 characters; one line; a "yes" for a
+    confirmation must come from the same channel (typed question -> typed yes, or a click).
+  Tests: an ASK line reaches route() unchanged; a too-long line is cut; ASK while busy is refused with
+  "One moment, I'm busy." (as a click is).
+
+8e. "Think hard about this" (added 2026-10-14; about 15 lines)
+  - A question that begins or ends with "think hard / think really hard (about this)" goes to a bigger
+    model in Ollama (setting JarvisModelDeep, empty = off; e.g. a 14B that the user has pulled). pick_model()
+    gets one more tier. He says "Thinking it over." first. Everything else keeps today's model.
+  - The deep model is loaded only for that question and unloaded after (Ollama keep_alive 0), so it does
+    not hold the graphics card. Measure first: its load time and whether it fits next to Whisper on this GPU.
+  Tests: the phrase picks the deep tier and is stripped from the question; no setting -> normal model.
 
 Tests (fakes)
   - Speech at 2 s is taken. Speech at 5 s without the name is dropped; with the name it is taken.
@@ -2377,6 +2761,30 @@ rules: no lists / symbols, numbers as said; the speakable() cleaner before speak
 smoother voice: measure gaps from the 6j lines first, join very short sentences, fades, JarvisVoiceSpeed
 0.8-1.2). Specs: the 6e and 6g sections in Phase 6. The voice part is not personality, so it does not wait
 for the review below; it still needs the user's word to start.
+Also holds (added 2026-10-14 from the user's feature list):
+  - Voice blending ("make the voice smoother"): this is 6g above (joins, fades, gaps measured first). The
+    larger version (streaming speech with overlap) is Stage 2, S2-6.
+  - Custom Kokoro voices (the user, 2026-10-14; idea, not planned in detail): add new voices for him,
+    from blending the shipped Kokoro voice packs (mixing their style vectors, cheap) up to training a
+    new voice pack from recordings (much larger; needs a check of what tools exist then, the user's
+    approval, and only voices the user has the right to use). A Control Center row picks the voice.
+  - His name: setting JarvisName (default "Jarvis") used in the identity line, the replies and the HUD
+    text. Part of the hand review below. The WAKE word stays "Hey Jarvis" until Stage 2, S2-4 (a new wake
+    word needs a newly trained model), and he says so if the name is changed.
+  - EVIDENCE for the review (chat history the user pasted 2026-10-14; room talk that was not for him, see
+    FIX ROUND 5 N0). Not built, only recorded:
+      a. He jokes about unclear input instead of asking: "four-loop fever", "don't hold your breath".
+      b. He riffs on room talk instead of "Were you talking to me?" (FR5 N3 decides the mechanics; the
+         wording belongs here).
+      c. He invents an action he cannot do: "I'll make sure to get that package to you". The CLAIM guard
+         (l.1793) only catches done-claims for alarm / timer / reminder / volume, and widening it was
+         rejected above as an output cut. So the honesty rule in each mood must cover promises too ("I
+         can't do that, but..."). The user may reconsider a narrow guard for "I'll make sure / I will"
+         + an action he has no tool for.
+      d. He asks speculative multi-choice questions ("launch a spacecraft, start a new project, or just
+         get ready for a long day?") on a ramble.
+      e. He made up a meaning for a mis-heard phrase ("four loop" was probably "for loop") instead of
+         saying he didn't catch it.
   YOUR REVIEW FIRST (the user, 2026-10-14). Before any Phase 10 code, Claude gathers everything the model
   is told about who he is and how he talks: the SYSTEM text, the MOODS sentences, the identity line, the
   6e style rules, the persona card draft, and how the ABOUT THE USER note is used. Claude TELLS the user it
@@ -2486,7 +2894,8 @@ PART F   NEW SETTINGS THIS PLAN ADDS
   JarvisDuckLevel           30        3       percent of the current volume while he listens
   JarvisStopKey             End       4      the keyboard key that stops him; never wakes him
   JarvisMic                 (empty)   3       part of an input device name; empty = Windows default
-  JarvisWakeSensitivity     0.5       3       EXISTS. Gets a Control Center row
+  JarvisWakeSensitivity     0.5       3       EXISTS (live is 0.35). Gets a Control Center row. FR5 N1:
+                                              back to 0.5, the backup way only
   JarvisBargeIn             wake      4       off | wake | voice
   JarvisPersonality         natural   6       EXISTS. New value "natural"; a set value is not changed
   JarvisFollowWindow        3         8       seconds to start a follow-up without his name
@@ -2497,6 +2906,12 @@ PART F   NEW SETTINGS THIS PLAN ADDS
   JarvisLogHours            24        9       how far back the system log is read by default
   JarvisLearn               ask       6       ask | off: offers to remember a fact you state about yourself
   JarvisWatch               1         9       silent pop-up warnings from a once-a-minute check; 0 = off
+  JarvisWakeEasy            0.5       FR5     your trained "Hey" check; 0 = the Hey-then-Jarvis way is off
+  JarvisWakeHard            0.35      FR5     the trained "Jarvis" check needed after the "Hey"
+  JarvisWakeGap             5         FR5     seconds after "Hey" in which "Jarvis" counts
+  JarvisQuietCalendar       (empty)   8       label of the class calendar; empty = never quiet
+  JarvisModelDeep           (empty)   8       bigger model for "think hard"; empty = off
+  JarvisName                Jarvis    10      the name he uses for himself (not the wake word)
 
   How a new setting reaches Settings.inc: check first whether jset in control.lua can add a key that is
   not there yet. If not, add default lines to the repo's Settings.inc and view the diff with
@@ -2559,3 +2974,194 @@ Lenovo graphics switch. Both are marked as experiments in Phases 7b and 2c. Also
 Windows switches in 7d and the counters and event numbers in Phase 9. They are written from memory and
 each one gets a read-only trial on this machine before it is built. The 10-minute alarm cap and
 the 0.5 s speech length in Phase 4 are choices, not sourced values.
+
+
+========================================================================================================
+STAGE 2   THE LARGER IDEAS (added 2026-10-14 from the user's feature list; AFTER Phases 7-10 are done)
+========================================================================================================
+Why a separate stage: each item here is big, crosses several files or systems, or brings in a new
+service. None starts until Phases 7-10 are built and live-tested. Each item gets its own plan (goal,
+scope, non-goals, acceptance, validation, risks, rollback; CLAUDE.md section 3) and the user's approval.
+The small parts of the same list are already in: Fix Round 5 (wake on noise), 7e (Control Center
+sections + memory row), 8c (quiet in class), 8d (typing), 8e (think hard), Phase 10 (name, smoother voice).
+
+Rules that hold for all of Stage 2
+  R1. Model output never authorizes an OS action by itself (CLAUDE.md section 5). A model may PROPOSE;
+      fixed code checks the proposal against a fixed list, and anything consequential asks for a yes
+      (the shared YES set).
+  R2. Low RAM / CPU: nothing new runs in the background unless measured first. Every new part is idle at
+      0 percent CPU and loads its model only when used. One Ollama model on the graphics card at a time.
+      Measure before and after (CPU, RAM, VRAM, the 6j timing lines), as CLAUDE.md section 4 asks.
+  R3. Secrets never enter git and are never printed or logged (see S2-5).
+  R4. Each item has a Control Center switch, default OFF, and turning it off returns today's behaviour.
+
+Suggested order (cheapest and most useful first): S2-1, S2-5, S2-7, S2-6, S2-4, S2-2, S2-3.
+Claude Code (S2-2) and vision (S2-3) come last, as the user asked.
+
+--------------------------------------------------------------------------------------------------------
+S2-1  ONE CLEAR PIPELINE (hear -> sort -> the right handler)
+--------------------------------------------------------------------------------------------------------
+  The user's design:
+    Whisper hears -> an interpreter sorts what was said into a few groups plus how hard it is ->
+      chat           -> the chat model; it may offer to turn the chat into a command / task, after a yes
+      very complex   -> a bigger model ("think really hard about this"; 8e is the first, small slice)
+      command / task -> a simple handler that runs a fixed Python action ("volume up by 20")
+      complex task   -> gathers the context it needs and goes to Claude Code (S2-2), saying
+                        "Executing task, one moment sir."
+  What exists today and is kept: route() (fixed rules, instant), fix_route() (near-miss), interpret()
+  (the AI fallback, Fix Round 3 Round 2), ask_ai(), pick_model(tier), meaning() + the MiniLM embedder.
+  The lesson already measured here: llama3.1:8b as FIRST reader got 75 of 97 right and turned 14
+  questions into actions. So the model must not be the first reader.
+  How others do it:
+    - Home Assistant Assist: fixed local sentences first, the LLM only for what they miss (PART H).
+    - semantic-router (aurelio-labs): each route is a handful of example sentences, embedded once; a new
+      sentence is embedded and the nearest route wins, with no LLM call. Used exactly for "skip the slow
+      model for the decision".
+    - "When to Reason" (vLLM Semantic Router paper): send only the questions that need reasoning to the
+      reasoning model, decided by an embedding classifier.
+  Design for JARVIS:
+    1. route() stays first: a clear command never waits for anything (0 ms, as today).
+    2. NEW sorter for what route() does not take: the MiniLM embedder JARVIS already loads (meaning(),
+       ~12 KB per cached sentence) compares the sentence to 10-20 example sentences per group:
+       chat | deep question | command-like | task-for-Claude. This is semantic-router's method WITHOUT the
+       package (about 40 lines, reusing vec() / meaning()). Cost: one embedding, a few ms on CPU, no model
+       load. The examples live in a fixed table in jarvis.py, like BLOCK_EXAMPLES.
+    3. command-like -> interpret() as today (the model names an intent from the fixed list, code checks).
+    4. deep -> the JarvisModelDeep tier (8e). Only when the sorter is sure OR the user says "think hard".
+    5. task-for-Claude -> S2-2, only if JarvisClaude=1, always with a yes first.
+    6. chat -> ask_ai as today. If the chat reply decides it should act, it can only OFFER: "Want me to
+       set that as a reminder?" -> a yes -> the sentence goes back through route(). The chat never acts.
+    7. When unsure (two groups close): chat. Never an action by default.
+  Measure before building: the same 97-phrase list (Fix Round 3) through the sorter: how many land in the
+  right group, and how many questions go to command-like (target: 0 to an action without a yes).
+  RAM / CPU: no new model; the embedder is already resident. The deep model is loaded only per question.
+  Risk: wrong group -> chat answers a command. Acceptable: it is the safe direction.
+
+--------------------------------------------------------------------------------------------------------
+S2-2  CLAUDE CODE FOR COMPLEX TASKS (and changes to his own code)
+--------------------------------------------------------------------------------------------------------
+  The user's design: JARVIS recognises a complex task ("change your code so you can ...", "fix that error
+  you have", "look at what I'm doing and ..."), gathers the needed context and hands it to Claude Code.
+  A Control Center switch turns it on / off (JarvisClaude, default 0, in JARVIS SETTINGS).
+  How others do it:
+    - Claude Code headless mode: `claude -p "<task>"` runs without the screen UI and prints the result;
+      --output-format json gives a result object (fields differ between sources: read the real output);
+      --allowedTools limits which tools it may use, and Bash can be limited to one command pattern
+      (e.g. Bash(py -3 test_jarvis.py)); --permission-mode controls edits; a session id can be resumed.
+      VERIFY every flag with Context7 / `claude --help` on this machine before building.
+    - Open Interpreter: asks for confirmation before running any generated code; its "safe mode" is
+      described by its own docs as giving no guarantees. Lesson: the yes before running is the real guard.
+  Design for JARVIS:
+    1. The sorter (S2-1) or a fixed phrase ("ask Claude to ...", "change your code so ...") picks a task.
+    2. Code builds a TASK BRIEF from a fixed template: the user's words, the route / error lines he
+       already holds in memory (fixed problem texts, not the log file), and which files are in scope.
+       Nothing private is added (no memory facts, no calendar, no mail) unless the user says so.
+    3. He shows the brief on the HUD and says "Send this to Claude Code?" -> yes (shared YES set).
+       Then: "Executing task, one moment sir."
+    4. Code runs `claude -p` as a subprocess with a FIXED argument list (no shell, no string built from
+       speech), a fixed working folder (the repo, never the live skin), a tight --allowedTools list, a
+       time limit, and the exit code checked (CLAUDE.md section 5).
+    5. Changes to his own code: Claude Code works on a NEW git branch (or worktree) in the repo, runs
+       test_jarvis.py, and stops. JARVIS says "Done. 2 files changed, tests OK. The diff is on screen."
+       It is NEVER copied to live, committed or pushed by JARVIS; the user reviews and does those, as now.
+    6. Result: a short summary is spoken; the full text is shown on the HUD / a file the user opens.
+  Never allowed (fixed list, code-checked): anything outside the repo folder, git push, deleting files,
+  installing packages, editing Settings.inc or Data\, network calls other than Claude's own.
+  RAM / CPU: Claude Code runs in the cloud; locally only the CLI process while a task runs (measure it).
+  Nothing runs when idle. Cost: it uses the user's Claude plan / API usage; show the task's cost from the
+  JSON result if available.
+  Risks: prompt injection from file contents into Claude Code (it only reaches the repo, and every change
+  is reviewed); a long task holding the turn (run it in the background, he stays usable, a pop-up when
+  done); cost. Acceptance: a test task ("add a comment to X") on a branch, tests run, nothing else
+  touched, the switch off = the phrase gets "Claude Code is off."
+
+--------------------------------------------------------------------------------------------------------
+S2-3  "LOOK AT WHAT I'M DOING" (computer vision)
+--------------------------------------------------------------------------------------------------------
+  The user's design: he can see the screen to help with a task.
+  How others do it: a hobby assistant switches Ollama from a fast text model to a vision model
+  (llama3.2-vision) only when asked to look, with a screenshot taken at that moment. Open Interpreter
+  runs fully local with Ollama. (Single sources; treat as ideas, not proof.)
+  Design for JARVIS:
+    - ON REQUEST ONLY: one screenshot when the user says "look at this / what I'm doing". Never a
+      continuous watch (that is the Windows Recall problem: a constant record of private screens).
+    - Two routes, the user picks per setting (JarvisVision = off | local | claude, default off):
+        local:  a vision model in Ollama (e.g. llama3.2-vision 11B, or a smaller one). Heavy on VRAM;
+                loaded only for that question, unloaded after (keep_alive 0). Measure load time first.
+        claude: the screenshot goes with the S2-2 task to Claude. It LEAVES the PC: he asks every time
+                ("This sends your screen to Claude. Go ahead?").
+    - The screenshot is kept in memory only and never saved, unless the user asks. Not logged.
+    - This changes the Phase 9f rule ("window titles are never read") for this one, asked-for moment;
+      it does not change it anywhere else.
+    - What he may DO after seeing: only offer, as everywhere (R1). Seeing is not a reason to act.
+  Risks: private content on screen (asked each time, nothing stored); a wrong reading (he says what he
+  sees, the user decides).
+
+--------------------------------------------------------------------------------------------------------
+S2-4  A NEW NAME AS THE WAKE WORD
+--------------------------------------------------------------------------------------------------------
+  Phase 10 adds the name he uses for himself (JarvisName). Waking on a new name needs a new model:
+  openWakeWord's own models were trained from 100 percent synthetic (text-to-speech) speech; a new word
+  is trained the same way on top of its shared feature part (its notebook: "under an hour"). A 2026
+  community report says the official Colab notebook no longer runs on the default runtime and offers a
+  patched one (75-90 min on Colab Pro); local pipelines need many pinned packages and ~45 GB disk.
+  Design: train once, OFF this PC (Colab or a throw-away folder), produce one .onnx file; JARVIS loads it
+  with the same Model(...) call (wakeword_models=[path]). Nothing is installed in the venv for it. The
+  Fix Round 5 checks (trained "Hey" / name checks) are retrained with the user's voice. "Hey Jarvis"
+  stays as a fallback setting until the new word reaches 9 of 10 (B1) with 0 false wakes (B2).
+  RAM / CPU: one more small onnx model only if both words are on (about the same cost as today's).
+  Risk: a home-made model is weaker than the shipped one; it must pass B1 / B2 before replacing it.
+  A model file from someone else is never loaded (same rule as the .pkl files).
+
+--------------------------------------------------------------------------------------------------------
+S2-5  ONLINE BASICS: WEATHER, NEWS (and where keys live)
+--------------------------------------------------------------------------------------------------------
+  The user asked for easy, fixed API keys for basic online info. Cheapest first: NO key at all.
+    - Weather: Open-Meteo needs no key and no account (free for non-commercial use; data from national
+      weather services). The location: the HUD's own location.ps1 result if it has one, else a fixed
+      town in Settings.
+    - News: the RSS feeds of a few chosen outlets need no key. Headlines only (title + source), at most 5.
+    - Anything that DOES need a key: stored the way the HUD already stores the calendar links ("Stored
+      encrypted for your Windows account", ShipCore.cs) or in Data\ (outside git, gitignored). Never in
+      Settings.inc, never in the repo, never printed, logged or spoken. The Control Center shows only
+      "key set" / "no key".
+  Design: fetched ON DEMAND when a question needs it (a new BLOCKS entry "weather" / "news", like the
+  calendar block), cached 30 minutes, 5 s timeout, the answer says "I couldn't reach the weather service"
+  on any failure (truth rule). The fetched text is untrusted: only numbers and headline text are used;
+  never instructions.
+  RAM / CPU: one HTTPS request per question at most every 30 min; nothing in the background.
+  Risk: an outlet changes its feed (the answer says it couldn't read it).
+
+--------------------------------------------------------------------------------------------------------
+S2-6  VOICE BLENDING (the larger version)
+--------------------------------------------------------------------------------------------------------
+  Phase 10 / 6g does the cheap part: measure the gaps, join very short sentences, short fades.
+  Stage 2 only if that is not enough: speak the first sentence while the model is still writing the next
+  (streaming), and cross-fade the joins (20-40 ms) so sentences flow. Kokoro is already the voice; the
+  change is in speak_all()'s queue, not a new engine. Measure first: time to first word and the gap
+  between sentences from the 6j timing lines, before and after.
+  RAM / CPU: the same voice model; a few ms of mixing per join.
+  Risk: barge-in (Phase 4) must still stop him at once while streaming; tested first.
+
+--------------------------------------------------------------------------------------------------------
+S2-7  MEMORY EDITOR IN THE CONTROL CENTER
+--------------------------------------------------------------------------------------------------------
+  7e gives the JARVIS MEMORY section a count and OPEN (Notepad). Stage 2: each fact as its own row with
+  EDIT and DELETE, plus the topic memory (jarvis_topics.json) with DELETE per topic. Lua reads the files
+  directly (Rainmeter's Lua can read files, as control.lua does); writes go through one command line in
+  jarvis_cmd.txt (FORGETFACT <n>) so the daemon is the only writer (no two writers on one file). Undo
+  works the same as a spoken "forget".
+  Risk: Lua row count; a long list needs paging (10 per page).
+
+Sources for Stage 2
+  https://semantic-router.readthedocs.io/en/latest/
+  https://arxiv.org/pdf/2510.08731
+  https://docs.claude.com/en/docs/claude-code/headless
+  https://docs.openinterpreter.com/safety/introduction
+  https://docs.openinterpreter.com/safety/safe-mode.md
+  https://stardance.hackclub.com/projects/2417
+  https://open-meteo.com/
+  https://pypi.org/project/openwakeword
+  https://github.com/alfiedennen/openwakeword-colab-2026
+  Not verified: Claude Code's exact JSON fields and current flags, Open-Meteo's daily limit, whether the
+  community notebook still runs. Each is checked when its item starts.

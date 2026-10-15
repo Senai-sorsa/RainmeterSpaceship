@@ -1024,6 +1024,38 @@ assert "Fan 1: 900 RPM" in prompts[-1] and "\nPending: alarm at 7:00 AM" in prom
 j.sensors = real_sensors
 j.setting = lambda name, default="": default
 
+# ---- FR5 N3: long room talk -> "Were you talking to me?"; "yes" answers what was said, "no" ends it
+ROOM = ("So I'm going to go ahead and get started on the essay now and then we will see how it goes after lunch "
+        "with the others, okay okay okay.")
+assert j.room_talk(ROOM) and not j.room_talk(ROOM[:-1] + "?") and not j.room_talk("Jarvis, " + ROOM)
+assert not j.room_talk("I think you should go ahead " + ROOM) and not j.room_talk("Tell me a joke.")
+for answer, answered in (("Yes.", True), ("No.", False)):
+    j.offer.clear(), j.history.clear()
+    seq, n = iter([ROOM, answer]), len(prompts)
+    heard[0], speaks[0] = 0, 2
+    j.muted, j.listen, j.transcribe = (lambda: False), _listen, (lambda a: next(seq, ""))
+    j.turn(0)
+    assert not j.busy.locked() and heard[0] == (3 if answered else 2), (answer, heard[0])
+    assert (len(prompts) == n + 1) is answered, answer                 # the model ran only after "yes"
+    assert (j.history[:1] == [{"role": "user", "content": ROOM}]) is answered, j.history
+    assert asked[-1] == j.ROOM_ASK                  # asked once (reply_line is faked above)
+assert j.route("I'm still in four loop, so what's the name for it?")[0] == "chat" and not j.room_talk(
+    "I'm still in four loop, so what's the name for it?")                         # a question is answered as before
+j.offer.clear(), j.history.clear()
+
+# ---- slice B, L2: a lone level is a half-heard volume command
+j.did.clear(), j.heard_score.__setitem__(0, 0.0)
+assert j.understand("About 20%.", "m", True, "") == ("act", "volume", ("set", 20), "Did you mean the volume at 20 percent?", "context")
+assert j.understand("Twenty percent", "m", True, "")[1:4] == ("volume", ("set", 20), "Did you mean the volume at 20 percent?")
+for no in ("20.", "Seven", "About 200%.", "About the weather.", "Tell me a joke."):
+    assert j.understand(no, "m", True, "")[0] != "act", no                 # no volume talk, no "percent": as before
+j.did_add("volume", ("set", 50))
+assert j.understand("about 20", "m", True, "") == ("act", "volume", ("set", 20), None, "context")   # right after: set
+j.heard_score[0] = -2.0
+assert j.understand("About 20%.", "m", True, "")[3].startswith("Did you say")       # Whisper unsure: asked
+j.did.clear(), j.heard_score.__setitem__(0, 0.0)
+assert j.understand("set the volume to 30", "m", True, "") == ("act", "volume", ("set", 30), None, "rule")
+
 # ---- the name as Whisper writes it: removed only as the first words, so every command works after it
 real_time = j.time.time
 j.time.time = lambda: 2e9                                         # reminder times compare exactly
@@ -1286,11 +1318,17 @@ j.save_reminders([])
 talk(1, words="Set an alarm for 7 am and set a timer for 10 minutes.")
 assert asked[-1].startswith("Alarm set for 7:00 AM") and "Timer set for 10 minutes." in asked[-1] and len(j.load_reminders()) == 2
 # follow-ups: after a command, not after "never mind", and once after words that could not be made out
-assert talk(1, words="Set a timer for 10 minutes.") == 2 and talk(99, words="Never mind.") == 1
-assert j.history[-1] == {"role": "assistant", "content": "Okay, never mind."} and j.history[-2]["content"].endswith("] Never mind.")
+assert talk(1, words="Set a timer for 10 minutes.") == 2
+assert j.history[-2]["content"].endswith("] Set a timer for 10 minutes.")
+n = len(j.history)
+assert talk(99, words="Never mind.") == 1 and len(j.history) == n   # FR6: a control word ends it quietly, kept nowhere
 assert j.re.match(r"\[\w{3} \d\d \w{3}, \d\d:\d\d [AP]M\] ", j.history[-2]["content"]), j.history[-2]   # day, date and time
 assert talk(1, words="") == 2 and asked[-1] == "Sorry, I didn't catch that."
 assert talk(99, words="") == 2                                    # silence after "didn't catch" ends it: no loop
+real_turn, n = j.turn, len(asked)
+j.turn = lambda tier, follow=0, woke=False: real_turn(tier, follow, True)
+assert talk(99, words="") == 1 and len(asked) == n                # FR6 L9: nothing after the wake word: no reply
+j.turn = real_turn
 j.save_reminders([])
 j.undo.clear()
 
@@ -1769,8 +1807,31 @@ j.save_reminders([])
 j.undo.clear()
 
 # enders end a follow-up without a reply; a turn you started still gets one; phantoms are silence
-n = len(prompts)
-assert talk(99, words="Thanks.") == 2 and len(prompts) == n + 1                  # answered once, then "thanks" ends it
+n, m = len(prompts), len(asked)
+for words in ("Shut up.", "Be quiet!", "That's enough.", "Jarvis, stop.", "Stop talking.", "No thank you."):
+    assert talk(99, words=words) == 1 and len(prompts) == n and len(asked) == m, words   # FR6 L1: never reaches the model
+# courtesy: a short proper answer from code, no model, no follow-up
+for words, reply in (("Thanks.", "You're welcome."), ("Okay, thank you Jarvis!", "You're welcome."),
+                     ("Thank you. Thank you.", "You're welcome."), ("Bye.", "Goodbye."), ("Good night.", "Good night."),
+                     ("Sorry.", "No problem."), ("Hello Jarvis!", "Hello."), ("Hey Jarvis.", "Hello."), ("Hi there.", "Hello.")):
+    assert talk(99, words=words) == 1 and len(prompts) == n and asked[-1] == reply, words
+real_talk_setting = j.setting                                     # JarvisCallMe: his name at the end of greetings and goodbyes
+j.setting = lambda name, default="": "Senai" if name == "JarvisCallMe" else default
+for words, reply in (("Hello Jarvis!", "Hello, Senai."), ("Goodbye.", "Goodbye, Senai."), ("Good night Jarvis.", "Good night, Senai."),
+                     ("Thanks.", "You're welcome.")):
+    heard[0], speaks[0] = 0, 1
+    j.muted, j.listen, j.transcribe = lambda: False, _listen, lambda a, w=words: w
+    j.turn(0)
+    assert asked[-1] == reply and len(prompts) == n, (words, asked[-1])
+j.setting = real_talk_setting
+assert not any(rx.fullmatch("hello can you set a timer") for rx, _ in j.COURTESY)
+for words in ("thanks for the help with my essay", "sorry to bother you, what time is it", "bye the way"):
+    assert not any(rx.fullmatch(words) for rx, _ in j.COURTESY), words
+m, j.heard_score[0] = len(asked), -1.5                           # Whisper unsure of "Thank you." after a wake: noise, silence
+real_turn = j.turn
+j.turn = lambda tier, follow=0, woke=False: real_turn(tier, follow, True)
+assert talk(99, words="Thank you.") == 1 and len(asked) == m
+j.turn, j.heard_score[0] = real_turn, 0.0
 for words in ("Okay, thanks Jarvis!", "That’s all.", "no thank you", "Nope.", "I'm good."):
     assert j.ENDERS.fullmatch(" ".join(j.re.sub(r"[^a-z' ]", " ", words.lower().replace("’", "'")).split())), words
 for words in ("no am", "no, set it for 8", "thanks for the help with my essay"):
@@ -2225,7 +2286,7 @@ class _BS:
 barges, mic_opens, score, vad_score, with_vad, reads = [], [], [0.0], [0.0], [True], [0]
 real_turn, real_thread = j.turn, threading.Thread
 j.barge_turn = lambda follow: barges.append(follow)
-j.turn = lambda tier, follow=0: barges.append(("turn", follow))
+j.turn = lambda tier, follow=0, woke=False: barges.append(("turn" if woke else "click", follow))   # a wake says so
 sys.modules["openwakeword"] = S_(utils=S_(download_models=lambda model_names: None))
 sys.modules["openwakeword.model"] = S_(Model=BargeModel)
 sys.modules["sounddevice"] = S_(InputStream=BargeMic)
@@ -2303,18 +2364,24 @@ except ImportError:
 if np is not None:
     class TrainOww:
         def __init__(self, **k):
-            pass
+            self.model_inputs = {"hey_jarvis": 2}
+            self.preprocessor = S_(get_features=lambda n: np.ones((1, n, 2)))
+            if k.get("vad_threshold"):
+                self.vad = S_(prediction_buffer=[])
 
         def reset(self):
             pass
 
         def predict(self, chunk):
+            if hasattr(self, "vad"):
+                self.vad.prediction_buffer.append(0.9 if chunk.max() > 0 else 0.0)   # any sound is speech here
             return {"hey_jarvis": float(chunk.max()) / 1000}
 
     def _feats(clip, oww, name, threshold=0.5, N=3):
         return np.ones((1 if clip.max() / 1000 >= threshold else 0, 2, 2))
 
-    level = {"hey_jarvis": 400, "hey_pause": 200, "jarvis": 50}      # a bare "Jarvis" never reaches the 0.1 floor
+    # "Hey Jarvis" never reaches the 0.1 floor here; "Hey" and "Jarvis" are words: every moment with speech counts
+    level = {"hey_jarvis": 50, "hey": 200, "jarvis": 300}
     said = []
 
     def _record(sec):
@@ -2327,18 +2394,24 @@ if np is not None:
     sys.modules["openwakeword.custom_verifier_model"] = S_(get_reference_clip_features=_feats,
                                                            train_verifier_model=lambda f, y: {"pos": int(sum(y)), "all": len(y)})
     WAKE_ORDER = [s[0] for s in j.WAKE_STYLES]
+    assert WAKE_ORDER == ["hey_jarvis", "hey", "jarvis"]
     real_data, j.DATA = j.DATA, tempfile.mkdtemp()
-    with open(os.path.join(j.DATA, "wake_jarvis.pkl"), "wb") as f:   # left from an older training
-        f.write(b"old")
+    for old in ("wake_hey_jarvis.pkl", "wake_hey_pause.pkl"):          # left from an older training
+        with open(os.path.join(j.DATA, old), "wb") as f:
+            f.write(b"old")
     j.record, j.play_samples, j.reply_line = _record, (lambda *a: None), (lambda text, quiet: lines.append(text))
     j.log, j.S, lines[:] = lines.append, _S(), []
     assert within(5, j.train_wake) is None and not j.busy.locked() and said == [3] * 18 + [15]
     files = sorted(os.listdir(j.DATA))
-    assert files == ["wake_hey_jarvis.pkl", "wake_hey_pause.pkl"], files   # no recording is ever written
+    assert files == ["wake_hey.pkl", "wake_jarvis.pkl"], files       # no recording written; old ones gone
     import pickle
-    with open(os.path.join(j.DATA, "wake_hey_jarvis.pkl"), "rb") as f:
-        assert pickle.load(f)["pos"] == 6
-    assert "train: Hey Jarvis peaks 0.40 (6 examples)" in lines and "train: bare Jarvis peaks 0.05 (0 examples)" in lines
+    with open(os.path.join(j.DATA, "wake_hey.pkl"), "rb") as f:
+        hey = pickle.load(f)
+    with open(os.path.join(j.DATA, "wake_jarvis.pkl"), "rb") as f:
+        jar = pickle.load(f)
+    # each word learns the 15 s of talk (1 example here) AND the other word as "not it"
+    assert hey["pos"] == jar["pos"] > 0 and hey["all"] == jar["all"] == 2 * hey["pos"] + 1, (hey, jar)
+    assert "train: Hey Jarvis peaks 0.05 (0 examples)" in lines, lines
     assert lines[-1] == "Done. I learned 2 of the 3 ways. The log says which." and states[-1]["state"] == "idle"
     for name in files:                                                 # a click part-way: nothing new saved
         os.remove(os.path.join(j.DATA, name))
@@ -2353,5 +2426,41 @@ if np is not None:
         else:
             sys.modules[m] = mod
     j.log = lambda *a: None
+
+# ---- FR5 N1: the ways to wake. wake_way(score, held, mine, now, hey_until, need, easy, hard, gap)
+W = lambda score=0.0, held=False, now=100.0, until=0.0, **mine: j.wake_way(score, held, mine, now, until, 0.5, 0.5, 0.35, 5.0)
+assert W(0.9) == (None, 0.0)                                        # W0: one moment is not enough (S1)
+assert W(0.9, held=True) == ("W0", 0.0) and W(0.5, held=True)[0] == "W0"
+assert W(0.45, held=True) == (None, 0.0)                            # under the backup's 0.5
+assert W(hey=0.9) == (None, 105.0)                                  # "Hey" alone never wakes: it waits 5 s
+assert W(now=103.0, until=105.0, jarvis=0.4) == ("HJ", 0.0)         # ... and "Jarvis" inside the wait does
+assert W(now=106.0, until=105.0, jarvis=0.9) == (None, 105.0)       # "Jarvis" 6 s after "Hey": no
+assert W(jarvis=0.9) == (None, 0.0)                                 # "Jarvis" without "Hey": no
+assert W(now=103.0, until=105.0, jarvis=0.3) == (None, 105.0)       # under JarvisWakeHard
+assert W(now=103.0, until=105.0, hey=0.9) == (None, 105.0)          # a second "Hey" does not stretch the wait
+assert W(0.2, hey_jarvis=0.6) == ("HV", 0.0) and W(0.2, hey_jarvis=0.3) == (None, 0.0)   # your soft "Hey Jarvis"
+assert W(0.05, hey_jarvis=0.9) == (None, 0.0)                       # ... still needs the normal score's 0.1
+assert j.wake_way(0.0, False, {"hey": 0.9}, 100.0, 0.0, 0.5, 0.0, 0.35, 5.0) == (None, 0.0)   # JarvisWakeEasy=0: HJ off
+real_data, j.DATA = j.DATA, tempfile.mkdtemp()                       # the checks: only the 3 styles, broken = off
+for name, body in (("wake_hey.pkl", b"broken"), ("wake_hey_pause.pkl", b"old"), ("wake_jarvis.pkl", None)):
+    with open(os.path.join(j.DATA, name), "wb") as f:
+        f.write(body) if body else __import__("pickle").dump({"a": 1}, f)
+lines[:], j.log = [], lines.append
+assert j.wake_checks() == {"jarvis": {"a": 1}} and any("check hey not loaded" in str(x) for x in lines), lines
+j.DATA, j.log = real_data, (lambda *a: None)
+
+# ---- FR5 N2: Whisper's repetition loops
+Seg = lambda text, cr=1.2, ns=0.1, lp=-0.3: S_(text=text, compression_ratio=cr, no_speech_prob=ns, avg_logprob=lp)
+lines[:], j.log = [], lines.append
+assert [s.text for s in j.no_loops([Seg(" Okay."), Seg(" Okay. Okay. Okay.", cr=2.6), Seg(" hm", ns=0.9, lp=-1.5),
+                                    Seg(" quiet but sure", ns=0.9, lp=-0.2)])] == [" Okay.", " quiet but sure"]
+assert lines == ["transcript: dropped (loop) 2 of 4 parts"]                   # counts only, never the words
+assert j.no_repeats("So that's it. Okay. Okay. Okay. okay.") == "So that's it. Okay."
+assert j.no_repeats("Yes. Yes. Set a timer.") == "Yes. Yes. Set a timer."   # twice is kept: it can be real
+assert j.no_repeats("Set a timer for ten minutes.") == "Set a timer for ten minutes." and j.no_repeats("") == ""
+fake_whisper = S_(transcribe=lambda audio, **k: ([Seg(" Okay."), Seg(" Okay."), Seg(" Okay."), Seg(" Okay.")], None))
+j._whisper_dev[0] = "cpu"
+assert j._decode(fake_whisper, "audio") == "Okay."
+j.log = lambda *a: None
 
 print("test_jarvis: OK")
