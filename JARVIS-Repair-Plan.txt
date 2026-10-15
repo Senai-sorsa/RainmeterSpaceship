@@ -124,8 +124,8 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
                are never negative) -> calc() returns None. No change.
         BUG-02 llm.chat_stream: partly true, small: a cancel is seen on the next streamed line, then the
                "with" closes the connection and Ollama stops. Only a cancel during prompt processing waits.
-               A fix means replacing urlopen with http.client and rewriting the stream tests. Not done;
-               the user may ask for it.
+               A fix means replacing urlopen with http.client and rewriting the stream tests. The user
+               decided 2026-10-15: NOT fixed (do not re-raise it).
         BUG-08 jarvis.lua StartService: a " cannot be in a Windows path, and py and script (= H.res ..)
                both pass exists() before the bang. No change; the launch line is untouched.
         INFO-02 fsync in write_atomic: skipped, live() writes once per typed word (speech.py).
