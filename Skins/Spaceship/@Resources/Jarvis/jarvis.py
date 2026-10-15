@@ -75,6 +75,8 @@ from jarvislib.actions import (MEDIA_KEYS, act_close, act_lock, act_open, act_sl
     open_windows, press_key, run_ok, running_window, start_apps)
 from jarvislib.confirm import DANGER, NAMES, YES, confirmed, is_yes
 from jarvislib.stopkey import STOP_KEYS, stop_key_loop
+from jarvislib.turnstate import DID, DID_ASK, UNDO_FOR, did, did_add, last, offer, recent, undo
+from jarvislib.todo import act_todo
 
 # Matching by meaning (the user, 2026-10-14): a shared word OR a close meaning counts, in 6a, M1, M2 and M4a. The model
 # is ChromaDB's local all-MiniLM-L6-v2; until it is loaded, or without ChromaDB, matching is by words only.
@@ -872,45 +874,6 @@ def as_said(text, part):
     return text[i:i + len(part)] if i >= 0 else part
 
 
-# ------------------------------------------------------------------ "undo that", "what did you hear?", "say that again"
-UNDO_FOR = 120                                                # seconds
-undo = []                                                     # [expires, what, before]: the last change, memory only
-recent = {"you": "", "me": ""}                                # the last thing heard and said, memory only, never logged
-offer = {}            # M4a-3: a fact he offered to remember {fact, expires}; memory only, never logged
-last = {}             # M1b: the list he just read out or the one thing he acted on {kind, items, when}; memory only, never logged
-
-
-# M4b: the last 20 actions really run (time, what, worked), memory only, never logged. Fed by run_action, can_undo
-# (facts and reminders), snoozes and undo; questions about him get it in the prompt (DID_ASK).
-did = []
-DID = {"lock": "locked the PC", "sleep": "put the PC to sleep", "restart": "started a restart", "shutdown": "started a shutdown",
-       "mute": "muted the sound", "unmute": "unmuted the sound", "volume": "changed the volume", "media": "pressed a media key",
-       "todo": "added a to-do", "forget_all": "forgot all saved facts", "forget_talk": "forgot earlier talks",
-       "forget_facts": "forgot saved facts", "replace_fact": "replaced a saved fact", "fact": "saved a fact",
-       "forget": "forgot a saved fact", "cancel": "cancelled a reminder", "move": "moved a reminder",
-       "snooze": "snoozed a reminder", "undo": "undid the last change", "reminder": "set a reminder"}
-DID_ASK = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doing|run|change)|what actions|"
-                     r"did you (?:\w+ )?(?:set|open|close|save|remember|change|cancel|mute|unmute|lock|add|turn|do|run|"
-                     r"snooze|move|forget|undo|put)|have you (?:\w+ )?(?:set|opened|closed|saved|changed|cancelled|muted|"
-                     r"done|run|added|locked|snoozed|moved|forgotten))\b", re.I)
-
-
-def did_add(what, target=None, ok=True):
-    line = DID.get(what, str(what).replace("_", " "))
-    try:                                                       # an odd target never stops the action itself
-        if what == "open":
-            line = f"opened {target[0]}"                       # (name, path)
-        elif what == "close":
-            line = f"closed {target.replace('.exe', '')}"
-        elif what == "reminder":                               # target: the reminders set, as the file stores them
-            r = target[0]
-            line = f"set {'a timer' if r[2] == 'timer' else 'an alarm' if r[3] == 'alarm' else 'a reminder'} for {clock(r[0])}"
-    except (TypeError, IndexError, AttributeError, ValueError, OSError, OverflowError):
-        pass
-    did.append((time.time(), line, ok))
-    del did[:-20]
-
-
 def can_undo(what, before=None):
     """Keep the one change "undo that" reverses; before=None marks a change that cannot be put back."""
     undo[:] = [time.time() + UNDO_FOR, what, before]
@@ -980,26 +943,6 @@ def undo_last():
         return f"Removed that {noun}." if len(gone) == 1 else f"Removed those {len(gone)} {noun}s."
     except (OSError, ValueError):
         return "I can't read that file, so I left it alone."
-
-
-# ------------------------------------------------------------------ to-do by voice and remembered facts
-def act_todo(item):
-    """Add one open task to the to-do note. Appended, never rewritten (safe while Obsidian or a sync tool has the note
-    open), and the note is never created. Errors carry no path: they are logged and shown."""
-    item, note = " ".join(str(item).split())[:200], todo_note()
-    if not item or not note:
-        raise RuntimeError("no to-do note is set")
-    try:
-        with open(note, "rb+") as f:                           # rb+ fails on a missing file instead of making one
-            if f.seek(0, 2):
-                f.seek(-1, 2)
-                last = f.read(1)
-                f.seek(0, 2)
-                if last != b"\n":
-                    f.write(b"\n")
-            f.write(f"- [ ] {item}\n".encode("utf-8"))
-    except OSError as e:
-        raise RuntimeError(f"the to-do note could not be written ({type(e).__name__})") from None
 
 
 # "remember that my dentist is on Fridays": one fact a line in Data\jarvis_memory.txt, added to every prompt.
