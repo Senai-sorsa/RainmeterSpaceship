@@ -59,6 +59,28 @@ def act_volume(change):
     speakers(volume=max(0, min(100, n)) / 100)
 
 
+def screen_brightness(percent=None):
+    """The laptop panel's brightness (WMI): set it when given, then return what Windows reports. One fixed PowerShell
+    line; the only thing put into it is an integer. A desktop monitor has no WMI brightness: that raises OSError."""
+    wmi = "Get-CimInstance -Namespace root/WMI -ClassName "
+    cmd = (f"({wmi}WmiMonitorBrightnessMethods).WmiSetBrightness(1,{int(percent)});" if percent is not None else "") +           f"({wmi}WmiMonitorBrightness).CurrentBrightness"
+    out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd], creationflags=NO_WINDOW,
+                         capture_output=True, text=True, timeout=15)
+    if out.returncode or not out.stdout.split():
+        raise OSError("Windows has no brightness control for this screen")
+    level = int(out.stdout.split()[-1])
+    if percent is not None and abs(level - percent) > 2:
+        raise OSError("Windows did not change the brightness")
+    return level
+
+
+def act_brightness(change):
+    how, n = change                                           # ("set", 60) or ("step", -10), as for the volume
+    if how == "step":
+        n += screen_brightness()
+    screen_brightness(max(0, min(100, n)))
+
+
 def act_mic_level(change):
     how, n = change                                           # ("set", 80) or ("step", -10), the same as act_volume
     if how == "step":
@@ -81,6 +103,8 @@ def done_line(action, target):
         return f"Opening {target[0]}."
     if action == "volume":
         return f"Volume at {speakers()[1]} percent."
+    if action == "brightness":
+        return f"Brightness is at {screen_brightness()} percent."
     if action in ("mic_mute", "mic_unmute", "mic_level"):      # read back from Windows, not what was asked
         is_muted, percent = mic_volume()
         return "Microphone muted." if is_muted else "Microphone unmuted." if action == "mic_unmute" else f"Microphone at {percent} percent."

@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from .actions import MEDIA_KEYS, act_close, act_lock, act_mic_level, act_open, act_sleep, act_volume, best_app, press_key, run_ok, running_window, start_apps
+from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_open, act_sleep, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
@@ -159,6 +159,7 @@ ACTION_TABLE = {
     "mic_mute": Action(lambda _: mic_volume(mute=True), "ask", "mute the microphone"),
     "mic_unmute": Action(lambda _: mic_volume(mute=False), "change", "unmute the microphone"),
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
+    "brightness": Action(act_brightness, "change", "set or step the screen brightness"),
     "todo": Action(lambda item: act_todo(item), "ask", "add a to-do"),
     "forget_all": Action(lambda _: save_memory([]), "ask", "forget every saved fact"),
     "forget_talk": Action(forget_talk, "ask", "forget earlier talks"),                         # M2b, after the read-back
@@ -418,6 +419,19 @@ def route(text):
             or re.fullmatch(rf"shut ?down(?: {pc})?|shut (?:it|{pc}) (?:down|off)|power (?:off|down)(?: it| {pc})?|"
                             rf"power (?:it|{pc}) (?:off|down)", cmd)):
         return ("act", "shutdown", None, "You're asking me to shut down the PC. Confirm with yes.")
+    bright = r"(?:the |my )?(?:screen |display )?brightness"      # 7c: "a bit" is 10 percent, 0 is allowed
+    bit = r"(?: (?:a )?(?:bit|little|tad)| slightly)?"
+    m = (re.match(rf"(?:set|turn|change|put|bring) {bright}(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+         or re.match(rf"{bright} (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
+    if m and _num(m.group(1)) is not None:
+        n = _num(m.group(1))
+        return ("act", "brightness", ("set", int(n)), None) if n <= 100 else ("say", None, None, "I can set it between 0 and 100.")
+    m = (re.match(rf"(dim|darken|brighten) (?:the |my )?(?:screen|display){bit}$", cmd)
+         or re.match(rf"make (?:the |my )?(?:screen|display) (brighter|dimmer|darker){bit}$", cmd)
+         or re.match(rf"turn (up|down) {bright}{bit}$", cmd) or re.match(rf"turn {bright} (up|down){bit}$", cmd)
+         or re.match(rf"(raise|increase|boost|lower|decrease|reduce) {bright}{bit}$", cmd))
+    if m:
+        return ("act", "brightness", ("step", 10 if m.group(1) in ("brighten", "brighter", "up", "raise", "increase", "boost") else -10), None)
     mic_word = r"(?:the |my )?(?:mic|microphone)"
     m = re.match(rf"(mute|unmute) {mic_word}$", cmd)
     if m:                                                      # 7a: he cannot hear "unmute" once muted, so mute asks first

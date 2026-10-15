@@ -50,6 +50,7 @@ j.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
 
 # no disk, no sound card, no processes: fixed app list, fixed window list, recorded mute calls and commands
 real_start_apps, real_transcribe, mic_listen = j.start_apps, j.transcribe, j.listen
+real_brightness = j.screen_brightness
 j.start_apps =lambda: [("Google Chrome", "Chrome"), ("Microsoft Edge", "MSEdge"), ("Notepad", "notepad")]
 j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
 muted_to, ran = [], []
@@ -121,6 +122,16 @@ def _speakers(mute=None, volume=None):
     return (False, vol[0])
 
 
+brist = [60]                                                     # the screen brightness
+
+
+def _bright(percent=None):
+    if percent is not None:
+        brist[0] = percent
+    return brist[0]
+
+
+j.screen_brightness = _bright
 micst = [False, 70]                                              # the microphone: (muted, percent)
 
 
@@ -179,6 +190,28 @@ for name, row in j.ACTION_TABLE.items():
         ran.clear()
         assert not j.run_action(name, None) and not ran, f"{name}: ask-first, refused without a yes"
         assert not j.run_action(name, None, ("other", None)) and not ran, "a yes for another action is not a yes"
+# 7c: brightness. Said phrases reach the fixed action; "a bit" is 10; 0 is allowed; the reply is what Windows reports
+for heard, want in (("set the brightness to 40", ("set", 40)), ("brightness to 0", ("set", 0)), ("set the screen brightness to eighty percent", ("set", 80)),
+                    ("dim the screen", ("step", -10)), ("make the screen brighter", ("step", 10)), ("turn up the brightness", ("step", 10)),
+                    ("turn the brightness down a bit", ("step", -10)), ("lower the brightness", ("step", -10)), ("brighten the display", ("step", 10))):
+    assert j.route(heard) == ("act", "brightness", want, None), (heard, j.route(heard))
+assert j.route("set the brightness to 150")[0] == "say" and j.route("why is my screen dim?")[0] == "chat"
+brist[0] = 60
+assert j.run_action("brightness", ("set", 30)) and brist[0] == 30 and j.done_line("brightness", None) == "Brightness is at 30 percent."
+assert j.undo_last() == "Brightness back at 60 percent." and brist[0] == 60
+assert j.run_action("brightness", ("step", -500)) and brist[0] == 0 and j.run_action("brightness", ("step", 500)) and brist[0] == 100
+# the real reader: one fixed PowerShell line, only an integer in it; a level Windows did not take is an error
+_run, cmds = j.subprocess.run, []
+j.subprocess.run = lambda args, **k: cmds.append(args[-1]) or _t.SimpleNamespace(returncode=0, stdout="45\r\n")
+try:
+    assert real_brightness(45) == 45 and "WmiSetBrightness(1,45)" in cmds[-1] and real_brightness() == 45 and "Set" not in cmds[-1]
+    try:
+        real_brightness(80)
+        assert False, "a brightness Windows did not take is an error"
+    except OSError:
+        pass
+finally:
+    j.subprocess.run = _run
 # 7a: the microphone. Said phrases reach the fixed actions; mute asks first; the reply is what Windows reports
 for heard, want in (("mute the microphone", ("act", "mic_mute", None)), ("mute my mic", ("act", "mic_mute", None)),
                     ("unmute the microphone", ("act", "mic_unmute", None)), ("set the microphone to 80 percent", ("act", "mic_level", ("set", 80))),
@@ -1286,8 +1319,7 @@ assert j.route("set the volume to two hundred")[0] != "act" and j.route("set it 
 for text in ("Change the screen colour to blue.", "set the volume to 30 decibels", "please open the settings app"):
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
-for text in ("turn on bluetooth", "set the brightness to 50", "Travis, connect my headphones", "can you dim the screen",
-             "make the screen brighter", "turn up the brightness", "turn off wifi", "turn on night light", "turn on dark mode",
+for text in ("turn on bluetooth", "Travis, connect my headphones", "turn off wifi", "turn on night light", "turn on dark mode",
              "change my wallpaper", "hibernate", "sign out", "log me off", "switch to the headset microphone"):
     assert j.route(text) == ("say", None, None, j.CANT), (text, j.route(text))
 for text in ("why is my screen dim?", "how do I turn on bluetooth?", "what is screen brightness"):
@@ -1550,7 +1582,7 @@ for words, want, result in (("Tell me a joke.", "route: chat.chat via model, tot
                             ("Set a timer for 10 minutes.", "route: command.remind set via rule, total ", "said"),
                             ("New topic.", "route: new_topic via rule, total ", "said"),
                             ("Show me what you've said.", "route: log via rule, total ", "said"),
-                            ("Turn up the brightness.", "route: ", "refused - not built")):
+                            ("Turn off the wifi.", "route: ", "refused - not built")):
     routes.clear()
     talk(1, words=words)
     assert len(routes) == 1 and routes[0].startswith(want), (words, routes)
@@ -1577,7 +1609,7 @@ j.did.clear()
 # S2-8: the log names the capability (a class from the table, never your words)
 caps, keep = [], j.log
 j.log = caps.append
-for text, cap in (("turn up the brightness", "brightness"), ("connect my airpods", "bluetooth"), ("turn off wifi", "wifi"),
+for text, cap in (("connect my airpods", "bluetooth"), ("turn off wifi", "wifi"),
                   ("hibernate", "account"), ("sign out", "account"), ("turn on the keyboard light", "keyboard light"),
                   ("turn on do not disturb", "notifications")):
     caps.clear()
