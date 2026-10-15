@@ -1328,8 +1328,9 @@ def synth_audio(text):
     return _windows(text)
 
 
-def play_samples(a, rate):
-    """Play audio, writing its loudness to the HUD as it goes (that's what moves the hologram)."""
+def play_samples(a, rate, progress=None):
+    """Play audio, writing its loudness to the HUD as it goes (that's what moves the hologram). progress(0..1), if
+    given, is called after each block (the pop-up types the sentence at speaking pace)."""
     import numpy as np
     import sounddevice as sd
     ch = 1 if a.ndim == 1 else a.shape[1]
@@ -1343,6 +1344,8 @@ def play_samples(a, rate):
                 chunk = np.ascontiguousarray(a[i:i + block], dtype=np.float32)
                 out.write(chunk)
                 S.set(level=min(1.0, float(np.sqrt(np.mean(chunk * chunk)) + 1e-9) / 0.18), force=False)
+                if progress:
+                    progress(min(1.0, (i + block) / len(a)))
     finally:
         S.set(level=0.0)
 
@@ -1417,7 +1420,8 @@ def _speak_queue(q, t0):
             log(f"timing: reply start -> first audio {time.time() - t0:.2f}s")
             first = False
         # muted mid-reply, or the voice failed: show the words instead
-        if (muted() and setting("JarvisMutedPopup", "1") == "1") or audio is None:
+        as_text = (muted() and setting("JarvisMutedPopup", "1") == "1") or audio is None
+        if as_text:
             if not shown:
                 S.set(pop="open")
                 shown = True
@@ -1425,9 +1429,16 @@ def _speak_queue(q, t0):
         if audio is None:
             cancel.wait(min(3.0, 0.06 * len(said)))           # reading time instead of speaking time
             continue
+        before, words, typed = spoken[:len(spoken) - len(said)].strip(), said.split(), [0]
+
+        def type_on(frac):                                     # L8: the pop-up's live line grows with his voice
+            n = min(len(words), int(frac * len(words)) + 1)
+            if n != typed[0]:
+                typed[0] = n
+                live((before + " " + " ".join(words[:n])).strip())
         try:
             if not cancel.is_set():
-                play_samples(audio[0], audio[1])
+                play_samples(audio[0], audio[1], None if as_text else type_on)
         except Exception as e:
             log(f"playback failed: {e}")
             if not shown:
@@ -2127,7 +2138,6 @@ def run_action(action, target):
 def reply_line(text, quiet):
     """Speak (or show) a short fixed reply and log it."""
     recent["me"] = text
-    convo_add("J", text)
     filler_done()
     if quiet:
         S.set(pop="open")
@@ -2136,6 +2146,7 @@ def reply_line(text, quiet):
         live("")
     else:
         speak_all([text])
+    convo_add("J", text)                                       # after: while spoken, the live line types it
 
 
 def hear(**opts):
@@ -3991,6 +4002,7 @@ def exchange(tier, follow, woke, mode, left):
         else:
             speak_all(no_claims(sentences_from(stream, collected), collected))
         reply = "".join(collected).strip()
+        convo_add("J", reply)                                  # at once: the live line was just cleared (empty: no-op)
         S.set(state="idle", level=0.0)                        # done talking: the HUD doesn't wait for the GPU check
         if ollama_on_cpu(model):
             chat_to_gpu(model)
@@ -4002,7 +4014,6 @@ def exchange(tier, follow, woke, mode, left):
             return
         log(f"jarvis: {reply}")
         recent["me"] = reply
-        convo_add("J", reply)
         if not apart:
             history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
             last_turn = time.time()

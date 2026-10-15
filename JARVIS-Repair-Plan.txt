@@ -37,6 +37,66 @@ TO ANY AI READING THIS FILE: FIRST CHECK THE TOOLS (added 2026-10-14)
     - Known gap (2026-10-14): Docs\Spaceship-HUD-Guide.md was only partly re-read, so its nodes are from an
       older version. "graphify extract --force" rebuilds it in full (costs tokens; ask the user first).
 
+BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read before editing jarvis.py)
+  Each one really happened in this project. Gathered here from the STATUS log, N13-N15, the HANDOVER and
+  the redesign slices; the originals stay where they were and point here.
+
+  W1. PYTHON CONTROL FLOW
+    - A bare `return` inside `try:` runs `finally` and returns None. Code after the try/finally is NOT
+      reached. (Slice D: exchange() lost its follow-up mode this way.) To hand a value out of such a
+      function on every path, let it write into a dict the caller passes in, or return in every branch.
+      Do not `return` inside `finally` (it swallows errors; Python 3.14 warns).
+    - A nested function that assigns an outer variable needs `nonlocal` (or `global`), or the assignment
+      makes a new local and the outer value never changes.
+    - `a and b and "x" if c else "y"` is `(a and b and "x") if c else "y"`: the conditional binds weaker
+      than `and`. Put brackets around the if/else part. (Slice D, the follow-up gate.)
+    - A recursive call for "one more turn" grows the stack and hides the return value; turn() is a loop.
+
+  W2. DATA THAT NEVER REACHES THE MODEL
+    - A new way of picking prompt blocks must also be added to wants(), or the data is never in the prompt
+      and the no-data reply never sees it. (Slice C: info_blocks() at 0.5-0.6 found the block, wants()
+      at 0.6 did not.)
+    - test_jarvis fakes j.context() to "" for most tests (about l.969). A test that needs HUD data must
+      fake it again, or it silently tests the empty case.
+
+  W3. THRESHOLDS AND WORD LISTS
+    - Never pick a cut-off by feel: measure both sides (questions vs chat lines) and write the numbers in
+      the plan (slice C: 0.46-0.84 vs up to 0.50).
+    - keywords() checks stop-words BEFORE it cuts a trailing "s", so "likes" survives as "like" while
+      "like" is a stop-word. Compare both sides through the same function (Checkpoint B, gist_ok()).
+    - Whisper invents "Thank you." / "Thanks for watching." on noise (about 25 % of its hallucinations).
+      A new path that reads transcripts must go through the hearing gate.
+    - The model as FIRST reader is wrong too often (llama3.1:8b: 75 of 97, 14 questions became actions).
+      Rules first, embedder second, model last; its output only through the said-words checks.
+
+  W4. TESTS AND CHECK SCRIPTS
+    - N13 (test clock): the alarm tests expect a 7:00 AM alarm to be "today", so they fail after 7 AM local
+      time. Run with a TZ that makes local time 00:00-07:00: TZ=ABC+N means local = UTC - N hours (e.g.
+      TZ=ABC-4 and ABC-1 in the evening). If a run fails on a "7:00 AM" line, try another TZ and run HEAD
+      the same way. Real fix (not done): freeze the clock in the test.
+    - N14 (check_route.py): a route with a due time can show as "different" while both sides print the
+      same tuple. Treat that one line as noise.
+    - Tests that assert a log line ("route: ...") break when the route line format changes; update them
+      on purpose, and read why (the ai-reread cancel test ends before the lane is set).
+    - A fake chat_stream must accept every keyword the real one takes (temperature since slice C).
+    - Debug prints go only into the scratch copy. Copy clean files over it before the next run.
+    - Importing jarvis.py writes Data\jarvis.txt: run tests in the scratchpad only, never in the repo.
+
+  W5. EDITING THE FILES
+    - The Bash tool turns `\\b`, `\\w` in a heredoc with Python into real backspace / control characters.
+      Use the Edit tool or a script file. Then check: grep -cP '[\x00-\x08\x0b\x0c\x0e-\x1f]' jarvis.py
+      test_jarvis.py  must print 0 for each.
+    - Script edits: assert each old text occurs exactly once, open with newline="" to keep line endings.
+    - "LF will be replaced by CRLF" from git is a warning only; do not convert files.
+    - N15: a Control Center row draws at most 4 buttons; a 5th is silently not drawn. New buttons: new row.
+    - Lua is 5.1 (Rainmeter); there is no stand-alone Lua, so new rows are unverified until a live run.
+
+  W6. GIT AND THE LIVE COPY
+    - Never git checkout / restore / stash to undo: it also wipes earlier uncommitted work. Revert by hand
+      from the diff, or git revert after a commit.
+    - Stage by name and read the staged list. Never commit Data\, logs, weights, keys.
+    - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
+
 CURRENT STATE (end of the 2026-10-14 session that built Phase 6b and 6j; READ THIS FIRST)
   Done (built, tested by test_jarvis + route check, committed on branch chore/jarvis-baseline-and-performance,
   NOT pushed, main is behind):
@@ -1219,7 +1279,7 @@ Found while building Phases 2-4 (new issues)
       not listen. Say "Hey Jarvis" again.
   N12. LIMIT. The STOP KEY row offers END or OFF only. A hand-typed other value in Settings.inc shows END in
       the row but registers nothing.
-  N13. TEST BUG (found 2026-10-14 while building 6a; not fixed). test_jarvis l.1238 "set an alarm for 7 am"
+  N13. TEST BUG (found 2026-10-14 while building 6a; not fixed). [Also in BUGS TO WATCH OUT FOR, top.] test_jarvis l.1238 "set an alarm for 7 am"
       expects "You already have an alarm for 7:00 AM." and the "move my alarm" line after it expects no
       "tomorrow". After 7 AM local time the reply adds "tomorrow", so the run stops there and every test
       after it (Phase 4 barge-in, 6a training) is skipped. Fails at commit 8494cee too, so not a regression.
@@ -1229,10 +1289,10 @@ Found while building Phases 2-4 (new issues)
       at the "Alarms set for 7:00 AM ... and 8:00 AM" assert (HEAD l.1247); TZ=ABC+3/+5/+9/-4 failed at the
       "already have an alarm for 7:00 AM" assert (HEAD l.1729). Same on HEAD, so not a regression.
       TZ=ABC-8 (03:01 local) passed. So no fixed TZ always works; the real fix (freeze the clock) is worth it.
-  N14. CHECK SCRIPT. check_route.py flags "remind me to cook in 20 minutes" as different although both
+  N14. CHECK SCRIPT. [Also in BUGS TO WATCH OUT FOR, top.] check_route.py flags "remind me to cook in 20 minutes" as different although both
       sides print the same tuple (a time-based due value). route() was not touched in 6a. Treat this one
       line as noise until the script compares without the timestamp.
-  N15. LIMIT (control.lua, the row drawer `for b = 1, 4`). A Control Center row shows at most 4 buttons; a
+  N15. LIMIT (control.lua, the row drawer `for b = 1, 4`). [Also in BUGS TO WATCH OUT FOR, top.] A Control Center row shows at most 4 buttons; a
       5th is silently not drawn. That is why TRAIN got its own WAKE TRAINING row. New buttons: new row.
   N16. LIMIT (6a). A click or End stops the training only between clips, so up to 15 s late (the 15 s
       "talk normally" clip). The "train the wake word" voice phrase is not built; the button only.
@@ -2337,6 +2397,16 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
     - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), with new tests for the
       timer -> "Undo that." -> yes / no window and the uncapped chat follow-ups; route check 75 phrases,
       0 differences.
+  SLICE E BUILT 2026-10-14 (offline checks only; live test with all slices at the end):
+    - L8: while he speaks a sentence, the log pop-up's live line types it word by word over that sentence's
+      audio (play_samples(..., progress) after each 40 ms block). The finished reply goes into the log
+      right after he stops (no gap while the GPU check runs); fixed replies (reply_line) go in after they
+      are spoken, so the pop-up no longer shows the whole line before he says it.
+    - Unchanged: muted / text-only replies (they already appear sentence by sentence as the model writes).
+    - CHANGED FROM THE PLAN: no new say() sink; speak_all / say_text_only / reply_line stay. Same result,
+      far smaller change.
+    - Checks: py_compile OK; test_jarvis OK (py -3 and the venv, TZ=ABC-4 and ABC-1), new test for the
+      word-by-word typing; route check 75 phrases, 0 differences. check_voice not run (voice untouched).
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE

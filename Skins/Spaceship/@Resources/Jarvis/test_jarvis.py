@@ -489,11 +489,25 @@ j.S, j.muted, j.live, j.filler_done = _S(), lambda: False, words.append, lambda:
 j.setting = lambda name, default="": default
 real_synth_audio, real_play_samples, real_speak_all, real_windows = j.synth_audio, j.play_samples, j.speak_all, j._windows
 j.synth_audio = lambda text: (text, 1)
-j.play_samples = lambda a, rate: played.append(a)
+j.play_samples = lambda a, rate, *_: played.append(a)
 many =[str(i) for i in range(20)]
 
 # more sentences than the queue holds: all spoken, in order
 assert within(5, j.speak_all, many) is None and played == many
+
+
+# L8: while a sentence plays, the pop-up's live line types it word by word, after what was already said
+def _typing(a, rate, progress=None):
+    for f in (0.0, 0.5, 1.0):
+        progress(f)
+
+
+words.clear()
+j.play_samples = _typing
+within(5, j.speak_all, ["Hello there.", "How are you today?"])
+assert words == ["Hello", "Hello there.", "Hello there. How", "Hello there. How are you",
+                 "Hello there. How are you today?", ""], words
+j.play_samples = lambda a, rate, *_: played.append(a)
 
 
 def _breaks():
@@ -517,10 +531,10 @@ j.synth_audio = lambda text: (text, 1)
 
 # cancelled mid-utterance: the queued sentences are dropped, and a full queue does not hold the producer
 played.clear()
-j.play_samples = lambda a, rate: (played.append(a), j.cancel.set())
+j.play_samples = lambda a, rate, *_: (played.append(a), j.cancel.set())
 assert within(5, j.speak_all, many) is None and played == ["0"]
 j.cancel.clear()
-j.play_samples = lambda a, rate: played.append(a)
+j.play_samples = lambda a, rate, *_: played.append(a)
 
 # cancelled while a sentence is still being made
 j.synth_audio = lambda text: time.sleep(3)
@@ -700,9 +714,9 @@ j.hud_tier = lambda: 3                                            # STEALTH is s
 assert ring([]) == (0, ["timer"]) and {"pop": "open"} in states
 j.hud_tier = lambda: 0
 assert ring([], late=600)[0] == j.RINGS and convo[0][1].startswith("Missed reminder from ") and convo[0][1].endswith(": time to cook.")
-j.play_samples = lambda a, rate: (played.append(a), j.cancel.set())           # a click while it rings
+j.play_samples = lambda a, rate, *_: (played.append(a), j.cancel.set())           # a click while it rings
 assert ring([]) == (1, ["timer"]) and played == ["ding"] and convo[-1] == ("J", "(stopped)")
-j.play_samples = lambda a, rate: played.append(a)
+j.play_samples = lambda a, rate, *_: played.append(a)
 j.synth_audio = _no_voice                                         # it breaks mid-way: one problem line, still idle
 assert ring([]) == (0, ["timer"]) and said[-1] == ("A reminder could not ring", True) and convo == [("J", "Time to cook.")]
 j.synth_audio = lambda text: (text, 1)
@@ -793,9 +807,9 @@ assert ring_alarm(["what time is it"] + [""] * 20)[0] == 150      # other words:
 assert ring_alarm(["", "", "snooze"])[3] == ["reminder", "timer"] and asked[-1].startswith("Snoozed until ")
 assert asked[-1].endswith(("AM.", "PM.")) and not j.rang
 assert ring_alarm([], timer_due=True)[0] == 150                   # a timer due with an alarm: the batch rings long
-j.play_samples = lambda a, rate: (played.append(a), j.cancel.set())           # a click in the first ding
+j.play_samples = lambda a, rate, *_: (played.append(a), j.cancel.set())           # a click in the first ding
 assert ring_alarm([])[:2] == (1, 0) and convo[-1] == ("J", "(stopped)")
-j.play_samples = lambda a, rate: played.append(a)
+j.play_samples = lambda a, rate, *_: played.append(a)
 j.save_reminders([])
 # 5c: asking about alarms and timers is answered by code
 assert cmd("when is my next alarm") == ("list", "alarm") and cmd("what timers are running") == ("list", "timer")
@@ -2119,7 +2133,7 @@ else:
     sys.modules["sounddevice"] = real_sd
 # stopped while the first sentence was made: he never shows "speaking" and plays nothing
 played.clear(), states.clear()
-j.play_samples = lambda a, rate: played.append(a)
+j.play_samples = lambda a, rate, *_: played.append(a)
 j.synth_audio = lambda text: (j.cancel.set(), (text, 1))[1]
 assert within(5, real_speak_all, ["one", "two"]) is None and played == [] and not any(s.get("state") == "speaking" for s in states), states
 j.cancel.clear()
@@ -2209,9 +2223,9 @@ for text in ("quiet the music", "enough of this song", "never mind the timer, se
     assert not j.ENDERS.fullmatch(text), text
 # a stop while an alarm rings (the stop key calls stop_now): it ends, no snooze
 j.ding, j.synth_audio = lambda: ("ding", 1), lambda text: (text, 1)
-j.play_samples = lambda a, rate: (played.append(a), j.stop_now("stop key"))
+j.play_samples = lambda a, rate, *_: (played.append(a), j.stop_now("stop key"))
 assert ring([]) == (1, ["timer"]) and convo[-1] == ("J", "(stopped)")
-j.play_samples = lambda a, rate: played.append(a)
+j.play_samples = lambda a, rate, *_: played.append(a)
 
 
 # 4a-2: the stop key, registered only while he is busy, with a fake Windows
