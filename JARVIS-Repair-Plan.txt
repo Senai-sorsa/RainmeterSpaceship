@@ -101,11 +101,14 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
     BUILT and committed: 7-0 action table (6273fc5), 7-L1 sleep reply (a67b333), 7a mic (bbfb2b9), 7c brightness
     (5911dc1), dark/light mode (fbde313), settings pages + screenshot + show desktop + recycle bin (9493f41), 7d power
     mode (46910eb), 7b Bluetooth on/off + pair/connect open the page (e398db2), 7-A9 live-fact guard (138928f),
-    7-A8 focus a running app (fa81967), 7-P log-file test (ecdc719). Live-test steps: PART 1b.
-    WAITING / NOT BUILT: 7-A6 own settings by voice (stealth is a HUD tier set through Rainmeter bangs, and jset
-    writes with !WriteKeyValue; a Python writer would race Rainmeter on Settings.inc and could not make the HUD
-    take the change, so it needs a Lua-side design and the user's word); 7e / 7-A7 Control Center Lua rows and
-    JarvisBtNames; "which microphone" / "use the headset microphone" (needs 7-A6's writer); Bluetooth connect /
+    7-A8 focus a running app (fa81967), 7-P log-file test (ecdc719), 7-A6 stealth by voice, enter only, asks first,
+    no voice undo (1814338; Python sends a whitelisted "HUD" line, jarvis.lua runs the Rainmeter bang), "which
+    microphone" / "use the headset microphone" (dead886; asks first, undo; the HUD writes JarvisMic).
+    Live-test steps: PART 1b.
+    WAITING / NOT BUILT: 7-A6 rest (only stealth and the mic are by voice; other settings stay in the Control
+    Center); 7e / 7-A7 Control Center Lua rows (3 sub-headings, memory row, 7 hidden settings) and JarvisBtNames:
+    NOT started on purpose, it moves existing UI rows and can only be parse-checked without the live HUD, so it
+    waits for the user's word and a live look; Bluetooth connect /
     disconnect of paired audio devices, the connected list and ask_slot() (need the experiment with the user
     present); Lenovo Legion Toolkit (not verifiable here); the 300-lines vs monthly-archive question for
     jarvis_log.txt. Rollback: git revert, newest first.
@@ -3291,6 +3294,12 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
     1b-11. "What's the weather" / news / prices: "I can't look that up yet." (7-A9), no model guess.
     1b-12. "Open Chrome" (or any app already running): the existing window comes to the front, no second copy;
           an app not running starts as before (7-A8).
+    1b-13. Stealth: "stealth mode" -> he asks -> "yes" -> the HUD goes to STEALTH and he answers in the pop-up only.
+          He cannot undo it by voice; leave it in the Control Center. "Mute yourself" = sound mute, not stealth.
+    1b-14. Microphone: "which microphone are you using" -> he names the current one. "Use the headset microphone"
+          -> asks, "yes" -> "Listening through ... It applies the next time I listen." The Control Center
+          MICROPHONE row shows the new name after a moment. "Undo" -> back to the old one. "Use the webcam
+          microphone" (no match) -> he says he cannot find it. "Use the default mic" -> Windows default.
 
 
   PART 2   S2-8 .. S2-13 (the 2026-10-14 live-log audit, built 2026-10-15). Each step names the bug.
