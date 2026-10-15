@@ -1963,6 +1963,7 @@ assert j.undo_last().startswith("Put back: alarm at 8:00 AM")
 assert sorted(datetime.fromtimestamp(r[0]).strftime("%H:%M") for r in j.load_reminders()) == ["07:00", "08:00"]
 assert which("change my alarm to 9", "") == "Okay, I left them." and asked[-1].endswith("Which one?")
 j.save_reminders([])
+j.time.time = lambda: 2e9                                          # N7: whole seconds, so the stored round() cannot cost one
 do("set a timer for 10 minutes")
 before = j.load_reminders()[0][0]
 assert do("add 5 minutes to the timer").startswith("The timer now has 15 minutes") and j.load_reminders()[0][0] == before + 300
