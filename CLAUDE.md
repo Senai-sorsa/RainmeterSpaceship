@@ -30,15 +30,12 @@ Inspect the actual repository before making assumptions about its architecture, 
 
 \- Report actual command results. Never claim a test passed unless it was run and its result was verified.
 
-\- Wait for my approval before implementing the first repair.
 
 
 
 \## 3. Safe Development
 
 
-
-\- Preserve existing user changes and uncommitted work.
 
 \- Never use destructive Git commands to resolve uncertainty.
 
@@ -47,8 +44,6 @@ Inspect the actual repository before making assumptions about its architecture, 
 \- Do not rewrite the application, change frameworks, upgrade dependencies, or introduce major new services without approval.
 
 \- Before each significant change, define its goal, scope, non-goals, acceptance criteria, validation, risks, and rollback plan.
-
-\- Do not commit, push, merge, create a release, or deploy changes without explicit approval.
 
 
 
@@ -200,3 +195,9 @@ Pricing (Aug 2026, per 1M tokens, input/output):
 
 Project override (outside the managed block, so a reinstall keeps it): in this project,
 Planning work routes to Opus, not Fable. Opus stays responsible for architectural decisions (section 6).
+
+Delegation override (user-approved 2026-10-14): use subagents by default for any task that is not a
+single-step change. Spawn a Haiku subagent for mechanical work (search, rename, format, read) and a
+Sonnet subagent for bounded implementation (one or two files, tests, scoped research). Only work
+inline if the task is one step or needs the full conversation context. State which model you chose
+for each task. Subagents follow the same scope and safety rules as this file.
