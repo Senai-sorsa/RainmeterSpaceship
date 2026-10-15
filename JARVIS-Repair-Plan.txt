@@ -2446,6 +2446,15 @@ REDESIGN   ONE FRONT DOOR, FOUR LANES   (approved 2026-10-14; solves Fix Round 6
       - BARGE-IN texts name the stop words (WAKE and VOICE); OFF also turns the stop words off.
     - Checks: no Lua interpreter here, so control.lua was checked by bracket count only; the Control
       Center must be opened in the live test. test_jarvis OK; route check 75 phrases, 0 differences.
+  SLICE H BUILT 2026-10-14 (clean-up; offline checks only):
+    - Scanned jarvis.py: (1) every function / class name is used in jarvis.py; (2) every function is
+      reachable from the module's own code (call graph, strings included); (3) no global is set and never
+      read; (4) every Jarvis* key in Settings.inc is read by jarvis.py or the skins. Result: nothing the
+      slices left unused (they replaced code in place), so no code was deleted.
+    - Found but left alone (older than the redesign, not this slice's job): KOKORO_VOICES (jarvis.py) is
+      never read; JarvisWakeHard and JarvisAIRouter have no Control Center row (settings only).
+    - Still open: the Vosk model download in Setup-Jarvis.ps1 (user to decide); copy-to-live must copy
+      Jarvis\vosk.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE
