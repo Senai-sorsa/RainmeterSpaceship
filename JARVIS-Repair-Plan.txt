@@ -2694,6 +2694,8 @@ REFACTOR   SPLIT jarvis.py INTO MODULES (added 2026-10-15; runs BEFORE PHASE 7, 
     R5  speech (play / speak / fillers), calc (+ _num, clock: they and the time parsers need each other) -> jarvislib; test_jarvis OK, check_route only N14 time-stamp noise.
     R6  actions (apps, volume, keys, lock, sleep; not the ACTIONS table), confirm (YES / is_yes / confirmed / DANGER / NAMES), stopkey -> jarvislib; test_jarvis OK, check_route 0 changed.
     R7  turnstate (undo / recent / offer / last / did / DID_ASK / did_add: the turn's short-term memory), todo (act_todo) -> jarvislib; test_jarvis OK, check_route clean.
+    RK  stopped: the rest is three circular clusters tied into turn / exchange (memory <-> can_undo / undo_last <-> reminders; route <-> AI interpret / autocorrect; topics <-> gist <-> meaning / system prompt). No clear owner boundary, so they stay in jarvis.py (adjustment 4).
+    RC  dropped dead imports (deque, math, msvcrt, queue, tempfile) and two loop-variable names; the jarvislib re-imports stay as the facade (jarvis.X still works). check_voice.py names resolve; testkoroko.py does not import jarvis (audit note was wrong). Copy-to-live (git archive + robocopy /E) carries jarvislib\ with no change. test_jarvis OK, check_route 0 changed (time stamps now blanked in the compare).
 
 --------------------------------------------------------------------------------------------------------
 PHASE 7   MORE SETTINGS BY VOICE

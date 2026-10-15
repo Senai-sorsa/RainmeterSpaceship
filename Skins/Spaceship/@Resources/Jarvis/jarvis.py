@@ -35,25 +35,21 @@ Every problem is logged to Data\\jarvis.log, shown on the hologram (ERR) and add
 import ctypes
 import gc
 import json
-import math
-import msvcrt
 import os
-import queue
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 import urllib.error
 import urllib.request
 import wave
-from collections import Counter, deque, namedtuple
+from collections import Counter, namedtuple
 from datetime import datetime, timedelta
 from jarvislib import hearing
 from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE,
-    MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State, _name,
+    MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State,
     busy, cancel, convo_add, live, log, mic, missing_packages, name_until, problem, rainmeter_running, read_kv,
     setting, settings, single_instance, stop_now, todo_note)
 from jarvislib.stopwords import STOP_PHRASES, StopWords, far, far_add, saying, stop_heard
@@ -69,7 +65,7 @@ from jarvislib.mic import _listen, _mic_missing, duck, follow_wait, list_mics, l
 from jarvislib.notes import STOP, search_notes, vault_dir
 from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _filler_thread, _filler_voice, _speak_queue,
     filler, filler_done, first_words, muted, play_samples, prepare_fillers, say_text_only, sentences_from, speak_all)
-from jarvislib.calc import (MONTHS, ONES, TENS, UNITS, UNIT_ROWS, WEEKDAYS, _num, _remind_bad, _row, amount, calc,
+from jarvislib.calc import (MONTHS, ONES, TENS, UNITS, UNIT_ROWS, WEEKDAYS, _num, _remind_bad, amount, calc,
     clock, convert, fact_answer, for_ear, on_day, unit)
 from jarvislib.actions import (MEDIA_KEYS, act_close, act_lock, act_open, act_sleep, act_volume, best_app, done_line,
     open_windows, press_key, run_ok, running_window, start_apps)
