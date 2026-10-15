@@ -118,13 +118,16 @@ def snooze_for(heard):
     """What was said while it rang -> None (not a snooze), the seconds to wait, or 0 for a length he cannot use
     (under a minute, over 2 hours, or not understood: it keeps ringing)."""
     s = re.sub(r"[^a-z0-9. ]+|\.(?!\d)", " ", heard.lower())
-    if not re.search(r"\b(snooze|later|not now)\b|\bmore (sec|min|hour)", s):
+    if not re.search(r"\b(?:snooze|later|not now|again in)\b|\bmore (?:sec|min|hour)|\b(?:sec|min|hour)\w* more\b", s):
         return None
-    rest = " ".join(w for w in s.split() if w not in ("snooze", "later", "not", "now", "more", "for", "it", "ok", "okay",
-                                                      "another", "please", "jarvis"))
+    rest = " ".join(w for w in s.split() if w not in ("snooze", "later", "not", "now", "more", "for", "in", "again", "it", "ok",
+                                                      "okay", "another", "please", "jarvis"))
     if not rest:
         return SNOOZE
     d = duration(rest)
+    if d is None:
+        n = _num(rest)                                         # a bare number ("again in ten", "snooze for 10") = minutes
+        d = n * 60 if n is not None else None
     return d if d and 60 <= d <= 7200 else 0
 
 

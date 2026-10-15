@@ -803,6 +803,8 @@ assert j.snooze_for("Snooze.") == j.snooze_for("okay, later") == j.snooze_for("N
 assert j.snooze_for("snooze 5 minutes") == 300 and j.snooze_for("Ten more minutes.") == 600
 assert j.snooze_for("snooze for half an hour") == 1800
 assert j.snooze_for("snooze 5 hours") == 0 and j.snooze_for("snooze 10 seconds") == 0     # out of range: keeps ringing
+assert j.snooze_for("again in ten") == j.snooze_for("snooze for 10") == 600 and j.snooze_for("5 minutes more") == 300   # P0-07
+assert j.snooze_for("snooze for 30") == 1800 and j.snooze_for("again in 90 seconds") == 90 and j.snooze_for("snooze for 0") == 0
 assert j.snooze_for("stop") is None and j.snooze_for("") is None and j.snooze_for("no more") is None
 t0 = time.time()
 assert ring(["Snooze."]) == (1, ["reminder", "timer"]) and asked[-1] == "Snoozed for 5 minutes."
