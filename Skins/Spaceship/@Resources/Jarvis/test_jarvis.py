@@ -359,6 +359,12 @@ try:
         pass
 finally:
     j.subprocess.run = _run
+# 7-A9: a live-internet question gets a plain "can't look that up", not a guess; ordinary talk is not caught
+for heard in ("What's the weather like today?", "what is the forecast for tomorrow", "any news today", "what's the latest news", "bitcoin price",
+              "what's the exchange rate for euros"):
+    assert j.no_data(heard, set()) == "I can't look that up yet.", heard
+for heard in ("write a story about a storm", "what's a good name for a weather app", "explain how a news feed works", "tell me a joke"):
+    assert j.no_data(heard, set()) is None, heard
 class _Reg:                                                      # a fake winreg: nothing of the real registry is touched
     HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, vals = 1, 1, 2, 4, {"AppsUseLightTheme": 0, "SystemUsesLightTheme": 0}
     class _K:

@@ -190,8 +190,17 @@ def lane_of(kind, blocks):
     return "chat" if kind in ("chat", "guard") else "command"
 
 
+# 7-A9: questions that need the live internet (he is offline until S2-5): a plain answer, never a model guess
+LIVE_FACT = re.compile(r"(?:weather (?:like|today|tonight|tomorrow|now|outside|forecast|in)|(?:the )?(?:weather )?forecast|"
+                       r"is it (?:raining|snowing|cold|hot|sunny) |(?:any|latest|today'?s|breaking|the) news|headlines|"
+                       r"(?:stock|share|bitcoin|crypto) price|exchange rate|who won (?:the )?(?:game|match|election))", re.I)
+LIVE_FACT_LINE = "I can't look that up yet."
+
+
 def no_data(text, blocks):
     """L10: a fixed reply when everything asked about is empty, so the model never fills the gap. None: data to use."""
+    if not blocks and LIVE_FACT.search(text + " "):
+        return LIVE_FACT_LINE
     if not blocks or blocks - {"calendar", "mail", "todo"}:
         return None
     have = context(text)
