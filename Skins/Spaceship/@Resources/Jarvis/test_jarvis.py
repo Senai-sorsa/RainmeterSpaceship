@@ -2290,7 +2290,7 @@ class _Proc:
 
     def __init__(self, args, **kw):
         assert "timeout" not in kw and kw.get("stdin") == subprocess.PIPE
-        self.n, self.killed = 0, False
+        self.n, self.killed, self.args = 0, False, args
         procs.append(self)
 
     def communicate(self, data=None, timeout=None):
@@ -2310,6 +2310,10 @@ class _Proc:
 
 real_popen, j.subprocess.Popen = j.subprocess.Popen, _Proc
 assert real_windows("hello") is None and not procs[-1].killed        # ran, made no file (fake): no audio
+real_mkstemp = tempfile.mkstemp                                    # a quote in the profile path is doubled
+tempfile.mkstemp = lambda **k: (os.open(os.devnull, os.O_RDONLY), "C:\\Users\\O'Brien\\jarvis_x.wav")
+assert real_windows("hello") is None and "('C:/Users/O''Brien/jarvis_x.wav')" in procs[-1].args[-1]
+tempfile.mkstemp = real_mkstemp
 _Proc.hang = True
 t0 = time.time()
 assert real_windows("hello") is None and procs[-1].killed and procs[-1].n == 3 and time.time() - t0 < 1
@@ -2690,17 +2694,20 @@ assert j._decode(fake_whisper, "audio") == "Okay."
 j.log = lambda *a: None
 
 # S2-11: Modern Standby (S0) refuses SetSuspendState; the fallback turns the screen off, and only both failing is an error
-real_windll, posted = ctypes.windll, []
+real_windll, real_WinDLL, posted, dlls = ctypes.windll, ctypes.WinDLL, [], []
 for suspend, post, want in ((1, 1, []), (0, 1, [(0xFFFF, 0x0112, 0xF170, 2)]), (0, 0, "raise")):
     posted.clear()
-    ctypes.windll = S_(powrprof=S_(SetSuspendState=lambda *a, r=suspend: r),
-                       user32=S_(PostMessageW=lambda *a, r=post: posted.append(a) or r))
+    dlls.clear()
+    ctypes.WinDLL = lambda name, use_last_error=False, r=suspend: (                # 9-L2: the error number is kept
+        dlls.append((name, use_last_error)) or S_(SetSuspendState=lambda *a: r))
+    ctypes.windll = S_(user32=S_(PostMessageW=lambda *a, r=post: posted.append(a) or r))
     try:
         j.act_sleep(None)
         assert want != "raise" and posted == want, (suspend, post, posted)
+        assert dlls == [("powrprof", True)], dlls
     except OSError:
         assert want == "raise"
     finally:
-        ctypes.windll = real_windll
+        ctypes.windll, ctypes.WinDLL = real_windll, real_WinDLL
 
 print("test_jarvis: OK")

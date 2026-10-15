@@ -123,8 +123,8 @@ def _piper(voice_path, text):
 def _windows(text):
     fd, path = tempfile.mkstemp(suffix=".wav", prefix="jarvis_")
     os.close(fd)
-    # Escape path for PowerShell
-    safe_path = path.replace("\\", "/")
+    # Escape path for PowerShell: inside '...' a quote is doubled (a profile like O'Brien)
+    safe_path = path.replace("\\", "/").replace("'", "''")
     ps = ("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
           "$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'en-GB' } | Select-Object -First 1; "
           f"if ($v) {{ $s.SelectVoice($v.VoiceInfo.Name) }}; $s.Rate = {voice_rate()}; "

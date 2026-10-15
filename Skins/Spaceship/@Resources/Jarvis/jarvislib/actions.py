@@ -117,9 +117,9 @@ def act_lock(_):
 
 def act_sleep(_):
     # asked directly so the answer comes back (rundll32 always exits 0); it returns once the PC wakes again
-    if ctypes.windll.powrprof.SetSuspendState(0, 1, 0):
+    if ctypes.WinDLL("powrprof", use_last_error=True).SetSuspendState(0, 1, 0):
         return
     # S2-11: Modern Standby laptops (S0, no S3) refuse it; turning the screen off is how they enter standby
-    log(f"sleep: suspend refused (error {ctypes.GetLastError()}) - screen off for Modern Standby")
+    log(f"sleep: suspend refused (error {ctypes.get_last_error()}) - screen off for Modern Standby")
     if not ctypes.windll.user32.PostMessageW(0xFFFF, 0x0112, 0xF170, 2):   # broadcast WM_SYSCOMMAND SC_MONITORPOWER off
         raise OSError("Windows refused to sleep")
