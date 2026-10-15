@@ -827,7 +827,7 @@ def exchange(tier, follow, woke, mode, left):
         plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
         if room and is_yes(text):                              # "Are you talking to me, sir?" "Yes": answer what was said
             text = room
-        if fact and (plain in YES or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
+        if fact and (is_yes(text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
             way.update(kind="memory", action="save", via="rule", lane="command")
             fixed(memory_reply("save", fact))
             return

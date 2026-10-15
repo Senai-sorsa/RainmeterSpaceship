@@ -1544,6 +1544,12 @@ j.transcribe = lambda a: next(turns)
 j.turn(0)
 assert asked[-1] == "Noted: My sister's name is Ana." and j.load_memory() == ["my dentist is on Fridays", "My sister's name is Ana"]
 assert j.offer == {} and j.learnable("My sister's name is Ana.") == ""        # already saved: no second offer
+assert all(j.is_yes(x) for x in ("Yes, Jarvis.", "Yes sir", "Carry on", "continue")) and not j.is_yes("yes but don't")
+turns = iter(["My cat is called Tom.", "Yes, Jarvis."])                 # P0-04: a name after the yes still counts
+heard[0], speaks[0] = 0, 2
+j.transcribe = lambda a: next(turns)
+j.turn(0)
+assert "My cat is called Tom" in j.load_memory()
 turns = iter(["I live in Leeds.", "Yes."])                           # a late yes is just a yes
 heard[0], speaks[0] = 0, 1
 j.transcribe = lambda a: next(turns)
