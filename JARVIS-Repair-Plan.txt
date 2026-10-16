@@ -106,7 +106,7 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
     microphone" / "use the headset microphone" (dead886; asks first, undo; the HUD writes JarvisMic).
     Live-test steps: PART 1b.
     Also built: 7b connect / disconnect of paired Bluetooth audio devices + "which bluetooth devices are connected"
-    (413541f; asks first, undo, JarvisBtNames); jarvis_log monthly archive Datajarvis_log-YYYY-MM.txt (413541f; written
+    (413541f; asks first, undo, JarvisBtNames); jarvis_log monthly archive Data\jarvis_log-YYYY-MM.txt (413541f; written
     only, never read; Forget clears only jarvis_log.txt); P0-10 Setup-Jarvis.ps1 (b49a9ff); 7e Control Center JARVIS tab
     grouped under SETTINGS / PERSONALIZATION / MEMORY headings (e0ac684; rows only moved, none removed).
     WAITING / NOT BUILT: 7-A7 rest (memory-facts row, 7 hidden settings, JarvisBtNames row: needs a paired-device
@@ -2985,7 +2985,7 @@ PHASE 7   MORE SETTINGS BY VOICE
                                   turn's history (and "remember ..."), never from jarvis_log.txt.
          Build: (a) a test in test_jarvis that fails if any code other than convo_add reads CONVO_FILE
          (patch open / grep the jarvislib sources), so the rule cannot slip later; (b) ask the user whether
-         300 lines is enough, or keep a monthly archive Datajarvis_log-YYYY-MM.txt that only the user
+         300 lines is enough, or keep a monthly archive Data\jarvis_log-YYYY-MM.txt that only the user
          opens (code writes it, never reads it; Data\ stays out of git); (c) the Control Center says which
          file "forget" clears (today the Forget button empties YOUR log and his talk window, not his long-term memory).
          Not to do: feed jarvis_log.txt into recall. Recall stays memory.py with its own on/off (Recall).
@@ -3307,7 +3307,7 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
           "Connect my headphones" -> asks, "yes" -> "Connected to X." (check it really connects). "Undo" ->
           disconnects. "Disconnect the headphones" -> asks, yes, check. Two matching devices -> he lists them.
           Radio OFF -> "turn it on first". Check the services are enabled again after a disconnect + connect.
-    1b-16. Datajarvis_log-YYYY-MM.txt exists and grows with each exchange; "forget" clears only jarvis_log.txt.
+    1b-16. Data\jarvis_log-YYYY-MM.txt exists and grows with each exchange; "forget" clears only jarvis_log.txt.
     1b-17. Control Center JARVIS tab: three headings; every old row is still there; scroll works; buttons work.
     1b-18. Fresh install: Setup-Jarvis.ps1 leaves JarvisPython blank, writes a relative JarvisVoice, voice bm_lewis.
 
