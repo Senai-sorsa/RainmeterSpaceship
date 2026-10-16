@@ -48,7 +48,7 @@ if (-not (Test-Path $vpy)) { & py -3 -m venv $venv }
 if (-not (Test-Path $vpy)) { Write-Host "Could not create $venv - see the messages above." -ForegroundColor Yellow; exit 1 }
 & $vpy -m pip install --disable-pip-version-check -r (Join-Path $PSScriptRoot 'requirements.txt')
 if ($LASTEXITCODE -ne 0) { Write-Host 'pip install failed - see the messages above.' -ForegroundColor Yellow; exit 1 }
-Set-Setting 'JarvisPython' (Join-Path $venv 'Scripts\pythonw.exe')
+# JarvisPython stays blank: jarvis.lua finds this private copy (%LOCALAPPDATA%\SpaceshipHUD\venv) by itself
 # the GPU voice: onnxruntime-gpu 1.23 (CUDA 12, the same libraries as Whisper) replaces the CPU build in the same
 # folder. chromadb / openwakeword / piper / kokoro / faster-whisper ask for "onnxruntime" by name and work with either
 # (tested 2026-10-14), so the line above reinstalls the CPU build each run: uninstall it, then force the GPU build back.
@@ -101,10 +101,10 @@ if (Ask 'Install the natural Kokoro voice (~400 MB download, runs on the NVIDIA 
     }
     $model = Join-Path $vdir 'kokoro-v1.0.int8.onnx'
     if ((Test-Path $model) -and (Test-Path (Join-Path $vdir 'voices-v1.0.bin'))) {
-      Set-Setting 'JarvisVoice' $model
-      Set-Setting 'JarvisKokoroVoice' 'bm_george'
-      Write-Host 'Kokoro ready (voice: bm_george - change it in Control Center > JARVIS > KOKORO VOICE).'
-      & $vpy -c "from kokoro_onnx import Kokoro; import sounddevice as sd; k = Kokoro(r'$model', r'$(Join-Path $vdir 'voices-v1.0.bin')'); s, r = k.create('Jarvis online.', voice='bm_george', speed=1.0, lang='en-gb'); sd.play(s, r); sd.wait()"
+      Set-Setting 'JarvisVoice' 'Jarvis\voices\kokoro-v1.0.int8.onnx'   # relative to @Resources: no user name in Settings.inc
+      Set-Setting 'JarvisKokoroVoice' 'bm_lewis'
+      Write-Host 'Kokoro ready (voice: bm_lewis - change it in Control Center > JARVIS > KOKORO VOICE).'
+      & $vpy -c "from kokoro_onnx import Kokoro; import sounddevice as sd; k = Kokoro(r'$model', r'$(Join-Path $vdir 'voices-v1.0.bin')'); s, r = k.create('Jarvis online.', voice='bm_lewis', speed=1.0, lang='en-gb'); sd.play(s, r); sd.wait()"
     }
   }
 }
