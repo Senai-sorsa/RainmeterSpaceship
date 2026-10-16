@@ -3391,4 +3391,53 @@ assert "secret" not in str(_e) and "Bob" not in str(_e) and "x.exe" not in str(_
 assert all("Display" not in x["text"] and "graphics" not in x["text"] for x in j.group_events(_ev, since=100))
 assert j.group_events(None) == []
 
+# 9-4: findings() fixed rules, worst first; summary() the all-clear line
+_big = [{"name": "Game.exe", "pid": 7, "cpu": 640.0, "mem": 5 * 2**30}] + _procs[:31]
+_f = j.findings({"cpus": 8, "procs": _big, "mem_pct": 91})
+assert _f[0]["text"] == "game is using 80% of the CPU" and _f[0]["closable"] and _f[0]["app"] == "game", _f
+assert _f[0]["sev"] > _f[1]["sev"] and _f[1]["text"] == "game is using 5.0 GB of memory", _f
+_f = j.findings({"cpus": 1, "procs": [dict(p, cpu=2.0) for p in _procs[:31]]})     # 31 chrome processes summed: 62%
+assert [x["text"] for x in _f] == ["chrome is using 62% of the CPU"] and _f[0]["closable"], _f
+assert j.findings({"cpus": 8, "procs": _procs[:31]}) == [], "31 x 1% of 8 CPUs is 3.9%, below 50"
+_clean = {"cpus": 8, "procs": _procs[:31], "cpu_pct": 12.4, "mem_pct": 55, "disks": [{"drive": "C:", "free_gb": 200, "total_gb": 500}],
+          "events": [], "gateway": {"ms": 3}, "public": [{"ms": 20}], "wifi": {"signal": 90}, "temps": {"cpu": 60}}
+assert j.findings(_clean) == []
+assert j.summary(_clean) == "I can't see anything wrong: CPU 12%, memory 55%, disk fine, no errors today.", j.summary(_clean)
+assert j.summary({"cpu_pct": 5}) == "I can't see anything wrong: CPU 5%." and j.summary({}) == "I couldn't read that."
+_t = lambda snap: [x["text"] for x in j.findings(snap)]
+assert _t({"disks": [{"drive": "C:", "free_gb": 50, "total_gb": 1000}]}) == ["drive C is almost full, 50 GB free"]
+assert _t({"disks": [{"drive": "D:", "free_gb": 5, "total_gb": 10}]}) == ["drive D is almost full, 5 GB free"]
+assert not _t({"disks": [{"drive": "C:", "free_gb": 50, "total_gb": 100}]})
+assert _t({"disk_busy": 95}) == ["the disk is busy 95% of the time"]
+assert _t({"temps": {"gpu": 91}}) == ["the PC is running hot: GPU 91 C"] and "slowed down" in _t({"throttle": True})[0]
+assert "battery saver" in _t({"battery_saver": True})[0]
+assert _t({"wifi": {"signal": 30}}) == ["the Wi-Fi signal is weak, 30%"]
+assert _t({"gateway": {"ms": 150}}) == ["the router is slow to answer, 150 ms"]
+assert _t({"gateway": {"ms": 5}, "public": [{"ms": None}, {"ms": None}]}) == ["the router is fine but the internet is not answering"]
+assert _t({"gateway": {"ms": None}, "public": [{"ms": None}]}) == ["I can't reach the router"]
+assert not _t({"gateway": {"ms": 5}, "public": [{"ms": None}, {"ms": 9}]})
+assert "2 device" in _t({"faulty_devices": 2})[0]
+assert _t({"events": [{"text": "chrome crashed", "count": 3, "known": True}]}) == ["chrome crashed, 3 time(s)"]
+assert _t({"reboot_pending": True}) == ["a restart is pending"] and _t({"uptime_days": 20}) == ["the PC has been on for 20 days"]
+assert _t({"jarvis_on_cpu": True}) == ["my voice model is running on the CPU"]
+_gp = [{"name": "ollama.exe", "pid": 50, "cpu": 1.0}, {"name": "chrome", "pid": 51, "cpu": 1.0}]
+_f = j.findings({"procs": _gp, "gpu_util": 95, "gpu": [{"pid": 50, "util": 90}, {"pid": 51, "util": 5}]})
+assert _f[0]["text"] == "my own model is using the GPU" and _f[0]["closable"] is False, _f
+_f = j.findings({"procs": _gp, "gpu_util": 95, "gpu": [{"pid": 51, "util": 90}]})
+assert _f[0]["text"] == "chrome is using the GPU" and _f[0]["closable"], _f
+_f = j.findings({"cpus": 1, "procs": [{"name": "explorer.exe", "pid": 1, "cpu": 90.0}]})
+assert _f[0]["text"] == "explorer is using 90% of the CPU" and _f[0]["closable"] is False, _f
+assert j.is_protected("Explorer.EXE") and not j.is_protected("python") and not j.is_protected("chrome")
+for _k in ("cpus", "procs", "cpu_pct", "mem_pct", "disks", "disk_busy", "gpu_util", "gpu", "gpumem", "temps", "throttle", "battery_saver",
+           "battery", "wifi", "gateway", "public", "faulty_devices", "events", "reboot_pending", "uptime_days", "jarvis_on_cpu"):
+    for _v in (None, [], {}):
+        j.findings({_k: _v})
+    j.summary({_k: None})
+assert j.findings({}) == [] and j.findings(None) == []
+_all = j.findings({"cpus": 1, "procs": _big, "mem_pct": 95, "disks": [{"drive": "C", "free_gb": 1, "total_gb": 9}], "disk_busy": 99,
+                   "gpu_util": 99, "temps": {"cpu": 99}, "throttle": True, "battery_saver": True, "wifi": {"signal": 1},
+                   "gateway": {"ms": None}, "faulty_devices": 1, "events": _e, "reboot_pending": True, "jarvis_on_cpu": True})
+assert len(_all) > 10 and _all == sorted(_all, key=lambda x: x["sev"], reverse=True)
+assert not any("broken" in x["text"].lower() for x in _all)
+
 print("test_jarvis: OK")

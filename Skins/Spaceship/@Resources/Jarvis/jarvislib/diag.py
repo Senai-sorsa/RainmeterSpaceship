@@ -179,3 +179,88 @@ def group_events(events, since=None):
         g = groups.setdefault(text, {"text": text, "count": 0, "known": bool(what)})
         g["count"] += 1
     return sorted(groups.values(), key=lambda g: g["count"], reverse=True)
+
+
+# 9d rules: thresholds and severities in one place (starting values, tune after a week). Higher sev = worse.
+T = {"app_cpu": 50, "mem": 90, "disk_pct": 10, "disk_gb": 10, "disk_busy": 90, "gpu": 90, "temp": 90, "wifi": 40, "ping_ms": 100,
+     "uptime_days": 14}
+SEV = {"heat": 90, "cpu_app": 80, "mem": 78, "disk_full": 76, "gpu": 70, "disk_busy": 68, "internet": 66, "router": 65, "faulty": 60,
+       "crash": 55, "wifi": 45, "slow_router": 44, "unknown_event": 40, "battery": 35, "own_cpu": 30, "reboot": 20}
+# Windows' own and the HUD's processes: never offered for closing. python and ollama are left out on purpose:
+# they are named "my own model" and are never closable (OWN_MODEL).
+PROTECTED = frozenset({"explorer", "svchost", "csrss", "wininit", "winlogon", "lsass", "services", "smss", "dwm", "system",
+                       "registry", "fontdrvhost", "sihost", "ctfmon", "audiodg", "msmpeng", "searchhost", "taskhostw",
+                       "rainmeter", "jarvis"})
+OWN_MODEL = frozenset({"ollama", "python"})
+
+
+def is_protected(name):
+    return re.sub(r"\.exe$", "", str(name or "").lower()) in PROTECTED
+
+
+def findings(snap):
+    """Fixed rules (9d) over a snapshot dict, worst first. Every key is optional: a missing one skips its rule. Pure."""
+    out, snap = [], snap or {}
+
+    def add(sev, text, app=None, closable=False):
+        out.append({"sev": sev, "text": text, "app": app,
+                    "closable": bool(closable and app and not is_protected(app) and app not in OWN_MODEL)})
+
+    procs, cpus = snap.get("procs"), snap.get("cpus")
+    top = top_apps(procs, cpus, "cpu")[:1]
+    if top and top[0]["value"] > T["app_cpu"]:
+        add(SEV["cpu_app"], f"{top[0]['name']} is using {top[0]['value']:.0f}% of the CPU", top[0]["name"], True)
+    if (snap.get("mem_pct") or 0) > T["mem"]:
+        m = (top_apps(procs, cpus, "mem") or [None])[0]
+        add(SEV["mem"], f"{m['name']} is using {m['value'] / 2**30:.1f} GB of memory" if m and m["value"] else f"memory is {snap['mem_pct']:.0f}% full",
+            m["name"] if m and m["value"] else None, True)
+    for d in snap.get("disks") or []:
+        free, total = d.get("free_gb"), d.get("total_gb")
+        if free is not None and (free < T["disk_gb"] or (total and 100 * free / total < T["disk_pct"])):
+            add(SEV["disk_full"], f"drive {str(d.get('drive')).rstrip(':').upper()} is almost full, {free:.0f} GB free")
+    if (snap.get("disk_busy") or 0) > T["disk_busy"]:
+        add(SEV["disk_busy"], f"the disk is busy {snap['disk_busy']:.0f}% of the time")
+    if (snap.get("gpu_util") or 0) > T["gpu"]:
+        g = (gpu_apps(snap.get("gpu"), snap.get("gpumem"), procs) or [None])[0]
+        if g and g["name"] in OWN_MODEL:
+            add(SEV["gpu"], "my own model is using the GPU", g["name"])
+        elif g:
+            add(SEV["gpu"], f"{g['name']} is using the GPU", g["name"], True)
+        else:
+            add(SEV["gpu"], f"the GPU is {snap['gpu_util']:.0f}% busy")
+    hot = [f"{k.upper()} {v:.0f} C" for k, v in (snap.get("temps") or {}).items() if v is not None and v >= T["temp"]]
+    if hot or snap.get("throttle"):
+        add(SEV["heat"], "the PC is running hot: " + (", ".join(hot) if hot else "the processor is being slowed down"))
+    if snap.get("battery_saver"):
+        add(SEV["battery"], "battery saver is on, so the PC is running slower on purpose")
+    signal = (snap.get("wifi") or {}).get("signal")
+    if signal is not None and signal < T["wifi"]:
+        add(SEV["wifi"], f"the Wi-Fi signal is weak, {signal:.0f}%")
+    gw, pub = snap.get("gateway"), snap.get("public")
+    if gw:
+        if gw.get("ms") is None:
+            add(SEV["router"], "I can't reach the router")
+        else:
+            if gw["ms"] > T["ping_ms"]:
+                add(SEV["slow_router"], f"the router is slow to answer, {gw['ms']:.0f} ms")
+            if pub and all(p.get("ms") is None for p in pub):
+                add(SEV["internet"], "the router is fine but the internet is not answering")
+    if (snap.get("faulty_devices") or 0) > 0:
+        add(SEV["faulty"], f"Windows reports {snap['faulty_devices']} device(s) with a problem")
+    for e in snap.get("events") or []:
+        if e.get("count", 0) >= 1:
+            add(SEV["crash"] if e.get("known") else SEV["unknown_event"], f"{e['text']}, {e['count']} time(s)")
+    if snap.get("reboot_pending") or (snap.get("uptime_days") or 0) > T["uptime_days"]:
+        add(SEV["reboot"], "a restart is pending" if snap.get("reboot_pending") else f"the PC has been on for {snap['uptime_days']:.0f} days")
+    if snap.get("jarvis_on_cpu"):
+        add(SEV["own_cpu"], "my voice model is running on the CPU")
+    return sorted(out, key=lambda f: f["sev"], reverse=True)
+
+
+def summary(snap):
+    """The fixed all-clear line, from the numbers that are there."""
+    snap = snap or {}
+    parts = ([f"CPU {snap['cpu_pct']:.0f}%"] if snap.get("cpu_pct") is not None else []) + \
+            ([f"memory {snap['mem_pct']:.0f}%"] if snap.get("mem_pct") is not None else []) + \
+            (["disk fine"] if snap.get("disks") else []) + (["no errors today"] if snap.get("events") == [] else [])
+    return f"I can't see anything wrong: {', '.join(parts)}." if parts else "I couldn't read that."
