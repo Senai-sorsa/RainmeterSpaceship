@@ -1,12 +1,13 @@
 """diag: moved verbatim from jarvis.py (refactor). See JARVIS-Repair-Plan.txt, REFACTOR."""
 import ctypes
+import json
 import os
 import re
 import shutil
 import subprocess
 import time
 from .audio import speakers
-from .base import NO_WINDOW, read_kv, settings
+from .base import NO_WINDOW, log, read_kv, settings
 from .calc import clock, unit
 from .gpu import gpu
 from .reminders import load_reminders, span
@@ -91,3 +92,90 @@ def sensors():
     for fn in (cpu, card, sound, panel, disk, pending):
         part(fn)
     return "\n".join(lines)
+
+
+# "what is wrong with my PC?": diag.ps1 reads, this file adds up and names. Nothing spoken ever reaches the PowerShell arguments.
+PS1 = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "diag.ps1")
+PARTS = ("processes", "logs", "network", "system")
+
+# event (provider, id) -> plain words. Only these are named; anything else is reported as source, number and count.
+EVENTS = {("Microsoft-Windows-Kernel-Power", 41): "the PC shut down unexpectedly or lost power",
+          ("EventLog", 6008): "the previous shutdown was not clean",
+          ("BugCheck", 1001): "Windows had a blue screen",
+          ("Display", 4101): "the graphics driver stopped responding and recovered",
+          ("Application Error", 1000): "an app crashed",
+          ("Application Hang", 1002): "an app stopped responding",
+          ("Service Control Manager", 7031): "a Windows service stopped unexpectedly",
+          ("Service Control Manager", 7034): "a Windows service stopped unexpectedly",
+          ("disk", 7): "the disk reported errors", ("disk", 11): "the disk reported errors",
+          ("disk", 51): "the disk reported errors", ("disk", 153): "the disk reported errors",
+          ("Ntfs", 55): "the disk reported errors",
+          ("Microsoft-Windows-Resource-Exhaustion-Detector", 2004): "Windows ran low on memory"}
+ANY_ID = {"Microsoft-Windows-WHEA-Logger": "the processor or hardware reported an error"}   # the id does not matter
+NOISE = {("Microsoft-Windows-DistributedCOM", 10010), ("Microsoft-Windows-DistributedCOM", 10016),
+         ("Microsoft-Windows-CertificateServicesClient-CertEnroll", 87)}                      # seen here, harmless
+APP_EVENTS = {("Application Error", 1000): "crashed", ("Application Hang", 1002): "stopped responding"}
+
+
+def snapshot(part, hours=24, timeout=15):
+    """One read-only look from diag.ps1 as a dict, or None for anything that goes wrong. Logs the part and the time only."""
+    if part not in PARTS:
+        raise ValueError(f"unknown diag part: {part!r}")
+    hours = max(1, min(720, int(hours)))
+    start = time.time()
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", PS1,
+                            "-Part", part, "-Hours", str(hours)],
+                           creationflags=NO_WINDOW, capture_output=True, text=True, timeout=timeout)
+        data = json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        data = None
+    if isinstance(data, dict):
+        log(f"diag: {part} {(time.time() - start) * 1000:.0f} ms")
+        return data
+    log(f"diag: {part} failed")
+    return None
+
+
+def top_apps(procs, cpus, key):
+    """Processes of one app added up by name. key: cpu (percent of the whole CPU), mem or io (bytes). Biggest first."""
+    total, count = {}, {}
+    for p in procs or []:
+        name = re.sub(r"\.exe$", "", str(p.get("name") or "").lower())
+        total[name] = total.get(name, 0) + (p.get(key) or 0)
+        count[name] = count.get(name, 0) + 1
+    scale = max(1, cpus or 1) if key == "cpu" else 1
+    out = [{"name": n, "count": count[n], "value": round(v / scale, 1) if key == "cpu" else v} for n, v in total.items()]
+    return sorted(out, key=lambda a: a["value"], reverse=True)
+
+
+def gpu_apps(gpu, gpumem, procs):
+    """GPU use per app: pids named through procs (an unknown pid is skipped), load capped at 100, by load then memory."""
+    names = {p.get("pid"): re.sub(r"\.exe$", "", str(p.get("name") or "").lower()) for p in procs or []}
+    apps = {}
+    for g, field in ((gpu, "util"), (gpumem, "bytes")):
+        for x in g or []:
+            n = names.get(x.get("pid"))
+            if n:
+                a = apps.setdefault(n, {"name": n, "util": 0, "bytes": 0})
+                a[field] += x.get(field) or 0
+    for a in apps.values():
+        a["util"] = min(100, round(a["util"], 1))
+    return sorted(apps.values(), key=lambda a: (a["util"], a["bytes"]), reverse=True)
+
+
+def group_events(events, since=None):
+    """Error events as plain words with counts, most first. Reads only provider, id, time and app: never any message."""
+    groups = {}
+    for e in events or []:
+        provider, eid, app = e.get("provider"), e.get("id"), e.get("app")
+        if (provider, eid) in NOISE or (since is not None and (e.get("time") or 0) < since):
+            continue
+        what = EVENTS.get((provider, eid)) or ANY_ID.get(provider)
+        if (provider, eid) in APP_EVENTS and app:
+            text = f"{str(app).lower().removesuffix('.exe')} {APP_EVENTS[(provider, eid)]}"
+        else:
+            text = what or f"{provider} event {eid}"
+        g = groups.setdefault(text, {"text": text, "count": 0, "known": bool(what)})
+        g["count"] += 1
+    return sorted(groups.values(), key=lambda g: g["count"], reverse=True)

@@ -3310,4 +3310,85 @@ assert _st.err == ""
 _st.set(err="")
 assert j.LAST_ERR[0] == "No microphone found", "clearing never erases the record"
 
+# 9-2/9-3: diag.snapshot runs diag.ps1 read-only; no spoken text in its arguments, nothing but part and time in the log
+import json as _json
+_diag_ran, _diag_log, _diag_keep = [], [], j.log
+j.log = _diag_log.append
+
+
+class _Out:
+    def __init__(self, code, out):
+        self.returncode, self.stdout = code, out
+
+
+def _diag_fake(result):
+    def run(args, **kw):
+        _diag_ran.append((args, kw))
+        if isinstance(result, BaseException):
+            raise result
+        return result
+    return run
+
+
+_dreal = j.subprocess.run
+_diag_fake_ok = _diag_fake(_Out(0, _json.dumps({"cpus": 8, "procs": [{"name": "secretapp", "pid": 1}]})))
+j.subprocess.run = _diag_fake_ok
+assert j.subprocess.run is _diag_fake_ok and j.subprocess.run is not _dreal, "the fake must be installed"
+assert j.snapshot("processes")["cpus"] == 8
+_a, _kw = _diag_ran[-1]
+assert _a[-4:] == ["-Part", "processes", "-Hours", "24"] and _a[0] == "powershell" and "-File" in _a
+assert _kw["timeout"] and _kw["creationflags"] == j.NO_WINDOW
+assert j.snapshot("logs", 99999) and _diag_ran[-1][0][-1] == "720"
+assert j.snapshot("logs", 0) and _diag_ran[-1][0][-1] == "1"
+for _bad in (_Out(1, "{}"), _Out(0, ""), _Out(0, "not json"), _Out(0, "[1, 2]"),
+             j.subprocess.TimeoutExpired("powershell", 15), OSError("no powershell")):
+    j.subprocess.run = _diag_fake(_bad)
+    assert j.snapshot("network") is None, _bad
+j.subprocess.run = _diag_fake_ok
+_n = len(_diag_ran)
+for _bad_part in ("nope", "processes; calc", ""):
+    try:
+        j.snapshot(_bad_part)
+        raise AssertionError("a bad part must raise")
+    except ValueError:
+        pass
+try:
+    j.snapshot("logs", "abc")
+    raise AssertionError("hours must be a number")
+except ValueError:
+    pass
+assert len(_diag_ran) == _n, "a bad part or hours never reaches PowerShell"
+assert all(m.startswith("diag: ") and "secretapp" not in m for m in _diag_log) and _diag_log, _diag_log
+j.subprocess.run = _run
+j.log = _diag_keep
+
+_procs = [{"name": "chrome", "pid": 100 + i, "cpu": 1.0, "mem": 1000, "io": 5} for i in range(31)] + [
+    {"name": "Game.exe", "pid": 7, "cpu": 80.0, "mem": 5, "io": None}, {"name": "idle1", "pid": 8, "cpu": None}]
+_t = j.top_apps(_procs, 8, "cpu")
+assert _t[1] == {"name": "chrome", "count": 31, "value": 3.9}, _t[1]
+assert _t[0] == {"name": "game", "count": 1, "value": 10.0}, _t[0]
+assert j.top_apps(_procs, 8, "mem")[0]["value"] == 31000 and j.top_apps(None, 8, "io") == []
+_g = j.gpu_apps([{"pid": 7, "util": 60}, {"pid": 7, "util": 70}, {"pid": 100, "util": 5}, {"pid": 999, "util": 90}],
+                [{"pid": 7, "bytes": 2048}, {"pid": 999, "bytes": 1}], _procs)
+assert _g == [{"name": "game", "util": 100, "bytes": 2048}, {"name": "chrome", "util": 5, "bytes": 0}], _g
+
+_ev = [{"provider": "Microsoft-Windows-Kernel-Power", "id": 41, "time": 500}] * 3 + [
+    {"provider": "Microsoft-Windows-DistributedCOM", "id": 10016, "time": 500},
+    {"provider": "Application Error", "id": 1000, "time": 500, "app": "chrome.exe"},
+    {"provider": "Application Error", "id": 1000, "time": 500, "app": "chrome.exe"},
+    {"provider": "Application Hang", "id": 1002, "time": 500, "app": "Notepad.exe"},
+    {"provider": "Microsoft-Windows-WHEA-Logger", "id": 17, "time": 500},
+    {"provider": "Strange-Source", "id": 99, "time": 500, "message": "C:\\Users\\Bob\\secret.docx", "app": "x.exe"},
+    {"provider": "Display", "id": 4101, "time": 10}]
+_e = j.group_events(_ev)
+assert _e[0] == {"text": "the PC shut down unexpectedly or lost power", "count": 3, "known": True}, _e
+_texts = [x["text"] for x in _e]
+assert "chrome crashed" in _texts and "notepad stopped responding" in _texts
+assert "the processor or hardware reported an error" in _texts and "the graphics driver stopped responding and recovered" in _texts
+assert {"text": "Strange-Source event 99", "count": 1, "known": False} in _e
+assert not any("DistributedCOM" in t for t in _texts), "noise is skipped"
+assert "secret" not in str(_e) and "Bob" not in str(_e) and "x.exe" not in str(_e)
+assert all("Display" not in x["text"] and "graphics" not in x["text"] for x in j.group_events(_ev, since=100))
+assert j.group_events(None) == []
+
 print("test_jarvis: OK")
