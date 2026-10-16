@@ -105,13 +105,16 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
     no voice undo (1814338; Python sends a whitelisted "HUD" line, jarvis.lua runs the Rainmeter bang), "which
     microphone" / "use the headset microphone" (dead886; asks first, undo; the HUD writes JarvisMic).
     Live-test steps: PART 1b.
-    WAITING / NOT BUILT: 7-A6 rest (only stealth and the mic are by voice; other settings stay in the Control
-    Center); 7e / 7-A7 Control Center Lua rows (3 sub-headings, memory row, 7 hidden settings) and JarvisBtNames:
-    NOT started on purpose, it moves existing UI rows and can only be parse-checked without the live HUD, so it
-    waits for the user's word and a live look; Bluetooth connect /
-    disconnect of paired audio devices, the connected list and ask_slot() (need the experiment with the user
-    present); Lenovo Legion Toolkit (not verifiable here); the 300-lines vs monthly-archive question for
-    jarvis_log.txt. Rollback: git revert, newest first.
+    Also built: 7b connect / disconnect of paired Bluetooth audio devices + "which bluetooth devices are connected"
+    (413541f; asks first, undo, JarvisBtNames); jarvis_log monthly archive Datajarvis_log-YYYY-MM.txt (413541f; written
+    only, never read; Forget clears only jarvis_log.txt); P0-10 Setup-Jarvis.ps1 (b49a9ff); 7e Control Center JARVIS tab
+    grouped under SETTINGS / PERSONALIZATION / MEMORY headings (e0ac684; rows only moved, none removed).
+    WAITING / NOT BUILT: 7-A7 rest (memory-facts row, 7 hidden settings, JarvisBtNames row: needs a paired-device
+    file like jarvis_mics.txt, not written); 7-A6 rest (only stealth and the mic are by voice); ask_slot() (the
+    "which one?" case just lists names); Lenovo Legion Toolkit (not verifiable here); P0-10 Settings.inc clean-up
+    (waits for the user's OK: duplicate comments, indents, JarvisCallMe; the write was blocked, files prepared).
+    The Bluetooth writes were never run against a real device (radio was off), 7e was only Lua-parse checked.
+    Rollback: git revert, newest first.
   AUDIT-0 STATUS (2026-10-15, end of the AUDIT-0 session): P0-01..P0-09 and P0-12 FIXED and committed; P0-06
     part 2 skipped (feature); P0-10 half done, the rest WAITS for the user (Settings.inc, Setup-Jarvis.ps1).
     Commits, list, skips and live-test steps: "AUDIT-0" block (STATUS) and "LIVE TEST AFTER PHASE 7" PART 0.
@@ -2975,14 +2978,14 @@ PHASE 7   MORE SETTINGS BY VOICE
     7-P  YOUR WORDS IN YOUR LOG, NOT IN HIS MEMORY (the user, 2026-10-15)
          Want: what you said is saved where YOU can read it; JARVIS must not use that log as memory.
          Today (checked 2026-10-15): already split three ways.
-           Data\jarvis_log.txt  = YOUR log: U| (you) and J| (him) lines, last 300; the pop-up shows it,
+           Datajarvis_log.txt  = YOUR log: U| (you) and J| (him) lines, last 300; the pop-up shows it,
                                   right-click opens it in Notepad. Only base.convo_add opens it (to trim).
            Data\jarvis.log      = the service log: since P3-S1 only "you: N words" / "jarvis: N characters".
            his memory           = memory.py: facts (jarvis_memory.txt), topics, gist, recall. Filled from the
                                   turn's history (and "remember ..."), never from jarvis_log.txt.
          Build: (a) a test in test_jarvis that fails if any code other than convo_add reads CONVO_FILE
          (patch open / grep the jarvislib sources), so the rule cannot slip later; (b) ask the user whether
-         300 lines is enough, or keep a monthly archive Data\jarvis_log-YYYY-MM.txt that only the user
+         300 lines is enough, or keep a monthly archive Datajarvis_log-YYYY-MM.txt that only the user
          opens (code writes it, never reads it; Data\ stays out of git); (c) the Control Center says which
          file "forget" clears (today the Forget button empties YOUR log and his talk window, not his long-term memory).
          Not to do: feed jarvis_log.txt into recall. Recall stays memory.py with its own on/off (Recall).
@@ -3300,6 +3303,13 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
           -> asks, "yes" -> "Listening through ... It applies the next time I listen." The Control Center
           MICROPHONE row shows the new name after a moment. "Undo" -> back to the old one. "Use the webcam
           microphone" (no match) -> he says he cannot find it. "Use the default mic" -> Windows default.
+    1b-15. Bluetooth audio (radio ON, headset paired): "which bluetooth devices are connected" -> lists them.
+          "Connect my headphones" -> asks, "yes" -> "Connected to X." (check it really connects). "Undo" ->
+          disconnects. "Disconnect the headphones" -> asks, yes, check. Two matching devices -> he lists them.
+          Radio OFF -> "turn it on first". Check the services are enabled again after a disconnect + connect.
+    1b-16. Datajarvis_log-YYYY-MM.txt exists and grows with each exchange; "forget" clears only jarvis_log.txt.
+    1b-17. Control Center JARVIS tab: three headings; every old row is still there; scroll works; buttons work.
+    1b-18. Fresh install: Setup-Jarvis.ps1 leaves JarvisPython blank, writes a relative JarvisVoice, voice bm_lewis.
 
 
   PART 2   S2-8 .. S2-13 (the 2026-10-14 live-log audit, built 2026-10-15). Each step names the bug.
