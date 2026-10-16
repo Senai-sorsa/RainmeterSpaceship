@@ -661,7 +661,7 @@ local function rowsJarvis()
     { 'SLOWER', function() jbump('JarvisSpeed', -0.25, 0.25, 3, 1) end }, { 'FASTER', function() jbump('JarvisSpeed', 0.25, 0.25, 3, 1) end },
     { 'RESET', function() jset('JarvisSpeed', 1) end } } }
   local mp = H.num('JarvisMutedPopup', 1) == 1
-  rows[#rows + 1] = { 'CONVERSATION', mp and 'With the speakers muted, answers appear in the pop-up. CLEAR forgets the conversation.' or 'With the speakers muted, answers are still spoken (silently). CLEAR forgets the conversation.', {
+  rows[#rows + 1] = { 'CONVERSATION', mp and 'With the speakers muted, answers appear in the pop-up. CLEAR empties this log, not his memory.' or 'With the speakers muted, answers are still spoken (silently). CLEAR empties this log, not his memory.', {
     { 'OPEN', function() SKIN:Bang('!ActivateConfig', 'Spaceship\\Overlay\\Jarvis', 'Jarvis.ini') end },
     { armed == 'jforget' and 'CONFIRM' or 'CLEAR', function() if arm('jforget') then jcall('Forget()'); say('CONVERSATION CLEARED') end end, armed == 'jforget' },
     { 'MUTED POP-UP', function() jset('JarvisMutedPopup', mp and 0 or 1) end, mp } } }
@@ -716,7 +716,7 @@ local function rowsJarvis()
     LAYERS = 2, MOTION = 2, ['MODEL MEMORY'] = 3, CONVERSATION = 3, ['LEARN FACTS'] = 3, RECALL = 3, ['REMEMBERED FACTS'] = 3 }
   local HEAD = { { 'JARVIS SETTINGS', 'Service, models, listening, wake word and microphone.' },
     { 'JARVIS PERSONALIZATION', 'How he talks to you and how the hologram looks.' },
-    { 'JARVIS MEMORY', 'What he remembers; CLEAR forgets the conversation.' } }
+    { 'JARVIS MEMORY', 'What he remembers; CLEAR empties this log, not his memory.' } }
   local out = {}
   for s = 1, 3 do
     out[#out + 1] = { HEAD[s][1], HEAD[s][2], {} }

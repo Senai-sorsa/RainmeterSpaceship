@@ -97,7 +97,7 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
-  PHASE 7 STATUS (2026-10-15, branch chore/jarvis-baseline-and-performance, NOT pushed, NOT live, no live test run):
+  PHASE 7 STATUS (2026-10-15, FINISHED except the 3 items below; branch chore/jarvis-baseline-and-performance, pushed to origin, NOT live, no live test run):
     BUILT and committed: 7-0 action table (6273fc5), 7-L1 sleep reply (a67b333), 7a mic (bbfb2b9), 7c brightness
     (5911dc1), dark/light mode (fbde313), settings pages + screenshot + show desktop + recycle bin (9493f41), 7d power
     mode (46910eb), 7b Bluetooth on/off + pair/connect open the page (e398db2), 7-A9 live-fact guard (138928f),
@@ -121,8 +121,12 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
   AUDIT-0 STATUS (2026-10-15, end of the AUDIT-0 session): P0-01..P0-09 and P0-12 FIXED and committed; P0-06
     part 2 skipped (feature); P0-10 half done, the rest WAITS for the user (Settings.inc, Setup-Jarvis.ps1).
     Commits, list, skips and live-test steps: "AUDIT-0" block (STATUS) and "LIVE TEST AFTER PHASE 7" PART 0.
-    NEXT (handoff 2026-10-15): start PHASE 8 (FOLLOW-UP TIMING AND SOUNDS, 8-A1..A6) in a new session. Phase 7 is built
-    except the WAITING list in PHASE 7 STATUS above. The user will run ALL live tests at the very end (PART 0, 1, 1b, 2, 3).
+    NEXT (handoff 2026-10-15): start PHASE 8 (FOLLOW-UP TIMING AND SOUNDS, 8-A1..A6) in a new session. FIRST read
+    CLAUDE.md and CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md (repo root: fake first, dry run first, no real destructive
+    calls in tests). Phase 7 was re-read against its spec on 2026-10-15 and is built except the WAITING list in PHASE 7
+    STATUS above (Legion Toolkit unverifiable, Settings.inc clean-up waits for the user, "how full is my disk" is Phase 9).
+    Settings.inc cleaned files are in the old session's scratchpad only and are gone; redo with clean_settings.py logic
+    (drop repeated ; comment lines, strip key indents, blank JarvisCallMe in the git copy) only on the user's word. The user will run ALL live tests at the very end (PART 0, 1, 1b, 2, 3).
     Method for every slice: read the code first; edit; copy the Jarvis folder to a scratch dir; py_compile; venv
     test_jarvis.py must print "test_jarvis: OK"; check_route.py old vs new; commit by file name. Never git add Settings.inc
     (skip-worktree), Data\, logs, weights. No push or deploy. Edit scripts: do not use bash heredocs for text with
