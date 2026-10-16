@@ -629,6 +629,10 @@ local function rowsJarvis()
   local sk = string.lower(H.str('JarvisStopKey', 'end')) ~= 'off'
   rows[#rows + 1] = { 'STOP KEY', sk and 'END - stops him while he talks, thinks or rings; free for other apps when he is idle' or 'OFF', {
     { 'END', function() jset('JarvisStopKey', 'end') end, sk }, { 'OFF', function() jset('JarvisStopKey', 'off') end, not sk } } }
+  local dg, wt = H.num('JarvisDiagnose', 1) == 1, H.num('JarvisWatch', 1) == 1
+  rows[#rows + 1] = { 'DIAGNOSIS', (dg and 'ASK ON' or 'ASK OFF') .. ' - "what is wrong", "what is using my CPU"   |   ' .. (wt and 'WATCH ON - a quiet note in the chat when something stays wrong' or 'WATCH OFF'), {
+    { 'ASK ON', function() jset('JarvisDiagnose', 1) end, dg }, { 'ASK OFF', function() jset('JarvisDiagnose', 0) end, not dg },
+    { 'WATCH ON', function() jset('JarvisWatch', 1) end, wt }, { 'WATCH OFF', function() jset('JarvisWatch', 0) end, not wt } } }
   local fu, fwait = H.num('JarvisFollowUp', 1) == 1, H.num('JarvisFollowUpWait', 3)
   rows[#rows + 1] = { 'FOLLOW-UP', fu and string.format('ON - after any answer his ear stays open %d s, no wake word needed; talk that is not for him is ignored or he asks', fwait) or 'OFF - every question needs the wake word or a click', {
     { 'ON', function() jset('JarvisFollowUp', 1) end, fu }, { 'OFF', function() jset('JarvisFollowUp', 0) end, not fu },
