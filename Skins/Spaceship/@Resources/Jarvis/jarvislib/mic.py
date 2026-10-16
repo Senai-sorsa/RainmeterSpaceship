@@ -111,12 +111,25 @@ def follow_wait():
         return 3.0
 
 
+def follow_name_wait():
+    """8a: how long the open ear lasts in all: JarvisFollowNameWindow, default 10 s. Speech that starts after
+    follow_wait() counts only if it begins with his name."""
+    try:
+        return max(follow_wait(), min(60.0, float(setting("JarvisFollowNameWindow", "10"))))
+    except ValueError:
+        return max(follow_wait(), 10.0)
+
+
+onset = [0.0]                                                  # seconds the last _listen waited before speech began
+
+
 def _listen(patience=6):
     import numpy as np
     import sounddevice as sd
     rate, block = 16000, 480                     # 30 ms blocks
     frames, started, silent, waited = [], False, 0, 0
     floor = None
+    onset[0] = 0.0
     try:
         quiet_blocks = int(max(0.5, min(6.0, float(setting("JarvisSilence", "1.0")))) / 0.03)
     except ValueError:
@@ -141,6 +154,8 @@ def _listen(patience=6):
                 thresh = max(floor * 3.0, 0.012)
                 S.set(level=min(1.0, rms / 0.12), force=False)
                 if rms > thresh:
+                    if not started:
+                        onset[0] = waited * 0.03
                     started, silent = True, 0
                 elif started:
                     silent += 1

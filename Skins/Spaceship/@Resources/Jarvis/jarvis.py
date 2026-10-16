@@ -58,7 +58,8 @@ from jarvislib.tts import (_broken, _engines, _kokoro, _kokoro_last, _piper, _re
 from jarvislib.llm import (_moved, chat_json, chat_stream, chat_to_gpu, ctx_tokens, ensure_ollama, http_json,
     installed_models, keep_alive, ollama_on_cpu, pick_model, warm)
 from jarvislib.audio import _com, mic_volume, speakers, speakers_mute
-from jarvislib.mic import _listen, _mic_missing, duck, follow_wait, list_mics, listen, mic_device, unduck
+from jarvislib.mic import (_listen, _mic_missing, duck, follow_name_wait, follow_wait, list_mics, listen, mic_device,
+                           onset, unduck)
 from jarvislib.notes import STOP, search_notes, vault_dir
 from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _filler_thread, _filler_voice, _speak_queue,
     filler, filler_done, first_words, muted, play_samples, prepare_fillers, say_text_only, sentences_from, speak_all)
@@ -611,17 +612,24 @@ def fit_context(system, past, user):
 
 
 def chime():
+    """The click sound, through the voice's own player so JarvisChimeVolume (percent, default 25) can scale it."""
     if setting("JarvisChime", "1") != "1":
         return 0.0
     for name in ("chime.wav", "startup.wav"):
         p = os.path.join(RES, "Sounds", name)
         if os.path.exists(p):
             try:
-                import winsound
+                import numpy as np
                 with wave.open(p, "rb") as wf:
-                    dur = wf.getnframes() / float(wf.getframerate())
-                winsound.PlaySound(p, winsound.SND_FILENAME | winsound.SND_ASYNC)
-                return min(dur, 0.8)
+                    rate, ch = wf.getframerate(), wf.getnchannels()
+                    raw = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
+                try:
+                    vol = max(0.0, min(100.0, float(setting("JarvisChimeVolume", "25")))) / 100
+                except ValueError:
+                    vol = 0.25
+                a = (raw.astype(np.float32) / 32768 * vol).reshape(-1, ch)
+                threading.Thread(target=play_samples, args=(a, rate), daemon=True).start()
+                return min(len(a) / rate, 0.8)
             except Exception:
                 return 0.0
     return 0.0
@@ -842,7 +850,7 @@ def exchange(tier, follow, woke, mode, left):
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio = listen(patience=ear_wait()) if follow else listen()
+        audio = listen(patience=max(ear_wait(), follow_name_wait())) if follow else listen()
         if audio is None or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
@@ -867,6 +875,10 @@ def exchange(tier, follow, woke, mode, left):
             left["again"] = not quiet and "ear"
             return
         if not text or cancel.is_set():
+            return
+        if follow and onset[0] > ear_wait() and strip_name(text) == text:   # 8a: late in the open ear and no name: room talk
+            way.update(kind="ear", result="late, no name - dropped")
+            log("ear: started late without his name - dropped")
             return
         answering = time.time() < offer.get("expires", 0) or (recent["me"] or "").rstrip().endswith("?")
         heard_as = directed(text, answering) if mode == "ear" else "yes"

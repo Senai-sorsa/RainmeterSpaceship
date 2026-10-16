@@ -979,6 +979,7 @@ assert isinstance(within(2, j.listen), RuntimeError) and not j.mic.locked()
 # a whole turn: every way out ends idle with the turn lock free
 j.missing_packages, j.ensure_ollama, j.pick_model, j.warm = lambda: [], lambda: True, lambda tier: "m", lambda m: None
 j.http_json = lambda *a, **k: (_ for _ in ()).throw(OSError("no Ollama in tests"))   # the AI fallback falls back
+real_chime = j.chime
 j.prepare_fillers, j.chime, j.watchdog, j.sensors = lambda: None, lambda: 0, lambda started: None, lambda: "Fan 1: 900 RPM"
 idle = {"state": "idle", "level": 0.0}
 states.clear()
@@ -1768,9 +1769,10 @@ waits = []
 real_listen = _listen
 _listen = lambda **k: waits.append(k.get("patience")) or real_listen()
 talk(1)
-assert waits == [None, 3.0], waits                                # the first listen as before; the open ear waits 3 s
+assert waits == [None, 10.0], waits                               # the first listen as before; 8a: the open ear lasts 10 s (3 s direct)
 j.setting = lambda name, default="": "99" if name == "JarvisFollowUpWait" else default
 assert j.follow_wait() == 30.0
+assert j.follow_name_wait() == 30.0                               # never shorter than the direct window
 j.setting = lambda name, default="": default
 
 # ---- live test 2: more ways to ask for the volume and about an alarm; an alarm is never called a timer
@@ -1896,6 +1898,29 @@ j.log = keep
 j.save_reminders([])
 j.undo.clear()
 j.did.clear()
+# 8a: speech that starts after the 3 s window counts only with his name; before it, as always; fake onset = seconds waited
+for late, line, taken in ((2.0, "Tell me a joke.", True), (5.0, "Tell me a joke.", False), (5.0, "Jarvis, tell me a joke.", True)):
+    j.onset[0] = late
+    n_ask = ear(["Tell me about the moon.", line])[1]
+    assert (n_ask == 2) == taken, (late, line, n_ask)
+j.onset[0] = 0.0
+# 8b: the chime goes through play_samples scaled by JarvisChimeVolume (default 25 %); 0 = silent
+real_ps, real_set, real_res, got = j.play_samples, j.setting, j.RES, []
+j.RES = tempfile.mkdtemp()                                          # a one-second stereo wav, peak 16384 (0.5)
+os.mkdir(os.path.join(j.RES, "Sounds"))
+with j.wave.open(os.path.join(j.RES, "Sounds", "chime.wav"), "wb") as wf:
+    wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(8000)
+    wf.writeframes(bytes([0, 64, 0, 64]) * 8000)
+j.play_samples = lambda a, rate, progress=None: got.append(float(abs(a).max()))
+for cvol, ratio in (("25", 0.25), ("100", 1.0), ("0", 0.0)):
+    got.clear()
+    j.setting = lambda name, default="", v=cvol: v if name == "JarvisChimeVolume" else default
+    assert 0 < real_chime() <= 0.8
+    for _ in range(50):
+        if got: break
+        time.sleep(0.05)
+    assert got and abs(got[0] - ratio * 0.5) < 0.004, (cvol, got)
+j.play_samples, j.setting, j.RES = real_ps, real_set, real_res
 # S2-8: the log names the capability (a class from the table, never your words)
 caps, keep = [], j.log
 j.log = caps.append
