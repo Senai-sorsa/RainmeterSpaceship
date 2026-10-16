@@ -106,6 +106,7 @@ assert j.route("open e")[0] == "chat"
 assert j.running_window("e") is None and j.running_window("ex") is None and j.running_window("exe") is None
 assert j.running_window("code") == "Code.exe" and j.running_window("explorer") == "explorer.exe"
 assert j.running_window("plorer") == "explorer.exe" and j.running_window("chr") == "chrome.exe"
+assert j.route("kill explorer")[:3] == ("say", None, None) and "Windows needs it" in j.route("kill explorer")[3], "9e: protected process refused"
 
 # mute / unmute set the state they name, never a toggle
 assert j.route("mute")[:2] == ("act", "mute") and j.route("unmute the sound")[:2] == ("act", "unmute")
@@ -545,6 +546,12 @@ assert not j.run_action("volume", ("set", 30)) and vol == [100]
 j.speakers = _speakers
 ran.clear()
 assert not j.run_action("close", "notepad.exe", ("close", "notepad.exe")) and not ran, "missing target: nothing is sent"
+_ow9 = j.open_windows; j.open_windows = lambda: ["explorer.exe"]
+try:
+    j.act_close("explorer.exe"); raise AssertionError("9e: act_close must refuse a protected process")
+except OSError:
+    assert not ran, "9e: refused before taskkill"
+j.open_windows = _ow9
 assert not j.run_action("close", "chrome.exe", ("close", "chrome.exe")) and ran == [["taskkill", "/IM", "chrome.exe"]], "asked, but it stayed open"
 now_t = int(j.time.time())
 j.read_kv = lambda name: f"T {now_t}\nW chrome.exe\n" if not ran else f"T {now_t - 60}\nW explorer.exe\n"

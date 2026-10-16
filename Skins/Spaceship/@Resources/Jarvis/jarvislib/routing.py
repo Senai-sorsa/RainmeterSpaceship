@@ -11,6 +11,7 @@ from .mic import pick_mic
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
+from .diag import is_protected
 from .llm import chat_json
 from .memory import ACTIVE_TTL, MEMORY_BAD, fact_save, facts_about, load_gist, load_memory, load_topics, save_gist, save_memory, save_topics, talk_forget, talk_list
 from .reminders import reminder_cmd, snooze_for
@@ -587,6 +588,8 @@ def route(text):
     m = re.match(r"(?:close|quit|exit|kill)\s+(?:the\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
     if m and not re.search(r"\b(log|transcript|history|conversation|chat|pop ?up|window)\b", m.group(1)):
         exe = running_window(m.group(1))
+        if exe and is_protected(exe):                               # 9e: Windows needs it; never reaches taskkill
+            return ("say", None, None, f"I won't close {exe.replace('.exe', '')}, Windows needs it.")
         if exe:
             return ("act", "close", exe, f"You want me to close {exe.replace('.exe', '')}. Unsaved work could be lost. Confirm with yes.")
         return ("say", None, None, f"I don't see {m.group(1)} open.")

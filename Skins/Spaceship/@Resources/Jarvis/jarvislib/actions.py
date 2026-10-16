@@ -378,6 +378,9 @@ def act_open(app):
 
 
 def act_close(exe):
+    from .diag import is_protected                           # here, not at the top: diag imports other modules of this package
+    if is_protected(exe):                                     # 9e: defence in depth, the route already refuses
+        raise OSError("Windows needs it")
     if exe not in open_windows():                             # it went away while you were being asked
         raise OSError("it is not open any more")
     # taskkill only asks the windows to close, and its exit code is non-zero for any helper process without a
