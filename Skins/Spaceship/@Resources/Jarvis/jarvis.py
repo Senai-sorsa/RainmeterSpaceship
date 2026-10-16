@@ -8,7 +8,7 @@ battery, memory, network) -> it speaks the answer sentence by sentence while the
 Talks to the HUD through two small files in @Resources\\Data (no network port, so nothing else can trigger it):
   jarvis.txt      written here:   T <unix> | STATE idle|listening|thinking|speaking | LEVEL <0-1> | SAY | ERR |
                                   POP <n> open|close  (ask the HUD to open / close the conversation pop-up)
-  jarvis_cmd.txt  written by HUD: WAKE <unix> <tier>  |  CANCEL <unix>  |  FORGET <unix>  |  TRAINWAKE <unix>  |  QUIT <unix>
+  jarvis_cmd.txt  written by HUD: WAKE <unix> <tier>  |  ASK <unix> <text>  |  CANCEL <unix>  |  FORGET <unix>  |  TRAINWAKE <unix>  |  QUIT <unix>
   jarvis_env.txt  written by HUD: MUTED 0|1  - with the speakers muted Jarvis answers in the pop-up, not out loud
   jarvis_log.txt / jarvis_live.txt  the conversation (and the reply in progress) for the pop-up
 
@@ -780,6 +780,9 @@ def command_reply(kind, action, target, prompt, quiet):
 def ask_yes(prompt, quiet):
     """Every confirmation: ask, listen up to 15 s, and True only for a plain yes (the shared YES set)."""
     reply_line(prompt, quiet)
+    if typed_turn[0]:                                          # 8d: a typed ask is never confirmed by the microphone (other channel)
+        log("confirm: typed turn - not confirmed, ask out loud")
+        return False
     if not quiet:
         time.sleep(0.3)                                        # 8-A1: let the tail of his own voice die before the mic opens
     pending = {"expires": time.time() + 15}                    # counted from the end of the spoken prompt
@@ -795,21 +798,24 @@ def ask_yes(prompt, quiet):
     return confirmed(pending, answer, time.time()) and heard_score[0] >= -1.0 and not cancel.is_set()
 
 
-def turn(tier, follow=0, woke=False):
+typed_turn = [False]                                           # 8d: the running turn came from the text box
+
+
+def turn(tier, follow=0, woke=False, typed=None):
     """One exchange, then follow-ups without the wake word (JarvisFollowUp) for as long as you keep answering
     (D2, no cap): S2-10, after any reply his ear stays open (ear_wait) and directed() decides if it was for him.
     A loop, not recursion, so a long talk never grows the stack. `woke`: started by the wake word."""
     mode = None
     while True:
         left = {}                                              # exchange() fills "again"; survives its early returns
-        exchange(tier, follow, woke, mode, left)
+        exchange(tier, follow, woke, mode, left, typed)
         mode = left.get("again")
-        if not mode or setting("JarvisFollowUp", "1") != "1" or cancel.is_set():
+        if typed is not None or not mode or setting("JarvisFollowUp", "1") != "1" or cancel.is_set():
             return
         follow, woke = follow + 1, False
 
 
-def exchange(tier, follow, woke, mode, left):
+def exchange(tier, follow, woke, mode, left, typed=None):
     """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
     global history, last_turn
@@ -817,6 +823,7 @@ def exchange(tier, follow, woke, mode, left):
         return
     way = {}                                                   # 6j: which path answered; logged once in finally
     cancel.clear()
+    typed_turn[0] = typed is not None
     turn_id[0] = time.time()
     threading.Thread(target=watchdog, args=(turn_id[0],), daemon=True).start()
     try:
@@ -833,7 +840,7 @@ def exchange(tier, follow, woke, mode, left):
             return
         S.set(state="listening", level=0.0, err="")
         try:                                                   # 7a: a click is how a muted microphone comes back
-            if mic_volume()[0]:
+            if typed is None and mic_volume()[0]:
                 mic_volume(mute=False)
                 log("microphone: unmuted by the click")
         except Exception as e:
@@ -851,20 +858,21 @@ def exchange(tier, follow, woke, mode, left):
         else:
             warm(model)
             threading.Thread(target=prepare_fillers, daemon=True).start()   # cheap if nothing changed
-            time.sleep(chime())                                # don't record the chime
+            if typed is None:
+                time.sleep(chime())                            # don't record the chime
         log(f"timing: click -> listening {time.time() - t_click:.2f}s")
         t_listen = time.time()
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio = listen(patience=max(ear_wait(), follow_name_wait())) if follow else listen()
-        if audio is None or cancel.is_set():
+        audio = None if typed is not None else listen(patience=max(ear_wait(), follow_name_wait())) if follow else listen()
+        if (audio is None and typed is None) or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
         log(f"timing: listening -> end of speech {t_spoke - t_listen:.2f}s")
         S.set(state="thinking", level=0.0)
         try:
-            text = transcribe(audio)
+            text = typed if typed is not None else transcribe(audio)
         except ImportError:
             problem("Speech recognition isn't installed - run Control Center > JARVIS > SETUP")
             return
@@ -1557,12 +1565,21 @@ def main():
                 continue
             last_mtime = mt
             with open(CMD_FILE, "r", encoding="utf-8", errors="ignore") as f:
-                parts = f.read().split()
+                raw = f.read()
+            parts = raw.split()
             if len(parts) < 2 or abs(now - float(parts[1])) > 30:
                 continue
             if parts[0] == "WAKE":
                 tier = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
                 threading.Thread(target=turn, args=(tier,), daemon=True).start()
+            elif parts[0] == "ASK":                            # 8d: typed text goes through the same turn as speech
+                text = " ".join(raw.split(None, 2)[2].split())[:500] if len(raw.split(None, 2)) > 2 else ""
+                if not text:
+                    pass
+                elif busy.locked():
+                    reply_line("One moment, I'm busy.", muted())
+                else:
+                    threading.Thread(target=turn, args=(0,), kwargs={"typed": text}, daemon=True).start()
             elif parts[0] == "CANCEL":
                 stop_now("click")
             elif parts[0] == "REINDEX":

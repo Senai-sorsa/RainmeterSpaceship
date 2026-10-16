@@ -1165,6 +1165,15 @@ j.turn(0)
 assert asked[-1] == "Timer set for 10 minutes." and states[-1] == idle and not j.busy.locked()
 j.turn(0)
 assert acted == ["lock"] and asked[-1] == "Done." and states[-1] == idle and not j.busy.locked()
+# 8d: typed text takes the same turn with no microphone; a confirmation it needs is never taken from the microphone
+def _no_mic(*a, **k): raise AssertionError("typed turn used the microphone")
+keep_listen, keep_transcribe, j.listen, j.transcribe = j.listen, j.transcribe, _no_mic, _no_mic
+n_acted = len(acted)
+j.turn(0, typed="Set a timer for 5 minutes.")
+assert asked[-1] == "Timer set for 5 minutes." and states[-1] == idle and not j.busy.locked() and not j.typed_turn[0] is False
+j.turn(0, typed="Lock my computer.")
+assert len(acted) == n_acted and not j.busy.locked()          # asked, never confirmed by voice, so nothing ran
+j.listen, j.transcribe = keep_listen, keep_transcribe
 try:                                                              # the ding itself, where numpy is installed
     import numpy
     tone, rate = real_ding()

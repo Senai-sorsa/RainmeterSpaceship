@@ -590,6 +590,8 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'CALL ME', (callme ~= '' and callme or 'NO NAME') .. '   - what he calls you at the end of greetings and goodbyes', {
     { 'CHANGE', function() SKIN:Bang('!CommandMeasure', 'mInput', 'ExecuteBatch 1') end },
     { 'CLEAR', function() jset('JarvisCallMe', '') end, callme == '' } } }
+  rows[#rows + 1] = { 'TYPE TO HIM', 'Type instead of speaking - he answers in the log (and aloud unless muted); a spoken yes is not accepted for a typed ask', {
+    { 'TYPE', function() SKIN:Bang('!CommandMeasure', 'mAsk', 'ExecuteBatch 1') end } } }
   rows[#rows + 1] = { 'PERSONALITY', string.upper(mood) .. '   - how he words his own answers; fixed lines like "Done." stay the same', {
     { 'PROPER', function() jset('JarvisPersonality', 'proper') end, mood == 'proper' },
     { 'PLAYFUL', function() jset('JarvisPersonality', 'playful') end, mood == 'playful' },
@@ -881,6 +883,12 @@ function SetCallMe(v)
   v = string.sub(string.match(v, '^%s*(.-)%s*$'), 1, 30)
   jset('JarvisCallMe', v)
   Update()
+end
+-- InputText (mAsk) answer for the TYPE TO HIM row: one line, at most 500 characters; the service checks it again
+function AskJarvis(v)
+  v = string.gsub(tostring(v or SKIN:GetVariable('AskIn', '')), '%c', ' ')
+  v = string.sub(string.match(v, '^%s*(.-)%s*$'), 1, 500)
+  if v ~= '' then H.cmd('ASK ' .. os.time() .. ' ' .. v) end
 end
 function OnHover(zi, k, on)
   if dragging and on == 1 and k >= BARHIT and k < BARHIT + NSLICE then barTo((k - BARHIT + 0.5) / NSLICE) end
