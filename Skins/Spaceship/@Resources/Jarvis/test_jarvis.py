@@ -3447,4 +3447,85 @@ _all = j.findings({"cpus": 1, "procs": _big, "mem_pct": 95, "disks": [{"drive": 
 assert len(_all) > 10 and _all == sorted(_all, key=lambda x: x["sev"], reverse=True)
 assert not any("broken" in x["text"].lower() for x in _all)
 
+# ---- 9-6: the trouble questions are answered by code; the model only words findings; nothing is read when it is off
+for phrase, topic in (("what's using my CPU", "cpu"), ("what is using my memory", "memory"), ("what's using the graphics card", "gpu"),
+                      ("how full is my disk", "storage"), ("why is the fan loud", "fan"), ("what crashed", "crash"),
+                      ("is my internet working", "net"), ("what went wrong", "lasterr"), ("why is my pc slow", "wrong"),
+                      ("is anything wrong", "wrong"), ("what crashed this week", "crash")):
+    assert j.route(phrase)[:2] == ("diag", topic), (phrase, j.route(phrase))
+assert j.route("what crashed this week")[2] == 168 and j.route("what's my CPU temperature")[0] != "diag"
+assert j.route("what's the weather")[0] != "diag"
+
+_reads, _procs = [], {"procs": [{"name": "chrome.exe", "pid": 1, "cpu": 1600.0, "mem": 2 * 2**30, "io": 0},
+                                {"name": "Code.exe", "pid": 2, "cpu": 20.0, "mem": 2**30, "io": 0}],
+                      "cpus": 20, "gpu": [], "gpumem": [], "disk_busy": 5}
+
+
+def _snap(part, hours=24):
+    _reads.append(part)
+    return {"processes": _procs, "logs": {"boot": 1, "events": []}, "network": None, "system": None}.get(part)
+
+
+j.snapshot, j.drives, j.memory_percent, j.temps, j.battery_saver = _snap, lambda: [{"drive": "C", "free_gb": 200, "total_gb": 500}], \
+    lambda: 40.0, lambda: {}, lambda: False
+j.WAKE_OFF[0] = None
+prompts, asked, closed = [], [], []
+j.chat_stream = lambda model, messages, temperature=0.5: prompts.append(messages[0]["content"])
+j.sentences_from = lambda stream, collected: collected.append("Ha.") or iter(["Ha."])
+j.speak_all = j.say_text_only = lambda sentences, *a: list(sentences)
+j.ollama_on_cpu = lambda model: None
+j.reply_line = lambda text, quiet: asked.append(text)
+j.run_action = lambda action, target, pending=None: closed.append((action, target)) or True
+j.read_kv = lambda name: "W chrome.exe\nW explorer.exe\nW Code.exe\n"
+j.setting = lambda name, default="": default
+j.muted = lambda: False
+
+
+def say(text):
+    asked.clear()
+    j.turn(0, typed=text)
+    assert j.busy.locked() is False
+
+
+say("what's using my CPU")                                        # code only: no model, and the worst app comes first
+assert not prompts, prompts
+assert any("chrome is using 80%" in a and a.endswith("Want me to close it?") for a in asked), asked
+say("yes")                                                         # the yes is the confirmation
+assert closed == [("close", "chrome.exe")], closed
+say("yes")
+assert len(closed) == 1, "a yes with nothing offered closes nothing"
+closed.clear()
+_procs["procs"] = [{"name": "explorer.exe", "pid": 3, "cpu": 1800.0, "mem": 0, "io": 0}]   # a protected app is never offered
+say("what's using my CPU")
+assert not any("close it" in a for a in asked), asked
+say("yes")
+assert not closed, closed
+_procs["procs"] = [{"name": "Code.exe", "pid": 2, "cpu": 20.0, "mem": 0, "io": 0}]         # a clean PC: fixed line, no model
+n = len(prompts)
+j._whisper_dev[0] = "cuda"                                         # the test's whisper runs on the CPU, which is a real finding
+say("what's wrong")
+assert len(prompts) == n and any("anything wrong" in a.lower() or "can't see" in a.lower() for a in asked), asked
+_procs["procs"] = [{"name": "chrome.exe", "pid": 1, "cpu": 1600.0, "mem": 0, "io": 0}]     # a finding: the model gets findings only
+say("why is my pc slow")
+assert len(prompts) == n + 1 and "DIAGNOSIS FINDINGS" in prompts[-1] and "chrome" in prompts[-1], prompts[-1:]
+assert "invent nothing" in prompts[-1], prompts[-1]
+n = len(prompts)
+say("tell me a joke")
+assert len(prompts) == n + 1 and "DIAGNOSIS FINDINGS" not in prompts[-1]
+_procs["procs"] = [{"name": "chrome.exe", "pid": 1, "cpu": 5.0, "mem": 0, "io": 0}]        # event free text never reaches the prompt or the log
+_ev = [{"provider": "Strange-Source", "id": 99, "time": 500, "message": "C:/Users/Bob/secret.docx"}] * 3
+j.snapshot = lambda part, hours=24: {"processes": _procs, "logs": {"boot": 1, "events": _ev}}.get(part)
+say("is anything wrong")
+assert all("secret" not in p and "Bob" not in p for p in prompts) and all("secret" not in a for a in asked)
+j.snapshot = lambda part, hours=24: None                           # unreadable: one fixed line, no model
+n = len(prompts)
+say("what's using my CPU")
+assert asked[-1] == "I couldn't read that." and len(prompts) == n, asked
+j.snapshot = _snap                                                 # off: nothing is read
+_reads.clear()
+j.setting = lambda name, default="": "0" if name == "JarvisDiagnose" else default
+say("what's using my CPU")
+assert asked[-1] == "Diagnosis is off." and not _reads, (asked, _reads)
+j.setting = lambda name, default="": default
+
 print("test_jarvis: OK")

@@ -72,6 +72,7 @@ def setting(name, default):
 
 
 # ------------------------------------------------------------------ HUD state file
+WAKE_OFF = [None]                                               # 9b: why the wake word is off right now (None = on)
 LAST_ERR = ["", 0.0]                                            # 9-L1: the last error and when; memory only, no turn clears it
 
 

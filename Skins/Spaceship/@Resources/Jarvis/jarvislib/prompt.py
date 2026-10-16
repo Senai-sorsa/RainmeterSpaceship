@@ -49,6 +49,8 @@ def wants(text, kind=None):
     """The HUD blocks a question needs. None = all of them (a briefing, or a caller that did not say)."""
     if text is None or kind == "brief":
         return set(BLOCKS)
+    if kind == "diag":                                         # 9a: findings only, never the raw HUD numbers
+        return set()
     asked = info_blocks(text)                                  # slice C: the blocks an info question was sent for
     return {b for b, pat in BLOCKS.items()
             if re.search(rf"\b(?:{pat})", text, re.I) or b in asked or meaning(text, BLOCK_EXAMPLES[b], MEANING_BLOCK)}
@@ -185,7 +187,7 @@ def info_blocks(text):
 
 
 def lane_of(kind, blocks):
-    if kind in ("notes", "apps", "brief", "fact", "level") or kind == "chat" and blocks:   # fact: the clock, sums
+    if kind in ("notes", "apps", "brief", "fact", "level", "diag") or kind == "chat" and blocks:   # fact: the clock, sums
         return "info"
     return "chat" if kind in ("chat", "guard") else "command"
 

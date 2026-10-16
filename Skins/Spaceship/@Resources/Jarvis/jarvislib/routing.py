@@ -316,6 +316,35 @@ def pick_last(cmd):
     return r if r[0] == "act" else route(f"close {name.split()[-1]}")   # "Google Chrome" is open as chrome.exe
 
 
+# 9a: trouble questions, topic -> what it looks like. Last in route(): "what's my CPU temperature" keeps its chat + sensors path.
+_PC = r"(?:my |the )?(?:pc|computer|laptop|machine|system)"
+DIAG = (("lasterr", r"what (?:went wrong|was (?:the|that) (?:last )?(?:error|problem))"),
+        ("crash", r"(?:what|which app|which program) (?:has |had )?(?:crashed|stopped working)|did (?:anything|something) crash"
+                  r"|(?:any|were there any) (?:errors|crashes)|did " + _PC + r" (?:shut down|restart|reboot) (?:badly|wrong|unexpectedly)"),
+        ("cpu", r"(?:what(?:'s| is)|which (?:app|program|process) is) (?:using|eating|hogging|taking up) (?:all )?(?:of )?(?:my |the )?(?:cpu|processor)"),
+        ("memory", r"(?:what(?:'s| is)|which (?:app|program|process) is) (?:using|eating|hogging|taking up) (?:all )?(?:of )?(?:my |the )?(?:memory|ram)"),
+        ("gpu", r"(?:what(?:'s| is)|which (?:app|program|process) is) (?:using|eating|hogging|taking up) (?:all )?(?:of )?(?:my |the )?(?:gpu|graphics(?: card)?|video card)"),
+        ("storage", r"how full is (?:my |the )?(?:disk|drive|storage|ssd)|how much (?:disk |drive )?(?:space|storage) (?:do i have )?(?:left|free)|is (?:my |the )?(?:disk|drive|storage) full"),
+        ("disk", r"why is (?:my |the )?(?:disk|drive|ssd) (?:so )?(?:slow|busy)|what(?:'s| is) using (?:my |the )?(?:disk|drive)"),
+        ("fan", r"why is (?:my |the )?(?:fan|fans) (?:so )?(?:loud|noisy|spinning|running)|why is " + _PC + r" (?:so )?(?:hot|loud)"),
+        ("net", r"is (?:my |the )?(?:internet|wi-?fi|network) (?:working|down|ok|okay)|why is (?:my |the )?(?:internet|wi-?fi) (?:so )?(?:slow|down|not working)"
+                r"|(?:my |the )?(?:internet|wi-?fi) is (?:so )?(?:slow|down|not working)"),
+        ("sound", r"(?:why )?(?:is there|do i have|i have) no sound|(?:my |the )?sound (?:is not|isn't) working|why can'?t i hear anything"),
+        ("wrong", r"why is " + _PC + r" (?:so )?(?:slow|lagging|laggy)|(?:is )?(?:something|anything) (?:is )?wrong(?: with " + _PC + r")?"
+                  r"|what(?:'s| is) wrong(?: with " + _PC + r")?|why is everything (?:so )?slow|" + _PC + r" is (?:so )?(?:slow|lagging)"))
+_DIAG_TAIL = r"(?: (?:today|right now|now|at the moment|this week|this morning|since (?:the last restart|i turned it on|this morning)))?"
+
+
+def diag_route(cmd):
+    """("diag", topic, span, None) for a trouble question, else None. span: None, 168 (this week), "boot" (since the restart)."""
+    for topic, pat in DIAG:
+        m = re.fullmatch(rf"(?:so )?(?:{pat})({_DIAG_TAIL})", cmd)
+        if m:
+            tail = m.group(1) or ""
+            return ("diag", topic, 168 if "week" in tail else "boot" if "restart" in tail or "turned it on" in tail else None, None)
+    return None
+
+
 def route(text):
     """Map what you said to (kind, action, target, confirmation prompt). kind: chat | notes | apps | act | guard | say |
     remind (action = list / cancel / set / flip, target = its details) | memory (action = save / list / forget) | brief |
@@ -622,6 +651,9 @@ def route(text):
                           r"screen|display|colou?r|settings?|wi-?fi|headphones|speakers?|sound)\b", cmd)
             and not re.match(r"(?:how|why|what|when|who|where|which|can you explain|could you explain)\b", t)):
         return ("say", None, None, NEAR_MISS)
+    d = diag_route(whole)
+    if d:
+        return d
     return ("chat", None, None, None)
 
 

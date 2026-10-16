@@ -46,7 +46,7 @@ from collections import namedtuple
 from datetime import datetime
 from jarvislib import hearing
 from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE,
-    MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State,
+    MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State, WAKE_OFF,
     busy, cancel, convo_add, live, log, mic, missing_packages, name_until, problem, rainmeter_running, read_kv,
     setting, settings, single_instance, stop_now, todo_note, write_atomic)
 from jarvislib.stopwords import STOP_PHRASES, StopWords, far, far_add, saying, stop_heard
@@ -75,7 +75,7 @@ from jarvislib.todo import act_todo
 from jarvislib.reminders import (ALARM_CAP, ALARM_SAY, DAYS, NAME_ONLY, REMIND_FILE, RINGS, SNOOZE, STOP_WORDS,
     describe, due_reminders, duration, find_items, load_reminders, next_due, rang, reminder_cmd, repeats, ring_line,
     save_reminders, snooze_for, snoozed, span, split_time, when)
-from jarvislib.diag import HW_LINES, cpu_times, hw_value, sensors
+from jarvislib.diag import HW_LINES, cpu_times, diagnose, hw_value, is_protected, prompt_findings, sensors
 from jarvislib.meaning import MEANING_BLOCK, MEANING_TALK, STAMP, _embed, _vecs, closeness, meaning, vec
 from jarvislib.search import _chroma, _chroma_lock, _chunks, _reindexing, chroma_index, smart_search
 from jarvislib.memory import (ACTIVE_TTL, EARLIER, FOLLOW_START, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
@@ -937,10 +937,17 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         S.set(err="")
         fact = offer.pop("fact", None) if time.time() < offer.get("expires", 0) else None
         room = offer.pop("room", None) if time.time() < offer.get("expires", 0) else None
+        closing = offer.pop("close", None) if time.time() < offer.get("expires", 0) else None
         offer.clear()
         plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
         if room and is_yes(text):                              # "Are you talking to me, sir?" "Yes": answer what was said
             text = room
+        if closing and is_yes(text):                           # 9e: the yes to "Want me to close it?" is the confirmation
+            way.update(kind="act", action="close", via="rule", lane="command")
+            ok = run_action("close", closing, pending=("close", closing))
+            way["result"] = "done" if ok else "failed"
+            fixed("Done." if ok else "That didn't work.")
+            return
         if fact and (is_yes(text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
             way.update(kind="memory", action="save", via="rule", lane="command")
             fixed(memory_reply("save", fact))
@@ -1012,7 +1019,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
         recent["you"] = text
-        extra = ""
+        extra, close_offer = "", None
         if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
             if not ask_yes(prompt, quiet):                     # an act asks below, with the same prompt
                 way["result"] = "left - no yes"
@@ -1032,6 +1039,22 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             quiet = muted()
             fixed(" ".join(replies))
             return
+        if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
+            if setting("JarvisDiagnose", "1") != "1":
+                fixed("Diagnosis is off.")
+                return
+            filler("diag", quiet)
+            line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
+            top = items[0] if items else None                  # only the worst finding, and only when it is what was asked about
+            asked = {"cpu": "of the CPU", "memory": "of memory", "gpu": "the GPU"}.get(action, "")
+            exe = (top and top["closable"] and asked in top["text"] and running_window(top["app"])) or None
+            exe = None if exe and is_protected(exe) else exe
+            if line:
+                fixed(line + (" Want me to close it?" if exe else ""))
+                if exe:
+                    offer.update(close=exe, expires=time.time() + 30 + follow_wait())
+                return
+            extra, close_offer = prompt_findings(items), exe
         if kind != "act" or prompt is None:
             reply = command_reply(kind, action, target, prompt, quiet)
             if reply is not None:
@@ -1129,6 +1152,9 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         if fact:                                               # M4a-3: one offer; the next turn's yes saves it
             reply_line("Want me to remember that?", quiet)
             offer.update(fact=fact, expires=time.time() + 30 + follow_wait())
+        if close_offer and reply and not cancel.is_set():      # 9e: one offer; the next turn's yes closes it
+            reply_line("Want me to close it?", quiet)
+            offer.update(close=close_offer, expires=time.time() + 30 + follow_wait())
         left["again"] = not quiet and not cancel.is_set() and "ear"   # fixed replies set it in fixed()
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
@@ -1360,6 +1386,7 @@ def wake_loop():
                    if setting("JarvisEnabled", "1") != "1" else f"HUD tier {tier}" if tier >= 3 else None)
             if why != off:
                 off = why
+                WAKE_OFF[0] = why
                 log(f"wake off: {why}" if why else "wake on")
             barge = barge_in()
             talking = busy.locked() and getattr(S, "state", "") == "speaking" and barge != "off"

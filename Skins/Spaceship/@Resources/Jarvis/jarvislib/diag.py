@@ -5,9 +5,10 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 from .audio import speakers
-from .base import NO_WINDOW, log, read_kv, settings
+from .base import LAST_ERR, MEMORYSTATUSEX, NO_WINDOW, SYSTEM_POWER_STATUS, WAKE_OFF, log, read_kv, setting, settings
 from .calc import clock, unit
 from .gpu import gpu
 from .reminders import load_reminders, span
@@ -185,7 +186,7 @@ def group_events(events, since=None):
 T = {"app_cpu": 50, "mem": 90, "disk_pct": 10, "disk_gb": 10, "disk_busy": 90, "gpu": 90, "temp": 90, "wifi": 40, "ping_ms": 100,
      "uptime_days": 14}
 SEV = {"heat": 90, "cpu_app": 80, "mem": 78, "disk_full": 76, "gpu": 70, "disk_busy": 68, "internet": 66, "router": 65, "faulty": 60,
-       "crash": 55, "wifi": 45, "slow_router": 44, "unknown_event": 40, "battery": 35, "own_cpu": 30, "reboot": 20}
+       "crash": 55, "wifi": 45, "slow_router": 44, "unknown_event": 40, "battery": 35, "own_cpu": 30, "own_wake": 25, "reboot": 20}
 # Windows' own and the HUD's processes: never offered for closing. python and ollama are left out on purpose:
 # they are named "my own model" and are never closable (OWN_MODEL).
 PROTECTED = frozenset({"explorer", "svchost", "csrss", "wininit", "winlogon", "lsass", "services", "smss", "dwm", "system",
@@ -254,6 +255,8 @@ def findings(snap):
         add(SEV["reboot"], "a restart is pending" if snap.get("reboot_pending") else f"the PC has been on for {snap['uptime_days']:.0f} days")
     if snap.get("jarvis_on_cpu"):
         add(SEV["own_cpu"], "my voice model is running on the CPU")
+    if snap.get("wake_off"):
+        add(SEV["own_wake"], f"my wake word is off ({snap['wake_off']})")
     return sorted(out, key=lambda f: f["sev"], reverse=True)
 
 
@@ -264,3 +267,175 @@ def summary(snap):
             ([f"memory {snap['mem_pct']:.0f}%"] if snap.get("mem_pct") is not None else []) + \
             (["disk fine"] if snap.get("disks") else []) + (["no errors today"] if snap.get("events") == [] else [])
     return f"I can't see anything wrong: {', '.join(parts)}." if parts else "I couldn't read that."
+
+
+# ---- 9a: one topic -> one snapshot -> a line made by code (never the model) or findings for the model to word
+NEEDS = {"cpu": ("processes",), "memory": ("processes",), "gpu": ("processes",), "disk": ("processes",), "storage": (),
+         "fan": ("processes",), "crash": ("logs",), "net": ("network",), "sound": (),
+         "wrong": ("processes", "logs", "network", "system"), "lasterr": ()}
+COULDNT = "I couldn't read that."
+
+
+def drives():
+    """Free space of every fixed drive, from Windows' own counters (no PowerShell)."""
+    out, mask = [], ctypes.windll.kernel32.GetLogicalDrives()
+    for i in range(26):
+        d = chr(65 + i) + ":\\"
+        if mask >> i & 1 and ctypes.windll.kernel32.GetDriveTypeW(d) == 3:
+            try:
+                u = shutil.disk_usage(d)
+                out.append({"drive": d[0], "free_gb": u.free / 2**30, "total_gb": u.total / 2**30})
+            except OSError:
+                pass
+    return out
+
+
+def memory_percent():
+    m = MEMORYSTATUSEX()
+    m.dwLength = ctypes.sizeof(m)
+    return float(m.dwMemoryLoad) if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)) else None
+
+
+def battery_saver():
+    p = SYSTEM_POWER_STATUS()
+    return bool(ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(p)) and p.SystemStatusFlag == 1)
+
+
+def temps():
+    out = {}
+    for key, name, _ in HW_LINES:
+        if name.endswith("temperature"):
+            try:
+                n = int(float(settings().get(key, "-1")))
+                if n >= 0:
+                    out[name.split()[0].lower()] = hw_value(n)
+            except (OSError, ValueError):
+                pass
+    return out
+
+
+def gather(topic, hours=24, own_cpu=False):
+    """The snapshot dict for findings() with the parts the topic needs, read side by side. None: nothing could be read."""
+    need, got = NEEDS[topic], {}
+
+    def read(part):
+        got[part] = snapshot(part, hours)
+    threads = [threading.Thread(target=read, args=(p,)) for p in need]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(20)
+    if need and not any(got.get(p) for p in need):
+        return None
+    snap = {"disks": drives(), "mem_pct": memory_percent(), "temps": temps(), "battery_saver": battery_saver(),
+            "jarvis_on_cpu": own_cpu, "wake_off": WAKE_OFF[0]}
+    p = got.get("processes")
+    if p:
+        procs, cpus = p.get("procs") or [], p.get("cpus") or 1
+        apps = gpu_apps(p.get("gpu"), p.get("gpumem"), procs)
+        snap.update(procs=procs, cpus=cpus, cpu_pct=min(100.0, sum(x.get("cpu") or 0 for x in procs) / max(1, cpus)),
+                    gpu=p.get("gpu"), gpumem=p.get("gpumem"), disk_busy=p.get("disk_busy"),
+                    gpu_util=max((a["util"] for a in apps), default=0))
+    n, s = got.get("network"), got.get("system")
+    if n:
+        snap.update(wifi=n.get("wifi"), gateway=n.get("gateway"), public=n.get("public"))
+    if s:
+        snap.update(reboot_pending=s.get("reboot_pending"), uptime_days=s.get("uptime_days"),
+                    faulty_devices=s.get("faulty_devices"))
+    lg = got.get("logs")
+    if lg:
+        snap["boot"] = lg.get("boot")
+        snap["events"] = group_events(lg.get("events"))
+    return snap
+
+
+def _pct(v):
+    return f"{v:.0f}%"
+
+
+def diagnose(topic, span=None, own_cpu=False):
+    """-> (line, items). line: the whole answer from code, or None when the findings must be worded by the model.
+    items: findings, worst first. span: None = JarvisLogHours, "boot" = since the last restart, 168 = this week."""
+    if topic == "lasterr":
+        err, at = LAST_ERR
+        return (f"The last problem was: {err}, at {time.strftime('%I:%M %p', time.localtime(at)).lstrip('0')}." if err
+                else "I haven't had a problem since I started."), []
+    if topic == "sound":
+        try:
+            muted, percent = speakers()
+        except OSError:
+            return COULDNT, []
+        return ("The speakers are muted." if muted else "The volume is at 0." if percent <= 0 else
+                f"The speakers are on at {percent}%, so it isn't muted here. Check the app's own volume or the output device."), []
+    try:
+        hours = int(setting("JarvisLogHours", "24"))
+    except ValueError:
+        hours = 24
+    hours = 24 * 7 if span == 168 else 720 if span == "boot" else hours
+    snap = gather(topic, hours, own_cpu)
+    if snap is None:
+        return COULDNT, []
+    if span == "boot" and snap.get("boot") and snap.get("events") is not None:   # the read covered 30 days: cut at the restart
+        lg = snapshot("logs", 720)
+        snap["events"] = group_events((lg or {}).get("events"), since=snap["boot"]) if lg else snap["events"]
+    items = findings(snap)
+    procs, cpus = snap.get("procs"), snap.get("cpus")
+    if topic == "wrong":
+        return (None, items) if items else (summary(snap), [])
+    if topic == "storage":
+        return (" ".join(f"Drive {x['drive']} has {x['free_gb']:.0f} GB free of {x['total_gb']:.0f}." for x in snap["disks"])
+                or COULDNT), items
+    if topic == "crash":
+        ev = snap.get("events")
+        if ev is None:
+            return COULDNT, []
+        return (("In that time: " + "; ".join(f"{e['text']}, {e['count']} time(s)" for e in ev[:5]) + ".") if ev
+                else "I can't see any errors in that time."), []
+    if topic == "net":
+        gw, pub = snap.get("gateway"), snap.get("public") or []
+        if not gw and not pub:
+            return COULDNT, []
+        if gw and gw.get("ms") is None:
+            return "I can't reach the router.", []
+        if pub and all(x.get("ms") is None for x in pub):
+            return "The router answers, but the internet does not.", []
+        sig = (snap.get("wifi") or {}).get("signal")
+        up = min((x["ms"] for x in pub if x.get("ms") is not None), default=None)
+        return ("Yes, the internet is working" + (f": the router answers in {gw['ms']:.0f} ms" if gw else "")
+                + (f", the internet in {up:.0f} ms" if up is not None else "")
+                + (f", Wi-Fi signal {sig:.0f}%" if sig is not None else "") + "."), []
+    if not procs:
+        return COULDNT, []
+    cpu_top, mem_top = top_apps(procs, cpus, "cpu")[:3], top_apps(procs, cpus, "mem")[:1]
+    gpu_top = gpu_apps(snap.get("gpu"), snap.get("gpumem"), procs)[:1]
+
+    def who(a):
+        return "my own model" if a["name"] in OWN_MODEL else a["name"] + (f" ({a['count']} processes)" if a.get("count", 1) > 1 else "")
+    if topic == "cpu":
+        busy = [a for a in cpu_top if a["value"] >= 1]
+        return (f"The CPU is at {_pct(snap['cpu_pct'])}. " + ", then ".join(f"{who(a)} is using {_pct(a['value'])}" for a in busy) + "."
+                if busy else "The CPU is nearly idle."), items
+    if topic == "memory":
+        m = mem_top[0] if mem_top else None
+        return (f"Memory is {_pct(snap['mem_pct'])} full." if snap.get("mem_pct") is not None else "") \
+            + (f" {who(m)} is using the most, {m['value'] / 2**30:.1f} GB." if m and m["value"] else "") or COULDNT, items
+    if topic == "gpu":
+        g = gpu_top[0] if gpu_top else None
+        return (f"{who(g)} is using {_pct(g['util'])} of the GPU, {g['bytes'] / 2**30:.1f} GB of its memory."
+                if g and (g["util"] or g["bytes"]) else "I can't see any GPU use."), items
+    if topic == "disk":
+        io = top_apps(procs, cpus, "io")[:1]
+        return (f"The disk is busy {_pct(snap['disk_busy'])} of the time." if snap.get("disk_busy") is not None else "") \
+            + (f" {who(io[0])} is doing the most." if io and io[0]["value"] else "") or COULDNT, items
+    if topic == "fan":
+        heat = ", ".join(f"{k.upper()} {v:.0f} C" for k, v in (snap.get("temps") or {}).items())
+        return ((f"It is {heat}. " if heat else "I can't read the temperatures. ")
+                + (f"The CPU is busiest with {who(cpu_top[0])}. " if cpu_top and cpu_top[0]["value"] >= 5 else "")
+                + (f"The GPU is busiest with {who(gpu_top[0])}." if gpu_top and gpu_top[0]["util"] >= 5 else "")).strip(), items
+    return COULDNT, []
+
+
+def prompt_findings(items):
+    """What the model gets for "what's wrong": the findings only, and one instruction."""
+    return ("\nDIAGNOSIS FINDINGS (worst first, found by code from real readings):\n" + "\n".join("- " + f["text"] for f in items[:6])
+            + "\nExplain these in two sentences, most serious first. Say only what they say; invent nothing.")

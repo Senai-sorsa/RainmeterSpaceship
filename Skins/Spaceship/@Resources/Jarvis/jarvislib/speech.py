@@ -206,7 +206,7 @@ def say_text_only(sentences, collected):
 #    app, lock, sleep, restart, shut down) are staged and need a spoken "yes" within 15 s - he listens for it himself.
 # 3. Guardrails - nothing outside the whitelist is ever executed. Destructive or joke requests ("self-destruct",
 #    "delete system32") go to the model in persona with a note that nothing will run, so he plays along drily.
-FILLERS = {"notes": "Searching your notes.", "apps": "Scanning installed applications.",
+FILLERS = {"notes": "Searching your notes.", "apps": "Scanning installed applications.", "diag": "Checking the system.",
            "confirm_wait": "One moment.", "cancelled": "Cancelled.", "done": "Done."}
 _filler_audio = {}
 _filler_voice = [None]
