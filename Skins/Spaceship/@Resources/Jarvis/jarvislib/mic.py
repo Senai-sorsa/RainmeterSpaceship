@@ -6,14 +6,14 @@ from .audio import speakers
 from .base import DUCK_FILE, MICS_FILE, S, cancel, log, mic, problem, setting
 
 
-def listen(wait=3, patience=6):
+def listen(wait=3, patience=6, dim_after=None):
     """Record until you stop talking: waits up to `patience` s for speech, then stops after JarvisSilence seconds of
     quiet (default 1 s; raise it if he cuts you off mid-sentence), max 25 s."""
     if not mic.acquire(timeout=wait):                          # the wake word lets go within a second of a turn starting
         raise RuntimeError("The microphone is busy - try again")
     try:
         duck()
-        return _listen(patience)
+        return _listen(patience, dim_after) if dim_after else _listen(patience)
     finally:
         mic.release()
         unduck()                                               # before anything is said or run: a volume command keeps its value
@@ -123,11 +123,11 @@ def follow_name_wait():
 onset = [0.0]                                                  # seconds the last _listen waited before speech began
 
 
-def _listen(patience=6):
+def _listen(patience=6, dim_after=None):
     import numpy as np
     import sounddevice as sd
     rate, block = 16000, 480                     # 30 ms blocks
-    frames, started, silent, waited = [], False, 0, 0
+    frames, started, silent, waited, dim = [], False, 0, 0, False
     floor = None
     onset[0] = 0.0
     try:
@@ -156,6 +156,8 @@ def _listen(patience=6):
                 if rms > thresh:
                     if not started:
                         onset[0] = waited * 0.03
+                        if dim:
+                            S.set(state="listening")        # 8a: speech began in the dim part of the window
                     started, silent = True, 0
                 elif started:
                     silent += 1
@@ -166,6 +168,9 @@ def _listen(patience=6):
                     frames = (frames + [x.copy()])[-10:]     # keep 0.3 s before speech starts
                 if started and silent > quiet_blocks:
                     break
+                if dim_after and not started and not dim and waited * 0.03 > dim_after:
+                    dim = True
+                    S.set(state="idle")                     # 8a: past the direct window the hologram shows STANDBY (name needed)
                 if not started and waited > patience / 0.03:
                     return None
                 if time.time() - t0 > 25:

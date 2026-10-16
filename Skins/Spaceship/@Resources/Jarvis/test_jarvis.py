@@ -1165,6 +1165,38 @@ j.turn(0)
 assert asked[-1] == "Timer set for 10 minutes." and states[-1] == idle and not j.busy.locked()
 j.turn(0)
 assert acted == ["lock"] and asked[-1] == "Done." and states[-1] == idle and not j.busy.locked()
+# 8a: past the direct window the hologram goes to STANDBY (idle) and returns to listening if speech starts there
+import numpy as _np
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location("jarvislib.mic_fresh", os.path.join(os.path.dirname(os.path.abspath(__file__)), "jarvislib", "mic.py"))
+_mic = _ilu.module_from_spec(_spec)                           # a fresh copy: the tests above replaced _listen in the real one
+_spec.loader.exec_module(_mic)
+class _Strm:
+    def __init__(self, loud_at): self.n, self.loud_at = 0, loud_at
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def close(self): pass
+    def read(self, block):
+        self.n += 1
+        return _np.full((block, 1), 0.5 if self.n >= self.loud_at else 0.0, dtype=_np.float32), False
+class _Sd:
+    def __init__(self, loud_at): self.loud_at = loud_at
+    def InputStream(self, **k): return _Strm(self.loud_at)
+_seen, _real_S, _real_sd = [], _mic.S, sys.modules.get("sounddevice")
+class _FakeS:
+    def set(self, **k):
+        if "state" in k: _seen.append(k["state"])
+_mic.S = _FakeS()
+for _loud, _want in ((10 ** 6, ["idle"]), (20, ["idle", "listening"])):   # nobody speaks / speaks in the dim part
+    del _seen[:]
+    sys.modules["sounddevice"] = _Sd(_loud)
+    _mic._listen(0.9, 0.3)                                    # 30 blocks of 30 ms; dim from 0.3 s
+    assert _seen == _want, (_loud, _seen)
+_mic.S = _real_S
+if _real_sd is None: del sys.modules["sounddevice"]
+else: sys.modules["sounddevice"] = _real_sd
+assert j.ask_text("ASK 1 what time\nis it  now\n") == "what time is it now" and j.ask_text("ASK 1\n") == ""
+assert len(j.ask_text("ASK 1 " + "x" * 600)) == 500 and j.ask_text("ASK 1 ") == ""
 # 8d: typed text takes the same turn with no microphone; a confirmation it needs is never taken from the microphone
 def _no_mic(*a, **k): raise AssertionError("typed turn used the microphone")
 keep_listen, keep_transcribe, j.listen, j.transcribe = j.listen, j.transcribe, _no_mic, _no_mic

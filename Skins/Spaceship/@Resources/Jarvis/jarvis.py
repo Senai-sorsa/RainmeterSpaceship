@@ -798,6 +798,12 @@ def ask_yes(prompt, quiet):
     return confirmed(pending, answer, time.time()) and heard_score[0] >= -1.0 and not cancel.is_set()
 
 
+def ask_text(raw):
+    """8d: the text of an `ASK <unix> <text>` line: one line, at most 500 characters, or "" when there is none."""
+    bits = raw.split(None, 2)
+    return " ".join(bits[2].split())[:500] if len(bits) > 2 else ""
+
+
 typed_turn = [False]                                           # 8d: the running turn came from the text box
 
 
@@ -865,7 +871,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio = None if typed is not None else listen(patience=max(ear_wait(), follow_name_wait())) if follow else listen()
+        audio = None if typed is not None else listen(patience=max(ear_wait(), follow_name_wait()), dim_after=ear_wait()) if follow else listen()
         if (audio is None and typed is None) or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
@@ -1573,7 +1579,7 @@ def main():
                 tier = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
                 threading.Thread(target=turn, args=(tier,), daemon=True).start()
             elif parts[0] == "ASK":                            # 8d: typed text goes through the same turn as speech
-                text = " ".join(raw.split(None, 2)[2].split())[:500] if len(raw.split(None, 2)) > 2 else ""
+                text = ask_text(raw)
                 if not text:
                     pass
                 elif busy.locked():

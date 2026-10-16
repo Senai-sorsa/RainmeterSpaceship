@@ -633,6 +633,18 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'FOLLOW-UP', fu and string.format('ON - after any answer his ear stays open %d s, no wake word needed; talk that is not for him is ignored or he asks', fwait) or 'OFF - every question needs the wake word or a click', {
     { 'ON', function() jset('JarvisFollowUp', 1) end, fu }, { 'OFF', function() jset('JarvisFollowUp', 0) end, not fu },
     { '-', function() jbump('JarvisFollowUpWait', -1, 3, 30, 3) end }, { '+', function() jbump('JarvisFollowUpWait', 1, 3, 30, 3) end } } }
+  local nw = H.num('JarvisFollowNameWindow', 10)
+  rows[#rows + 1] = { 'NAME WINDOW', string.format('%d s in all - speech that starts after the follow-up time counts only if it begins with his name', nw), {
+    { '-', function() jbump('JarvisFollowNameWindow', -1, 3, 60, 10) end }, { '+', function() jbump('JarvisFollowNameWindow', 1, 3, 60, 10) end } } }
+  local cv = H.num('JarvisChimeVolume', 25)
+  rows[#rows + 1] = { 'CHIME VOLUME', cv .. ' %   - the click chime; the start-up sound has its own quiet copy', {
+    { '-', function() jbump('JarvisChimeVolume', -5, 0, 100, 25) end }, { '+', function() jbump('JarvisChimeVolume', 5, 0, 100, 25) end } } }
+  local qc = H.str('JarvisQuietCalendar', '')
+  local nextCal = dataFile('calendar.txt')
+  nextCal = nextCal and nextCal.E and string.match(nextCal.E, '^%d+|%d+|%d|([^|]*)|')
+  rows[#rows + 1] = { 'QUIET IN CLASS', qc ~= '' and ('ON - quiet while an event of "' .. qc .. '" runs; say "you can talk" to end it for that class') or 'OFF - USE NEXT takes the calendar of your next event', {
+    { 'USE NEXT', function() if nextCal and nextCal ~= '' then jset('JarvisQuietCalendar', (string.gsub(nextCal, "[%c=;%[%]#\"'%%]", ''))) else say('NO CALENDAR EVENT YET') end end, qc ~= '' },
+    { 'OFF', function() jset('JarvisQuietCalendar', '') end, qc == '' } } }
   local sil, ctx = H.num('JarvisSilence', 1), H.num('JarvisContext', 2048)
   rows[#rows + 1] = { 'LISTENING', string.format('answers after %.1f s of silence   - longer lets you pause mid-sentence, shorter answers sooner', sil), {
     { 'SHORTER', function() jbump('JarvisSilence', -0.5, 0.5, 6, 1) end },
