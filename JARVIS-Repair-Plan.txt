@@ -109,11 +109,14 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
     (413541f; asks first, undo, JarvisBtNames); jarvis_log monthly archive Data\jarvis_log-YYYY-MM.txt (413541f; written
     only, never read; Forget clears only jarvis_log.txt); P0-10 Setup-Jarvis.ps1 (b49a9ff); 7e Control Center JARVIS tab
     grouped under SETTINGS / PERSONALIZATION / MEMORY headings (e0ac684; rows only moved, none removed).
-    WAITING / NOT BUILT: 7-A7 rest (memory-facts row, 7 hidden settings, JarvisBtNames row: needs a paired-device
-    file like jarvis_mics.txt, not written); 7-A6 rest (only stealth and the mic are by voice); ask_slot() (the
-    "which one?" case just lists names); Lenovo Legion Toolkit (not verifiable here); P0-10 Settings.inc clean-up
-    (waits for the user's OK: duplicate comments, indents, JarvisCallMe; the write was blocked, files prepared).
-    The Bluetooth writes were never run against a real device (radio was off), 7e was only Lua-parse checked.
+    7-A7 rest BUILT (2026-10-15): Control Center rows AI ROUTER, FIRST WORDS, GPU, IDLE UNLOAD, WAKE STRICT, LEARN
+    FACTS, RECALL, NAME ALIASES, BLUETOOTH NAMES (EDIT opens Settings.inc; the paired names come from
+    Data\jarvis_bt.txt, written by bt_devices()) and REMEMBERED FACTS (N remembered, OPEN, FORGET ALL asks first).
+    CLOSED BY DESIGN: 7-A6 rest (spec says stealth / mute and the mic only); ask_slot() (the "which one?" case lists
+    the names and asks for more of the name, no slot needed). NOT BUILT, not verifiable here: Lenovo Legion Toolkit.
+    WAITING for the user: P0-10 Settings.inc clean-up (duplicate comments, indents, JarvisCallMe; the write was
+    blocked, cleaned files are prepared).
+    The Bluetooth writes were never run against a real device (radio was off), 7e and the new rows were only Lua-parse checked.
     Rollback: git revert, newest first.
   AUDIT-0 STATUS (2026-10-15, end of the AUDIT-0 session): P0-01..P0-09 and P0-12 FIXED and committed; P0-06
     part 2 skipped (feature); P0-10 half done, the rest WAITS for the user (Settings.inc, Setup-Jarvis.ps1).
@@ -3310,6 +3313,10 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
     1b-16. Data\jarvis_log-YYYY-MM.txt exists and grows with each exchange; "forget" clears only jarvis_log.txt.
     1b-17. Control Center JARVIS tab: three headings; every old row is still there; scroll works; buttons work.
     1b-18. Fresh install: Setup-Jarvis.ps1 leaves JarvisPython blank, writes a relative JarvisVoice, voice bm_lewis.
+    1b-19. Control Center JARVIS tab, new rows: AI ROUTER / GPU / LEARN / RECALL toggles change and survive RELOAD;
+          FIRST WORDS, IDLE UNLOAD, WAKE STRICT -/+ stay inside their limits; BLUETOOTH NAMES lists the paired
+          names after one "connect my headphones" (needs Data\jarvis_bt.txt); REMEMBERED FACTS shows the count, OPEN
+          shows the file, FORGET ALL needs a second click and then the file is empty (this one is not undoable).
 
 
   PART 2   S2-8 .. S2-13 (the 2026-10-14 live-log audit, built 2026-10-15). Each step names the bug.

@@ -6,7 +6,7 @@ import subprocess
 import time
 import winreg
 from .audio import mic_volume, speakers
-from .base import DATA, NO_WINDOW, RES, log, read_kv, setting
+from .base import BT_FILE, DATA, NO_WINDOW, RES, log, read_kv, setting
 
 
 def start_apps():
@@ -217,7 +217,13 @@ def _bt_ps(call, timeout=40):
 def bt_devices():
     """Paired Bluetooth audio devices as [(address, name, connected)]. OSError if Windows will not say."""
     rows = [ln.split("|", 2) for ln in _bt_ps("[Bt]::List()").splitlines() if ln.count("|") >= 2]
-    return [(a, n.strip(), c == "1") for a, c, n in rows if re.fullmatch(r"[0-9A-F]{12}", a)]
+    devs = [(a, n.strip(), c == "1") for a, c, n in rows if re.fullmatch(r"[0-9A-F]{12}", a)]
+    try:                                                       # the Control Center's BLUETOOTH NAMES row shows these
+        with open(BT_FILE, "w", encoding="utf-8") as f:
+            f.write("".join(d[1].replace("\n", " ") + "\n" for d in devs))
+    except OSError:
+        pass
+    return devs
 
 
 def bt_link(addr, on):

@@ -668,11 +668,52 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'SETUP', 'Checks / installs Python packages, the speech model, Ollama + a model and the natural voice, tests your mic', {
     { 'RUN SETUP', function() SKIN:Bang('["' .. RES .. 'Jarvis\\Run-Setup.cmd"]'); SKIN:Bang('!DeactivateConfig') end },
     { 'FOLDER', function() SKIN:Bang('["' .. RES .. 'Jarvis"]') end } } }
+  -- 7-A7: settings that only jarvis.py read until now (same jset writer)
+  local air = H.str('JarvisAIRouter', '1') ~= '0'
+  rows[#rows + 1] = { 'AI ROUTER', air and 'ON - the model decides what an unclear request means (the fixed commands still run first)' or 'OFF - only the fixed commands and plain chat', {
+    { 'ON', function() jset('JarvisAIRouter', 1) end, air }, { 'OFF', function() jset('JarvisAIRouter', 0) end, not air } } }
+  local fw = H.num('JarvisFirstWords', 5)
+  rows[#rows + 1] = { 'FIRST WORDS', string.format('he starts speaking after %d words of the reply   - fewer = sooner, more = smoother', fw), {
+    { '-', function() jbump('JarvisFirstWords', -1, 0, 12, 5) end }, { '+', function() jbump('JarvisFirstWords', 1, 0, 12, 5) end } } }
+  local gpu = string.lower(H.str('JarvisGPU', 'prefer')) == 'require'
+  rows[#rows + 1] = { 'GPU', gpu and 'REQUIRE - no turn runs on the CPU; he says so if the RTX is off' or 'PREFER - the GPU when it is on, else the CPU', {
+    { 'PREFER', function() jset('JarvisGPU', 'prefer') end, not gpu }, { 'REQUIRE', function() jset('JarvisGPU', 'require') end, gpu } } }
+  local iu = H.num('JarvisIdleUnload', 10)
+  rows[#rows + 1] = { 'IDLE UNLOAD', (iu > 0 and string.format('speech models are freed after %d min without a turn', iu) or 'OFF - the speech models stay loaded') .. '   (they load again on the next turn)', {
+    { '-', function() jbump('JarvisIdleUnload', -5, 0, 120, 10) end }, { '+', function() jbump('JarvisIdleUnload', 5, 0, 120, 10) end },
+    { 'OFF', function() jset('JarvisIdleUnload', 0) end, iu <= 0 } } }
+  local wh = H.num('JarvisWakeHard', 0.35)
+  rows[#rows + 1] = { 'WAKE STRICT', string.format('%.2f   - the wake-word score needed while he talks or music plays; higher = fewer false wakes', wh), {
+    { '-', function() jbump('JarvisWakeHard', -0.05, 0.1, 0.9, 0.35) end }, { '+', function() jbump('JarvisWakeHard', 0.05, 0.1, 0.9, 0.35) end } } }
+  local lrn = string.lower(H.str('JarvisLearn', 'ask'))
+  local lon = lrn ~= 'off' and lrn ~= '0'
+  rows[#rows + 1] = { 'LEARN FACTS', lon and 'ASK - after a chat he may offer to remember a fact about you (never a number or a secret)' or 'OFF - he never offers', {
+    { 'ASK', function() jset('JarvisLearn', 'ask') end, lon }, { 'OFF', function() jset('JarvisLearn', 'off') end, not lon } } }
+  local rc = string.lower(H.str('JarvisRecall', 'on'))
+  local ron = rc ~= 'off' and rc ~= '0'
+  rows[#rows + 1] = { 'RECALL', ron and 'ON - remembered facts about a topic are given to the model' or 'OFF - the model sees no remembered facts', {
+    { 'ON', function() jset('JarvisRecall', 'on') end, ron }, { 'OFF', function() jset('JarvisRecall', 'off') end, not ron } } }
+  local na = H.str('JarvisNameAliases', '')
+  rows[#rows + 1] = { 'NAME ALIASES', (na ~= '' and na or 'none') .. '   - other ways Whisper writes "Jarvis" (comma separated). Edit JarvisNameAliases in Settings.inc', {
+    { 'EDIT', function() SKIN:Bang('["' .. RES .. 'Settings.inc"]'); say('EDIT JarvisNameAliases, THEN RELOAD') end } } }
+  local bn = models('jarvis_bt.txt')
+  rows[#rows + 1] = { 'BLUETOOTH NAMES', (#bn > 0 and ('Paired: ' .. table.concat(bn, ', ')) or 'No list yet - say "connect my headphones" once with Bluetooth on') ..
+    '   - name them as <Bluetooth name>=<what you say>;... in JarvisBtNames (Settings.inc)', {
+    { 'EDIT', function() SKIN:Bang('["' .. RES .. 'Settings.inc"]'); say('EDIT JarvisBtNames, THEN RELOAD') end } } }
+  local facts = models('jarvis_memory.txt')
+  rows[#rows + 1] = { 'REMEMBERED FACTS', #facts .. ' remembered   - what he knows about you; OPEN to read or edit, FORGET ALL asks first', {
+    { 'OPEN', function() SKIN:Bang('["notepad.exe" "' .. RES .. 'Data\\jarvis_memory.txt"]') end },
+    { armed == 'jfacts' and 'CONFIRM' or 'FORGET ALL', function()
+        if arm('jfacts') then
+          local o = io.open(RES .. 'Data\\jarvis_memory.txt', 'wb')
+          if o then o:close(); say('ALL REMEMBERED FACTS FORGOTTEN') else say('COULD NOT CLEAR THE MEMORY FILE') end
+        end
+      end, armed == 'jfacts' } } }
   -- 7e: group the rows under three headings (a heading is a row with no buttons); rows are only moved, never dropped,
   -- and a row not named here lands in SETTINGS
   local SECTION = { PERSONALITY = 2, ['ABOUT ME'] = 2, ['CALL ME'] = 2, VOICE = 2, ['KOKORO VOICE'] = 2, ['TO-DO NOTE'] = 2, ['NOTES VAULT'] = 2,
     ['NOTE SEARCH'] = 2, ['COLOUR - STANDBY'] = 2, ['COLOUR - LISTENING'] = 2, ['COLOUR - SPEAKING'] = 2, ORB = 2, ['ORB TINT'] = 2,
-    LAYERS = 2, MOTION = 2, ['MODEL MEMORY'] = 3, CONVERSATION = 3 }
+    LAYERS = 2, MOTION = 2, ['MODEL MEMORY'] = 3, CONVERSATION = 3, ['LEARN FACTS'] = 3, RECALL = 3, ['REMEMBERED FACTS'] = 3 }
   local HEAD = { { 'JARVIS SETTINGS', 'Service, models, listening, wake word and microphone.' },
     { 'JARVIS PERSONALIZATION', 'How he talks to you and how the hologram looks.' },
     { 'JARVIS MEMORY', 'What he remembers; CLEAR forgets the conversation.' } }

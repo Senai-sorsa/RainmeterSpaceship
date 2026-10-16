@@ -21,6 +21,7 @@ LIVE_FILE = os.path.join(DATA, "jarvis_live.txt")    # the reply being written r
 LOG_FILE = os.path.join(DATA, "jarvis.log")
 MODELS_FILE = os.path.join(DATA, "jarvis_models.txt")   # installed Ollama models, for the Control Center
 MICS_FILE = os.path.join(DATA, "jarvis_mics.txt")       # input devices, for the Control Center
+BT_FILE = os.path.join(DATA, "jarvis_bt.txt")           # paired Bluetooth audio devices, for the Control Center
 DUCK_FILE = os.path.join(DATA, "jarvis_duck.txt")       # "old lowered" volume while he listens with other sound down
 OLLAMA = "http://127.0.0.1:11434"
 NO_WINDOW = 0x08000000
