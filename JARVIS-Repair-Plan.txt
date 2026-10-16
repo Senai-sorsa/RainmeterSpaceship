@@ -96,7 +96,27 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - Stage by name and read the staged list. Never commit Data\, logs, weights, keys.
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
-CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
+CURRENT STATE (updated end of the 2026-10-16 "Phase 9" session; READ THIS FIRST)
+  PHASE 9 STATUS (2026-10-16, BUILT, tested with fakes only, NOT live, not pushed; branch chore/jarvis-baseline-and-performance):
+    9-1 4516925 (ERR goes after 60 s, last error + time kept in base.LAST_ERR), 9-2/9-3 da3d663 (read-only diag.ps1: parts
+    processes|logs|network|system + -Hours; diag.snapshot, event table), 9-4 0ed878f (findings() rules table, summary(), PROTECTED),
+    9-5 481d076 ("kill explorer" refused in the route and in act_close), 9-6 780d98b (route kind "diag", topics cpu|memory|gpu|
+    disk|storage|fan|crash|net|sound|wrong|lasterr; code words every answer except "wrong", which hands the model findings
+    only; "Want me to close it?" offers only the worst finding, only if it matches the topic, never a protected app; a yes closes),
+    9-7 4693c72 (silent watch: ctypes look every 300 s, 3 in a row, then a quiet chat line and no repeat for 30 min; skipped on
+    tier 3, on battery, while busy; setting JarvisWatch, default 1; cost measured 0.5 ms per look), 9-8 535b8f9 (Control Center
+    row DIAGNOSIS: ASK ON/OFF = JarvisDiagnose, WATCH ON/OFF = JarvisWatch). Settings.inc defaults stay in code.
+    REAL read-only trial on this machine (no admin): counters work: Process % Processor Time / Working Set - Private / IO Data
+    Bytes/sec / ID Process, GPU Engine Utilization Percentage (names pid_N_luid_..._engtype_3d, summed per pid; 55 pids),
+    GPU Process Memory Dedicated Usage, PhysicalDisk _Total % Disk Time. Run time per part: processes ~3.5 s (14.6 KB),
+    logs ~0.9 s, network ~1.1 s (router 2 ms, public 8-10 ms, Wi-Fi 83 %), system ~1.1 s. Events seen: DistributedCOM 10010
+    (noise), Service Control Manager 7034, Application Error 1000 (app name from Properties[0], never the message).
+    Get-PnpDevice -Status Error throws when nothing is faulty, so diag.ps1 uses Win32_PnPEntity.
+    NOT VERIFIED: the no-GPU-counter fallback, a PC with no battery, non-English Windows (the netsh labels are English),
+    zero events, the thresholds against real output end to end, Lua parse of control.lua (no Lua parser on this machine:
+    only bracket balance of the new row was checked), and every live step in LIVE TEST ... PART 5.
+    "Why is my PC slow" takes about 2-4 s (PowerShell start + 1 s counter sample); the 4 s target is for the live test.
+    NEXT: PHASE 10 (personality and voice): its FIRST step is telling the user and getting their hand-review.
   PHASE 8 STATUS (2026-10-15, BUILT, tested with fakes only, NOT live, not pushed): 8a+8b 6d6e50a, 8-A1+8-A2 993b23b,
     8c 70b9fbf, 8d+8-A6 68a92e5. 8-L2 was already true (H.cmd in lib.lua writes .tmp then renames). Typed asks go through
     turn(typed=...) and ask_yes returns False for them (no cross-channel yes). Live steps: LIVE TEST ... PART 4.
@@ -3412,6 +3432,16 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
     8a also: after 3 s of quiet the hologram says STANDBY (dim) until 10 s; a click in that part does nothing useful
     (he is still listening). Control Center > JARVIS: NAME WINDOW, CHIME VOLUME, QUIET IN CLASS (USE NEXT) rows.
 
+  PART 5   Phase 9 as built 2026-10-16 (commits 4516925 .. 535b8f9; not pushed, not live). Steps 1-9 are "Your live test after
+  Phase 9" in PHASE 9; also:
+    9-1   Cause an error pop-up (e.g. ask for something he cannot do while Ollama is stopped): the HUD's ERR is gone after
+          about 60 s; "what went wrong" still tells you what and when.
+    9-5   Say "kill explorer" and "close explorer": he says "I won't close explorer, Windows needs it." and nothing closes.
+    9-6   "What's using my CPU" with something heavy: one sentence from code, then "Want me to close it?"; "yes" closes that app
+          only; anything else (or silence) closes nothing. A Windows process is never offered.
+    9-8   Control Center > JARVIS > DIAGNOSIS: ASK OFF then "what's wrong" -> "Diagnosis is off."; WATCH OFF stops step 8.
+    Watch timing: a problem must last about 15 minutes (3 looks, 5 min apart) before the line; then 30 min of quiet.
+
 
 --------------------------------------------------------------------------------------------------------
 PHASE 8   FOLLOW-UP TIMING AND SOUNDS
@@ -3513,7 +3543,7 @@ Rollback: the settings. The original wav files stay in the folder.
 
 
 --------------------------------------------------------------------------------------------------------
-PHASE 9   ASK HIM WHAT IS WRONG (DIAGNOSIS)
+PHASE 9   ASK HIM WHAT IS WRONG (DIAGNOSIS)   BUILT 2026-10-16 (see PHASE 9 STATUS in CURRENT STATE); live test = PART 5
   MODULES (REFACTOR R-END, 2026-10-15): see "WHERE EACH LATER ITEM GOES" in the REFACTOR block.
   FROM THE PHASE 3 AUDIT (added 2026-10-15)
     9-L1 THE HUD'S ERR STAYS UP (audit item 12)
