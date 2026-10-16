@@ -337,8 +337,13 @@ try:
     for heard in ("turn off bluetooth", "turn bluetooth off", "disable my bluetooth"):
         assert j.route(heard)[:3] == ("act", "bluetooth_off", None) and "Confirm with yes" in j.route(heard)[3], heard
     assert j.route("pair a new device") == ("act", "page", ("bluetooth", ""), None)
+    _bd = j.bt_devices
+    def _nolist():
+        raise OSError("x")
+    j.bt_devices = _nolist                                     # a list Windows will not give: the page opens, as before 7b-connect
     for heard in ("connect my airpods", "disconnect from the headphones", "connect to my sony headphones"):
         assert j.route(heard) == ("act", "page", ("bluetooth", "noconnect"), None), (heard, j.route(heard))
+    j.bt_devices = _bd
     assert j.route("how do I turn on bluetooth?")[0] == "chat"
     btst[0] = "off"
     assert j.run_action("bluetooth", "on") and btst[0] == "on" and j.done_line("bluetooth", "on") == "Bluetooth is on."
@@ -427,6 +432,42 @@ with open(_jm.MICS_FILE, "w", encoding="utf-8") as f:
 assert _jm.pick_mic("headset") == "Headset Microphone (USB Audio)" and _jm.pick_mic("array") == "Microphone Array (Realtek)"
 assert len(_jm.pick_mic("microphone")) == 2 and _jm.pick_mic("webcam") is None and _jm.pick_mic("the Windows default") == ""
 _jm.MICS_FILE = _mf
+# 7b: connect / disconnect a paired Bluetooth audio device: fake list, asks first, undo, no real device touched
+_devs = [["AABBCCDDEEFF", "WH-1000XM4", False], ["112233445566", "AirPods Pro", True]]
+_bd, _bl, _set = j.bt_devices, j.bt_link, j.setting
+j.bt_devices = lambda: [tuple(d) for d in _devs]
+j.setting = lambda n, d="": "WH-1000XM4=sony;AirPods Pro=my pods" if n == "JarvisBtNames" else _set(n, d)
+linked = []
+def _fake_link(addr, on):
+    linked.append((addr, on))
+    for d in _devs:
+        if d[0] == addr:
+            d[2] = on
+j.bt_link = _fake_link
+try:
+    r = j.route("connect my sony headphones")
+    assert r[:3] == ("act", "btlink", ("AABBCCDDEEFF", True, "WH-1000XM4")) and "Confirm with yes" in r[3], r
+    assert j.route("connect the sony")[:3] == r[:3]                        # your own name for it, no generic word needed
+    assert "already connected" in j.route("connect my airpods")[3]         # it is connected, so nothing to ask
+    assert j.route("disconnect my airpods")[:3] == ("act", "btlink", ("112233445566", False, "AirPods Pro"))
+    assert "More than one" in j.route("connect my headphones")[3]          # two paired and the word fits both
+    assert j.route("connect to the vpn")[0] != "act"                       # not an audio device word: not touched
+    assert "WH-1000XM4" not in j.route("which bluetooth devices are connected")[3] and "AirPods Pro" in j.route("which bluetooth devices are connected")[3]
+    assert not j.run_action("btlink", ("AABBCCDDEEFF", True, "WH-1000XM4")) and linked == []     # ask-first
+    ok = j.run_action("btlink", ("AABBCCDDEEFF", True, "WH-1000XM4"), ("btlink", ("AABBCCDDEEFF", True, "WH-1000XM4")))
+    assert ok and linked == [("AABBCCDDEEFF", True)]
+    assert j.done_line("btlink", ("AABBCCDDEEFF", True, "WH-1000XM4")) == "Connected to WH-1000XM4."
+    assert j.done_line("btlink", ("AABBCCDDEEFF", False, "WH-1000XM4")) == "Disconnected from WH-1000XM4."
+    assert j.undo_last() == "Disconnected from WH-1000XM4 again." and linked[-1] == ("AABBCCDDEEFF", False)
+    _devs[:] = []
+    assert "turn it on first" in j.route("connect my headphones")[3]
+finally:
+    j.bt_devices, j.bt_link, j.setting = _bd, _bl, _set
+try:
+    j.bt_link("AA; calc", True)
+    assert False, "only a 12-digit hex address may reach the script"
+except ValueError:
+    pass
 # 7-A9: a live-internet question gets a plain "can't look that up", not a guess; ordinary talk is not caught
 for heard in ("What's the weather like today?", "what is the forecast for tomorrow", "any news today", "what's the latest news", "bitcoin price",
               "what's the exchange rate for euros"):
@@ -3124,6 +3165,9 @@ writers = [threading.Thread(target=lambda n=n: [real_convo_add("U", f"{n} {i}") 
 [w.start() for w in writers]
 [w.join() for w in writers]
 with open(jb.CONVO_FILE, encoding="utf-8") as f:
+    assert len(f.read().splitlines()) == 100
+_arch = os.path.join(os.path.dirname(jb.CONVO_FILE), time.strftime("jarvis_log-%Y-%m.txt"))
+with open(_arch, encoding="utf-8") as f:                      # the monthly archive got every line too
     assert len(f.read().splitlines()) == 100
 jb.CONVO_FILE = real_convo
 # 7-P: the log pop-up file is a display file. Only convo_add may use it; the model never reads it back as memory

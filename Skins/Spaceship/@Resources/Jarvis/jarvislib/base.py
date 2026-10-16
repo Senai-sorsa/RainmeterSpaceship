@@ -218,6 +218,8 @@ def convo_add(who, text):
                     lines = f.read().splitlines()[-299:]
             lines.append(f"{who}|{int(time.time())}|{text}")
             write_atomic(CONVO_FILE, "\n".join(lines) + "\n")
+            with open(os.path.join(os.path.dirname(CONVO_FILE), time.strftime("jarvis_log-%Y-%m.txt")), "a", encoding="utf-8") as f:
+                f.write(lines[-1] + "\n")                    # monthly archive: written here, never read back; only you open it
     except OSError:
         pass
 

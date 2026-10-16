@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from .actions import MEDIA_KEYS, act_brightness, act_close, act_lock, act_mic_level, act_bluetooth, act_open, act_page, act_power, POWER_NAMES, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
+from .actions import BT_GENERIC, MEDIA_KEYS, bt_devices, bt_link, bt_names, pick_bt, act_brightness, act_close, act_lock, act_mic_level, act_bluetooth, act_open, act_page, act_power, POWER_NAMES, act_recycle, act_screenshot, act_sleep, act_theme, press_keys, act_volume, best_app, press_key, run_ok, running_window, start_apps
 from .audio import mic_volume, speakers_mute
 from .base import set_setting
 from .mic import pick_mic
@@ -164,6 +164,7 @@ ACTION_TABLE = {
     "micdev": Action(lambda t: set_setting("mic", t), "ask", "change which microphone he listens to"),
     "stealth": Action(lambda _: set_setting("stealth"), "ask", "put the HUD in STEALTH"),
     "bluetooth": Action(act_bluetooth, "change", "turn the Bluetooth radio on or off"),
+    "btlink": Action(lambda t: bt_link(t[0], t[1]), "ask", "connect or disconnect a paired Bluetooth audio device"),
     "bluetooth_off": Action(lambda _: act_bluetooth("off"), "ask", "turn the Bluetooth radio off"),
     "power": Action(act_power, "ask", "switch the power plan"),
     "page": Action(act_page, "change", "open a Windows settings page"),
@@ -460,8 +461,30 @@ def route(text):
         return ("act", "bluetooth", "on", None)
     if re.fullmatch(r"(?:pair|add|set up) (?:a |an )?(?:new )?(?:bluetooth )?(?:device|headphones|earbuds|speaker|headset|mouse|keyboard)(?: with bluetooth)?|pair bluetooth", cmd):
         return ("act", "page", ("bluetooth", ""), None)         # pairing needs your OK on screen: never by voice
-    if re.fullmatch(r"(?:connect|disconnect|reconnect)(?: (?:to|from))? (?:my |the )?(?:\w+ )?(?:headphones|earbuds|airpods|headset|speakers?|bluetooth \w+|bluetooth)", cmd):
-        return ("act", "page", ("bluetooth", "noconnect"), None)   # the connect step needs the experiment with you present (7b)
+    if re.fullmatch(r"(?:which|what) (?:bluetooth )?(?:devices|headphones|audio devices)(?: are)? connected|(?:list|show) (?:my )?(?:paired )?bluetooth (?:audio )?devices", cmd):
+        try:
+            devs = bt_devices()
+        except OSError:
+            return ("say", None, None, "Windows would not list the Bluetooth devices.")
+        on = [d[1] for d in devs if d[2]]
+        return ("say", None, None, ("Connected: " + ", ".join(on) + ".") if on else
+                "No Bluetooth audio device is connected." if devs else "I see no paired Bluetooth audio device. If Bluetooth is off, turn it on first.")
+    m = re.fullmatch(r"(connect|disconnect|reconnect)(?: (?:to|from))? (.+?)(?: bluetooth)?", cmd)
+    if m and (m.group(2).split()[-1] in BT_GENERIC or re.sub(r"^(?:my|the) ", "", m.group(2)) in bt_names()):
+        want = m.group(1) != "disconnect"
+        try:
+            devs = bt_devices()
+        except OSError:                                        # cannot read the list: do what 7b did before, open the page
+            return ("act", "page", ("bluetooth", "noconnect"), None)
+        got = pick_bt(m.group(2), devs)
+        if got is None:
+            return ("say", None, None, "I see no paired Bluetooth audio device" + (" with that name. Pair it in Bluetooth settings." if devs else
+                    ". If Bluetooth is off, turn it on first."))
+        if isinstance(got, list):
+            return ("say", None, None, "More than one device could be that: " + ", ".join(d[1] for d in got) + ". Say more of the name.")
+        if got[2] == want:
+            return ("say", None, None, f"{got[1]} is already {'connected' if want else 'disconnected'}.")
+        return ("act", "btlink", (got[0], want, got[1]), f"You want me to {'connect' if want else 'disconnect'} {got[1]}. Confirm with yes.")
     page = None                                                # 7c/7d: a fixed table of Windows settings pages
     names = (("night light", r"night ?light", 1), ("focus", r"focus(?: assist)?|do not disturb", 1), ("battery saver", r"battery saver", 1),
              ("startup", r"start-?up apps|startup programs", 1), ("apps", r"installed apps|apps and features", 1),

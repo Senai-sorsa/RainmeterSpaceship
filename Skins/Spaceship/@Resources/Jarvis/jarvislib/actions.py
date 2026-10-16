@@ -6,7 +6,7 @@ import subprocess
 import time
 import winreg
 from .audio import mic_volume, speakers
-from .base import DATA, NO_WINDOW, RES, log, read_kv
+from .base import DATA, NO_WINDOW, RES, log, read_kv, setting
 
 
 def start_apps():
@@ -169,6 +169,89 @@ def act_bluetooth(state):
     bluetooth_radio(state)
 
 
+# 7b: paired Bluetooth AUDIO devices (bthprops.cpl: class of device = audio). List = read only. Link turns the device's audio
+# services on (off then on, which makes Windows reconnect) or off; the only thing put into the script is a 12-digit hex
+# address that came from the list, checked below. Not yet run against a real headset: see LIVE TEST 1b-15.
+BT_DEV_SCRIPT = """$ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @'
+using System; using System.Collections.Generic; using System.Runtime.InteropServices; using System.Threading;
+public static class Bt {
+  [StructLayout(LayoutKind.Sequential)] public struct ST { public ushort a, b, c, d, e, f, g, h; }
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] public struct DEV {
+    public int size; public ulong addr; public uint cls; public int connected, remembered, authenticated; public ST seen, used;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 248)] public string name; }
+  [StructLayout(LayoutKind.Sequential)] public struct FIND { public int size, auth, remembered, unknown, connected, inquiry; public byte timeout; public IntPtr radio; }
+  [DllImport("bthprops.cpl")] static extern IntPtr BluetoothFindFirstDevice(ref FIND p, ref DEV d);
+  [DllImport("bthprops.cpl")] static extern bool BluetoothFindNextDevice(IntPtr h, ref DEV d);
+  [DllImport("bthprops.cpl")] static extern bool BluetoothFindDeviceClose(IntPtr h);
+  [DllImport("bthprops.cpl")] static extern uint BluetoothSetServiceState(IntPtr radio, ref DEV d, ref Guid svc, uint flags);
+  public static List<DEV> All() {
+    var r = new List<DEV>(); var p = new FIND(); p.size = Marshal.SizeOf(p); p.auth = 1; p.remembered = 1; p.connected = 1;
+    var d = new DEV(); d.size = Marshal.SizeOf(d);
+    IntPtr h = BluetoothFindFirstDevice(ref p, ref d); if (h == IntPtr.Zero) return r;
+    do { if (((d.cls >> 8) & 0x1F) == 4) r.Add(d); d.size = Marshal.SizeOf(d); } while (BluetoothFindNextDevice(h, ref d));
+    BluetoothFindDeviceClose(h); return r; }
+  public static string List() { var s = new System.Text.StringBuilder();
+    foreach (var d in All()) s.Append(d.addr.ToString("X12") + "|" + d.connected + "|" + d.name + "\\n"); return s.ToString(); }
+  public static int Link(ulong addr, bool on) {
+    var guids = new[] { new Guid("0000110b-0000-1000-8000-00805f9b34fb"), new Guid("0000111e-0000-1000-8000-00805f9b34fb"), new Guid("00001108-0000-1000-8000-00805f9b34fb") };
+    foreach (var d0 in All()) { if (d0.addr != addr) continue; var d = d0;
+      foreach (var g in guids) { var gg = g; if (on) BluetoothSetServiceState(IntPtr.Zero, ref d, ref gg, 0); BluetoothSetServiceState(IntPtr.Zero, ref d, ref gg, on ? 1u : 0u); }
+      for (int i = 0; i < 24; i++) { Thread.Sleep(500); foreach (var n in All()) if (n.addr == addr && (n.connected != 0) == on) return on ? 1 : 0; }
+      return on ? 0 : 1; }
+    return -1; }
+}
+'@
+%s
+"""
+
+
+def _bt_ps(call, timeout=40):
+    out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", BT_DEV_SCRIPT % call], creationflags=NO_WINDOW,
+                         capture_output=True, text=True, timeout=timeout)
+    if out.returncode:
+        raise OSError("Windows would not list or change Bluetooth devices")
+    return out.stdout
+
+
+def bt_devices():
+    """Paired Bluetooth audio devices as [(address, name, connected)]. OSError if Windows will not say."""
+    rows = [ln.split("|", 2) for ln in _bt_ps("[Bt]::List()").splitlines() if ln.count("|") >= 2]
+    return [(a, n.strip(), c == "1") for a, c, n in rows if re.fullmatch(r"[0-9A-F]{12}", a)]
+
+
+def bt_link(addr, on):
+    """Connect (on) or disconnect a device from bt_devices(); succeeds only if Windows then reports that state."""
+    if not re.fullmatch(r"[0-9A-F]{12}", addr):
+        raise ValueError("not a Bluetooth address")
+    got = _bt_ps("[Bt]::Link(0x%s, $%s)" % (addr, "true" if on else "false"), timeout=60).split()
+    if got != ["1" if on else "0"]:
+        raise OSError("the device did not %s" % ("connect" if on else "disconnect"))
+
+
+BT_GENERIC = ("headphones", "headset", "earbuds", "airpods", "speaker", "speakers", "earphones", "bluetooth", "device")
+
+
+def bt_names():
+    """JarvisBtNames = "<Bluetooth name>=<what you call it>;..." as {spoken name (lower): Bluetooth name}."""
+    pairs = (p.split("=", 1) for p in setting("JarvisBtNames", "").split(";") if "=" in p)
+    return {s.strip().lower(): b.strip() for b, s in pairs if s.strip() and b.strip()}
+
+
+def pick_bt(term, devs):
+    """The paired device meant by `term`: your own name for it first, then part of its Bluetooth name, then a plain
+    "headphones" when only one is paired. Returns one (address, name, connected), a list when several fit, None for none."""
+    t = re.sub(r"^(?:my|the)\s+", "", term.strip().lower())
+    words = [t] + ([t.rsplit(" ", 1)[0]] if " " in t and t.rsplit(" ", 1)[1] in BT_GENERIC else [])
+    mine = bt_names()
+    for w in words:
+        hit = [d for d in devs if mine.get(w) == d[1]]
+        hit = hit or [d for d in devs if w and w in d[1].lower()]
+        if hit:
+            return hit[0] if len(hit) == 1 else hit
+    return devs[0] if t in BT_GENERIC and len(devs) == 1 else (list(devs) if t in BT_GENERIC and devs else None)
+
+
 def act_mic_level(change):
     how, n = change                                           # ("set", 80) or ("step", -10), the same as act_volume
     if how == "step":
@@ -238,6 +321,8 @@ def done_line(action, target):
         return f"Volume at {speakers()[1]} percent."
     if action in ("bluetooth", "bluetooth_off"):
         return f"Bluetooth is {bluetooth_radio()}."
+    if action == "btlink":                                     # bt_link already checked that Windows reports it
+        return f"{'Connected to' if target[1] else 'Disconnected from'} {target[2]}."
     if action == "power":
         return f"Power mode is {POWER_NAMES.get(power_key(power_plans()[0]), 'a plan I do not switch')}."
     if action == "page":
