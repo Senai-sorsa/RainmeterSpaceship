@@ -917,7 +917,7 @@ j.play_samples = lambda a, rate, *_: played.append(a)
 many =[str(i) for i in range(20)]
 
 # more sentences than the queue holds: all spoken, in order
-assert within(5, j.speak_all, many) is None and played == many
+assert within(5, j.speak_all, many) == " ".join(many) and played == many   # 8-A2: returns what was said
 
 
 # L8: while a sentence plays, the pop-up's live line types it word by word, after what was already said
@@ -950,13 +950,13 @@ def _no_voice(text):
 
 # the voice fails: the words are shown instead and it still ends
 j.synth_audio, n = _no_voice, len(said)
-assert within(5, j.speak_all, ["hi"]) is None and "hi" in words and said[n:] == [("Couldn't speak (voice failed) - the reply is in the log", False)]
+assert within(5, j.speak_all, ["hi"]) == "hi" and "hi" in words and said[n:] == [("Couldn't speak (voice failed) - the reply is in the log", False)]
 j.synth_audio = lambda text: (text, 1)
 
 # cancelled mid-utterance: the queued sentences are dropped, and a full queue does not hold the producer
 played.clear()
 j.play_samples = lambda a, rate, *_: (played.append(a), j.cancel.set())
-assert within(5, j.speak_all, many) is None and played == ["0"]
+assert within(5, j.speak_all, many) == "0" and played == ["0"]   # 8-A2: cut off: only the first sentence began
 j.cancel.clear()
 j.play_samples = lambda a, rate, *_: played.append(a)
 
@@ -1651,6 +1651,15 @@ j.speak_all = lambda sentences, *a: spoken.extend(sentences)
 convo.clear()
 talk(1, words="Wake me at sunrise.")                              # no clock time: not an alarm, so the model answers
 assert spoken == [j.CLAIM_LINE] and convo[-1] == ("J", j.CLAIM_LINE)
+j.sentences_from, j.speak_all = keep_sf, keep_sa
+# 8-A2: talked over mid-reply: the log and the history keep only what he got to say
+j.sentences_from = lambda stream, collected: collected.extend(["First part. ", "Second part."]) or iter(["First part.", "Second part."])
+j.speak_all = lambda sentences, *a: (j.cancel.set(), "First part.")[1]
+convo.clear()
+talk(1, words="Tell me a joke.")
+assert convo[-1] == ("J", "First part."), convo
+assert j.history[-1] == {"role": "assistant", "content": "First part."}, j.history[-1]
+j.cancel.clear()
 j.sentences_from, j.speak_all = keep_sf, keep_sa
 assert "Never say you set or changed something." in j.system_prompt() and "You cannot set alarms" not in j.system_prompt()
 
@@ -2506,6 +2515,10 @@ j.heard_score[0] = -1.5
 assert not j.ask_yes("Shut down the computer? Confirm with yes.", True)
 j.heard_score[0] = -0.3
 assert j.ask_yes("Shut down the computer? Confirm with yes.", True)
+j.hear = lambda: "Shut down the computer. Confirm with yes."      # 8-A1: his own prompt back through the mic
+assert not j.ask_yes("Shut down the computer? Confirm with yes.", True)
+j.hear = lambda: "Yes."                                            # a short real yes still counts
+assert j.ask_yes("Shut down the computer? Confirm with yes.", True)
 j.hear, j.reply_line, j.heard_score[0] = real_hear, real_rl, 0.0
 
 # 3b: a command Whisper got slightly wrong is corrected; chat is never rewritten
@@ -2744,7 +2757,7 @@ else:
 played.clear(), states.clear()
 j.play_samples = lambda a, rate, *_: played.append(a)
 j.synth_audio = lambda text: (j.cancel.set(), (text, 1))[1]
-assert within(5, real_speak_all, ["one", "two"]) is None and played == [] and not any(s.get("state") == "speaking" for s in states), states
+assert within(5, real_speak_all, ["one", "two"]) == "" and played == [] and not any(s.get("state") == "speaking" for s in states), states
 j.cancel.clear()
 # his own "Jarvis": the wake word ignores it for that sentence and a second after
 j.synth_audio = lambda text: (text, 1)
@@ -2817,7 +2830,7 @@ assert len(routes) == 1 and routes[0].startswith("route: act volume via ai-rerea
 j.ask_ai, j.interpret, j.filler = real_ask_ai, real_interpret, real_filler
 # stopped mid-reply: no follow-up; and the HUD is idle before the slow GPU check, not after it
 j.transcribe = lambda a: "Tell me a joke."
-j.speak_all = lambda sentences, *a: (list(sentences), j.stop_now("click"))
+j.speak_all = lambda sentences, *a: (list(sentences), j.stop_now("click"), "")[-1]
 listens[0] = 0
 j.turn(0)
 assert listens[0] == 1 and states[-1] == idle and not j.busy.locked()

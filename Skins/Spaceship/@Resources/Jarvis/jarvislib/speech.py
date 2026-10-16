@@ -33,7 +33,8 @@ def play_samples(a, rate, progress=None):
 
 
 def speak_all(sentences):
-    """Synthesize the next sentence while the current one plays. If speech fails, the words go to the pop-up."""
+    """Synthesize the next sentence while the current one plays. If speech fails, the words go to the pop-up.
+    Returns the sentences whose playback began (8-A2: what the history keeps when he is talked over)."""
     q = queue.Queue(maxsize=3)
     failed, broke, timed, gone, t0 = [], [], [], threading.Event(), time.time()
 
@@ -71,7 +72,7 @@ def speak_all(sentences):
 
     threading.Thread(target=producer, daemon=True).start()
     try:
-        _speak_queue(q, t0)
+        spoken = _speak_queue(q, t0)
     finally:
         gone.set()
     live("")
@@ -79,6 +80,7 @@ def speak_all(sentences):
         raise broke[0]
     if failed:
         problem("Couldn't speak (voice failed) - the reply is in the log", popup=False)
+    return spoken
 
 
 def _speak_queue(q, t0):
@@ -128,6 +130,7 @@ def _speak_queue(q, t0):
                 S.set(pop="open")
                 shown = True
             live(spoken)
+    return spoken
 
 
 def first_words():

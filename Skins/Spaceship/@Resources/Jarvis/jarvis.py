@@ -779,9 +779,15 @@ def command_reply(kind, action, target, prompt, quiet):
 def ask_yes(prompt, quiet):
     """Every confirmation: ask, listen up to 15 s, and True only for a plain yes (the shared YES set)."""
     reply_line(prompt, quiet)
+    if not quiet:
+        time.sleep(0.3)                                        # 8-A1: let the tail of his own voice die before the mic opens
     pending = {"expires": time.time() + 15}                    # counted from the end of the spoken prompt
     S.set(state="listening", level=0.0)
     answer = hear()
+    heard = set(re.findall(r"[a-z']+", (answer or "").lower()))
+    if len(heard) >= 3 and heard <= set(re.findall(r"[a-z']+", prompt.lower())):   # his own prompt coming back through the mic
+        log("confirm: heard only the prompt's own words - ignored")
+        answer = ""
     if answer:
         convo_add("U", answer)
     # a yes Whisper was unsure of (a cough read as "Okay.") never confirms
@@ -1071,15 +1077,17 @@ def exchange(tier, follow, woke, mode, left):
         extra += INFO_PROMPT if lane == "info" else ""
         messages = fit_context([{"role": "system", "content": system_prompt(ask, kind) + "".join("\n" + r for r in readings) + extra}],
                                past, {"role": "user", "content": text})
-        collected = []
+        collected, spoke = [], None
         way["via"] = "model"
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
         stream = chat_stream(model, messages, 0 if lane == "info" else 0.5)
         if quiet and setting("JarvisMutedPopup", "1") == "1":
             say_text_only(no_claims(sentences_from(stream, collected), collected), collected)
         else:
-            speak_all(no_claims(sentences_from(stream, collected), collected))
+            spoke = speak_all(no_claims(sentences_from(stream, collected), collected))
         reply = "".join(collected).strip()
+        if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
+            reply = spoke
         convo_add("J", reply)                                  # at once: the live line was just cleared (empty: no-op)
         S.set(state="idle", level=0.0)                        # done talking: the HUD doesn't wait for the GPU check
         if ollama_on_cpu(model):
@@ -1093,7 +1101,7 @@ def exchange(tier, follow, woke, mode, left):
         log(f"jarvis: {len(reply)} characters")
         way["result"] = "answered"
         recent["me"] = reply
-        if not apart:
+        if not apart and reply:
             history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
             last_turn = time.time()
         S.set(say=reply)
