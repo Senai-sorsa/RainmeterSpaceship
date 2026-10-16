@@ -97,6 +97,11 @@ BUGS TO WATCH OUT FOR WHEN IMPLEMENTING NEW CHANGES (added 2026-10-14; read befo
     - The live skin is a COPY: a fix is not live until it is copied (robocopy backup first, user's word).
 
 CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
+  PHASE 8 STATUS (2026-10-15, BUILT, tested with fakes only, NOT live, not pushed): 8a+8b 6d6e50a, 8-A1+8-A2 993b23b,
+    8c 70b9fbf, 8d+8-A6 68a92e5. 8-L2 was already true (H.cmd in lib.lua writes .tmp then renames). Typed asks go through
+    turn(typed=...) and ask_yes returns False for them (no cross-channel yes). Live steps: LIVE TEST ... PART 4.
+    Parked: standby hologram state, Control Center rows for the new settings, ASK parsing in the main loop has no unit test.
+    NEXT: PHASE 9 (line ~3510).
   PHASE 7 STATUS (2026-10-15, FINISHED except the 3 items below; branch chore/jarvis-baseline-and-performance, pushed to origin, NOT live, no live test run):
     BUILT and committed: 7-0 action table (6273fc5), 7-L1 sleep reply (a67b333), 7a mic (bbfb2b9), 7c brightness
     (5911dc1), dark/light mode (fbde313), settings pages + screenshot + show desktop + recycle bin (9493f41), 7d power
@@ -3387,6 +3392,23 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
       ("Are you talking to me, sir?").
     - T7 SLEEP: on this PC sleep = screen off into Modern Standby (B6), not S3.
   Afterwards: list every finding with a fix or "park"; the user picks; update CURRENT STATE.
+
+  PART 4   Phase 8 as built 2026-10-15 (commits 6d6e50a, 993b23b, 70b9fbf, 68a92e5; not pushed, not live).
+    8a  Ask something, wait 5 s, talk without his name: ignored. With "Jarvis, ...": taken. Within 3 s: taken.
+        Log shows "ear: started late without his name - dropped" for the ignored one.
+    8b  Chime and start-up sound are quiet (25 %, setting JarvisChimeVolume). Does the "Jarvis online" line live in
+        startup.wav or chime.wav? Tell Claude by ear; until then use the CHIME and STARTUP toggles.
+    8-A1 Ask "lock my computer": he asks, you stay silent 15 s: nothing happens. Say "yes" at once: it works.
+        His own question coming back through the speakers is not taken as a yes ("confirm: heard only the prompt's own words").
+    8-A2 Talk over a long answer: the log/history keep only what he said aloud.
+    8c  Needs JarvisQuietCalendar set to the class calendar. During a class event: replies are pop-up only, no chime,
+        alarms silent. Say "you can talk": "Okay, I can talk." and it is normal until the next class.
+    8d  Control Center > JARVIS > TYPE TO HIM > TYPE, type "what time is it", Enter: reply in the log, spoken
+        unless muted. Type "lock my computer": he asks, and a spoken yes does NOT run it (typed asks are never
+        confirmed by voice; say it aloud instead). Type while he is answering: "One moment, I'm busy."
+        A 600-character line is cut to 500.
+    Not built: the "standby" hologram state after 3 s (needs Lua work), Control Center rows for JarvisChimeVolume,
+    JarvisFollowNameWindow, JarvisQuietCalendar.
 
 
 --------------------------------------------------------------------------------------------------------
