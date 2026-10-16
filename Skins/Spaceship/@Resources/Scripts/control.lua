@@ -878,9 +878,24 @@ function OnClick(zi, k)
   Update()
 end
 function OnRightClick(zi, k) end
-function OnScroll(zi, k, d)
-  scroll[tab] = (scroll[tab] or 1) + d      -- one row per wheel notch
+-- wheel: each notch moves the wanted row; the list glides there one row every GLIDE_MS instead of snapping
+-- shortcut: the glide moves whole rows (the rows are separate meters, so no pixel offset); upgrade if sub-row smoothness is needed
+local GLIDE_MS = 60
+local want, wantTab, gliding = 1, nil, false
+local function Glide()
+  local cur = scroll[tab] or 1
+  if wantTab ~= tab or cur == want then gliding = false; return end
+  scroll[tab] = cur + (want > cur and 1 or -1)
   Update()
+  if scroll[tab] ~= cur and scroll[tab] ~= want then
+    SKIN:Bang('[!Delay ' .. GLIDE_MS .. '][!CommandMeasure mScript "GlideStep()"]')
+  else gliding = false end        -- arrived, or Update clamped it (end of list)
+end
+function GlideStep() Glide() end
+function OnScroll(zi, k, d)
+  local base = (gliding and wantTab == tab) and want or (scroll[tab] or 1)
+  want, wantTab = H.clamp(base + d, 1, barMax), tab
+  if not gliding then gliding = true; Glide() end
 end
 -- scroll bar: f = 0..1 down the track; OnBarDown(slice, p = 0..100 down that slice)
 -- shortcut: drag = mouse-down plus hover over 16 track slices, so it steps in 1/16 jumps and ends if the pointer leaves the window; upgrade if a finer or captured drag is needed
