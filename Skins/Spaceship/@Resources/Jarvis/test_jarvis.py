@@ -1930,6 +1930,40 @@ for cvol, ratio in (("25", 0.25), ("100", 1.0), ("0", 0.0)):
         time.sleep(0.05)
     assert got and abs(got[0] - ratio * 0.5) < 0.004, (cvol, got)
 j.play_samples, j.setting, j.RES = real_ps, real_set, real_res
+# 8c: quiet during class - a timed event of the named calendar running now; "you can talk" ends it for that event only
+from jarvislib import quiet as Q
+real_set, real_kv8, cal = j.setting, j.read_kv, [""]
+j.read_kv = lambda name: cal[0] if name == "calendar.txt" else ""
+
+
+def _cal(*events):
+    cal[0] = "".join(f"E {a}|{b}|{allday}|{label}|Maths"+chr(10) for a, b, allday, label in events)
+    Q._cache[0] = 0.0
+
+
+t_now = int(time.time())
+j.setting = lambda name, default="": "School" if name == "JarvisQuietCalendar" else default
+_cal((t_now - 60, t_now + 3000, 0, "School"))
+assert Q.now()                                                    # class running: muted() is true (pop-up only)
+_cal((t_now - 60, t_now + 3000, 1, "School"))
+assert not Q.now()                                                # an all-day event is not a class
+_cal((t_now - 60, t_now + 3000, 0, "Home"))
+assert not Q.now()                                                # another calendar
+_cal((t_now + 600, t_now + 3000, 0, "School"))
+assert not Q.now()                                                # not started yet
+_cal((t_now - 60, t_now + 3000, 0, "School"))
+assert Q.TALK.fullmatch("you can talk") and Q.TALK.fullmatch("speak normally") and not Q.TALK.fullmatch("you can talk to me")
+assert Q.talk() and not Q.now()                                   # told he can talk: speaks until the next event
+_cal((t_now - 60, t_now + 3000, 0, "School"))
+assert not Q.now()
+_cal((t_now - 10, t_now + 6000, 0, "School"))
+assert Q.now()                                                    # the next class starts quiet again
+j.setting = lambda name, default="": default
+Q._cache[0] = 0.0
+assert not Q.now()                                                # empty setting: never quiet
+j.setting, j.read_kv = real_set, real_kv8
+Q._off[0] = 0
+Q._cache[0] = 0.0
 # S2-8: the log names the capability (a class from the table, never your words)
 caps, keep = [], j.log
 j.log = caps.append

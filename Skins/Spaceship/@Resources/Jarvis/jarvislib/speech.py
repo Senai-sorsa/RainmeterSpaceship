@@ -4,6 +4,7 @@ import re
 import threading
 import time
 from .audio import speakers_mute
+from . import quiet
 from .base import ENV_FILE, JARVIS_WORD, S, cancel, live, log, name_until, problem, setting
 from .stopwords import far_add, saying
 from .tts import synth_audio, voice_rate
@@ -167,6 +168,8 @@ def sentences_from(stream, collected):
 
 
 def muted():
+    if quiet.now():                                            # 8c: class: pop-up only
+        return True
     try:
         return speakers_mute()                                 # the file below can be seconds old, or left by a HUD that is off
     except Exception:

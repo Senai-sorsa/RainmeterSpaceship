@@ -58,6 +58,7 @@ from jarvislib.tts import (_broken, _engines, _kokoro, _kokoro_last, _piper, _re
 from jarvislib.llm import (_moved, chat_json, chat_stream, chat_to_gpu, ctx_tokens, ensure_ollama, http_json,
     installed_models, keep_alive, ollama_on_cpu, pick_model, warm)
 from jarvislib.audio import _com, mic_volume, speakers, speakers_mute
+from jarvislib import quiet as quiet_talk
 from jarvislib.mic import (_listen, _mic_missing, duck, follow_name_wait, follow_wait, list_mics, listen, mic_device,
                            onset, unduck)
 from jarvislib.notes import STOP, search_notes, vault_dir
@@ -613,7 +614,7 @@ def fit_context(system, past, user):
 
 def chime():
     """The click sound, through the voice's own player so JarvisChimeVolume (percent, default 25) can scale it."""
-    if setting("JarvisChime", "1") != "1":
+    if setting("JarvisChime", "1") != "1" or quiet_talk.now():
         return 0.0
     for name in ("chime.wav", "startup.wav"):
         p = os.path.join(RES, "Sounds", name)
@@ -952,6 +953,11 @@ def exchange(tier, follow, woke, mode, left):
                 fixed("Okay.")
                 history.clear()                                # "new topic" / "Okay." is not talk to keep
                 return
+        if quiet_talk.TALK.fullmatch(said) and quiet_talk.talk():   # 8c: "you can talk" ends QUIET for this class only
+            way.update(kind="quiet", via="rule")
+            quiet = muted()
+            fixed("Okay, I can talk." if not quiet else "Okay.")
+            return
         # "show me what you've said" / "close the log": handled here, no model needed
         way["kind"] = "log"
         if HIDE_LOG.search(text):
