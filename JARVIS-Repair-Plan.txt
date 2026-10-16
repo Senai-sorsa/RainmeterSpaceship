@@ -113,9 +113,8 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
     FACTS, RECALL, NAME ALIASES, BLUETOOTH NAMES (EDIT opens Settings.inc; the paired names come from
     Data\jarvis_bt.txt, written by bt_devices()) and REMEMBERED FACTS (N remembered, OPEN, FORGET ALL asks first).
     CLOSED BY DESIGN: 7-A6 rest (spec says stealth / mute and the mic only); ask_slot() (the "which one?" case lists
-    the names and asks for more of the name, no slot needed). NOT BUILT, not verifiable here: Lenovo Legion Toolkit.
-    WAITING for the user: P0-10 Settings.inc clean-up (duplicate comments, indents, JarvisCallMe; the write was
-    blocked, cleaned files are prepared).
+    the names and asks for more of the name, no slot needed). MOVED to Stage 2 (S2-35): Lenovo Legion Toolkit power mode.
+    MOVED to the END of the plan: P0-10 Settings.inc clean-up = Phase 11, item 11c (needs the user's yes).
     The Bluetooth writes were never run against a real device (radio was off), 7e and the new rows were only Lua-parse checked.
     Rollback: git revert, newest first.
   AUDIT-0 STATUS (2026-10-15, end of the AUDIT-0 session): P0-01..P0-09 and P0-12 FIXED and committed; P0-06
@@ -124,7 +123,7 @@ CURRENT STATE (updated end of the 2026-10-15 "Phase 3" session; READ THIS FIRST)
     NEXT (handoff 2026-10-15): start PHASE 8 (FOLLOW-UP TIMING AND SOUNDS, 8-A1..A6) in a new session. FIRST read
     CLAUDE.md and CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md (repo root: fake first, dry run first, no real destructive
     calls in tests). Phase 7 was re-read against its spec on 2026-10-15 and is built except the WAITING list in PHASE 7
-    STATUS above (Legion Toolkit unverifiable, Settings.inc clean-up waits for the user, "how full is my disk" is Phase 9).
+    STATUS above (Legion Toolkit is now S2-35 in Stage 2, the Settings.inc clean-up is now 11c, the LAST item, "how full is my disk" is Phase 9).
     Settings.inc cleaned files are in the old session's scratchpad only and are gone; redo with clean_settings.py logic
     (drop repeated ; comment lines, strip key indents, blank JarvisCallMe in the git copy) only on the user's word. The user will run ALL live tests at the very end (PART 0, 1, 1b, 2, 3).
     Method for every slice: read the code first; edit; copy the Jarvis folder to a scratch dir; py_compile; venv
@@ -3009,7 +3008,7 @@ PHASE 7   MORE SETTINGS BY VOICE
     7-A3 (P1-16) = 7b Bluetooth, paired audio only, with the headphone-naming row. P1-22 ask_slot(): written
          only when 7b's "which one?" needs it, then reused by the others.
     7-A4 (P1-08) = 7d power mode. Windows plans as decided; Lenovo Legion Toolkit (llt.ps1) ONLY if it is
-         installed, and with the same rule (never a mode that stops the CPU / GPU / mic / network, list
+         installed (MOVED to Stage 2 as S2-35, 2026-10-15), and with the same rule (never a mode that stops the CPU / GPU / mic / network, list
          checked by code, a yes first, undo).
     7-A5 (P1-18) = 7c / 7d (dark-light, screenshot, show desktop, recycle bin, ms-settings pages). Merged.
     7-A6 (P1-19) JARVIS's own settings by voice: ONE set_setting() in base.py with a fixed whitelist of
@@ -3724,6 +3723,15 @@ PHASE 11  LEFT-OVERS FROM THE GEMINI AUDIT   (added 2026-10-15; after Phases 7-1
       fixed tables, goes through ACTIONS and confirm.py, never written by the model. Data\ stays out of git.
       Relates to issue 10 (autocorrect).
   Rejected by the user instead of phase 11: P1-06 push-to-talk hotkey.
+  11c (LAST ITEM OF THE PLAN, P0-10 rest; moved here 2026-10-15 at the user's word) Settings.inc clean-up, done
+      after the combined live test and only with the user's yes (the file is skip-worktree and holds personal paths):
+      drop the repeated ; comment lines (27 duplicates; the first copy stays), strip the leading spaces on the
+      JarvisKokoroVoice / JarvisSilence / JarvisWakeWord lines, collapse stray blank lines, and blank JarvisCallMe
+      in the git copy (the on-disk copy keeps Senai and the 4 personal paths LltPath, ObsidianTodo, ObsidianVault,
+      JarvisVault). Assert all key lines are unchanged. Back up the file first. Make a blob of the cleaned git
+      version with git hash-object -w, git update-index --cacheinfo 100644,<hash>,Skins/Spaceship/@Resources/Settings.inc,
+      then git update-index --skip-worktree again; commit by name. Never git add Settings.inc as it is on disk.
+      The earlier scratch copies are gone; rebuild them from the live file. Rollback: the backup + git revert.
 
 FIX ROUND 3   FROM THE THIRD LIVE TEST (added 2026-10-14)
   Round 1, plain code (built, waiting for the user's live test):
@@ -4298,6 +4306,10 @@ FROM THE GEMINI AUDIT (rebuilding_jarvis.md, added 2026-10-15; the user's word p
   Each NEW entry: the audit's table row (rebuilding_jarvis.md section 5) is the first draft only. Every one
   needs its own plan under rules R1-R4 and the user's approval before anything is built. The audit's
   guesses (exact libraries, file names, scores) are unverified.
+  S2-35 Lenovo Legion Toolkit power mode (moved from Phase 7 / 7-A4 on 2026-10-15 at the user's word; not built).
+      Only if Legion Toolkit is installed (llt.ps1 / LltPath exist), with the 7d rule: never a mode that stops the
+      CPU / GPU / mic / network, the allowed list checked by code, a yes first, undo, the real mode read back.
+      Not verifiable without the app on the user's PC: needs its own plan and the user's word.
 
 Sources for Stage 2
   https://semantic-router.readthedocs.io/en/latest/
