@@ -3294,4 +3294,20 @@ j.save_reminders([(time.time() + 900, time.time(), "reminder", "to call\nmum\r\n
 assert [r[3] for r in j.load_reminders()] == ["to call mum"]
 j.save_reminders([])
 
+# 9-L1: an error the HUD shows with no pop-up goes after 60 s; the last error and its time stay for "what went wrong?"
+_st = j.State()
+_st.set(err="No microphone found")
+assert _st.err and j.LAST_ERR[0] == "No microphone found" and j.LAST_ERR[1] == _st.err_at
+_st.expire_err(_st.err_at + 59)
+assert _st.err, "still inside the minute"
+_st.expire_err(_st.err_at + 61)
+assert _st.err == "" and j.LAST_ERR[0] == "No microphone found", "the HUD line goes, the record stays"
+_st.err, _st.err_at = "typed by hand", 0.0                    # no time known: its minute starts now, it is not wiped at once
+_st.expire_err(1000.0)
+assert _st.err == "typed by hand" and _st.err_at == 1000.0
+_st.expire_err(1061.0)
+assert _st.err == ""
+_st.set(err="")
+assert j.LAST_ERR[0] == "No microphone found", "clearing never erases the record"
+
 print("test_jarvis: OK")

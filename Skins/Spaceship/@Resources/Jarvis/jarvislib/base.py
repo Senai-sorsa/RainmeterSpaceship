@@ -72,9 +72,13 @@ def setting(name, default):
 
 
 # ------------------------------------------------------------------ HUD state file
+LAST_ERR = ["", 0.0]                                            # 9-L1: the last error and when; memory only, no turn clears it
+
+
 class State:
     def __init__(self):
         self.state, self.level, self.say, self.err = "idle", 0.0, "", ""
+        self.err_at = 0.0
         self.pop_n, self.pop = 0, "none"
         self.hud_n, self.hud = 0, "none"
         self.lock = threading.Lock()
@@ -92,6 +96,9 @@ class State:
                 self.say = re.sub(r"\s+", " ", say)[:160]
             if err is not None:
                 self.err = err[:120]
+                if err:
+                    self.err_at = time.time()
+                    LAST_ERR[:] = [self.err, self.err_at]
             if pop is not None:
                 self.pop_n, self.pop = self.pop_n + 1, pop
             if hud is not None:
@@ -114,6 +121,15 @@ class State:
                         time.sleep(0.01)
             except OSError:
                 pass
+
+
+    def expire_err(self, now, after=60):
+        """9-L1: an error on the hologram goes after a minute; LAST_ERR keeps it for "what went wrong?". An error set
+        without a time (a test, a direct write) starts its minute now instead of going at once."""
+        if self.err and not self.err_at:
+            self.err_at = now
+        elif self.err and now - self.err_at > after:
+            self.set(err="")
 
 
 S = State()

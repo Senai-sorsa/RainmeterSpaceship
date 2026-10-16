@@ -1549,6 +1549,7 @@ def main():
             now = time.time()
             if now - beat >= 2:
                 beat = now
+                S.expire_err(now)                              # 9-L1: a pop-up-less error is gone after 60 s
                 S.set()                                        # heartbeat
                 unload_idle(now, max(turn_id[0], started))
                 if compact_due(now, max(turn_id[0], started)):  # M3: old talk into checked facts, once a day
