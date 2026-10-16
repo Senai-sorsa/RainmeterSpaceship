@@ -668,7 +668,20 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'SETUP', 'Checks / installs Python packages, the speech model, Ollama + a model and the natural voice, tests your mic', {
     { 'RUN SETUP', function() SKIN:Bang('["' .. RES .. 'Jarvis\\Run-Setup.cmd"]'); SKIN:Bang('!DeactivateConfig') end },
     { 'FOLDER', function() SKIN:Bang('["' .. RES .. 'Jarvis"]') end } } }
-  return rows
+  -- 7e: group the rows under three headings (a heading is a row with no buttons); rows are only moved, never dropped,
+  -- and a row not named here lands in SETTINGS
+  local SECTION = { PERSONALITY = 2, ['ABOUT ME'] = 2, ['CALL ME'] = 2, VOICE = 2, ['KOKORO VOICE'] = 2, ['TO-DO NOTE'] = 2, ['NOTES VAULT'] = 2,
+    ['NOTE SEARCH'] = 2, ['COLOUR - STANDBY'] = 2, ['COLOUR - LISTENING'] = 2, ['COLOUR - SPEAKING'] = 2, ORB = 2, ['ORB TINT'] = 2,
+    LAYERS = 2, MOTION = 2, ['MODEL MEMORY'] = 3, CONVERSATION = 3 }
+  local HEAD = { { 'JARVIS SETTINGS', 'Service, models, listening, wake word and microphone.' },
+    { 'JARVIS PERSONALIZATION', 'How he talks to you and how the hologram looks.' },
+    { 'JARVIS MEMORY', 'What he remembers; CLEAR forgets the conversation.' } }
+  local out = {}
+  for s = 1, 3 do
+    out[#out + 1] = { HEAD[s][1], HEAD[s][2], {} }
+    for _, r in ipairs(rows) do if (SECTION[r[1]] or 1) == s then out[#out + 1] = r end end
+  end
+  return out
 end
 
 local BUILD = { rowsModules, rowsLayout, rowsTheme, rowsApps, rowsSensors, rowsPerf, rowsSystem, rowsPresets, rowsData, rowsJarvis }
