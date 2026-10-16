@@ -201,3 +201,7 @@ single-step change. Spawn a Haiku subagent for mechanical work (search, rename, 
 Sonnet subagent for bounded implementation (one or two files, tests, scoped research). Only work
 inline if the task is one step or needs the full conversation context. State which model you chose
 for each task. Subagents follow the same scope and safety rules as this file.
+
+## 0. Read first, every session
+
+Read `CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md` (repo root) at the start of every session and before running any test or script. Its rules override convenience.
