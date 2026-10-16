@@ -3528,4 +3528,42 @@ say("what's using my CPU")
 assert asked[-1] == "Diagnosis is off." and not _reads, (asked, _reads)
 j.setting = lambda name, default="": default
 
+# ---- 9-7: the silent watch: seen once -> nothing; 3 times in a row -> one quiet line; none again for 30 minutes
+_w, _shown, _mem, _skip, _bat = {"t": 1000.0}, [], [95.0], [False], [False]
+j.memory_percent, j.drives, j.temps, j.on_battery = lambda: _mem[0], lambda: [{"drive": "C", "free_gb": 200, "total_gb": 500}], lambda: {}, lambda: _bat[0]
+j.cpu_times = lambda: (0, 0)
+j.snapshot = lambda part, hours=24: _procs if part == "processes" else None
+_procs = {"procs": [{"name": "chrome.exe", "pid": 1, "cpu": 1600.0, "mem": 0, "io": 0}], "cpus": 20, "gpu": [], "gpumem": [], "disk_busy": 5}
+
+
+def _look(skip=False):
+    """One look at the next 5-minute mark; waits for the naming thread, which is the only one that shows."""
+    _w["t"] += 300
+    _skip[0] = skip
+    r = j.watch(_w["t"], lambda: _skip[0], _shown.append)
+    for t in threading.enumerate():
+        if t is not threading.current_thread() and t.daemon and t.is_alive() and t.name.startswith("Thread"):
+            t.join(2)
+    return r
+
+
+assert _look() is False and _look() is False and not _shown        # twice: still nothing
+assert _look() is True and _shown == ["Heads up: chrome is using 80% of the CPU."], _shown      # the third: named once
+assert _look() is False and _look() is False and _look() is False and len(_shown) == 1   # 15 min later: not again
+_mem[0] = 40.0                                                     # it cleared: the streak starts over
+assert _look() is False and j._watch["streak"] == 0
+_mem[0] = 95.0
+_shown.clear()
+j._watch["shown"] = _w["t"] - 3000                                 # 50 minutes since the last line: allowed again
+assert [_look(), _look(), _look()] == [False, False, True] and len(_shown) == 1
+j._watch["shown"] = 0.0
+for why, flag in (("busy", "skip"), ("battery", "bat")):          # not while busy or in tier 3, and not on battery
+    _shown.clear()
+    _bat[0] = flag == "bat"
+    assert [_look(flag == "skip") for _ in range(4)] == [False] * 4 and not _shown, why
+_bat[0] = False
+j.setting = lambda name, default="": "0" if name == "JarvisWatch" else default   # off: no look at all
+assert [_look() for _ in range(4)] == [False] * 4 and not _shown
+j.setting = lambda name, default="": default
+
 print("test_jarvis: OK")

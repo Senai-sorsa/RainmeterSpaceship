@@ -75,7 +75,7 @@ from jarvislib.todo import act_todo
 from jarvislib.reminders import (ALARM_CAP, ALARM_SAY, DAYS, NAME_ONLY, REMIND_FILE, RINGS, SNOOZE, STOP_WORDS,
     describe, due_reminders, duration, find_items, load_reminders, next_due, rang, reminder_cmd, repeats, ring_line,
     save_reminders, snooze_for, snoozed, span, split_time, when)
-from jarvislib.diag import HW_LINES, cpu_times, diagnose, hw_value, is_protected, prompt_findings, sensors
+from jarvislib.diag import HW_LINES, cpu_times, diagnose, hw_value, is_protected, prompt_findings, sensors, watch
 from jarvislib.meaning import MEANING_BLOCK, MEANING_TALK, STAMP, _embed, _vecs, closeness, meaning, vec
 from jarvislib.search import _chroma, _chroma_lock, _chunks, _reindexing, chroma_index, smart_search
 from jarvislib.memory import (ACTIVE_TTL, EARLIER, FOLLOW_START, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
@@ -1186,6 +1186,12 @@ def hud_tier():
         return 0
 
 
+def silent_note(line):
+    """The watch's one line: in the chat and the pop-up, no sound and no model."""
+    convo_add("J", line)
+    S.set(pop="open")
+
+
 def barge_in():
     """JarvisBargeIn: off | wake ("Hey Jarvis" stops him mid-sentence, the default) | voice (any speech, headphones only)."""
     v = setting("JarvisBargeIn", "wake").strip().lower()
@@ -1582,6 +1588,7 @@ def main():
                 if compact_due(now, max(turn_id[0], started)):  # M3: old talk into checked facts, once a day
                     threading.Thread(target=daily_memory, daemon=True).start()
                 gpu_watch(now)
+                watch(now, lambda: busy.locked() or hud_tier() >= 3, silent_note)   # 9e: once per 5 min, cheap
                 missing = 0 if rainmeter_running() else missing + 1
                 if missing >= 15:                              # Rainmeter gone for 30 s: quit
                     log("Rainmeter closed - exiting")

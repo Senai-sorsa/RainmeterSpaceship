@@ -439,3 +439,60 @@ def prompt_findings(items):
     """What the model gets for "what's wrong": the findings only, and one instruction."""
     return ("\nDIAGNOSIS FINDINGS (worst first, found by code from real readings):\n" + "\n".join("- " + f["text"] for f in items[:6])
             + "\nExplain these in two sentences, most serious first. Say only what they say; invent nothing.")
+
+
+# ---- 9e: the silent watch. Every WATCH_EVERY seconds, one cheap look (no PowerShell). A problem seen WATCH_NEED times in a row is
+# named once in the chat (no sound, no model), then left alone for WATCH_REPEAT seconds. The app is named only then, by one snapshot.
+WATCH_EVERY, WATCH_NEED, WATCH_REPEAT = 300, 3, 1800
+_watch = {"at": 0.0, "streak": 0, "shown": 0.0, "cpu": None, "busy": False}
+
+
+def on_battery():
+    p = SYSTEM_POWER_STATUS()
+    return bool(ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(p)) and p.ACLineStatus == 0)
+
+
+def watch_trips():
+    """What looks wrong right now, from numbers Windows hands over at once. The CPU is the average since the last look."""
+    out, now = [], cpu_times()
+    prev, _watch["cpu"] = _watch["cpu"], now
+    if prev and now[1] > prev[1] and 100 * (1 - (now[0] - prev[0]) / (now[1] - prev[1])) > 90:
+        out.append("the CPU has been nearly full")
+    if (memory_percent() or 0) > T["mem"]:
+        out.append("memory is nearly full")
+    for d in drives():
+        if d["free_gb"] < T["disk_gb"] or d["free_gb"] < d["total_gb"] * T["disk_pct"] / 100:
+            out.append(f"drive {d['drive']} is nearly full")
+    out += [f"the {k.upper()} is hot" for k, v in temps().items() if v > T["temp"]]
+    return out
+
+
+def watch(now, skip, show):
+    """Called from the 2 s tick. skip(): True while he is busy or the HUD is in a low tier. show(line): put one line in the chat."""
+    if setting("JarvisWatch", "1") != "1" or now - _watch["at"] < WATCH_EVERY:
+        return False
+    _watch["at"] = now
+    try:
+        if skip() or on_battery():
+            return False
+        trips = watch_trips()
+    except OSError as e:
+        log(f"watch: {e}")
+        return False
+    if not trips:
+        _watch["streak"] = 0
+        return False
+    _watch["streak"] += 1
+    if _watch["streak"] < WATCH_NEED or now - _watch["shown"] < WATCH_REPEAT or _watch["busy"]:
+        return False
+    _watch["shown"], _watch["streak"], _watch["busy"] = now, 0, True
+
+    def name_it():
+        try:
+            snap = gather("cpu", 24, False)
+            top = (findings(snap) or [None])[0] if snap else None
+            show("Heads up: " + (top["text"] if top else trips[0]) + ".")
+        finally:
+            _watch["busy"] = False
+    threading.Thread(target=name_it, daemon=True).start()
+    return True
