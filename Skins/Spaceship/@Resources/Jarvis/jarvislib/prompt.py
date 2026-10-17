@@ -105,7 +105,7 @@ def context(text=None, kind=None):
     return "\n".join(lines)
 
 
-SYSTEM = ("You are JARVIS, the AI built into the user's spaceship-style desktop HUD. You talk out loud, so answer in "
+SYSTEM = ("You are CLOVER, the AI built into the user's spaceship-style desktop HUD. You talk out loud, so answer in "
           "one to three short spoken sentences: no lists, markdown, emoji or code unless asked. {mood} "
           "Use the live HUD data below when it's relevant; if something isn't in it, say you don't "
           "have that rather than guessing. Alarms, timers, reminders, volume and apps are handled by the system, not by "

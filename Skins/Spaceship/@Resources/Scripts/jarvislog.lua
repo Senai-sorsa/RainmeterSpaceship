@@ -83,7 +83,7 @@ function Update()
     local y = TOP + r * RH
     if L and L.text ~= '' then
       if L.first and L.who ~= '' then
-        local tag = L.who == 'U' and 'YOU' or (L.who == 'S' and 'SYSTEM' or 'JARVIS')
+        local tag = L.who == 'U' and 'YOU' or (L.who == 'S' and 'SYSTEM' or 'CLOVER')
         H.text(1, k, LX, y, tag, { size = 7.2, weight = 700, color = L.who == 'U' and D or (L.who == 'S' and H.C.warn or A1), glow = false }); k = k + 1
       end
       H.text(1, k, TX, y, L.text, { size = SIZE, color = L.who == 'U' and T or (L.who == 'S' and H.C.warn or W), font = H.fontNum, glow = false }); k = k + 1

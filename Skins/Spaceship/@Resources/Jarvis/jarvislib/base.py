@@ -147,8 +147,9 @@ def set_setting(name, value=""):
 cancel = threading.Event()
 busy = threading.Lock()
 mic = threading.Lock()                  # whoever has the microphone open holds this: the wake word or a turn, never both
-JARVIS_WORD = re.compile(r"\bjarvis\b", re.I)
-name_until = [0.0]                      # until then he is saying "Jarvis" himself: the wake word ignores it
+NAME = r"(?:clover|jarvis)"                   # the names he answers to (regex piece)
+JARVIS_WORD = re.compile(rf"\b{NAME}\b", re.I)
+name_until = [0.0]                      # until then he is saying "Clover" himself: the wake word ignores it
 
 
 def stop_now(why):

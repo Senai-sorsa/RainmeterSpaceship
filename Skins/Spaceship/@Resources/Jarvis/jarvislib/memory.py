@@ -56,7 +56,7 @@ def fact_save(fact):
 
 ACTIVE_TTL = 120      # seconds after the last exchange that the window is still sent
 TALK_STOP = STOP | set("how who why whom whose its they them their there then than also just really very not don't "
-                       "does did has had will well now yes yeah okay please jarvis want need know think get got going "
+                       "does did has had will well now yes yeah okay please jarvis clover want need know think get got going "
                        "like one some more much many all our out into over too let".split())
 FOLLOW_START = re.compile(r"(?:it|that|this|he|she|they|and|but|so|what about|how about|why|then|also)\b")
 
@@ -301,7 +301,7 @@ def compact(now, stop=lambda: False):
         if stop():
             finished = False
             break
-        talk = "\n".join(f"User: {y}\nJARVIS: {h}" for _, y, h in t["talk"])
+        talk = "\n".join(f"User: {y}\nCLOVER: {h}" for _, y, h in t["talk"])
         got = ask_gist(model, talk) if model else None
         if got is None:                                        # model down: try again tomorrow, nothing counted
             break

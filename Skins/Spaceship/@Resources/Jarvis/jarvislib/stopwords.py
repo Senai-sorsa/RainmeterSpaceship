@@ -10,7 +10,7 @@ from .base import RES, mic
 # While he speaks, the wake-word thread's microphone blocks also go to Vosk, which knows only the stop phrases. First a
 # WebRTC echo canceller takes his own voice out (the samples play_samples is playing are the reference), and a stop
 # phrase that is in what he is saying right now is ignored. About 4 % of one CPU core while he speaks, none otherwise.
-STOP_PHRASES = ("jarvis stop", "that's enough", "shut up", "be quiet", "stop", "quiet", "cancel", "enough")
+STOP_PHRASES = ("jarvis stop", "clover stop", "that's enough", "shut up", "be quiet", "stop", "quiet", "cancel", "enough")
 far = deque(maxlen=50)                  # what he played, in 16 kHz pieces (about 2 s): the echo canceller's reference
 saying = [""]                           # his current and previous sentence: the text guard
 

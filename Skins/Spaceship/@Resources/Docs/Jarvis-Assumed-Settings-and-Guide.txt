@@ -1,4 +1,4 @@
-JARVIS: ASSUMED SETTINGS AND HOW TO USE EACH FEATURE
+CLOVER: ASSUMED SETTINGS AND HOW TO USE EACH FEATURE
 =====================================================
 
 Covers the features added in October 2026: follow-up without the wake word, snooze, repeating
@@ -7,7 +7,7 @@ reminders, remembered facts, to-do by voice, the daily briefing and the personal
 Part 1 lists every choice that was made for you while building them. Nobody asked for these exact
 values; they were picked as sensible defaults. "Change in" says where to change one:
   CC    = a row in the Control Center
-  code  = a constant in @Resources\Jarvis\jarvis.py (restart JARVIS afterwards)
+  code  = a constant in @Resources\Jarvis\jarvis.py (restart CLOVER afterwards)
 Part 2 is the how-to for each feature.
 
 

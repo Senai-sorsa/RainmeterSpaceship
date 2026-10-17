@@ -55,7 +55,7 @@ This guide covers **everything the HUD can do**, **how to use every part of it**
 │ MISSION CLOCK │          CENTER FLIGHT HUD        │ NETWORK block │
 │ SLOT 1        │      (S&P ladder · GPU ladder)    │ SLOT 5        │
 │ SLOT 2        │                                   │ SLOT 6        │
-│ SLOT 3        │          JARVIS CORE              │ SLOT 7        │
+│ SLOT 3        │          CLOVER CORE              │ SLOT 7        │
 │ SLOT 4        │     (voice assistant hologram)    │ SLOT 8        │
 │ UPKEEP block  │                                   │ DEV block     │
 ├──── BOTTOM ───┴───────────────────────────────────┴───────────────┤
@@ -184,7 +184,7 @@ Roams the upper windscreen: it glides to a new spot, locks on with a pulse, then
 - **Diamond pipper** in the middle, and a **THR** readout.
 - **Click elsewhere:** Task Manager.
 
-#### Jarvis core (replaces the globe)
+#### Clover core (replaces the globe)
 - **The hologram:** your plasma-orb animation, inside a rotating 3D network shell, two tilted orbit rings with satellites, and a HUD dial with voice bars.
 - **States:**
   - **STANDBY:** cyan
@@ -193,9 +193,9 @@ Roams the upper windscreen: it glides to a new spot, locks on with a pulse, then
   - **SPEAKING:** a voice echo and the shell swell with his voice
   - **OFFLINE:** dimmed
 - **Problems** show in orange under the name: SETUP NEEDED, NO MICROPHONE, NO OLLAMA, NO MODEL, START FAILED, CHECK LOG.
-- **Click:** talk to Jarvis, or stop him mid-answer. If he's offline, clicking starts him.
+- **Click:** talk to Clover, or stop him mid-answer. If he's offline, clicking starts him.
 - **Right-click:** opens or closes the conversation pop-up.
-- See section 6b for the full Jarvis guide.
+- See section 6b for the full Clover guide.
 
 ### Right column
 
@@ -328,7 +328,7 @@ When Rainmeter starts (at login, for example), a roughly 3-second boot sequence 
 
 ---
 
-## 6b. Jarvis
+## 6b. Clover
 
 **What he does:**
 1. You click the hologram. A chime plays and he starts listening; he stops by himself when you stop talking.
@@ -347,20 +347,20 @@ When Rainmeter starts (at login, for example), a roughly 3-second boot sequence 
 - you ask "show me what you've said" / "open the transcript" ("close the log" closes it)
 - something goes wrong (the reason shows as a SYSTEM line)
 
-You can also right-click the hologram, or use Control Center → JARVIS → CONVERSATION → OPEN.
+You can also right-click the hologram, or use Control Center → CLOVER → CONVERSATION → OPEN.
 
-**Control Center → JARVIS tab:**
+**Control Center → CLOVER tab:**
 
 | Row | What it does |
 |---|---|
 | SERVICE | Status; START / STOP / LOG |
-| JARVIS | On / off; start with the HUD |
+| CLOVER | On / off; start with the HUD |
 | MODEL | Pick from your installed Ollama models |
 | FAST MODEL | A smaller model used while the GPU is busy (LITE / LOW tier) |
-| ABOUT ME | Link (BROWSE), create (NEW) or EDIT a short note about you that Jarvis reads with every question |
+| ABOUT ME | Link (BROWSE), create (NEW) or EDIT a short note about you that Clover reads with every question |
 | NOTE SEARCH | SMART (ChromaDB, by meaning) or KEYWORD; REINDEX rebuilds the index |
 | NOTES VAULT | The folder "search my notes" looks in (default: the to-do note's folder) |
-| TO-DO NOTE | The Obsidian note whose open `- [ ]` items Jarvis (and the reticle) read |
+| TO-DO NOTE | The Obsidian note whose open `- [ ]` items Clover (and the reticle) read |
 | SPEECH RECOGNITION | tiny / base / small / medium; AUTO / CPU / GPU |
 | VOICE | Windows built-in, Kokoro (natural) or Piper |
 | KOKORO VOICE | Which Kokoro voice (British: Lewis or Emma; American: Michael or Heart) and speaking speed |
@@ -399,7 +399,7 @@ You can also right-click the hologram, or use Control Center → JARVIS → CONV
   - **Snooze:** in the same pause say **"snooze"**, "later" or "not now" and it rings again in 1 minute. Or say how long: "snooze 5 minutes", "ten more minutes", "snooze half an hour" (1 minute to 2 hours). He answers "Snoozed for 5 minutes."
   - **Repeating:** "remind me every day at 9 am to take vitamins", "remind me every weekday at 8:30 to check mail", "remind me every Monday at 7 to put the bins out". A clock time is needed; say am or pm, or "at 9" means whichever 9 o'clock comes first. "Cancel the vitamins reminder" removes the whole series. Snoozing one delays only that day's ring. After days with the PC off it rings once as missed, then carries on. Timers do not repeat.
   - **Muted, at 0 % or in STEALTH:** no sound. The conversation pop-up opens with the line instead (unless the muted pop-up is switched off).
-  - They are kept in `@Resources\Data\jarvis_reminders.txt` and survive a restart. One that came due while Jarvis was not running is read out as "Missed reminder from ..." when he next starts. They ring only while Jarvis runs: this is not a Windows alarm and will not wake a sleeping PC.
+  - They are kept in `@Resources\Data\jarvis_reminders.txt` and survive a restart. One that came due while Clover was not running is read out as "Missed reminder from ..." when he next starts. They ring only while Clover runs: this is not a Windows alarm and will not wake a sleeping PC.
 - **Things to remember:** "remember that my dentist is on Fridays" and he answers "Noted: ..." and knows it in every later answer. "What do you remember" reads the list, "forget the dentist" removes every entry with those words, "forget everything" asks first. 50 entries at most. They are kept as plain text in `@Resources\Data\jarvis_memory.txt` and go only to the local model, but he reads them out when asked: do not store passwords there.
 - **Daily briefing:** "good morning" (or "good afternoon", "good evening", "brief me", "daily briefing", "what's my day look like") gets the time, your calendar, unread mail, open to-dos and pending reminders in a few sentences. Only when you ask.
 - **Add a to-do:** "add buy milk to my to-do list", "put call the bank on my to-do list", "add a task: renew passport". He reads it back and asks; only a clear "yes" adds `- [ ] buy milk` at the end of your TO-DO NOTE. He never creates the note, and never ticks off or deletes a task.
@@ -407,13 +407,13 @@ You can also right-click the hologram, or use Control Center → JARVIS → CONV
 - **Guardrails:** nothing outside that list can ever run. Destructive or joke requests ("self-destruct", "delete system32") get an in-character reply only.
 
 **Your notes:**
-- **To-do note:** Jarvis reads the open `- [ ]` items of your Obsidian to-do note every time you ask something.
+- **To-do note:** Clover reads the open `- [ ]` items of your Obsidian to-do note every time you ask something.
 - **About-me note:** an optional short note about you (who you are, how you like answers, your usual week) that he reads with every question.
   - Keep it to a couple of paragraphs (under ~300 words); a longer note makes every answer slower.
   - **NEW** creates one from a template, and the template's hint lines are ignored.
   - Don't put passwords or account numbers in it.
 
-**Privacy:** everything runs on your PC. Speech recognition, the AI model and the voice (Kokoro or Windows) are all local. The conversation is kept in `@Resources\Data\jarvis_log.txt` and the diagnostics in `jarvis.log`. Jarvis and the HUD talk through files, not a network port, so nothing else can trigger the microphone.
+**Privacy:** everything runs on your PC. Speech recognition, the AI model and the voice (Kokoro or Windows) are all local. The conversation is kept in `@Resources\Data\jarvis_log.txt` and the diagnostics in `jarvis.log`. Clover and the HUD talk through files, not a network port, so nothing else can trigger the microphone.
 
 **Settings (Settings.inc):**
 - **Notes:** `JarvisProfile` (about-me note), `ObsidianTodo`
@@ -481,7 +481,7 @@ A complete inventory of what the HUD reads, controls, connects to and stores.
 | Network traffic, adapter, local IP, Wi-Fi signal quality | Windows network APIs, WiFiStatus plugin |
 | Audio output level and spectrum (96 bands, RMS, peak), output devices, volume, mute | Windows audio loopback (AudioLevel, Win7AudioPlugin). It **only measures loudness / frequency**; nothing is recorded or saved. |
 | Microphone level and mute | Windows Core Audio (through ShipCore). Level only. |
-| Microphone audio (Jarvis) | Only after you click the hologram, until you stop talking; turned into text on your PC and never saved or sent anywhere |
+| Microphone audio (Clover) | Only after you click the hologram, until you stop talking; turned into text on your PC and never saved or sent anywhere |
 | Screen brightness | WMI (through ShipCore) |
 | Open windows and running programs (names only) | Windows window list (through ShipCore) |
 | Windows user name, host name, Windows version, CPU/GPU model, display resolution and refresh, boot time, uptime, idle time | Windows system info |
@@ -520,7 +520,7 @@ It **does not** delete your files, install software, or change Windows settings 
 | `imap.gmail.com` (TLS) | Gmail unread count, only if you set it up | every 2 min |
 | Your Google Calendar secret iCal links | Upcoming events, only for calendars you switched on | every 10 min |
 | Ookla Speedtest servers | Speed test | on click / every 6 h when idle |
-| `127.0.0.1:11434` (Ollama, on your PC) | Jarvis's AI model - local only | when you talk to Jarvis |
+| `127.0.0.1:11434` (Ollama, on your PC) | Clover's AI model - local only | when you talk to Jarvis |
 | Hugging Face (one time, during setup) | Downloads the speech-recognition model and the optional Piper voice | setup only |
 | `PingHost` (default `1.1.1.1`, Cloudflare) | Ping latency | every ~10 s |
 
@@ -542,7 +542,7 @@ All inside your skin folder unless noted:
 - `@Resources\Settings.inc`: your settings
 - `@Resources\State.inc`: remembered selections (tabs, slots, dial selection)
 - `@Resources\Offsets.inc`: module position nudges
-- `@Resources\Data\`: live data files (windows, net, speed, sys, mail, calendar, Start-menu scan, icon queue, logs, Jarvis timers and reminders)
+- `@Resources\Data\`: live data files (windows, net, speed, sys, mail, calendar, Start-menu scan, icon queue, logs, Clover timers and reminders)
 - `@Resources\Icons\`: extracted app icons
 - `@Resources\Presets\`: saved presets
 - `@Resources\Backups\`: copies made by the update installer
@@ -679,7 +679,7 @@ Spaceship\
 ├─ Top\                   Power, Alert, Console, Battery, GraphCPU/A/B/RAM
 ├─ Left\                  Category, Location (mission clock), Slot1-4, Upkeep
 ├─ Right\                 Category, SysInfo (network), Slot5-8, Dev
-├─ Center\                Target (reticle), HUD (ladders), Sphere (Jarvis core)
+├─ Center\                Target (reticle), HUD (ladders), Sphere (Clover core)
 ├─ Bottom\                Storage (systems dial), Audio (reactor), Strip, Panels
 ├─ Overlay\               Control (Control Center), Drawer (CARGO), Boot (startup), Jarvis (conversation)
 └─ @Resources\

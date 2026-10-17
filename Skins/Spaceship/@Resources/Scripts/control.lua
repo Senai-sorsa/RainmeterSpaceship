@@ -1,7 +1,7 @@
 -- Control Center (O_control, 1040 x 900). Aurum-style adjustability for the whole HUD.
 local H, A, Z, G
 local RES
-local TABS = { 'MODULES', 'LAYOUT', 'THEME', 'APPS', 'SENSORS', 'PERF', 'SYSTEM', 'PRESETS', 'DATA', 'JARVIS' }
+local TABS = { 'MODULES', 'LAYOUT', 'THEME', 'APPS', 'SENSORS', 'PERF', 'SYSTEM', 'PRESETS', 'DATA', 'CLOVER' }
 local tab, page, selMod = 1, 1, 1
 local msg, msgAt = 'READY', 0
 local armed, armedAt = nil, 0
@@ -501,17 +501,17 @@ local function rowsJarvis()
   local status = not alive and 'OFFLINE - START it, or run SETUP first' or
     (((j.ERR or '') ~= '') and ('PROBLEM: ' .. j.ERR) or ('RUNNING - ' .. string.upper(j.STATE or 'idle')))
   rows[#rows + 1] = { 'SERVICE', status, {
-    { 'START', function() jcall('StartService()'); say('STARTING JARVIS...') end, alive },
-    { 'STOP', function() jcall('StopService()'); say('STOPPING JARVIS') end },
+    { 'START', function() jcall('StartService()'); say('STARTING CLOVER...') end, alive },
+    { 'STOP', function() jcall('StopService()'); say('STOPPING CLOVER') end },
     { 'LOG', function() SKIN:Bang('["notepad.exe" "' .. RES .. 'Data\\jarvis.log"]') end } } }
   local en, au = H.num('JarvisEnabled', 1) == 1, H.num('JarvisAutoStart', 1) == 1
-  rows[#rows + 1] = { 'JARVIS', (en and 'ON' or 'OFF') .. (au and '   starts with the HUD' or '   start it yourself'), {
+  rows[#rows + 1] = { 'CLOVER', (en and 'ON' or 'OFF') .. (au and '   starts with the HUD' or '   start it yourself'), {
     { 'ON', function() jset('JarvisEnabled', 1) end, en },
     { 'OFF', function() jset('JarvisEnabled', 0); jcall('StopService()') end, not en },
     { 'AUTO-START', function() jset('JarvisAutoStart', au and 0 or 1) end, au } } }
   local ms = models()
   local m, mf = H.str('JarvisModel', 'llama3.1:8b'), H.str('JarvisModelFast', '')
-  rows[#rows + 1] = { 'MODEL', m .. (#ms == 0 and '   - start Jarvis once to list your installed models' or ('   - ' .. #ms .. ' installed, use < > to switch')), {
+  rows[#rows + 1] = { 'MODEL', m .. (#ms == 0 and '   - start Clover once to list your installed models' or ('   - ' .. #ms .. ' installed, use < > to switch')), {
     { '<', function() if #ms > 0 then jset('JarvisModel', cycle(ms, m, -1)) end end },
     { '>', function() if #ms > 0 then jset('JarvisModel', cycle(ms, m, 1)) end end } } }
   local fl = { '' }
@@ -526,7 +526,7 @@ local function rowsJarvis()
     local f = io.open(dst, 'rb')
     if f then f:close() else
       local src = io.open(RES .. 'Jarvis\\about-me-template.md', 'rb')
-      local body = src and src:read('*a') or '# About me (for Jarvis)\n'
+      local body = src and src:read('*a') or '# About me (for Clover)\n'
       if src then src:close() end
       local o = io.open(dst, 'wb'); if o then o:write(body); o:close() end
     end
@@ -535,14 +535,14 @@ local function rowsJarvis()
     say('ABOUT-ME NOTE CREATED - WRITE A COUPLE OF PARAGRAPHS AND SAVE')
   end
   rows[#rows + 1] = { 'ABOUT ME', prof ~= '' and ('Read on every question: ' .. prof) or
-    'Not set. A short note about you (a couple of paragraphs) that Jarvis reads to personalise his answers.', {
+    'Not set. A short note about you (a couple of paragraphs) that Clover reads to personalise his answers.', {
     { 'BROWSE', function() core('pick-profile'); say('CHOOSE YOUR NOTE IN THE WINDOW') end },
     { 'NEW', newProfile },
     { 'EDIT', function() if prof ~= '' then SKIN:Bang('["' .. prof .. '"]') else say('BROWSE OR NEW FIRST') end end },
     { 'CLEAR', function() jset('JarvisProfile', '') end } } }
   local todo = H.str('ObsidianTodo', '')
-  rows[#rows + 1] = { 'TO-DO NOTE', todo ~= '' and ('Jarvis reads its open - [ ] items: ' .. todo) or
-    'Not set. Jarvis (and the reticle) read the open - [ ] items of your Obsidian to-do note.', {
+  rows[#rows + 1] = { 'TO-DO NOTE', todo ~= '' and ('Clover reads its open - [ ] items: ' .. todo) or
+    'Not set. Clover (and the reticle) read the open - [ ] items of your Obsidian to-do note.', {
     { 'BROWSE', function() core('pick-todo'); say('CHOOSE YOUR NOTE IN THE WINDOW') end },
     { 'OPEN', function() if todo ~= '' then SKIN:Bang('["' .. todo .. '"]') end end } } }
   local vault = H.str('JarvisVault', '')
@@ -602,14 +602,14 @@ local function rowsJarvis()
     { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
   rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey Jarvis", "Hey" and "Jarvis" (about 2 minutes; he says what to do)', {
-    { 'TRAIN', function() H.cmd('TRAINWAKE ' .. os.time()); say('JARVIS WILL TELL YOU WHAT TO SAY') end } } }
+    { 'TRAIN', function() H.cmd('TRAINWAKE ' .. os.time()); say('CLOVER WILL TELL YOU WHAT TO SAY') end } } }
   local heyOn, gap = H.num('JarvisWakeEasy', 0.5) > 0, H.num('JarvisWakeGap', 5)
   rows[#rows + 1] = { 'HEY ... JARVIS', heyOn and string.format('ON - your trained "Hey", a pause, then "Jarvis" within %d s wakes him (needs TRAIN)', gap) or 'OFF - only "Hey Jarvis" said together wakes him', {
     { 'ON', function() jset('JarvisWakeEasy', 0.5) end, heyOn }, { 'OFF', function() jset('JarvisWakeEasy', 0) end, not heyOn },
     { '-', function() jbump('JarvisWakeGap', -1, 2, 10, 5) end }, { '+', function() jbump('JarvisWakeGap', 1, 2, 10, 5) end } } }
   local mic, mics = H.str('JarvisMic', ''), models('jarvis_mics.txt')   -- listed by jarvis.py at start
   local function nextMic(d)
-    if #mics == 0 then say('START JARVIS ONCE TO LIST THE MICROPHONES') else jset('JarvisMic', cycle(mics, mic, d)) end
+    if #mics == 0 then say('START CLOVER ONCE TO LIST THE MICROPHONES') else jset('JarvisMic', cycle(mics, mic, d)) end
   end
   rows[#rows + 1] = { 'MICROPHONE', (mic ~= '' and mic or 'WINDOWS DEFAULT') .. '   - used for the wake word and when he listens', {
     { '<', function() nextMic(-1) end }, { '>', function() nextMic(1) end },
@@ -712,7 +712,7 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'RECALL', ron and 'ON - remembered facts about a topic are given to the model' or 'OFF - the model sees no remembered facts', {
     { 'ON', function() jset('JarvisRecall', 'on') end, ron }, { 'OFF', function() jset('JarvisRecall', 'off') end, not ron } } }
   local na = H.str('JarvisNameAliases', '')
-  rows[#rows + 1] = { 'NAME ALIASES', (na ~= '' and na or 'none') .. '   - other ways Whisper writes "Jarvis" (comma separated). Edit JarvisNameAliases in Settings.inc', {
+  rows[#rows + 1] = { 'NAME ALIASES', (na ~= '' and na or 'none') .. '   - other ways Whisper writes "Clover" (comma separated). Edit JarvisNameAliases in Settings.inc', {
     { 'EDIT', function() SKIN:Bang('["' .. RES .. 'Settings.inc"]'); say('EDIT JarvisNameAliases, THEN RELOAD') end } } }
   local bn = models('jarvis_bt.txt')
   rows[#rows + 1] = { 'BLUETOOTH NAMES', (#bn > 0 and ('Paired: ' .. table.concat(bn, ', ')) or 'No list yet - say "connect my headphones" once with Bluetooth on') ..
@@ -732,9 +732,9 @@ local function rowsJarvis()
   local SECTION = { PERSONALITY = 2, ['ABOUT ME'] = 2, ['CALL ME'] = 2, VOICE = 2, ['KOKORO VOICE'] = 2, ['TO-DO NOTE'] = 2, ['NOTES VAULT'] = 2,
     ['NOTE SEARCH'] = 2, ['COLOUR - STANDBY'] = 2, ['COLOUR - LISTENING'] = 2, ['COLOUR - SPEAKING'] = 2, ORB = 2, ['ORB TINT'] = 2,
     LAYERS = 2, MOTION = 2, ['MODEL MEMORY'] = 3, CONVERSATION = 3, ['LEARN FACTS'] = 3, RECALL = 3, ['REMEMBERED FACTS'] = 3 }
-  local HEAD = { { 'JARVIS SETTINGS', 'Service, models, listening, wake word and microphone.' },
-    { 'JARVIS PERSONALIZATION', 'How he talks to you and how the hologram looks.' },
-    { 'JARVIS MEMORY', 'What he remembers; CLEAR empties this log, not his memory.' } }
+  local HEAD = { { 'CLOVER SETTINGS', 'Service, models, listening, wake word and microphone.' },
+    { 'CLOVER PERSONALIZATION', 'How he talks to you and how the hologram looks.' },
+    { 'CLOVER MEMORY', 'What he remembers; CLEAR empties this log, not his memory.' } }
   local out = {}
   for s = 1, 3 do
     out[#out + 1] = { HEAD[s][1], HEAD[s][2], {} }

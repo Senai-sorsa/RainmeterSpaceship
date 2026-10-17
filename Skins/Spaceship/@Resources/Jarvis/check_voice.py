@@ -27,7 +27,7 @@ try:
         except meta.PackageNotFoundError:
             print(f"  {pkg} not installed")
     wanted = j.setting("JarvisVoice", "").strip().strip('"')
-    out = j.synth_audio("Jarvis online.")
+    out = j.synth_audio("Clover online.")
     for line in said:
         print("  " + str(line)[:160])
     used = "the voice in JarvisVoice" if j._engines else "the Windows voice"

@@ -18,7 +18,7 @@ RINGS = 10                                                    # each is a ding, 
 SNOOZE = 300                                                  # seconds, when "snooze" is said with no length
 ALARM_CAP = 300                                               # an alarm rings this long unanswered, then it is missed
 ALARM_SAY = 30                                                # an alarm says its line again after this many seconds
-NAME_ONLY = re.compile(r"\W*(?:(?:hey|hi|ok|okay)\W+)?jarvis\W*", re.I)   # said in a gap, it stops an alarm
+NAME_ONLY = re.compile(r"\W*(?:(?:hey|hi|ok|okay)\W+)?(?:clover|jarvis)\W*", re.I)   # said in a gap, it stops an alarm
 DAYS = "mon tue wed thu fri sat sun".split()
 
 
@@ -124,7 +124,7 @@ def snooze_for(heard):
     if not re.search(r"\b(?:snooze|later|not now|again in)\b|\bmore (?:sec|min|hour)|\b(?:sec|min|hour)\w* more\b", s):
         return None
     rest = " ".join(w for w in s.split() if w not in ("snooze", "later", "not", "now", "more", "for", "in", "again", "it", "ok",
-                                                      "okay", "another", "please", "jarvis"))
+                                                      "okay", "another", "please", "jarvis", "clover"))
     if not rest:
         return SNOOZE
     d = duration(rest)

@@ -1391,7 +1391,7 @@ assert mem("remember " + "x" * 300) == "Noted: " + "x" * 200 + "."
 with open(j.MEMORY_FILE, "wb") as f:                              # unreadable: said, left alone, and the prompt still works
     f.write(b"\xff\xfe\xff")
 assert mem("remember the milk is off") == mem("what do you remember") == "I can't read my memory file, so I left it alone."
-assert j.route("forget everything")[:2] == ("say", None) and "You are JARVIS" in j.system_prompt()
+assert j.route("forget everything")[:2] == ("say", None) and "You are CLOVER" in j.system_prompt()
 with open(j.MEMORY_FILE, "rb") as f:
     assert f.read() == b"\xff\xfe\xff"
 assert j.route("what do you know about my dentist")[3] == j.MEMORY_BAD
@@ -1488,7 +1488,7 @@ j.log = keep
 j.context = lambda *a: ""
 for mood, sentence in (("proper", "a little dry"), ("playful", "same spirit"), ("brief", "one short sentence"), ("nonsense", "same spirit")):
     j.setting = lambda name, default="", mood=mood: mood if name == "JarvisPersonality" else default
-    assert sentence in j.system_prompt() and j.system_prompt().count("You are JARVIS") == 1, mood
+    assert sentence in j.system_prompt() and j.system_prompt().count("You are CLOVER") == 1, mood
 j.setting = lambda name, default="": default
 assert "same spirit" in j.system_prompt() and "a little dry" not in j.system_prompt()
 
@@ -1646,6 +1646,8 @@ for text in ("play Travis Scott", "Travis Scott is playing", "Service the car", 
     assert j.strip_name(text) == text, text
 assert j.route("play Travis Scott")[0] == "chat"
 j.setting = lambda name, default="": "Jarbis, Garvis" if name == "JarvisNameAliases" else default
+assert j.strip_name("Clover, set a timer for ten minutes") == "set a timer for ten minutes"      # Change 4: both names
+assert j.strip_name("hey glover, open chrome") == "open chrome" and j.strip_name("Jarvis, open chrome") == "open chrome"
 assert j.strip_name("Jarbis, mute") == "mute" and j.strip_name("hey garvis open chrome") == "open chrome"
 j.setting = lambda name, default="": default
 
@@ -2079,6 +2081,7 @@ j.transcribe = lambda a: next(turns)
 j.turn(0)
 assert asked[-1] == "Noted: My sister's name is Ana." and j.load_memory() == ["my dentist is on Fridays", "My sister's name is Ana"]
 assert j.offer == {} and j.learnable("My sister's name is Ana.") == ""        # already saved: no second offer
+assert j.is_yes("yes Clover") and "clover stop" in j.STOP_PHRASES
 assert all(j.is_yes(x) for x in ("Yes, Jarvis.", "Yes sir", "Carry on", "continue")) and not j.is_yes("yes but don't")
 turns = iter(["My cat is called Tom.", "Yes, Jarvis."])                 # P0-04: a name after the yes still counts
 heard[0], speaks[0] = 0, 2
@@ -2646,8 +2649,8 @@ for dev, beam in (("cuda", 5), ("cpu", 3)):
     j.whisper = lambda: OptWhisper([S_(text="set a timer", avg_logprob=-0.3), S_(text="for ten minutes", avg_logprob=-1.4)])
     assert real_transcribe("audio") == "set a timer for ten minutes" and len(calls) == 1, calls
     k = calls[0]
-    assert k["beam_size"] == beam and k["vad_filter"] is True and k["hotwords"] == "Jarvis" and k["language"] == "en", k
-    assert "Jarvis" in k["initial_prompt"] and k["condition_on_previous_text"] is False, k
+    assert k["beam_size"] == beam and k["vad_filter"] is True and k["hotwords"] == "Clover Jarvis" and k["language"] == "en", k
+    assert "Clover" in k["initial_prompt"] and k["condition_on_previous_text"] is False, k
     assert j.heard_score[0] == -1.4, j.heard_score
 calls.clear()
 j.whisper = lambda: OptWhisper([])                                # VAD cut a short "yes"
@@ -2840,7 +2843,7 @@ assert "wake off: turned off" in run_wake({"JarvisWakeWord": "0"})
 j.hud_tier = lambda: 3
 assert "wake off: HUD tier 3" in run_wake({})
 j.hud_tier = lambda: 0
-assert "wake off: Jarvis off" in run_wake({"JarvisEnabled": "0"})
+assert "wake off: Clover off" in run_wake({"JarvisEnabled": "0"})
 assert any(x[0] == "problem" and x[1].startswith("Wake word") and x[2] is False for x in run_wake({}) if type(x) is tuple), lines
 wake_fail[0] = True
 assert any(x[0] == "problem" and x[1].startswith("Wake word") and x[2] is False for x in run_wake({}) if type(x) is tuple), lines
@@ -2921,6 +2924,10 @@ assert j.name_until[0] > time.time() + 5
 j.name_until[0] = 0.0
 within(5, real_speak_all, ["Hello there."])
 assert j.name_until[0] == 0.0
+j.name_until[0] = 0.0
+within(5, real_speak_all, ["I am Clover."])                         # his new name is not a barge-in either
+assert j.name_until[0] > time.time() + 5
+j.name_until[0] = 0.0
 # the Windows voice: killed on a stop, killed after 60 s, and a normal run as before
 procs = []
 

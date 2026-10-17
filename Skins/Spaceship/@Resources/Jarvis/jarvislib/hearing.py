@@ -96,14 +96,14 @@ def real_words(text):
 
 
 heard_score = [0.0]            # the lowest segment avg_logprob of the last transcript: below -1.0 Whisper was unsure
-HINT = "Hey Jarvis, set a timer for ten minutes. Jarvis, turn the volume down."   # words he should expect
+HINT = "Hey Clover, set a timer for ten minutes. Clover, turn the volume down."   # words he should expect
 
 
 def _decode(model, audio):
     """Whisper told what to expect. VAD trims the silence; when it leaves nothing (it can cut a short "yes") the audio
     is decoded once more without it, and without the hint, which Whisper can say back on near-silence."""
     opts = dict(beam_size=5 if _whisper_dev[0] == "cuda" else 3, language="en", condition_on_previous_text=False)
-    segs = list(model.transcribe(audio, vad_filter=True, hotwords="Jarvis", initial_prompt=HINT, **opts)[0])
+    segs = list(model.transcribe(audio, vad_filter=True, hotwords="Clover Jarvis", initial_prompt=HINT, **opts)[0])
     if not segs:
         segs = list(model.transcribe(audio, vad_filter=False, **opts)[0])
     segs = no_loops(segs)

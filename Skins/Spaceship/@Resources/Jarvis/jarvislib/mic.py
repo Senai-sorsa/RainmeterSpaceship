@@ -25,7 +25,7 @@ _mic_missing = [""]
 
 
 def mic_device():
-    """JarvisMic (Control Center > JARVIS > MICROPHONE): part of an input device's name; empty = the Windows default.
+    """JarvisMic (Control Center > CLOVER > MICROPHONE): part of an input device's name; empty = the Windows default.
     MME first: it converts to 16 kHz itself, WASAPI may refuse that rate."""
     want = setting("JarvisMic", "").strip().lower()
     if not want:

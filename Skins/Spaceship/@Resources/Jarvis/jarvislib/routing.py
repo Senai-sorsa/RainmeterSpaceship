@@ -8,7 +8,7 @@ from .actions import BT_GENERIC, MEDIA_KEYS, bt_devices, bt_link, bt_names, pick
 from .audio import mic_volume, speakers_mute
 from .base import set_setting
 from .mic import pick_mic
-from .base import log, setting, todo_note
+from .base import NAME, log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
 from .diag import is_own_model, is_protected
@@ -223,7 +223,7 @@ def strip_name(text):
     misheard name needs the greeting or a comma after it, so "Service the car" and "Travis Scott is..." stay as said."""
     extra = [n.strip().lower() for n in setting("JarvisNameAliases", "").split(",") if n.strip()]
     names = "|".join(re.escape(n) for n in NAMES + extra)
-    m = re.match(rf"\s*(?:(hey|hi|ok|okay)[,.]?\s+)?(?:(jarvis)|({names}))\b(?(1)\s*[,.!?]?|(?(2)\s*[,.!?]?|\s*[,.!?]))\s*",
+    m = re.match(rf"\s*(?:(hey|hi|ok|okay)[,.]?\s+)?(?:({NAME})|({names}))\b(?(1)\s*[,.!?]?|(?(2)\s*[,.!?]?|\s*[,.!?]))\s*",
                  text, re.I)
     if not m or not text[m.end():].strip():
         return text
@@ -383,10 +383,10 @@ def route(text):
         return ("guard", None, None, None)
     # actions only for commands ("lock my computer", "jarvis, could you open chrome"), never for questions about them
     # ("should I restart my computer?", "how do I close a for loop?")
-    whole = cmd = re.sub(r"^(hey |ok |okay )?(jarvis[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
+    whole = cmd = re.sub(r"^(hey |ok |okay )?(" + NAME + r"[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
     if text.strip().endswith("?") and cmd == t and not named:   # "Jarvis, ...?" was a command before the name moved out
         cmd = ""
-    if re.fullmatch(rf"(?:(?:no|oh|oops|wait|actually|never ?mind|{'|'.join(['jarvis'] + NAMES)})[,.!]? +)*"
+    if re.fullmatch(rf"(?:(?:no|oh|oops|wait|actually|never ?mind|{'|'.join([NAME] + NAMES)})[,.!]? +)*"
                     r"(?:undo(?: that| it)?|put it back|cancel that|take that back)", whole):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
@@ -412,7 +412,7 @@ def route(text):
     if op:
         return ("remind", op[0], op[1:], None)
     if re.fullmatch(r"(?:good (?:morning|afternoon|evening)|brief me|(?:give me )?(?:my |the )?daily briefing|"
-                    r"what.?s my day look(?:ing)? like)(?:,? jarvis)?", whole):
+                    r"what.?s my day look(?:ing)? like)(?:,? " + NAME + r")?", whole):
         return ("brief", None, None, None)
     # M2b, talk filed by topic: forgetting reads them back and waits for yes; the list is said by code, not the model
     m = re.fullmatch(r"(?:forget|delete|erase) (?:what|everything) (?:we|i)(?:'ve| have)? (?:said|talked|spoken|spoke|"
@@ -496,7 +496,7 @@ def route(text):
         return ("act", "power", key, f"You want me to switch the power mode to {POWER_NAMES[key]}. Confirm with yes.")
     if re.fullmatch(r"(?:go (?:in)?to |enter |turn on |switch to |activate |put yourself in )(?:the )?stealth(?: mode)?|stealth(?: mode)?", cmd):
         return ("act", "stealth", None, "You want me to go into stealth mode. After that I only answer in the pop-up and I can't undo it by voice; you leave it in the Control Center. Confirm with yes.")
-    if re.fullmatch(r"(?:which|what) (?:microphone|mic)(?: are you using| is (?:he|jarvis) using| do you use)?|which (?:microphone|mic) is (?:selected|in use)", cmd):
+    if re.fullmatch(r"(?:which|what) (?:microphone|mic)(?: are you using| is (?:he|clover|jarvis) using| do you use)?|which (?:microphone|mic) is (?:selected|in use)", cmd):
         return ("say", None, None, "I'm using the " + (setting("JarvisMic", "") + " microphone." if setting("JarvisMic", "") else "Windows default microphone."))
     m = re.fullmatch(r"(?:use|switch to|change to|listen (?:with|through|on)|set) (?:the |my )?(.+?) (?:microphone|mic)(?: please)?", cmd)
     if m and not re.fullmatch(r"(?:mute|unmute)", m.group(1)):

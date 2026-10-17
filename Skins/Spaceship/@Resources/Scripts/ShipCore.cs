@@ -101,12 +101,12 @@ public static class ShipCore
             {
                 using (var d = new FolderBrowserDialog())
                 {
-                    d.Description = "Spaceship HUD - choose your Obsidian vault folder (Jarvis searches its notes)";
+                    d.Description = "Spaceship HUD - choose your Obsidian vault folder (Clover searches its notes)";
                     if (d.ShowDialog() == DialogResult.OK) SaveSetting("JarvisVault", d.SelectedPath);
                 }
                 return 0;
             }
-            if (cmd == "pick-profile") { PickNote("JarvisProfile", "choose your 'about me' note for Jarvis", false); return 0; }
+            if (cmd == "pick-profile") { PickNote("JarvisProfile", "choose your 'about me' note for Clover", false); return 0; }
             if (cmd == "speedtest") { SpeedTest(); return 0; }
         }
         catch (Exception e) { Log(cmd + ": " + e); }

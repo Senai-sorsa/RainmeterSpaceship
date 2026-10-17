@@ -370,10 +370,10 @@ function Update()
   for k = 3, 8 do H.hideText(1, k) end
   if frame < 6 or frame % 30 == 0 then
     local tip
-    if H.num('JarvisEnabled', 1) ~= 1 then tip = 'Jarvis is off (JarvisEnabled=0 in Settings.inc)'
-    elseif st == 'offline' then tip = 'Jarvis service not running   click: start it   right-click: conversation log'
-    elseif st == 'idle' then tip = 'Jarvis running   click: talk to Jarvis   right-click: conversation log'
-    else tip = 'Jarvis ' .. string.lower(LABEL[st] or '') .. '   click: stop' end
+    if H.num('JarvisEnabled', 1) ~= 1 then tip = 'Clover is off (JarvisEnabled=0 in Settings.inc)'
+    elseif st == 'offline' then tip = 'Clover service not running   click: start it   right-click: conversation log'
+    elseif st == 'idle' then tip = 'Clover running   click: talk to Clover   right-click: conversation log'
+    else tip = 'Clover ' .. string.lower(LABEL[st] or '') .. '   click: stop' end
     local RR = 206
     H.hit(1, 1, CX - RR, CY - RR, RR * 2, RR * 2, tip)
     H.set('H1_1', 'Shape', string.format('Ellipse %.2f,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', RR * H.S, RR * H.S, RR * H.S))

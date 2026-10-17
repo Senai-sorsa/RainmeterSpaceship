@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-  One-time setup for the Spaceship HUD's Jarvis voice assistant. Safe to run again.
+  One-time setup for the Spaceship HUD's Clover voice assistant. Safe to run again.
 
   Checks / installs (asks before installing anything):
-    1. Python 3 (python.org build, via winget)       - runs the Jarvis service
+    1. Python 3 (python.org build, via winget)       - runs the Clover service
     2. The packages in requirements.txt (pip)        - into a private folder (%LOCALAPPDATA%\SpaceshipHUD\venv),
                                                        exact versions, so your other Python programs are untouched
     3. Ollama + a model                              - the AI brain (runs locally on your GPU)
     4. Optional: Kokoro-82M natural voice (~400 MB) - otherwise the built-in Windows voice
        Optional: wake word, stop words (Vosk, ~41 MB), smart note search
-  Then writes the Jarvis settings into Settings.inc and refreshes the HUD.
+  Then writes the Clover settings into Settings.inc and refreshes the HUD.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File "<skin>\@Resources\Jarvis\Setup-Jarvis.ps1"
@@ -36,12 +36,12 @@ if (-not $py) {
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
     $py = Get-Command py -ErrorAction SilentlyContinue
   }
-  if (-not $py) { Write-Host 'Python is needed for Jarvis. Install it from python.org (tick "py launcher"), then run this again.' -ForegroundColor Yellow; exit 1 }
+  if (-not $py) { Write-Host 'Python is needed for Clover. Install it from python.org (tick "py launcher"), then run this again.' -ForegroundColor Yellow; exit 1 }
 }
 & py -3 --version
 
 # ------------------------------------------------------------------ 2. Python packages
-Step 'Jarvis packages (private copy, pinned versions - the first time is a large download)'
+Step 'Clover packages (private copy, pinned versions - the first time is a large download)'
 $venv = Join-Path $env:LOCALAPPDATA 'SpaceshipHUD\venv'
 $vpy = Join-Path $venv 'Scripts\python.exe'
 if (-not (Test-Path $vpy)) { & py -3 -m venv $venv }
@@ -75,13 +75,13 @@ if ($ollama) {
   $models = (& ollama list 2>$null | Select-Object -Skip 1 | ForEach-Object { ($_ -split '\s+')[0] }) | Where-Object { $_ }
   Write-Host ("Models you have: " + ($(if ($models) { $models -join ', ' } else { 'none' })))
   $default = 'llama3.1:8b'
-  $choice = Read-Host "Model for Jarvis (Enter = $default; a smaller, faster one: llama3.2:3b)"
+  $choice = Read-Host "Model for Clover (Enter = $default; a smaller, faster one: llama3.2:3b)"
   if ($choice -eq '') { $choice = $default }
   if (-not ($models -contains $choice -or $models -contains "${choice}:latest")) {
     if (Ask "Download $choice now?") { & ollama pull $choice }
   }
   Set-Setting 'JarvisModel' $choice
-} else { Write-Host 'Skipped - Jarvis needs Ollama to answer.' -ForegroundColor Yellow }
+} else { Write-Host 'Skipped - Clover needs Ollama to answer.' -ForegroundColor Yellow }
 
 # ------------------------------------------------------------------ 4. Natural voice (Kokoro-82M)
 Step 'Voice'
@@ -103,8 +103,8 @@ if (Ask 'Install the natural Kokoro voice (~400 MB download, runs on the NVIDIA 
     if ((Test-Path $model) -and (Test-Path (Join-Path $vdir 'voices-v1.0.bin'))) {
       Set-Setting 'JarvisVoice' 'Jarvis\voices\kokoro-v1.0.int8.onnx'   # relative to @Resources: no user name in Settings.inc
       Set-Setting 'JarvisKokoroVoice' 'bm_lewis'
-      Write-Host 'Kokoro ready (voice: bm_lewis - change it in Control Center > JARVIS > KOKORO VOICE).'
-      & $vpy -c "from kokoro_onnx import Kokoro; import sounddevice as sd; k = Kokoro(r'$model', r'$(Join-Path $vdir 'voices-v1.0.bin')'); s, r = k.create('Jarvis online.', voice='bm_lewis', speed=1.0, lang='en-gb'); sd.play(s, r); sd.wait()"
+      Write-Host 'Kokoro ready (voice: bm_lewis - change it in Control Center > CLOVER > KOKORO VOICE).'
+      & $vpy -c "from kokoro_onnx import Kokoro; import sounddevice as sd; k = Kokoro(r'$model', r'$(Join-Path $vdir 'voices-v1.0.bin')'); s, r = k.create('Clover online.', voice='bm_lewis', speed=1.0, lang='en-gb'); sd.play(s, r); sd.wait()"
     }
   }
 }
@@ -113,7 +113,7 @@ if (Ask 'Install the natural Kokoro voice (~400 MB download, runs on the NVIDIA 
 Step 'Wake word ("Hey Jarvis")'
 if (Ask 'Install the "Hey Jarvis" wake word (openWakeWord, small, runs on the CPU)?') {
   & $vpy -c "import openwakeword; openwakeword.utils.download_models(model_names=['hey_jarvis']); print('wake word model ready')"
-  if ($LASTEXITCODE -eq 0) { Set-Setting 'JarvisWakeWord' '1'; Write-Host 'Say "Hey Jarvis" to wake him (turn it off in Control Center > JARVIS > WAKE WORD).' }
+  if ($LASTEXITCODE -eq 0) { Set-Setting 'JarvisWakeWord' '1'; Write-Host 'Say "Hey Jarvis" to wake him (turn it off in Control Center > CLOVER > WAKE WORD).' }
   else { Write-Host 'Wake word install failed - clicking the hologram still works.' -ForegroundColor Yellow }
 }
 
@@ -140,14 +140,14 @@ Step 'Smart note search (ChromaDB)'
 if (Ask 'Install smart note search (ChromaDB - finds notes by meaning, ~100 MB first time)?') {
   & $vpy -c "from chromadb.utils import embedding_functions as e; e.DefaultEmbeddingFunction()(['warm up']); print('search model ready')"
   if ($LASTEXITCODE -eq 0) { Set-Setting 'JarvisSmartSearch' '1' }
-  else { Write-Host 'ChromaDB did not start - Jarvis uses keyword search instead.' -ForegroundColor Yellow }
+  else { Write-Host 'ChromaDB did not start - Clover uses keyword search instead.' -ForegroundColor Yellow }
 }
 
 # ------------------------------------------------------------------ 5. Sounds
 Step 'Sounds'
 $snd = Join-Path $Res 'Sounds'
 New-Item -ItemType Directory -Force -Path $snd | Out-Null
-if (Test-Path (Join-Path $snd 'startup.wav')) { Write-Host 'startup.wav found - it plays with the startup sequence and when you click Jarvis.' }
+if (Test-Path (Join-Path $snd 'startup.wav')) { Write-Host 'startup.wav found - it plays with the startup sequence and when you click Clover.' }
 else { Write-Host "Put your startup sound in $snd as startup.wav (WAV only - convert an MP3 first)." -ForegroundColor Yellow }
 
 # ------------------------------------------------------------------ voice check
@@ -159,12 +159,12 @@ if (-not (Get-Content $Settings -Raw | Select-String -Pattern '(?m)^\s*JarvisVoi
     $gb = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'en-GB' } | Select-Object -First 1
     if ($gb) { $s.SelectVoice($gb.VoiceInfo.Name) }
     Write-Host ("Using the Windows voice: " + $s.Voice.Name + "  (you should hear it now)")
-    $s.Speak('Jarvis online.'); $s.Dispose()
+    $s.Speak('Clover online.'); $s.Dispose()
   } catch { Write-Host 'The Windows voice is not available - install the Kokoro voice above instead.' -ForegroundColor Yellow }
-} else { Write-Host 'Using the natural voice (you should have heard "Jarvis online." above).' }
+} else { Write-Host 'Using the natural voice (you should have heard "Clover online." above).' }
 
 # ------------------------------------------------------------------ done
 Step 'Refreshing the HUD'
 $rm = Get-Process Rainmeter -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($rm -and $rm.Path) { Start-Process $rm.Path -ArgumentList '!Refresh "Spaceship\Center\Sphere"' }
-Write-Host "`nDone. If Jarvis is switched off, turn him on in Control Center > JARVIS. Then click the hologram in the middle of the HUD and talk. The first answer takes a few extra seconds while the models load." -ForegroundColor Green
+Write-Host "`nDone. If Clover is switched off, turn him on in Control Center > CLOVER. Then click the hologram in the middle of the HUD and talk. The first answer takes a few extra seconds while the models load." -ForegroundColor Green

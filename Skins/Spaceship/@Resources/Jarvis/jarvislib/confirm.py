@@ -8,14 +8,14 @@ YES = {"yes", "yeah", "yep", "yup", "sure", "confirm", "confirmed", "do it", "go
        "okay", "please do", "yes please", "yes do it", "yes go ahead", "yes confirm", "yes i confirm", "i confirm", "continue", "carry on"}
 DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)|wipe (my|the)|delete (all|every|my files|windows)|rm -rf|"
                     r"disable (the )?(antivirus|defender|firewall)|hack|brick|destroy|nuke|blow up|kill (all|every)", re.I)
-NAMES = "travis jervis javis jarvus service droves drovis".split()   # how Whisper writes "Jarvis" (JarvisNameAliases adds more)
+NAMES = "travis jervis javis jarvus service droves drovis glover klover clova".split()   # how Whisper writes "Jarvis" (JarvisNameAliases adds more)
 
 
 def is_yes(answer):
     """A plain yes; his name, "sir" or "now" around it is fine ("Yes, Jarvis." / "yes sir"). "yes, but don't" is not."""
     said = " ".join(re.sub(r"[^a-z]+", " ", (answer or "").lower()).split())
     extra = [re.escape(n.strip().lower()) for n in setting("JarvisNameAliases", "").split(",") if n.strip()]
-    around = "|".join(["jarvis", "sir", "now"] + NAMES + extra)
+    around = "|".join(["clover", "jarvis", "sir", "now"] + NAMES + extra)
     return re.sub(rf"^(?:(?:{around}) )+|(?: (?:{around}))+$", "", said) in YES
 
 

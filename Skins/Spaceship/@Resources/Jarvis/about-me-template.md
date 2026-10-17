@@ -1,6 +1,6 @@
-# About me (for Jarvis)
+# About me (for Clover)
 
-<!-- Jarvis reads this note every time you talk to him, to personalise his answers.
+<!-- Clover reads this note every time you talk to him, to personalise his answers.
      Keep it to a couple of short paragraphs (under ~300 words is ideal - the shorter, the faster he answers).
      It never leaves your PC, but don't put passwords, account numbers or anything you'd rather an AI not see.
      These grey hint lines are ignored - replace the examples below with your own. -->

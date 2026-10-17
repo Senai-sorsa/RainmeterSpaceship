@@ -17,7 +17,7 @@ Needs:  Python 3.10+,  pip install faster-whisper sounddevice numpy,  Ollama wit
 Voices: Kokoro-82M (pip install kokoro-onnx + kokoro-v1.0.onnx and voices-v1.0.bin in the same folder - the old
 kokoro-v0_19.onnx is NOT supported; default voice bm_lewis), a Piper
 voice (.onnx), or the built-in Windows voice as the always-available fallback.
-Settings (Settings.inc, all adjustable in Control Center > JARVIS): JarvisModel, JarvisModelFast (used while the HUD
+Settings (Settings.inc, all adjustable in Control Center > CLOVER): JarvisModel, JarvisModelFast (used while the HUD
 is on its LITE / LOW tiers, i.e. the GPU is busy), JarvisWhisper, JarvisWhisperDevice, JarvisVoice, JarvisVoiceRate,
 JarvisKokoroVoice, JarvisChime, JarvisMutedPopup, JarvisKeepAlive, JarvisContext (model memory in tokens),
 JarvisSilence (seconds of silence before he answers, default 1), JarvisFirstWords (he starts speaking after this many
@@ -45,7 +45,7 @@ import wave
 from collections import namedtuple
 from datetime import datetime
 from jarvislib import hearing
-from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE,
+from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE, NAME,
     MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State, WAKE_OFF,
     busy, cancel, convo_add, live, log, mic, missing_packages, name_until, problem, rainmeter_running, read_kv,
     setting, settings, single_instance, stop_now, todo_note, write_atomic)
@@ -660,17 +660,17 @@ NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left (?:them|i
 # stock "Thank you." on noise (FR6 L4): a real thanks needs no answer either
 _END = (r"(?:(?:ok|okay|alright|great|cool|perfect|no|nah|oh) )?(?:thanks|thank you(?: so much)?|that's all|that's it|"
         r"no thanks|no thank you|nope|no|goodbye|bye|i'm good|i'm fine|nothing|stop(?: it| talking)?|all good|cheers|"
-        r"(?:be )?quiet|shut up|shush|hush|never mind|(?:that's )?enough)(?: jarvis)?")
+        r"(?:be )?quiet|shut up|shush|hush|never mind|(?:that's )?enough)(?: " + NAME + r")?")
 ENDERS = re.compile(rf"{_END}(?: {_END})*")
 # courtesy: a whole reply that is only manners gets a short proper answer from code, no model, no follow-up.
 # "{name}" becomes ", <JarvisCallMe>" (nothing when that setting is empty)
 _OK = r"(?:(?:ok|okay|alright|great|cool|perfect|oh) )?"
 COURTESY = ((re.compile(rf"(?:{_OK}(?:thanks|thank you|thank you so much|thank you very much|thanks a lot|cheers|"
-                        r"much appreciated)(?: jarvis)? ?)+"), "You're welcome."),
-            (re.compile(r"(?:hello|hi|hey|hiya|howdy|greetings)(?: there)?(?: jarvis)?"), "Hello{name}."),
-            (re.compile(rf"{_OK}(?:goodbye|bye|bye bye|see you|see you later)(?: jarvis)?"), "Goodbye{name}."),
-            (re.compile(rf"{_OK}good ?night(?: jarvis)?"), "Good night{name}."),
-            (re.compile(r"(?:oh )?(?:sorry|my bad)(?: jarvis)?"), "No problem."))
+                        r"much appreciated)(?: " + NAME + r")? ?)+"), "You're welcome."),
+            (re.compile(rf"(?:hello|hi|hey|hiya|howdy|greetings)(?: there)?(?: {NAME})?"), "Hello{name}."),
+            (re.compile(rf"{_OK}(?:goodbye|bye|bye bye|see you|see you later)(?: {NAME})?"), "Goodbye{name}."),
+            (re.compile(rf"{_OK}good ?night(?: {NAME})?"), "Good night{name}."),
+            (re.compile(rf"(?:oh )?(?:sorry|my bad)(?: {NAME})?"), "No problem."))
 ROOM_ASKS = ("Are you talking to me, sir?", "Was that for me, sir?", "Sorry, were you speaking to me, sir?")
 _asked_room = [0]
 HEARD_ASK = re.compile(r"(?:what|who|where|when|why|how|which|is|are|am|was|were|can|could|would|will|do|does|did|should|"
@@ -691,7 +691,7 @@ def directed(text, answering):
     words = re.findall(r"[a-z']+", said.lower().replace("’", "'"))
     if not words:
         return "no"
-    if said != text or "jarvis" in words or answering:
+    if said != text or "clover" in words or "jarvis" in words or answering:
         return "yes"
     r = route(said)
     if r[0] != "chat":                                         # a command, a guard, a fixed reply: it was meant for him
@@ -713,7 +713,7 @@ def ear_wait():
 def room_talk(text):
     """FR5 N3: long talk with no question, no "you" and not his name: likely meant for someone else in the room."""
     words = re.findall(r"[a-z']+", text.lower().replace("’", "'"))
-    return len(words) >= 25 and "?" not in text and not {"you", "your", "you're", "jarvis"} & set(words)
+    return len(words) >= 25 and "?" not in text and not {"you", "your", "you're", "clover", "jarvis"} & set(words)
 
 
 NEW_TOPIC = re.compile(r"(?:(?:ok|okay|alright),? )?(?:let'?s )?(?:(?:start|have) )?(?:a )?(?:new |change (?:the )?)(?:topic|subject)(?:[,.!?:;-]+\s*|\s*$)", re.I)
@@ -846,7 +846,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         t_click = time.time()
         miss = missing_packages()
         if miss:
-            problem("Setup needed - missing " + ", ".join(miss) + ". Run Control Center > JARVIS > SETUP")
+            problem("Setup needed - missing " + ", ".join(miss) + ". Run Control Center > CLOVER > SETUP")
             return
         if setting("JarvisGPU", "prefer").lower() == "require" and not gpu():   # never a turn on the CPU
             S.set(err="RTX is off - switch the laptop to hybrid graphics (JarvisGPU=require)")
@@ -860,12 +860,12 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         except Exception as e:
             log(f"microphone check failed ({type(e).__name__})")
         if not ensure_ollama():
-            problem("Ollama isn't running or installed - run Control Center > JARVIS > SETUP")
+            problem("Ollama isn't running or installed - run Control Center > CLOVER > SETUP")
             return
         model = pick_model(tier)
         if not model:
             want = setting("JarvisModel", "llama3.1:8b")
-            problem(f"Model {want} is not downloaded (Control Center > JARVIS > MODEL, or: ollama pull {want})")
+            problem(f"Model {want} is not downloaded (Control Center > CLOVER > MODEL, or: ollama pull {want})")
             return
         if follow:
             time.sleep(0.3)                                    # let the last of his own voice fade before the microphone opens
@@ -889,7 +889,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         try:
             text = typed if typed is not None else transcribe(audio)
         except ImportError:
-            problem("Speech recognition isn't installed - run Control Center > JARVIS > SETUP")
+            problem("Speech recognition isn't installed - run Control Center > CLOVER > SETUP")
             return
         log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
         log(f"you: {len(text.split())} words")                # counts only: the words stay in the pop-up log
@@ -1106,7 +1106,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             else:
                 root = vault_dir()
             if not root:
-                extra = "\nNOTE SEARCH: no vault is set (Control Center > JARVIS > NOTES VAULT)."
+                extra = "\nNOTE SEARCH: no vault is set (Control Center > CLOVER > NOTES VAULT)."
             elif hits:
                 extra = "\nNOTE SEARCH RESULTS (from the user's vault - answer from these):\n" + "\n".join(
                     f"- {name}: {snip}" for _, name, snip in hits)
@@ -1163,9 +1163,9 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             _moved.discard(model)
         log(f"timing: end of speech -> reply done {time.time() - t_spoke:.2f}s ({model})")
         if not reply and not cancel.is_set():
-            problem(f"{model} gave no answer - try again, or pick another model in Control Center > JARVIS")
+            problem(f"{model} gave no answer - try again, or pick another model in Control Center > CLOVER")
             return
-        log(f"jarvis: {len(reply)} characters")
+        log(f"clover: {len(reply)} characters")
         way["result"] = "answered"
         recent["me"] = reply
         if not apart and reply:
@@ -1417,7 +1417,7 @@ def wake_loop():
     while True:
         try:
             tier = hud_tier()
-            why = ("turned off" if setting("JarvisWakeWord", "1") != "1" else "Jarvis off"
+            why = ("turned off" if setting("JarvisWakeWord", "1") != "1" else "Clover off"
                    if setting("JarvisEnabled", "1") != "1" else f"HUD tier {tier}" if tier >= 3 else None)
             if why != off:
                 off = why
