@@ -1,0 +1,272 @@
+SPACESHIP HUD + JARVIS (CLOVER) - QUICK GUIDE
+==============================================
+
+HUD    = Rainmeter cockpit skin: system stats, apps, mail, calendar, to-dos, GPU modes.
+JARVIS = local voice assistant (named CLOVER on screen). Python + Ollama, all on your PC.
+
+
+1. SET UP THE HUD (once)
+------------------------
+1. Install Rainmeter 4.5+, then double-click release\Spaceship_HUD_1.0.0.rmskin > Install.
+   (Loads the "Spaceship" layout. Keep Lively Wallpaper running for the animated background.)
+2. Windows settings:
+   - Settings > System > Display > Graphics > add Rainmeter.exe > Power saving
+     (keeps the HUD off the RTX GPU).
+   - Taskbar: transparent (TranslucentTB, Clear) or auto-hide.
+   - Hide desktop icons (right-click desktop > View > Show desktop icons).
+3. Temps / fans / power - HWiNFO64, Sensors-only mode:
+   cog > HWiNFO Gadget > "Enable reporting to Gadget", then "Report value in Gadget" on:
+   CPU Tctl/Tdie, CPU Package Power, CPU Fan, GPU Temp, GPU Power, GPU Fan, GPU Clock,
+   Charge Rate, Remaining/Full Capacity, Wear Level, Drive Temp.
+   Tick Auto Start. Then Control Center > SENSORS > DETECT (-/+ fixes a wrong match).
+   No HWiNFO = those readouts show "--"; everything else works.
+4. GPU modes: install Lenovo Legion Toolkit, Settings > enable the CLI option.
+   If names differ on your version, edit the Llt... lines at the bottom of
+   @Resources\Settings.inc. (Speed test: winget install Ookla.Speedtest.CLI)
+5. Different screen: Control Center > LAYOUT > AUTO-FIT. Extra monitors: see README.
+
+
+2. USING THE HUD
+----------------
+Open settings: right-click any panel > Control Center (or CFG button).
+Hover anything = caption of what it is. Right-click menu: CARGO app drawer, Edit mode,
+Refresh HUD, Play startup sequence.
+
+- Launch app: click its slot (click again = bring the open window to front).
+- Volume: scroll on the round audio panel (bottom right). Brightness / power mode /
+  refresh rate: round systems dial (bottom left), click a label then scroll.
+- Top console: ECO (iGPU only) / HYBRID / AUTO (hybrid on AC) / dGPU (reboot, click twice) /
+  OFF (hide HUD), CARGO, MASTER (instant stealth for gaming/presenting).
+- Second row: power mode, refresh rate, 80% charge limit, graphics tier, dGPU light, CFG.
+- Panels: 8 app slots + 2 big category panels, mission clock (calendar), upkeep block
+  (Gmail unread), reticle (Obsidian to-dos), network, battery, 4 history graphs,
+  alert triangle, Clover core (the orb).
+- Boot animation plays at Rainmeter start (BootAnim=0 to turn off).
+- Performance tiers FULL > LITE > LOW > STEALTH switch automatically by GPU load
+  (PERF tab to tune).
+
+Control Center tabs: MODULES, LAYOUT (nudge/scale/guard), THEME (colour, glow, tint,
+hull, opacity), APPS, SENSORS, PERF, SYSTEM (lock/sleep/restart/shutdown, taskbar),
+PRESETS (save/load whole setup, UNDO LAST LOAD), DATA, CLOVER.
+
+
+3. CONNECT YOUR DATA (Control Center > DATA)
+--------------------------------------------
+- Gmail unread: turn on 2-Step Verification, create an App Password (Google Account >
+  Security > App passwords). DATA > GMAIL > SET UP > enter address + app password.
+  Refreshes every 2 min. CHECK tests it.
+- Calendars: Google Calendar > Settings > your calendar > "Secret address in iCal format".
+  DATA > CALENDARS > MANAGE: paste each link, name it, switch it on. Syncs every 10 min.
+- To-dos: DATA > TO-DO NOTE > BROWSE, pick your Obsidian .md note (open items are
+  "- [ ] task"). Then RETICLE TO-DOS ON.
+- Secrets are stored encrypted for your Windows account. Never paste them into skin files.
+
+
+4. APPS
+-------
+Start menu is scanned on first load and daily; icons extracted automatically.
+Control Center > APPS: ‹ › picks what each slot/panel shows; RESCAN after installing
+something. Add an app: copy an [App.x] block in @Resources\Apps.ini, set
+Target=start:<Start menu name>, add x to a category's Apps= list, RELOAD.
+
+
+5. SET UP JARVIS / CLOVER (once)
+--------------------------------
+1. Control Center > CLOVER tab > SETUP row > RUN SETUP (closes the Control Center and
+   opens a PowerShell window; or double-click Jarvis\Run-Setup.cmd). It asks Y/n at each
+   step and is safe to re-run:
+   a. Python 3 (offers winget install) + packages into a private venv
+      (%LOCALAPPDATA%\SpaceshipHUD\venv).
+   b. Microphone check. If none is found: Windows Settings > Privacy & security >
+      Microphone > allow desktop apps.
+   c. Ollama (offers winget install) + model: type a model name or press Enter for
+      llama3.1:8b (smaller/faster: llama3.2:3b); offers to download it. Sets JarvisModel.
+   d. Natural Kokoro voice (~400 MB, voice bm_lewis) - or N for the Windows voice.
+   e. "Hey Jarvis" wake word (openWakeWord) - Y to enable it.
+   f. Stop words "stop"/"be quiet" while he talks (Vosk ~41 MB).
+   g. Smart note search (ChromaDB ~100 MB) - or keyword search.
+   h. Startup sound: put your own startup.wav (WAV only) in @Resources\Sounds.
+   i. Plays "Clover online." as a voice check, then refreshes the HUD.
+2. Control Center > CLOVER tab (last tab). Check the SERVICE row says RUNNING; if it says
+   OFFLINE press START. CLOVER row: ON, and AUTO-START lit if you want him to start with
+   the HUD.
+3. Pick your model with MODEL < > (only lists models once Clover has started once).
+   FAST MODEL < > = smaller model used while the GPU is busy (default llama3.2:3b).
+4. MICROPHONE < > if Windows default is wrong (list appears after Clover started once).
+   SPEECH RECOGNITION < > picks tiny/base/small/medium (default small.en) and
+   AUTO / CPU / CUDA.
+5. Voice: VOICE row WINDOWS / KOKORO (KOKORO needs setup step d). KOKORO VOICE < > picks
+   Lewis, Emma, Michael, Heart or default blend; SLOWER / FASTER change speed.
+6. CALL ME > CHANGE types what he calls you ("Sir" is the default) and CLEAR removes it.
+7. ABOUT ME > NEW creates Jarvis\about-me.md from a template and opens it: write a couple
+   of paragraphs (who you are, how you like answers; under ~300 words, no passwords) and
+   save. BROWSE picks an existing note instead; EDIT reopens it; CLEAR unlinks it.
+8. TO-DO NOTE > BROWSE: choose your Obsidian to-do .md ("- [ ] task" lines).
+   NOTES VAULT > BROWSE: the folder "search my notes" uses (DEFAULT = the to-do note's folder).
+9. Talk: click the hologram in the middle (chime = listening) or say "Hey Jarvis".
+   The first answer is slow while models load. TYPE TO HIM > TYPE lets you type instead.
+10. Wake word not hearing you? WAKE WORD EASIER; too many false wakes: STRICTER.
+    WAKE TRAINING > TRAIN (~2 min, he tells you what to say) teaches it your voice, and
+    HEY ... JARVIS ON enables "Hey ... (pause) Jarvis" (needs the training).
+    The wake phrase is "Hey Jarvis" (JarvisWakeModel=hey_jarvis); it becomes "Hey Clover"
+    only if you put your own hey_clover.onnx in Jarvis\wake and set JarvisWakeModel to it.
+
+
+6. WHAT CLOVER CAN DO (say it after the wake word, or type via TYPE TO HIM)
+---------------------------------------------------------------------------
+Talk & knowledge
+- Ask anything. He knows time/date, calendar, unread mail, to-dos, open apps, battery,
+  memory, network and sensors (GPU temp, fans, disk space, volume, brightness).
+- Exact answers by code, not the model: clock, dates, sums, unit conversions.
+- Conversation memory: he keeps the whole talk until you change topic ("new topic") or
+  ~20 min pass without talking to him (up to 40 messages). After an answer his ear
+  stays open a few seconds (FOLLOW-UP): reply without the wake word; speech that
+  isn't for him is ignored. Typing: Control Center > TYPE TO HIM > TYPE (a typed
+  "lock my computer" can't be confirmed by voice).
+- Can't look things up online (weather, news, prices): he says so honestly.
+
+Windows control (asks "yes?" first for anything risky; most can be undone with "undo")
+- Apps: "open Chrome" (focuses it if already open), "close <app>".
+- Sound: volume set/up/down ("set volume to 30", "louder"), mute/unmute,
+  microphone mute and level ("set the mic to 40"), "which microphone are you using",
+  "use the headset microphone".
+- Media keys: pause, play, next song, previous.
+- Screen: brightness ("brightness 50", "a bit brighter"), dark/light mode,
+  screenshot (saved in Pictures\Screenshots), "show the desktop".
+- Power: "balanced mode" / "best performance" (asks; only plans your PC lists; power saver refused), lock, sleep,
+  restart, shut down (confirm with "yes" within 15 s), empty the recycle bin.
+- Bluetooth: on/off, "which devices are connected", "connect my headphones", "pair a
+  new device" (opens the page).
+- Settings pages: "sound settings", "night light", "what starts with Windows",
+  "are there updates", and similar.
+- HUD: "stealth mode" (HUD to STEALTH, pop-up only; leave via Control Center).
+- "What did you do?" lists what he did this session; "undo" reverses the last change.
+- Not built, so he answers "I can't do that yet": Wi-Fi, airplane mode, hotspot,
+  wallpaper/resolution/screensaver, hibernate, sign out, unpairing Bluetooth devices,
+  keyboard light.
+
+Alarms, timers, reminders
+- "set a timer for 10 minutes", "alarm for 7", "remind me at 6:30 to call mum",
+  "every weekday at 8:30 remind me to check mail"; "what alarms do I have",
+  "cancel the second one", "snooze 5 minutes" (no length = 5 min). "No, PM" shifts an alarm 12 h.
+- Ringing: say "stop" or "snooze", or click the core. Saved to a file, survive restarts,
+  ring only while Clover runs (not a Windows alarm).
+
+Memory
+- "remember that my dentist is on Fridays", "what do you remember", "forget the dentist",
+  "forget everything" (asks). LEARN FACTS also saves facts about you; "undo" removes one.
+- "what do you know about me", "what do you remember about <topic>".
+
+Notes, to-dos, briefing
+- "search my notes for ..." (by meaning, or keyword). "Good morning" / "brief me" =
+  time, calendar, mail, to-dos, reminders. "Add buy milk to my to-do list" (confirms;
+  never edits or deletes tasks).
+
+Diagnosis
+- "why is my PC slow / hot / is the fan loud", "what's using my CPU / memory / graphics
+  card", "did anything crash today", "is my internet working", "is anything wrong".
+  For a heavy app he asks "want me to close it?"; only a "yes" closes that app (system
+  processes like explorer are refused). WATCH adds a quiet note when something stays wrong.
+
+Personality commands
+- "be serious" / "be brief" / "be playful" / "be natural" (same as the PERSONALITY row);
+  "undo" returns the old mood. Default: playful, 1-3 sentences, calls you "Sir";
+  "Mr. Sorsa" and a serious tone on serious topics (health, money, grief, stress).
+- He calls himself Clover and says Senai Sorsa made him and that he runs locally.
+- "you can talk" ends QUIET IN CLASS (silent pop-up only during calendar events of the
+  class calendar).
+
+Showing the text: with speakers muted, at 0%, or in stealth, answers appear in the
+conversation pop-up (say "show me what you've said" / "close the log").
+Safety: he can only run the actions above; "delete system32" style requests get an
+in-character reply and nothing runs. If unsure what you said ("Did you say ...?"),
+he asks first.
+
+Not built yet: softer voice on headphones; Phase 10 slice 3.
+
+
+7. ADJUSTING CLOVER (Control Center > CLOVER tab, click a button on a row)
+-------------------------------------------------------------------------
+Personality & manner
+  PERSONALITY   PLAYFUL (default, jokes) / MIRROR (calm, jokes only if you do) /
+                SERIOUS (precise, no jokes) / BRIEF (one sentence). Fixed lines like
+                "Done." never change. Wording lives in Jarvis\persona.txt (edit by hand).
+  SERIOUS TOPICS  ON: turns serious on a heavy topic for that turn and the next.
+  TALK LESS     ON: shortest useful answer, no small talk.
+  CALL ME / NAME  CALL ME = what he calls you. NAME has CLOVER and JARVIS buttons:
+                click one to switch what he calls himself and what the panel says (tab,
+                headings, START/STOP row). It applies at once. The wake phrase does NOT
+                change: it still follows the wake model (Hey Jarvis until you train
+                hey_clover, see 7b). NAME ALIASES: edit JarvisNameAliases in
+                Settings.inc (other ways speech-to-text spells his name).
+Memory & privacy
+  LEARN FACTS   AUTO (saves quietly; "undo"/"forget" removes) / ASK / OFF.
+  RECALL        ON/OFF: whether remembered facts go to the model.
+  REMEMBERED FACTS  OPEN to read/edit; FORGET ALL (asks twice).
+  PRIVACY       ON: model sees only counts of calendar, to-dos, open apps.
+  CONVERSATION  OPEN pop-up; CLEAR empties the log; MUTED POP-UP shows answers in the
+                pop-up when speakers are muted.
+Listening
+  WAKE WORD ON/OFF, EASIER/STRICTER, WAKE STRICT (threshold while he talks), WAKE TRAINING,
+  HEY ... JARVIS, MICROPHONE, DUCK MUSIC (lowers other sound while he listens),
+  BARGE-IN OFF / WAKE / VOICE (VOICE = headphones only), STOP KEY (End key stops him),
+  FOLLOW-UP ON/OFF with -/+ seconds (no wake word needed right after an answer),
+  NAME WINDOW, ROOM TALK QUIET/ASK (when unsure you meant him: stay silent or ask),
+  QUIET IN CLASS (USE NEXT = quiet during events of your next event's calendar;
+  say "you can talk" to end), LISTENING SHORTER/LONGER (silence before he answers).
+Brain & speed
+  AI ROUTER (model decides unclear requests), FIRST WORDS (words before he starts
+  speaking), GPU PREFER/REQUIRE, IDLE UNLOAD (frees speech models after N min idle),
+  MODEL MEMORY 2048 (fastest) / 4096 / 8192, NOTE SEARCH SMART/KEYWORD + REINDEX,
+  DIAGNOSIS (ASK = "what is wrong"; WATCH = quiet note when something stays wrong).
+Voice & sound
+  VOICE SPEED -/+ (0.80-1.20, RESET), SOUNDS (CHIME, STARTUP, TEST), CHIME VOLUME.
+Look
+  COLOUR STANDBY/LISTENING/SPEAKING, ORB (brightness B-/B+, size S-/S+), ORB TINT,
+  LAYERS (shell, orbits, dial, bars), MOTION speed.
+Other
+  BLUETOOTH NAMES: say "connect my headphones" once with Bluetooth on to list paired
+  devices, then name them in Settings.inc (JarvisBtNames=<Bluetooth name>=<what you say>;...).
+  LOG opens jarvis.log; SETUP > FOLDER opens Jarvis\.
+
+Settings.inc keys behind these: JarvisEnabled, JarvisAutoStart, JarvisModel,
+  JarvisModelFast, JarvisKeepAlive, JarvisWhisper, JarvisWhisperDevice, JarvisMic,
+  JarvisVoice, JarvisKokoroVoice, JarvisVoiceRate, JarvisVoiceSpeed, JarvisPersonality,
+  JarvisCallMe, JarvisName, JarvisProfile, JarvisVault, ObsidianTodo, JarvisContext,
+  JarvisLearn, JarvisSeriousTopics, JarvisTalkLess, JarvisPrivacy, JarvisRoomAsk,
+  JarvisWakeWord, JarvisBargeIn, JarvisFollowUp, JarvisChime, BootSound, JarvisMutedPopup.
+Phase 10 defaults: Learn auto, RoomAsk 0, SeriousTopics 1, TalkLess 0, Privacy 0, Speed 1.0.
+
+
+7b. OPTIONAL: "HEY CLOVER" WAKE PHRASE (custom wake model)
+-----------------------------------------------------------
+Default is "Hey Jarvis". There is no ready-made Clover model; you train one (free):
+1. Google Colab: open openWakeWord's notebooks/automatic_model_training.ipynb
+   (GitHub: dscripka/openWakeWord). It needs Linux, so use Colab, not your PC.
+2. In the config cell set:  target_phrase = ["hey clover"]   model_name = "hey_clover"
+   (the name must be exactly hey_clover). More samples/steps = better model; if
+   "Clover" is mis-heard try a spelling like "hey clo ver" but keep model_name.
+3. Run all cells. It writes my_custom_model/hey_clover.onnx - download the .onnx.
+4. Put it in  @Resources\Jarvis\wake\hey_clover.onnx  (create the wake folder).
+5. Settings.inc:  JarvisWakeModel=hey_clover.onnx   (replace the hey_jarvis line).
+6. Refresh Rainmeter + restart Clover. WAKE WORD row should say "Hey Clover".
+   Missing/unloadable file = log line "wake: ... not found - using Hey Jarvis" and it
+   falls back to Hey Jarvis.
+7. Tune: WAKE WORD EASIER / STRICTER, then WAKE TRAINING > TRAIN to teach your voice.
+
+
+8. FILES, UPDATES, TROUBLESHOOTING
+----------------------------------
+- Your data lives in @Resources\Data (jarvis_memory.txt, jarvis_reminders.txt,
+  jarvis_log.txt, jarvis.log). Keep it out of git and don't share it.
+- Update the skin: Apply-SpaceshipUpdate.ps1; roll back with -Restore.
+  After an update showing "File not found": exit Rainmeter from the tray and reopen it.
+- Something broke after changes: CONTROL CENTER > PRESETS > UNDO LAST LOAD.
+- Temps show "--": HWiNFO not reporting (step 1.3). Console GPU buttons dead: Legion
+  Toolkit/LltPath. Gmail missing: DATA > GMAIL > CHECK, recreate the app password.
+  Mission clock empty: DATA > CALENDARS > MANAGE, switch one on, SYNC.
+  Reticle shows usage: set the note path, RETICLE TO-DOS ON, items must be "- [ ]".
+  App status always READY: DATA > HELPER (ShipCore), or Refresh HUD.
+  HUD heavy while gaming: MASTER.
+  Clover silent: CLOVER switch on? Ollama running? CLOVER > SERVICE > LOG.
+- Full details: @Resources\Docs\Spaceship-HUD-Guide.md and SETUP.txt.

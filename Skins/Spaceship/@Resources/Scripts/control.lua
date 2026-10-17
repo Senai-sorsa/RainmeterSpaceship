@@ -505,7 +505,7 @@ local function rowsJarvis()
     { 'STOP', function() jcall('StopService()'); say('STOPPING CLOVER') end },
     { 'LOG', function() SKIN:Bang('["notepad.exe" "' .. RES .. 'Data\\jarvis.log"]') end } } }
   local en, au = H.num('JarvisEnabled', 1) == 1, H.num('JarvisAutoStart', 1) == 1
-  rows[#rows + 1] = { 'CLOVER', (en and 'ON' or 'OFF') .. (au and '   starts with the HUD' or '   start it yourself'), {
+  rows[#rows + 1] = { string.upper(H.str('JarvisName', 'Clover')), (en and 'ON' or 'OFF') .. (au and '   starts with the HUD' or '   start it yourself'), {
     { 'ON', function() jset('JarvisEnabled', 1) end, en },
     { 'OFF', function() jset('JarvisEnabled', 0); jcall('StopService()') end, not en },
     { 'AUTO-START', function() jset('JarvisAutoStart', au and 0 or 1) end, au } } }
@@ -735,9 +735,10 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'VOICE SPEED', string.format('%.2f   - 0.80 slow to 1.20 fast; 1.00 is normal (on top of SLOWER / FASTER above)', vs), {
     { '-', function() jbump('JarvisVoiceSpeed', -0.05, 0.8, 1.2, 1.0) end }, { '+', function() jbump('JarvisVoiceSpeed', 0.05, 0.8, 1.2, 1.0) end },
     { 'RESET', function() jset('JarvisVoiceSpeed', 1) end, math.abs(vs - 1) < 0.001 } } }
-  local aname = H.str('JarvisName', 'Clover')
-  rows[#rows + 1] = { 'NAME', (aname ~= '' and aname or 'Clover') .. '   - what he calls himself in answers. Edit JarvisName in Settings.inc', {
-    { 'EDIT', function() SKIN:Bang('["' .. RES .. 'Settings.inc"]'); say('EDIT JarvisName, THEN RELOAD') end } } }
+  local aname = string.lower(H.str('JarvisName', 'Clover'))
+  rows[#rows + 1] = { 'NAME', 'What he calls himself and what this panel says. The wake phrase stays as the wake model says.', {
+    { 'CLOVER', function() jset('JarvisName', 'Clover') end, aname == 'clover' },
+    { 'JARVIS', function() jset('JarvisName', 'Jarvis') end, aname == 'jarvis' } } }
   local rc = string.lower(H.str('JarvisRecall', 'on'))
   local ron = rc ~= 'off' and rc ~= '0'
   rows[#rows + 1] = { 'RECALL', ron and 'ON - remembered facts about a topic are given to the model' or 'OFF - the model sees no remembered facts', {
@@ -763,9 +764,10 @@ local function rowsJarvis()
   local SECTION = { PERSONALITY = 2, ['ABOUT ME'] = 2, ['CALL ME'] = 2, VOICE = 2, ['KOKORO VOICE'] = 2, ['TO-DO NOTE'] = 2, ['NOTES VAULT'] = 2,
     ['NOTE SEARCH'] = 2, ['COLOUR - STANDBY'] = 2, ['COLOUR - LISTENING'] = 2, ['COLOUR - SPEAKING'] = 2, ORB = 2, ['ORB TINT'] = 2,
     LAYERS = 2, MOTION = 2, ['MODEL MEMORY'] = 3, CONVERSATION = 3, ['LEARN FACTS'] = 3, RECALL = 3, ['REMEMBERED FACTS'] = 3 }
-  local HEAD = { { 'CLOVER SETTINGS', 'Service, models, listening, wake word and microphone.' },
-    { 'CLOVER PERSONALIZATION', 'How he talks to you and how the hologram looks.' },
-    { 'CLOVER MEMORY', 'What he remembers; CLEAR empties this log, not his memory.' } }
+  local NM = string.upper(H.str('JarvisName', 'Clover'))
+  local HEAD = { { NM .. ' SETTINGS', 'Service, models, listening, wake word and microphone.' },
+    { NM .. ' PERSONALIZATION', 'How he talks to you and how the hologram looks.' },
+    { NM .. ' MEMORY', 'What he remembers; CLEAR empties this log, not his memory.' } }
   local out = {}
   for s = 1, 3 do
     out[#out + 1] = { HEAD[s][1], HEAD[s][2], {} }
@@ -802,7 +804,7 @@ function Update()
     if on then c:line(TX, y, TX, y + TH, A1, 3) end
     c:rect(TX, y, TW, TH, on and A1 or D, 1)
     -- tabs 9 and 10 use spare text slots (T1_11 is the footer) and tab 10 a spare hit (H1_11.. are the rows)
-    H.text(1, i <= 8 and (2 + i) or (i == 9 and 108 or 109), TX + 16, y + TH / 2, name, { size = 11, font = H.fontText, weight = 700, align = 'LeftCenter', color = on and T or D })
+    H.text(1, i <= 8 and (2 + i) or (i == 9 and 108 or 109), TX + 16, y + TH / 2, i == 10 and string.upper(H.str('JarvisName', 'Clover')) or name, { size = 11, font = H.fontText, weight = 700, align = 'LeftCenter', color = on and T or D })
     local hid = i <= 9 and (1 + i) or 75
     H.hit(1, hid, TX, y, TW, TH, name)
     local ti = i
