@@ -487,7 +487,7 @@ local cap = { key = nil, t = 0 }
 local CAP_TIMEOUT = 6
 
 local function capFormat(tip)
-  -- "Launch RASAero II   scroll: next app" -> "LAUNCH RASAERO II  ▸  SCROLL: NEXT APP"
+  -- "Launch RASAero II   scroll: next app" -> "LAUNCH RASAERO II  |  SCROLL: NEXT APP"
   local s = string.upper(tip or '')
   s = string.gsub(s, '%s%s+%-%s+', '  |  ')
   s = string.gsub(s, '%s%s%s*', '  |  ')

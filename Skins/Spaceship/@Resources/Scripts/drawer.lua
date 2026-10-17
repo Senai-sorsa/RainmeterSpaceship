@@ -13,6 +13,9 @@ function Initialize()
   A = dofile(SKIN:GetVariable('@') .. 'Scripts\\apps.lua')
   H.init()
   A.load()
+  SKIN:Bang('!SetOption', 'Bounds', 'Shape', 'Rectangle 0,0,(#WW#*#Scale#),(#WH#*#Scale#) | Fill Color 0,0,0,1 | StrokeWidth 0')   -- alpha 0 takes no mouse
+  SKIN:Bang('!SetOption', 'Bounds', 'MouseScrollUpAction', '[!CommandMeasure mScript "OnScroll(1,0,-1)"]')
+  SKIN:Bang('!SetOption', 'Bounds', 'MouseScrollDownAction', '[!CommandMeasure mScript "OnScroll(1,0,1)"]')
 end
 
 -- called by a side slot right after it opens the drawer
@@ -27,14 +30,14 @@ local function build()
   if focus then
     for _, app in ipairs(A.cats[focus].apps) do rows[#rows + 1] = { kind = 'app', app = app } end
     rows[#rows + 1] = { kind = 'all' }
-    return
-  end
-  rows[#rows + 1] = { kind = 'cat', cat = A.cats.all, jump = true }
-  for _, id in ipairs(A.catOrder) do
-    local cat = A.cats[id]
-    rows[#rows + 1] = { kind = 'cat', cat = cat }
-    if open[id] then
-      for _, app in ipairs(cat.apps) do rows[#rows + 1] = { kind = 'app', app = app } end
+  else
+    rows[#rows + 1] = { kind = 'cat', cat = A.cats.all, jump = true }
+    for _, id in ipairs(A.catOrder) do
+      local cat = A.cats[id]
+      rows[#rows + 1] = { kind = 'cat', cat = cat }
+      if open[id] then
+        for _, app in ipairs(cat.apps) do rows[#rows + 1] = { kind = 'app', app = app } end
+      end
     end
   end
   local maxScroll = math.max(0, #rows - ROWS)

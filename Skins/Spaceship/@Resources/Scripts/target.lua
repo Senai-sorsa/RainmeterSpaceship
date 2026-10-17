@@ -2,7 +2,7 @@
 --   TO-DO  (ReticleTodo=1 and your Obsidian note has open items): locks onto the next item due - [n] = open
 --          items, readout = countdown, the task name under the rings, the next few items as blips that sit
 --          closer to the centre the sooner they're due.
---          Note format:  - [ ] Statics HW 4 📅 2026-10-14 @17:00   (time optional = 23:59; Tasks plugin
+--          Note format:  - [ ] Statics HW 4 (calendar emoji) 2026-10-14 @17:00   (time optional = 23:59; Tasks plugin
 --          dates and Dataview [due:: 2026-10-14] both work). Set the note in Control Center > DATA.
 --   USAGE  (otherwise): the busiest processes, as before.
 -- It roams the upper windscreen: it glides
@@ -32,8 +32,8 @@ end
 
 -- ---------------------------------------------------------------- Obsidian to-do note
 local todos, todoAt, todoPath = {}, -100, ''
-local CAL = '\240\159\147\133'                      -- 📅
-local ALARM = '\226\143\176'                        -- ⏰
+local CAL = '\240\159\147\133'                      -- calendar emoji
+local ALARM = '\226\143\176'                        -- alarm-clock emoji
 
 local function parseTodos(path)
   local list = {}
