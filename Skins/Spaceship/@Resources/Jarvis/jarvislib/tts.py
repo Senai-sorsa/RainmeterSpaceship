@@ -28,6 +28,14 @@ def voice_rate():
         return 1
 
 
+def voice_speed():
+    """K4: JarvisVoiceSpeed, a multiplier on top of JarvisVoiceRate; 0.8 slow to 1.2 fast, 1.0 as before."""
+    try:
+        return max(0.8, min(1.2, float(setting("JarvisVoiceSpeed", "1"))))
+    except ValueError:
+        return 1.0
+
+
 def _wav_to_array(path):
     import numpy as np
     with wave.open(path, "rb") as wf:
@@ -95,7 +103,7 @@ def _kokoro(voice_path, text):
     if _kokoro_last[0] != name:
         _kokoro_last[0] = name
         log(f"kokoro speaking with voice {name}")
-    speed = max(0.6, min(1.6, 1.0 + (voice_rate() - 1) * 0.08))
+    speed = max(0.6, min(1.6, (1.0 + (voice_rate() - 1) * 0.08) * voice_speed()))
     lang = "en-gb" if name[:1] == "b" or name == "default" else "en-us"
     try:
         samples, rate = eng.create(text, voice=name if mix is None else mix, speed=speed, lang=lang)
@@ -115,7 +123,7 @@ def _piper(voice_path, text):
     fd, path = tempfile.mkstemp(suffix=".wav", prefix="jarvis_")
     os.close(fd)
     try:
-        length = 1.0 - voice_rate() * 0.06
+        length = (1.0 - voice_rate() * 0.06) / voice_speed()
         with wave.open(path, "wb") as wf:
             if hasattr(eng, "synthesize_wav"):
                 try:
@@ -140,7 +148,7 @@ def _windows(text):
     safe_path = path.replace("\\", "/").replace("'", "''")
     ps = ("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
           "$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'en-GB' } | Select-Object -First 1; "
-          f"if ($v) {{ $s.SelectVoice($v.VoiceInfo.Name) }}; $s.Rate = {voice_rate()}; "
+          f"if ($v) {{ $s.SelectVoice($v.VoiceInfo.Name) }}; $s.Rate = {max(-10, min(10, voice_rate() + round((voice_speed() - 1) * 10)))}; "
           f"$s.SetOutputToWaveFile('{safe_path}'); $s.Speak([Console]::In.ReadToEnd()); $s.Dispose()")
     try:
         p = subprocess.Popen(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], stdin=subprocess.PIPE,

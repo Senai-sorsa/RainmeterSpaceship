@@ -1,0 +1,3 @@
+# Pronunciation fixes for the voice only (the screen text is not changed).
+# One per line:  word=how to say it      Example:  Sorsa=Sor-sa
+# Matches whole words, ignores case. Lines starting with # are ignored. Saved changes apply on the next sentence.

@@ -6,6 +6,7 @@ import time
 from .audio import speakers_mute
 from . import quiet
 from .base import ENV_FILE, JARVIS_WORD, S, cancel, live, log, name_until, problem, setting
+from .say import speakable
 from .stopwords import far_add, saying
 from .tts import synth_audio, voice_rate
 
@@ -56,7 +57,7 @@ def speak_all(sentences):
                     continue
                 t1 = time.time()
                 try:
-                    audio = synth_audio(clean)
+                    audio = synth_audio(speakable(clean))
                 except Exception as e:
                     log(f"speech failed: {e}")
                     audio = None

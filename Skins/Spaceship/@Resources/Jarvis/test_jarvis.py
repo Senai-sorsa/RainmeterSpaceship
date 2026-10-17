@@ -3842,4 +3842,30 @@ assert j.route("what do you know about me")[:2] == ("memory", "about") and j.rou
 os.remove(j.MEMORY_FILE)
 M.reset()
 
+# ---- Phase 10 slice 2, checkpoint C: what the voice reads out
+import jarvislib.say as SAY
+import tempfile
+for text, said in (("It is 3:05 PM.", "It is 3 oh 5 PM."), ("Your alarm is at 7:00 AM.", "Your alarm is at 7 AM."),
+                   ("Meet at 10:30.", "Meet at 10 30."), ("It is 72°F outside.", "It is 72 degrees Fahrenheit outside."),
+                   ("The CPU is at 85%.", "The CPU is at 85 percent."), ("Closing chrome.exe now.", "Closing Chrome now."),
+                   ("Wind is 12 mph.", "Wind is 12 miles per hour."), ("You have 8 GB free.", "You have 8 gigabytes free."),
+                   ("Well... fine; go on", "Well, fine, go on"),
+                   ("Hello sir, how can I help?", "Hello sir, how can I help?")):         # an ordinary sentence is unchanged
+    assert SAY.speakable(text) == said, (text, SAY.speakable(text))
+pron = os.path.join(tempfile.mkdtemp(), "pronounce.txt")
+real_pron, SAY.PRONOUNCE_FILE = SAY.PRONOUNCE_FILE, pron
+assert SAY.speakable("Mr. Sorsa is here") == "Mr. Sorsa is here"                          # no file: no fixes
+with open(pron, "w", encoding="utf-8") as f:
+    f.write("# comment\nSorsa=Sor-sa  # trailing comment\nbad line\n")
+assert SAY.speakable("Mr. Sorsa is here") == "Mr. Sor-sa is here" and SAY.speakable("Sorsas") == "Sorsas"
+os.remove(pron)
+SAY._cache[:] = [None, ()]
+SAY.PRONOUNCE_FILE = real_pron
+# K4: JarvisVoiceSpeed is a clamped multiplier
+import jarvislib.tts as TTS
+for value, want in (("1", 1.0), ("1.1", 1.1), ("5", 1.2), ("0.1", 0.8), ("fast", 1.0), ("", 1.0)):
+    j.setting = lambda name, default="", v=value: v if name == "JarvisVoiceSpeed" and v != "" else default
+    assert TTS.voice_speed() == want, (value, TTS.voice_speed())
+j.setting = lambda name, default="": default
+
 print("test_jarvis: OK")
