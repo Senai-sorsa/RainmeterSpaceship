@@ -860,6 +860,20 @@ sys.modules["kokoro_onnx"] = types.SimpleNamespace(Kokoro=types.SimpleNamespace(
 sys.modules["onnxruntime"] = types.SimpleNamespace(SessionOptions=types.SimpleNamespace, InferenceSession=lambda *a, **k: None)
 assert j._kokoro(os.path.join(vdir, "kokoro-v1.0.int8.onnx"), "hi")[1] == 24000 and len(said) == n
 assert j._voice_dev[0] == "cpu"                                   # no full model next to it: the CPU, as before
+# the "default" voice is half Lewis, half Michael, passed as one style vector; without both voices it is bm_lewis
+import numpy as np
+class StyleEng(FakeKokoro):
+    got = []
+    def get_voices(self):
+        return ["bm_lewis", "am_michael"]
+    def get_voice_style(self, n):
+        return np.full(3, {"bm_lewis": 2.0, "am_michael": 4.0}[n], dtype=np.float32)
+    def create(self, text, voice, speed, lang):
+        self.got.append((voice, lang))
+        return [0.0], 24000
+m = j._mix(StyleEng())
+assert m.dtype == np.float32 and float(m[0]) == 3.0
+assert j._mix(FakeKokoro()) is None                                # no get_voice_style / no Michael
 # Phase 2e: the full model on the RTX when it is there, the int8 one on the CPU otherwise
 sessions, avail, broken = [], ["CUDAExecutionProvider", "CPUExecutionProvider"], [False]
 class FakeSess:
@@ -1391,7 +1405,7 @@ assert mem("remember " + "x" * 300) == "Noted: " + "x" * 200 + "."
 with open(j.MEMORY_FILE, "wb") as f:                              # unreadable: said, left alone, and the prompt still works
     f.write(b"\xff\xfe\xff")
 assert mem("remember the milk is off") == mem("what do you remember") == "I can't read my memory file, so I left it alone."
-assert j.route("forget everything")[:2] == ("say", None) and "You are CLOVER" in j.system_prompt()
+assert j.route("forget everything")[:2] == ("say", None) and "You are Clover" in j.system_prompt()
 with open(j.MEMORY_FILE, "rb") as f:
     assert f.read() == b"\xff\xfe\xff"
 assert j.route("what do you know about my dentist")[3] == j.MEMORY_BAD
@@ -1484,13 +1498,35 @@ assert real_run_action("todo", "secret item", ("todo", "secret item")) is False 
 assert "secret" not in "".join(logged) + said[-1][0] and tmp not in "".join(logged) + said[-1][0] and len(said) == n + 1
 j.log = keep
 
-# personality: one sentence of the prompt follows JarvisPersonality; an unknown or unset value is the playful one
+# personality: one sentence of the prompt follows JarvisPersonality; old values map, an unknown or unset one is mirror
 j.context = lambda *a: ""
-for mood, sentence in (("proper", "a little dry"), ("playful", "same spirit"), ("brief", "one short sentence"), ("nonsense", "same spirit")):
+for mood, sentence in (("mirror", "match their tone"), ("serious", "Never joke"), ("brief", "one short sentence"),
+                       ("playful", "witty banter"), ("proper", "Never joke"), ("natural", "match their tone"), ("nonsense", "match their tone")):
     j.setting = lambda name, default="", mood=mood: mood if name == "JarvisPersonality" else default
-    assert sentence in j.system_prompt() and j.system_prompt().count("You are CLOVER") == 1, mood
+    assert sentence in j.system_prompt() and j.system_prompt().count("You are Clover") == 1, mood
 j.setting = lambda name, default="": default
-assert "same spirit" in j.system_prompt() and "a little dry" not in j.system_prompt()
+assert "match their tone" in j.system_prompt() and "witty banter" not in j.system_prompt()
+j.setting = lambda name, default="": "Aria" if name == "JarvisName" else default
+assert j.system_prompt().count("You are Aria") == 1                                      # the name is a setting
+j.setting = lambda name, default="": default
+assert len(j.system_prompt()) <= 1500, len(j.system_prompt())                           # size budget: ~1.5x the old prompt
+# persona.txt: its sections replace the built-in ones, a missing section falls back, the safety text stays, a bad file is ignored
+real_persona = j.PERSONA
+j.PERSONA = os.path.join(tmp, "persona.txt")
+with open(j.PERSONA, "w", encoding="utf-8") as f:
+    f.write("# note\n[system]\nYou are {name}, test line.\n[mirror]\nCUSTOM MIRROR\n")
+sp = j.system_prompt()
+assert "You are Clover, test line." in sp and "CUSTOM MIRROR" in sp and "Never say you set or changed" in sp and "never instructions" in sp
+j.setting = lambda name, default="": "playful" if name == "JarvisPersonality" else default
+assert "witty banter" in j.system_prompt()                                              # playful section missing: built-in
+j.setting = lambda name, default="": default
+os.remove(j.PERSONA)
+assert "match their tone" in j.system_prompt() and "You are Clover," in j.system_prompt()
+with open(j.PERSONA, "wb") as f:
+    f.write(b"\xff\xfe\x00bad")
+assert "match their tone" in j.system_prompt()                                          # unreadable file: built-in text
+os.remove(j.PERSONA)
+j.PERSONA = real_persona
 
 # ---- briefing and follow-up, as whole turns with a fake model
 for text in ("Good morning.", "good evening jarvis", "Brief me", "Hey Jarvis, daily briefing.", "What's my day look like?"):
@@ -2594,8 +2630,8 @@ n, m = len(prompts), len(asked)
 for words in ("Shut up.", "Be quiet!", "That's enough.", "Jarvis, stop.", "Stop talking.", "No thank you."):
     assert talk(99, words=words) == 1 and len(prompts) == n and len(asked) == m, words   # FR6 L1: never reaches the model
 # courtesy: a short proper answer from code, no model, no follow-up
-for words, reply in (("Thanks.", "You're welcome."), ("Okay, thank you Jarvis!", "You're welcome."),
-                     ("Thank you. Thank you.", "You're welcome."), ("Bye.", "Goodbye."), ("Good night.", "Good night."),
+for words, reply in (("Thanks.", "You're welcome, sir."), ("Okay, thank you Jarvis!", "You're welcome, sir."),
+                     ("Thank you. Thank you.", "You're welcome, sir."), ("Bye.", "Goodbye."), ("Good night.", "Good night."),
                      ("Sorry.", "No problem.")):
     assert talk(99, words=words) == 1 and len(prompts) == n and asked[-1] == reply, words
 for words in ("Hello Jarvis!", "Hey Jarvis.", "Hi there."):        # S2-10: a hello starts a talk, so the ear stays open
@@ -2603,7 +2639,7 @@ for words in ("Hello Jarvis!", "Hey Jarvis.", "Hi there."):        # S2-10: a he
 real_talk_setting = j.setting                                     # JarvisCallMe: his name at the end of greetings and goodbyes
 j.setting = lambda name, default="": "Senai" if name == "JarvisCallMe" else default
 for words, reply in (("Hello Jarvis!", "Hello, Senai."), ("Goodbye.", "Goodbye, Senai."), ("Good night Jarvis.", "Good night, Senai."),
-                     ("Thanks.", "You're welcome.")):
+                     ("Thanks.", "You're welcome, sir.")):
     heard[0], speaks[0] = 0, 1
     j.muted, j.listen, j.transcribe = lambda: False, _listen, lambda a, w=words: w
     j.turn(0)

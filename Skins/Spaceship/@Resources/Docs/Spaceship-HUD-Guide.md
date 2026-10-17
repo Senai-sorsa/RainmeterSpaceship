@@ -363,8 +363,8 @@ You can also right-click the hologram, or use Control Center → CLOVER → CONV
 | TO-DO NOTE | The Obsidian note whose open `- [ ]` items Clover (and the reticle) read |
 | SPEECH RECOGNITION | tiny / base / small / medium; AUTO / CPU / GPU |
 | VOICE | Windows built-in, Kokoro (natural) or Piper |
-| KOKORO VOICE | Which Kokoro voice (British: Lewis or Emma; American: Michael or Heart) and speaking speed |
-| PERSONALITY | How he words his own answers: PLAYFUL (default: funny, matches your banter, still answers real questions properly), PROPER (calm and dry) or BRIEF (one sentence). Fixed lines like "Done." never change |
+| KOKORO VOICE | Which Kokoro voice (British: Lewis or Emma; American: Michael or Heart; or DEFAULT, a blend of Lewis and Michael) and speaking speed |
+| PERSONALITY | How CLOVER words his own answers: MIRROR (default: calm, jokes only when you do), SERIOUS (precise, never jokes), BRIEF (one sentence) or PLAYFUL (funny, dark humor welcome, still answers real questions properly). The wording itself is in Jarvis\persona.txt - edit it by hand. Fixed lines like "Done." never change |
 | WAKE WORD | "Hey Jarvis" on/off and its threshold |
 | FOLLOW-UP | ON (default): after a spoken answer he listens a few seconds more, so you can reply without "Hey Jarvis". OFF: every question needs the wake word or a click |
 | LISTENING | Seconds of silence before he answers (default 3 s) |

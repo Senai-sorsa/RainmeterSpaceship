@@ -452,7 +452,7 @@ local function rowsData()
 end
 
 
--- ---------------------------------------------------------------- JARVIS tab
+-- ---------------------------------------------------------------- CLOVER tab
 local JCOLORS = {
   { 'THEME', '' }, { 'CYAN', '0,210,255' }, { 'DEEP BLUE', '30,110,255' }, { 'ICE', '200,235,255' }, { 'VIOLET', '170,110,255' },
   { 'GOLD', '255,190,70' }, { 'EMERALD', '60,255,160' }, { 'CRIMSON', '255,70,90' }, { 'WHITE', '235,245,255' },
@@ -576,16 +576,18 @@ local function rowsJarvis()
     { 'KOKORO', function() if kokoro then jset('JarvisVoice', kokoro) else say('RUN SETUP TO DOWNLOAD THE KOKORO VOICE FIRST') end end, isKokoro } }
   if piper then vbtn[#vbtn + 1] = { 'PIPER', function() jset('JarvisVoice', piper) end, voice ~= '' and not isKokoro } end
   rows[#rows + 1] = { 'VOICE', engine .. '   - if a voice ever fails, that sentence uses the Windows voice', vbtn }
-  local KV = { 'bm_lewis', 'bf_emma', 'am_michael', 'af_heart' }   -- the four to choose from; any other Kokoro name still works in Settings.inc
+  local KV = { 'bm_lewis', 'bf_emma', 'am_michael', 'af_heart', 'default' }   -- the five to choose from; any other Kokoro name still works in Settings.inc
   local KVNAME = { bm_lewis = 'LEWIS (British, male)', bf_emma = 'EMMA (British, female)',
-    am_michael = 'MICHAEL (American, male)', af_heart = 'HEART (American, female)' }
+    am_michael = 'MICHAEL (American, male)', af_heart = 'HEART (American, female)',
+    default = 'DEFAULT (Lewis and Michael blended)' }
   rows[#rows + 1] = { 'KOKORO VOICE', (KVNAME[kv] or kv) .. '   speed ' .. rate .. '   - < > switches voice', {
     { '<', function() jset('JarvisKokoroVoice', cycle(KV, kv, -1)) end },
     { '>', function() jset('JarvisKokoroVoice', cycle(KV, kv, 1)) end },
     { 'SLOWER', function() jbump('JarvisVoiceRate', -1, -5, 5, 1) end },
     { 'FASTER', function() jbump('JarvisVoiceRate', 1, -5, 5, 1) end } } }
-  local mood = string.lower(H.str('JarvisPersonality', 'playful'))
-  if mood ~= 'proper' and mood ~= 'brief' then mood = 'playful' end
+  local mood = string.lower(H.str('JarvisPersonality', 'mirror'))
+  if mood == 'proper' then mood = 'serious' end   -- the old values (same mapping as prompt.py)
+  if mood ~= 'serious' and mood ~= 'brief' and mood ~= 'playful' then mood = 'mirror' end
   local callme = H.str('JarvisCallMe', '')
   rows[#rows + 1] = { 'CALL ME', (callme ~= '' and callme or 'NO NAME') .. '   - what he calls you at the end of greetings and goodbyes', {
     { 'CHANGE', function() SKIN:Bang('!CommandMeasure', 'mInput', 'ExecuteBatch 1') end },
@@ -593,9 +595,10 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'TYPE TO HIM', 'Type instead of speaking - he answers in the log (and aloud unless muted); a spoken yes is not accepted for a typed ask', {
     { 'TYPE', function() SKIN:Bang('!CommandMeasure', 'mAsk', 'ExecuteBatch 1') end } } }
   rows[#rows + 1] = { 'PERSONALITY', string.upper(mood) .. '   - how he words his own answers; fixed lines like "Done." stay the same', {
-    { 'PROPER', function() jset('JarvisPersonality', 'proper') end, mood == 'proper' },
-    { 'PLAYFUL', function() jset('JarvisPersonality', 'playful') end, mood == 'playful' },
-    { 'BRIEF', function() jset('JarvisPersonality', 'brief') end, mood == 'brief' } } }
+    { 'MIRROR', function() jset('JarvisPersonality', 'mirror') end, mood == 'mirror' },
+    { 'SERIOUS', function() jset('JarvisPersonality', 'serious') end, mood == 'serious' },
+    { 'BRIEF', function() jset('JarvisPersonality', 'brief') end, mood == 'brief' },
+    { 'PLAYFUL', function() jset('JarvisPersonality', 'playful') end, mood == 'playful' } } }
   -- the name to say: Clover for the hey_clover.onnx model, else Jarvis (same rule as wake_name() in jarvis.py)
   local wname = string.lower(H.str('JarvisWakeModel', 'hey_jarvis')):match('([^\\/]*)$') == 'hey_clover.onnx' and 'Clover' or 'Jarvis'
   local ww, wsens = H.num('JarvisWakeWord', 1) == 1, H.num('JarvisWakeSensitivity', 0.5)

@@ -39,6 +39,16 @@ def _wav_to_array(path):
     return (a.reshape(-1, ch) if ch > 1 else a), rate
 
 
+def _mix(eng):
+    """The voice name "default": half bm_lewis, half am_michael as one style vector (kokoro-onnx 0.6 takes an array as the
+    voice). None when either voice is missing."""
+    try:
+        return (0.5 * eng.get_voice_style("bm_lewis") + 0.5 * eng.get_voice_style("am_michael")).astype("float32")
+    except Exception as e:
+        log(f"kokoro 'default' voice needs bm_lewis and am_michael ({type(e).__name__}) - using bm_lewis")
+        return None
+
+
 def _kokoro(voice_path, text):
     import glob
     import numpy as np
@@ -72,20 +82,23 @@ def _kokoro(voice_path, text):
         log(f"kokoro loaded ({os.path.basename(used)}, {os.path.basename(bins[-1])}), "
             + ("on the GPU" if _voice_dev[0] == "cuda" else f"{cpu_threads()} threads on the CPU"))
     name = (setting("JarvisKokoroVoice", "bm_lewis").strip().strip('"').split() or ["bm_lewis"])[0]
+    mix = _mix(eng) if name == "default" else None
+    if name == "default" and mix is None:
+        name = "bm_lewis"
     try:
         known = list(eng.get_voices())
     except Exception:
         known = []
-    if known and name not in known:
+    if mix is None and known and name not in known:
         log(f"kokoro voice '{name}' doesn't exist - using bm_lewis (available: {', '.join(known)})")
         name = "bm_lewis" if "bm_lewis" in known else known[0]
     if _kokoro_last[0] != name:
         _kokoro_last[0] = name
         log(f"kokoro speaking with voice {name}")
     speed = max(0.6, min(1.6, 1.0 + (voice_rate() - 1) * 0.08))
-    lang = "en-gb" if name[:1] == "b" else "en-us"
+    lang = "en-gb" if name[:1] == "b" or name == "default" else "en-us"
     try:
-        samples, rate = eng.create(text, voice=name, speed=speed, lang=lang)
+        samples, rate = eng.create(text, voice=name if mix is None else mix, speed=speed, lang=lang)
     except Exception:
         if _voice_dev[0] == "cuda":
             # shortcut: the CPU until the next idle unload (or 10 minutes), the GPU watch moves only Whisper back

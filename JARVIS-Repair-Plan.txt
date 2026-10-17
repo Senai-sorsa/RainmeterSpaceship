@@ -117,6 +117,12 @@ CURRENT STATE (updated end of the 2026-10-16 "Phase 9" session; READ THIS FIRST)
     only bracket balance of the new row was checked), and every live step in LIVE TEST ... PART 5.
     "Why is my PC slow" takes about 2-4 s (PowerShell start + 1 s counter sample); the 4 s target is for the live test.
     NEXT: PHASE 10 (personality and voice): its FIRST step is telling the user and getting their hand-review.
+  PHASE 10 STATUS (2026-10-17): SLICE 1 BUILT, tested with fakes only, NOT live, not pushed. Plan: tasks/phase10-slice1-plan.md.
+    Done: persona.txt loader (Jarvis\persona.txt, built-in fallback per section), new minimal system text, four moods
+    (mirror default / serious / brief / playful; proper->serious, natural->mirror), Control Center 4-button row,
+    JarvisName setting (default Clover), "You're welcome, sir.", blended "default" voice (Lewis + Michael, kokoro-onnx 0.6.1).
+    NOT DONE: slice 2 (pipeline: serious-topic switch, voice mood commands, auto-remember, speakable() ...), slice 3 / Stage 2.
+    NOT VERIFIED: Lua parse of control.lua, the real prompt against the models, the blended voice by ear, every live step.
   PHASE 8 STATUS (2026-10-15, BUILT, tested with fakes only, NOT live, not pushed): 8a+8b 6d6e50a, 8-A1+8-A2 993b23b,
     8c 70b9fbf, 8d+8-A6 68a92e5. 8-L2 was already true (H.cmd in lib.lua writes .tmp then renames). Typed asks go through
     turn(typed=...) and ask_yes returns False for them (no cross-channel yes). Live steps: LIVE TEST ... PART 4.

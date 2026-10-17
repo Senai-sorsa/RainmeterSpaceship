@@ -666,7 +666,7 @@ ENDERS = re.compile(rf"{_END}(?: {_END})*")
 # "{name}" becomes ", <JarvisCallMe>" (nothing when that setting is empty)
 _OK = r"(?:(?:ok|okay|alright|great|cool|perfect|oh) )?"
 COURTESY = ((re.compile(rf"(?:{_OK}(?:thanks|thank you|thank you so much|thank you very much|thanks a lot|cheers|"
-                        r"much appreciated)(?: " + NAME + r")? ?)+"), "You're welcome."),
+                        r"much appreciated)(?: " + NAME + r")? ?)+"), "You're welcome, sir."),
             (re.compile(rf"(?:hello|hi|hey|hiya|howdy|greetings)(?: there)?(?: {NAME})?"), "Hello{name}."),
             (re.compile(rf"{_OK}(?:goodbye|bye|bye bye|see you|see you later)(?: {NAME})?"), "Goodbye{name}."),
             (re.compile(rf"{_OK}good ?night(?: {NAME})?"), "Good night{name}."),
