@@ -1258,12 +1258,13 @@ def oww_reset(m):
 
 
 _wake_warned = [None]
+_wake_bad = set()                                              # custom wake files that would not load: Hey Jarvis instead
 
 
 def wake_model():
     """JarvisWakeModel -> (model argument, score key). A value ending in .onnx is a file in Jarvis\\wake\\."""
     v = setting("JarvisWakeModel", "hey_jarvis").strip()
-    if v.lower().endswith(".onnx"):
+    if v.lower().endswith(".onnx") and v not in _wake_bad:
         path = os.path.join(RES, "Jarvis", "wake", os.path.basename(v.replace("\\", "/")))
         if os.path.isfile(path):
             return path, os.path.basename(path)[:-5]
@@ -1425,9 +1426,15 @@ def wake_loop():
             return Model(wakeword_models=[arg], inference_framework="onnx", **vad)
         except ImportError:
             raise
-        except Exception:
+        except Exception as e:
             if arg != "hey_jarvis" and os.path.isfile(arg):
-                raise                                          # a custom file that will not load: not a download problem
+                try:
+                    Model(wakeword_models=[arg], inference_framework="onnx")   # without the speech filter: is the file itself bad?
+                except Exception as e2:
+                    _wake_bad.add(setting("JarvisWakeModel", "hey_jarvis").strip())
+                    log(f"wake: {os.path.basename(arg)} would not load ({type(e2).__name__}) - using Hey Jarvis")
+                    return load(**vad)                         # wake_model() now answers hey_jarvis
+                raise e                                        # the file is fine, the speech filter is not: the caller handles it
             openwakeword.utils.download_models(model_names=[arg])   # first run: fetch the shipped model
             return Model(wakeword_models=[arg], inference_framework="onnx", **vad)
 

@@ -3247,6 +3247,10 @@ assert j.wake_model() == (wfile, "hey_clover") and j.wake_name() == "Clover" and
 wconf["JarvisWakeModel"] = "other.onnx"                          # missing: falls back, logs once
 assert j.wake_model() == ("hey_jarvis", "hey_jarvis") and j.wake_model() == ("hey_jarvis", "hey_jarvis")
 assert wlog == ["wake: other.onnx not found - using Hey Jarvis"] and j.wake_name() == "Jarvis", wlog
+wconf["JarvisWakeModel"] = "hey_clover.onnx"                      # a file that would not load: Hey Jarvis, and the name follows
+j._wake_bad.add("hey_clover.onnx")
+assert j.wake_model() == ("hey_jarvis", "hey_jarvis") and j.wake_name() == "Jarvis"
+j._wake_bad.discard("hey_clover.onnx")
 j.RES, j.setting, j.log, j._wake_warned[0] = real_res, real_set, real_log, real_warned
 
 # ---- R5-6 6a: wake word training. Fake clips carry their score as the sample value (500 = 0.5)
