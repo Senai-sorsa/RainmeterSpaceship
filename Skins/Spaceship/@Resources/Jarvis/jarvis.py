@@ -1234,6 +1234,7 @@ WAKE_STYLES = (("hey_jarvis", "Hey Jarvis", 'say "Hey Jarvis"'),
                ("hey", "Hey", 'say just "Hey"'),
                ("jarvis", "bare Jarvis", 'say just "Jarvis"'))
 WAKE_FLOOR = 0.1                       # the lowest normal score a moment needs to count as an example
+HV_FLOOR = 0.3                         # the lowest normal score the trained "Hey Jarvis" check may wake on (0.1-0.26 were all accidents)
 WORD_STYLES = ("hey", "jarvis")        # single words: examples are the moments with speech, not a normal score
                                        # (the normal model knows only the whole phrase, a bare "Hey" may never score)
 
@@ -1354,7 +1355,7 @@ def wake_way(score, held, mine, now, hey_until, need, easy, hard, gap):
     scores by style (only while speech is heard). "Hey" alone never wakes him."""
     if score >= need and held:                                 # W0, the backup: 2 moments in a row
         return "W0", 0.0
-    if score >= WAKE_FLOOR and mine.get("hey_jarvis", 0.0) >= 0.5:   # HV: a soft "Hey Jarvis" in your voice
+    if score >= HV_FLOOR and mine.get("hey_jarvis", 0.0) >= 0.5:   # HV: a soft "Hey Jarvis" in your voice
         return "HV", 0.0
     if now <= hey_until and mine.get("jarvis", 0.0) >= hard:   # HJ: your "Jarvis" within `gap` s of your "Hey"
         return "HJ", 0.0

@@ -3270,8 +3270,8 @@ assert W(now=106.0, until=105.0, jarvis=0.9) == (None, 105.0)       # "Jarvis" 6
 assert W(jarvis=0.9) == (None, 0.0)                                 # "Jarvis" without "Hey": no
 assert W(now=103.0, until=105.0, jarvis=0.3) == (None, 105.0)       # under JarvisWakeHard
 assert W(now=103.0, until=105.0, hey=0.9) == (None, 105.0)          # a second "Hey" does not stretch the wait
-assert W(0.2, hey_jarvis=0.6) == ("HV", 0.0) and W(0.2, hey_jarvis=0.3) == (None, 0.0)   # your soft "Hey Jarvis"
-assert W(0.05, hey_jarvis=0.9) == (None, 0.0)                       # ... still needs the normal score's 0.1
+assert W(0.3, hey_jarvis=0.6) == ("HV", 0.0) and W(0.3, hey_jarvis=0.3) == (None, 0.0)   # your soft "Hey Jarvis"
+assert W(0.29, hey_jarvis=0.9) == (None, 0.0)                       # ... still needs the normal score's HV_FLOOR 0.3
 assert j.wake_way(0.0, False, {"hey": 0.9}, 100.0, 0.0, 0.5, 0.0, 0.35, 5.0) == (None, 0.0)   # JarvisWakeEasy=0: HJ off
 real_data, j.DATA = j.DATA, tempfile.mkdtemp()                       # the checks: only the 3 styles, broken = off
 for name, body in (("wake_hey.pkl", b"broken"), ("wake_hey_pause.pkl", b"old"), ("wake_jarvis.pkl", None)):
