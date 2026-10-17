@@ -3233,6 +3233,22 @@ for m, mod in list(real_oww.items()) + [("sounddevice", real_sd)]:
 j.threading.Thread, j.turn, j.S = real_thread, real_turn, _S()
 j.log, j.setting = (lambda *a: None), default_setting
 
+# ---- JarvisWakeModel: wake_model() / wake_name() (Change 5); temp RES, fake setting and log
+real_res, real_set, real_log, real_warned = j.RES, j.setting, j.log, j._wake_warned[0]
+j.RES, wlog, wconf = tempfile.mkdtemp(), [], {}
+j.setting, j.log = (lambda name, default="": wconf.get(name, default)), wlog.append
+os.makedirs(os.path.join(j.RES, "Jarvis", "wake"))
+assert j.wake_model() == ("hey_jarvis", "hey_jarvis") and j.wake_name() == "Jarvis"
+wfile = os.path.join(j.RES, "Jarvis", "wake", "hey_clover.onnx")
+with open(wfile, "wb") as f:
+    f.write(b"x")
+wconf["JarvisWakeModel"] = "hey_clover.onnx"
+assert j.wake_model() == (wfile, "hey_clover") and j.wake_name() == "Clover" and wlog == []
+wconf["JarvisWakeModel"] = "other.onnx"                          # missing: falls back, logs once
+assert j.wake_model() == ("hey_jarvis", "hey_jarvis") and j.wake_model() == ("hey_jarvis", "hey_jarvis")
+assert wlog == ["wake: other.onnx not found - using Hey Jarvis"] and j.wake_name() == "Jarvis", wlog
+j.RES, j.setting, j.log, j._wake_warned[0] = real_res, real_set, real_log, real_warned
+
 # ---- R5-6 6a: wake word training. Fake clips carry their score as the sample value (500 = 0.5)
 try:
     import numpy as np

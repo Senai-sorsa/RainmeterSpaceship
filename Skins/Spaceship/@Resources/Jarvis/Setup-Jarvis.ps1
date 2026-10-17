@@ -111,6 +111,7 @@ if (Ask 'Install the natural Kokoro voice (~400 MB download, runs on the NVIDIA 
 
 # ------------------------------------------------------------------ 4b. Wake word
 Step 'Wake word ("Hey Jarvis")'
+if (Get-ChildItem (Join-Path $PSScriptRoot 'wake\*.onnx') -ErrorAction SilentlyContinue) { Write-Host 'Custom wake model found in Jarvis\wake (set JarvisWakeModel to use it); Hey Jarvis below is the fallback.' }
 if (Ask 'Install the "Hey Jarvis" wake word (openWakeWord, small, runs on the CPU)?') {
   & $vpy -c "import openwakeword; openwakeword.utils.download_models(model_names=['hey_jarvis']); print('wake word model ready')"
   if ($LASTEXITCODE -eq 0) { Set-Setting 'JarvisWakeWord' '1'; Write-Host 'Say "Hey Jarvis" to wake him (turn it off in Control Center > CLOVER > WAKE WORD).' }

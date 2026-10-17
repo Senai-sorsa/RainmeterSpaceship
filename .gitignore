@@ -33,6 +33,7 @@ Skins/Spaceship/@Resources/Jarvis/**/*.bin
 Skins/Spaceship/@Resources/Jarvis/**/*.wav
 # speech models and other large downloads (Vosk stop-word model, slice F)
 Skins/Spaceship/@Resources/Jarvis/vosk/
+Skins/Spaceship/@Resources/Jarvis/wake/*.onnx
 *.zip
 *.gguf
 *.safetensors

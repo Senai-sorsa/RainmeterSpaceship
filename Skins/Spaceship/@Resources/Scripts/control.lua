@@ -596,15 +596,17 @@ local function rowsJarvis()
     { 'PROPER', function() jset('JarvisPersonality', 'proper') end, mood == 'proper' },
     { 'PLAYFUL', function() jset('JarvisPersonality', 'playful') end, mood == 'playful' },
     { 'BRIEF', function() jset('JarvisPersonality', 'brief') end, mood == 'brief' } } }
+  -- the name to say: Clover for the hey_clover.onnx model, else Jarvis (same rule as wake_name() in jarvis.py)
+  local wname = string.lower(H.str('JarvisWakeModel', 'hey_jarvis')):match('([^\\/]*)$') == 'hey_clover.onnx' and 'Clover' or 'Jarvis'
   local ww, wsens = H.num('JarvisWakeWord', 1) == 1, H.num('JarvisWakeSensitivity', 0.5)
-  rows[#rows + 1] = { 'WAKE WORD', (ww and 'ON - say "Hey Jarvis"' or 'OFF - click the hologram') .. string.format('   threshold %.2f (lower = hears you more easily, higher = fewer false wakes)', wsens), {
+  rows[#rows + 1] = { 'WAKE WORD', (ww and 'ON - say "Hey ' .. wname .. '"' or 'OFF - click the hologram') .. string.format('   threshold %.2f (lower = hears you more easily, higher = fewer false wakes)', wsens), {
     { 'ON', function() jset('JarvisWakeWord', 1) end, ww }, { 'OFF', function() jset('JarvisWakeWord', 0) end, not ww },
     { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
-  rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey Jarvis", "Hey" and "Jarvis" (about 2 minutes; he says what to do)', {
+  rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey ' .. wname .. '", "Hey" and "' .. wname .. '" (about 2 minutes; he says what to do)', {
     { 'TRAIN', function() H.cmd('TRAINWAKE ' .. os.time()); say('CLOVER WILL TELL YOU WHAT TO SAY') end } } }
   local heyOn, gap = H.num('JarvisWakeEasy', 0.5) > 0, H.num('JarvisWakeGap', 5)
-  rows[#rows + 1] = { 'HEY ... JARVIS', heyOn and string.format('ON - your trained "Hey", a pause, then "Jarvis" within %d s wakes him (needs TRAIN)', gap) or 'OFF - only "Hey Jarvis" said together wakes him', {
+  rows[#rows + 1] = { 'HEY ... ' .. string.upper(wname), heyOn and string.format('ON - your trained "Hey", a pause, then "%s" within %d s wakes him (needs TRAIN)', wname, gap) or 'OFF - only "Hey ' .. wname .. '" said together wakes him', {
     { 'ON', function() jset('JarvisWakeEasy', 0.5) end, heyOn }, { 'OFF', function() jset('JarvisWakeEasy', 0) end, not heyOn },
     { '-', function() jbump('JarvisWakeGap', -1, 2, 10, 5) end }, { '+', function() jbump('JarvisWakeGap', 1, 2, 10, 5) end } } }
   local mic, mics = H.str('JarvisMic', ''), models('jarvis_mics.txt')   -- listed by jarvis.py at start
@@ -620,7 +622,7 @@ local function rowsJarvis()
     { '-', function() jbump('JarvisDuckLevel', -10, 10, 80, 30) end }, { '+', function() jbump('JarvisDuckLevel', 10, 10, 80, 30) end } } }
   local barge = string.lower(H.str('JarvisBargeIn', 'wake'))
   if barge ~= 'off' and barge ~= 'voice' then barge = 'wake' end
-  local bargeText = { off = 'OFF - only a click or the stop key stops him', wake = 'WAKE - "Hey Jarvis" while he talks stops him and he listens; "stop" or "be quiet" just stops him',
+  local bargeText = { off = 'OFF - only a click or the stop key stops him', wake = 'WAKE - "Hey ' .. wname .. '" while he talks stops him and he listens; "stop" or "be quiet" just stops him',
     voice = 'VOICE - any speech stops him (HEADPHONES ONLY: on speakers his own voice would); "stop" too' }
   rows[#rows + 1] = { 'BARGE-IN', bargeText[barge], {
     { 'OFF', function() jset('JarvisBargeIn', 'off') end, barge == 'off' },

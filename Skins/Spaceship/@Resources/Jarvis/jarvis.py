@@ -1236,9 +1236,9 @@ def barge_turn(follow):
 # ------------------------------------------------------------------ wake word training (plan R5-6, step 6a)
 # Your own "Hey Jarvis", "Hey" and "Jarvis" become small checks next to the normal score (Fix Round 5 N1).
 # The recordings stay in memory and are never written; only the checks are saved, as Data\wake_<style>.pkl.
-WAKE_STYLES = (("hey_jarvis", "Hey Jarvis", 'say "Hey Jarvis"'),
+WAKE_STYLES = (("hey_jarvis", "Hey {n}", 'say "Hey {n}"'),    # style names are pickle names; {n} = wake_name()
                ("hey", "Hey", 'say just "Hey"'),
-               ("jarvis", "bare Jarvis", 'say just "Jarvis"'))
+               ("jarvis", "bare {n}", 'say just "{n}"'))
 WAKE_FLOOR = 0.1                       # the lowest normal score a moment needs to count as an example
 HV_FLOOR = 0.3                         # the lowest normal score the trained "Hey Jarvis" check may wake on (0.1-0.26 were all accidents)
 WORD_STYLES = ("hey", "jarvis")        # single words: examples are the moments with speech, not a normal score
@@ -1257,6 +1257,27 @@ def oww_reset(m):
         m.vad.prediction_buffer.clear()                   # reset() keeps it: the last clip's speech would count here
 
 
+_wake_warned = [None]
+
+
+def wake_model():
+    """JarvisWakeModel -> (model argument, score key). A value ending in .onnx is a file in Jarvis\\wake\\."""
+    v = setting("JarvisWakeModel", "hey_jarvis").strip()
+    if v.lower().endswith(".onnx"):
+        path = os.path.join(RES, "Jarvis", "wake", os.path.basename(v.replace("\\", "/")))
+        if os.path.isfile(path):
+            return path, os.path.basename(path)[:-5]
+        if _wake_warned[0] != v:                               # once per value, not every 80 ms
+            _wake_warned[0] = v
+            log(f"wake: {v} not found - using Hey Jarvis")
+    return "hey_jarvis", "hey_jarvis"
+
+
+def wake_name():
+    """The name to say after "Hey": Clover for the hey_clover model, else Jarvis."""
+    return "Clover" if wake_model()[1] == "hey_clover" else "Jarvis"
+
+
 def speech_feats(clip, oww):
     """The openWakeWord features of every 80 ms moment of `clip` in which the speech filter hears speech."""
     import numpy as np
@@ -1265,8 +1286,8 @@ def speech_feats(clip, oww):
     for i in range(0, len(clip) - 1280, 1280):
         oww.predict(clip[i:i + 1280])
         if heard_speech(oww):
-            out.append(oww.preprocessor.get_features(oww.model_inputs["hey_jarvis"]))
-    return np.vstack(out) if out else np.empty((0, oww.model_inputs["hey_jarvis"], 96))
+            out.append(oww.preprocessor.get_features(oww.model_inputs[wake_model()[1]]))
+    return np.vstack(out) if out else np.empty((0, oww.model_inputs[wake_model()[1]], 96))
 
 
 # shortcut: a click stops it only between clips (at most 15 s late); a stoppable recorder if that ever matters
@@ -1296,7 +1317,7 @@ def train_wake():
         try:
             clips = {}
             for name, _, how in WAKE_STYLES:
-                reply_line(f"After each ding, {how}. Six times.", False)
+                reply_line(f"After each ding, {how.format(n=wake_name())}. Six times.", False)
                 clips[name] = []
                 for _ in range(6):
                     S.set(state="listening", level=0.0)        # not "speaking": the wake word would keep the microphone
@@ -1309,29 +1330,31 @@ def train_wake():
             neg = record(15)
             if cancel.is_set():
                 return
+            arg, key = wake_model()
             try:                                               # the speech filter picks the moments of a bare word
-                oww = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx", vad_threshold=0.5)
+                oww = Model(wakeword_models=[arg], inference_framework="onnx", vad_threshold=0.5)
             except Exception as e:
                 log(f"train: without the speech filter ({type(e).__name__}) - Hey and bare Jarvis stay off")
-                oww = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+                oww = Model(wakeword_models=[arg], inference_framework="onnx")
             pad = np.zeros(16000, dtype=np.int16)              # the model scores 0 for its first frames
             oww.reset()
-            negf = get_reference_clip_features(np.concatenate([pad, neg]), oww, "hey_jarvis", threshold=0.0, N=1)
+            negf = get_reference_clip_features(np.concatenate([pad, neg]), oww, key, threshold=0.0, N=1)
             word = {n: np.vstack([speech_feats(np.concatenate([pad, c]), oww) for c in clips[n]]) for n in WORD_STYLES}
             made = 0
             old = os.path.join(DATA, "wake_hey_pause.pkl")     # the dropped "Hey ... Jarvis" style
             if os.path.exists(old):
                 os.remove(old)
             for name, label, _ in WAKE_STYLES:
+                label = label.format(n=wake_name())
                 path = os.path.join(DATA, f"wake_{name}.pkl")
                 peak, pos = 0.0, []
                 for c in clips[name]:
                     c = np.concatenate([pad, c])
                     oww.reset()
-                    peak = max([peak] + [oww.predict(c[i:i + 1280])["hey_jarvis"] for i in range(0, len(c) - 1280, 1280)])
+                    peak = max([peak] + [oww.predict(c[i:i + 1280])[key] for i in range(0, len(c) - 1280, 1280)])
                     if name not in WORD_STYLES:
                         oww.reset()
-                        pos.append(get_reference_clip_features(c, oww, "hey_jarvis", threshold=WAKE_FLOOR, N=3))
+                        pos.append(get_reference_clip_features(c, oww, key, threshold=WAKE_FLOOR, N=3))
                 pos = word[name] if name in WORD_STYLES else np.vstack(pos)
                 log(f"train: {label} " + (f"from {len(pos)} word samples" if name in WORD_STYLES
                                           else f"peaks {peak:.2f} ({len(pos)} examples)"))
@@ -1396,13 +1419,16 @@ def wake_loop():
     def load(**vad):
         import openwakeword
         from openwakeword.model import Model
+        arg = wake_model()[0]
         try:
-            return Model(wakeword_models=["hey_jarvis"], inference_framework="onnx", **vad)
+            return Model(wakeword_models=[arg], inference_framework="onnx", **vad)
         except ImportError:
             raise
         except Exception:
-            openwakeword.utils.download_models(model_names=["hey_jarvis"])   # first run: fetch the model
-            return Model(wakeword_models=["hey_jarvis"], inference_framework="onnx", **vad)
+            if arg != "hey_jarvis" and os.path.isfile(arg):
+                raise                                          # a custom file that will not load: not a download problem
+            openwakeword.utils.download_models(model_names=[arg])   # first run: fetch the shipped model
+            return Model(wakeword_models=[arg], inference_framework="onnx", **vad)
 
     def drop():
         """Close the microphone and hand it back."""
@@ -1438,7 +1464,7 @@ def wake_loop():
                 except Exception as e:
                     log(f"wake word: without the speech filter ({type(e).__name__})")
                     model = load()
-                log("wake word ready - say 'Hey Jarvis'")
+                log(f"wake word ready - say 'Hey {wake_name()}'")
             if stream is None:
                 import sounddevice as sd
                 if not mic.acquire(timeout=0.5):               # a turn is recording
@@ -1493,7 +1519,7 @@ def wake_loop():
                 heard_talk += 1
                 if barge == "voice" and getattr(model, "vad", None) is None and not no_vad:
                     no_vad = True
-                    log("barge-in: no speech filter loaded - only 'Hey Jarvis' stops him")
+                    log(f"barge-in: no speech filter loaded - only 'Hey {wake_name()}' stops him")
                 vad = list(getattr(getattr(model, "vad", None), "prediction_buffer", []))[-7:]
                 if barge == "voice" and heard_talk >= 7 and len(vad) == 7 and min(vad) >= 0.5:   # 0.56 s of speech
                     follow = 1                                 # a follow-up: "stop" ends it, anything else is a command
@@ -1506,7 +1532,7 @@ def wake_loop():
             elif follow is None and not talking:
                 mine = {}
                 if checks and heard_speech(model):             # silence costs nothing
-                    feats = model.preprocessor.get_features(model.model_inputs["hey_jarvis"])
+                    feats = model.preprocessor.get_features(model.model_inputs[wake_model()[1]])
                     mine = {n: float(c.predict_proba(feats)[0][-1]) for n, c in checks.items()}
                 try:
                     easy, hard = (float(setting("JarvisWakeEasy", "0.5")), float(setting("JarvisWakeHard", "0.35")))

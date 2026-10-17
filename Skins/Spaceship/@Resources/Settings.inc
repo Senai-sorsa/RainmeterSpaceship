@@ -223,6 +223,8 @@ JarvisContext=2048
 JarvisBars=1
 JarvisSpeed=1
 JarvisWakeSensitivity=0.5
+; wake word model: hey_jarvis (shipped) or a .onnx file name in Jarvis\wake\ (hey_clover.onnx = say "Hey Clover")
+JarvisWakeModel=hey_jarvis
 JarvisVault=
 ; orb animation speed in frames per second (the animation has 210; lower = slower, every frame still shown), and 1 = frames on a black background (key it out)
 JarvisFrameRate=15
