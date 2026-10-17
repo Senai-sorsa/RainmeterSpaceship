@@ -79,7 +79,7 @@ from jarvislib.reminders import (ALARM_CAP, ALARM_SAY, DAYS, NAME_ONLY, REMIND_F
 from jarvislib.diag import HW_LINES, cpu_times, diagnose, hw_value, is_protected, prompt_findings, sensors, watch
 from jarvislib.meaning import MEANING_BLOCK, MEANING_TALK, STAMP, _embed, _vecs, closeness, meaning, vec
 from jarvislib.search import _chroma, _chroma_lock, _chunks, _reindexing, chroma_index, smart_search
-from jarvislib.memory import (ACTIVE_TTL, EARLIER, FOLLOW_START, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
+from jarvislib.memory import (ACTIVE_TTL, TALK_KEEP, TALK_TTL, EARLIER, FOLLOW_START, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
     MEMORY_BAD, MEMORY_FILE, NO_TALK, RECALL_FLOOR, SECRET, TALK_STOP, TOPICS_BAD, TOPICS_FILE, ask_gist, compact,
     fact_save, facts_about, file_talk, gist_day, gist_for, gist_ok, gisting, keywords, load_gist, load_memory,
     load_topics, recall, recall_on, recompact, related, save_gist, save_memory, save_topics, talk_forget, talk_list,
@@ -585,7 +585,7 @@ def index_loop():
 
 
 # ------------------------------------------------------------------ one conversation turn
-history = []          # the active window (M1): the last 2 exchanges, kept while the talk stays on them
+history = []          # the active window (M1): the whole talk (up to TALK_KEEP messages), kept while it stays on topic and within TALK_TTL
 last_turn = 0.0
 
 
@@ -611,11 +611,11 @@ def file_active():
 
 def active(text):
     """The window to send with this question. It is kept when the question is related to it (related()), starts
-    like a follow-up, or is 3 words or fewer; otherwise (or after ACTIVE_TTL) it is filed first."""
-    file_talk(history[:-4])                                    # talk that drops off the window is filed too
-    del history[:-4]
+    like a follow-up, or is 3 words or fewer; otherwise (or after TALK_TTL) it is filed first."""
+    file_talk(history[:-TALK_KEEP])                              # talk that drops off the window is filed too
+    del history[:-TALK_KEEP]
     plain = " ".join(re.sub(r"[^a-z' ]", " ", text.lower().replace("’", "'")).split())
-    if history and (time.time() - last_turn > ACTIVE_TTL or not (
+    if history and (time.time() - last_turn > TALK_TTL or not (
             len(plain.split()) <= 3 or FOLLOW_START.match(plain) or related(text, [m["content"] for m in history]))):
         file_active()
     return list(history)

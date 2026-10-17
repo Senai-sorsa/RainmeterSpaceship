@@ -54,7 +54,9 @@ def fact_save(fact):
     return ("act", "replace_fact", (old, fact), f"You told me '{old}'. Replace it with this? Confirm with yes.")
 
 
-ACTIVE_TTL = 120      # seconds after the last exchange that the window is still sent
+ACTIVE_TTL = 120      # seconds a "just did that" follow-up (volume, app) still refers to the last action
+TALK_TTL = 1200       # seconds after the last exchange that the talk window is still sent (20 min)
+TALK_KEEP = 40        # most messages kept in the window (20 exchanges); fit_context trims further if the model cannot hold them
 TALK_STOP = STOP | set("how who why whom whose its they them their there then than also just really very not don't "
                        "does did has had will well now yes yeah okay please jarvis clover want need know think get got going "
                        "like one some more much many all our out into over too let".split())

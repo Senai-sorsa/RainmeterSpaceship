@@ -2282,7 +2282,7 @@ talk(1, words="How tall is the Eiffel Tower?")                     # a shared ke
 assert past() == ["Tell me about the Eiffel Tower.", "Ha."]
 talk(1, words="And why is it made of iron?")                       # a follow-up start
 talk(1, words="Really?")                                           # 3 words or fewer
-assert len(past()) == 4 and past()[0] == "How tall is the Eiffel Tower?"   # only the last 2 exchanges
+assert len(past()) == 6 and past()[0] == "Tell me about the Eiffel Tower."   # the whole talk is kept, not just 2 exchanges
 talk(1, words="Never mind.")                                       # "never mind" keeps the window
 assert "Really?" in [m["content"] for m in j.history]
 talk(1, words="What's a good pasta recipe for dinner?")            # unlinked: filed and emptied
@@ -2292,7 +2292,7 @@ assert asked[-1] == "Okay." and j.history == []
 talk(1, words="What's a good pasta sauce?")
 talk(1, words="New topic, which pasta sauce goes with fish?")      # the rest is asked with no window
 assert past() == [] and j.history[0]["content"] == "which pasta sauce goes with fish?"
-j.last_turn -= 180                                                 # 3 minutes later: no window, even when linked
+j.last_turn -= 1300                                                # over 20 minutes later: no window, even when linked
 talk(1, words="And which pasta sauce goes with chicken?")
 assert past() == [] and len(j.history) == 2
 talk(1, words="Good morning.")                                     # a briefing neither sends nor files the window
