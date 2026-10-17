@@ -1,4 +1,4 @@
-JARVIS REPAIR PLAN (MASTER COPY)
+﻿JARVIS REPAIR PLAN (MASTER COPY)
 ================================
 Written 2026-10-13 after the first live test. Since then Phases 0-5 have been built and committed, and
 Phase 6 is built up to its live test (all code done; 6i / 6f are measure-only). See "CURRENT STATE"
@@ -118,6 +118,8 @@ CURRENT STATE (updated end of the 2026-10-16 "Phase 9" session; READ THIS FIRST)
     "Why is my PC slow" takes about 2-4 s (PowerShell start + 1 s counter sample); the 4 s target is for the live test.
     NEXT: PHASE 10 (personality and voice): its FIRST step is telling the user and getting their hand-review.
   PHASE 10 STATUS (2026-10-17): SLICE 1 BUILT, tested with fakes only, NOT live, not pushed. Plan: tasks/phase10-slice1-plan.md.
+  PHASE 10 SLICE 2 (2026-10-17): BUILT checkpoints A-D (moods, serious topics, apology rule, auto-remember, promises, room silence, speakable text, pronounce.txt, voice speed, privacy mode, Control Center rows). Fakes only; NOT live, not pushed. Defaults: JarvisLearn auto, JarvisRoomAsk 0, JarvisSeriousTopics 1, JarvisTalkLess 0, JarvisPrivacy 0, JarvisVoiceSpeed 1.0.
+  NOT DONE / STAGE 2: prompt_cases.txt + runner + model comparison (T10), temporary moods, streaming voice, voice training, speaker detection, Hey Clover model, headphone-softer voice (J4), NAME text input in Control Center. Unverified: Lua parse (jarvis.lua, control.lua), real-model behaviour, voices by ear.
     Done: persona.txt loader (Jarvis\persona.txt, built-in fallback per section), new minimal system text, four moods
     (mirror default / serious / brief / playful; proper->serious, natural->mirror), Control Center 4-button row,
     JarvisName setting (default Clover), "You're welcome, sir.", blended "default" voice (Lewis + Michael, kokoro-onnx 0.6.1).
