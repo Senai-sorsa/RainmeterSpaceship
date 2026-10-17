@@ -85,7 +85,7 @@ from jarvislib.memory import (ACTIVE_TTL, EARLIER, FOLLOW_START, GIST_AGE, GIST_
     topic_text, topics_about)
 from jarvislib.routing import (ACTION_TABLE, ACTIONS, AI_CUES, AI_NOT, AI_PROMPT, AI_SCHEMA, AI_WORDS, CANT, CLAIM, CLAIM_LINE,
     CMD_WORDS, FILLER, KEEP, NEAR_MISS, ORDINALS, PHRASES, REFER, SOUNDALIKE, UNBUILT, UNBUILT_ASK, UNBUILT_CAPS,
-    _words, as_said, ask_ai, fix_route, holds_words, interpret, no_claims, pick_last, route, strip_name, tidy)
+    _words, as_said, ask_ai, fix_route, for_me, holds_words, interpret, no_claims, pick_last, route, strip_name, tidy)
 from jarvislib.prompt import (ABOUT_ME, ASKING, BLOCKS, BLOCK_EXAMPLES, BRIEFING, INFO_PROMPT, MOODS, SYSTEM,
     about_me, context, info_blocks, lane_of, no_data, system_prompt, wants)
 
@@ -898,6 +898,12 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             way.update(kind="false_wake")
             log("transcript: nothing after the wake word - ended quietly")
             return
+        if woke and t_spoke - t_listen >= 24:                  # hit the 25 s cap: likely a conversation, not an order
+            mine, step = for_me(text, model)
+            if not mine:
+                way.update(kind="false_wake", result="long talk, not for him - dropped")
+                log(f"transcript: long talk after the wake word - dropped (name/rules/judge: {step}, {len(text.split())} words)")
+                return
         if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
             way.update(result="asked again")
             quiet = muted()

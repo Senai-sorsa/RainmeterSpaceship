@@ -2471,6 +2471,38 @@ j.save_reminders([])
 j.undo.clear()
 j.http_json = real_http
 
+# ---- a wake that recorded to the 25 s cap: for_me() keeps a named line, a command, or a "yes" judge; else it drops
+asks = []
+j.http_json = lambda path, payload=None, timeout=5: asks.append(1) or {"message": {"content": '{"to_assistant": false}'}}
+chatter = ("so we were saying the build is slow and we should look at the cache before the meeting tomorrow and "
+           "then someone has to run Jarvis on the laptop to see if the new settings file loads properly")
+assert j.for_me("Jarvis, what is the weather like today", "m") == (True, "name") and asks == []
+assert j.for_me("Set a timer for ten minutes.", "m") == (True, "rules") and asks == []
+assert j.for_me(chatter, "m") == (False, "judge") and len(asks) == 1                  # a name in the middle is not his name
+ai(None, '{"to_assistant": true}')
+assert j.for_me(chatter, "m") == (True, "judge")
+ai(None, "not json")                                                                  # nonsense: drop
+assert j.for_me(chatter, "m") == (False, "judge")
+j.http_json = lambda *a, **k: (_ for _ in ()).throw(OSError("down"))                  # Ollama down: drop
+assert j.for_me(chatter, "m") == (False, "judge")
+# a whole turn: the wake recorded for 30 s of talk to someone else - no reply, nothing added, no topic filed
+clk, asks, n, h = _Clock(), [], len(prompts), len(j.history)
+j.http_json = lambda path, payload=None, timeout=5: asks.append(1) or {"message": {"content": '{"to_assistant": false}'}}
+j.setting = lambda name, default="": "0" if name == "JarvisFollowUp" else default
+keep_muted, keep_listen, keep_transcribe = j.muted, j.listen, j.transcribe
+j.muted, j.transcribe = lambda: False, lambda a: chatter
+j.listen = lambda **k: setattr(clk, "t", clk.t + 30) or "audio"
+j.time, said_before, topics_before = clk, len(asked), j.load_topics()
+try:
+    j.turn(0, woke=True)
+finally:
+    j.time = time
+assert len(asks) == 1 and len(asked) == said_before and len(prompts) == n and len(j.history) == h and j.load_topics() == topics_before
+assert states[-1] == idle and not j.busy.locked()
+j.muted, j.listen, j.transcribe = keep_muted, keep_listen, keep_transcribe
+j.setting = lambda name, default="": default
+j.http_json = real_http
+
 # ---- Round 4: spoken clock forms, weekdays, "which one?", duplicates, move, snooze, enders, phantoms, "by N"
 for text, want in (("at half past six", "13 18:30"), ("at quarter to 8", "13 19:45"), ("at quarter past 7", "13 19:15"),
                    ("at quarter to 1", "14 00:45"), ("on Monday at 7", "19 07:00"), ("next Friday at 9 am", "16 09:00"),

@@ -232,6 +232,28 @@ def strip_name(text):
     return text[m.end():]
 
 
+# ------------------------------------------------------------------ a wake that recorded to the 25 s cap: was it for him?
+FOR_ME_SCHEMA = {"type": "object", "properties": {"to_assistant": {"type": "boolean"}}, "required": ["to_assistant"]}
+FOR_ME_PROMPT = ("You decide whether a person is speaking TO a voice assistant or talking to other people / thinking aloud. "
+                 "Answer only from the text.")
+
+
+def for_me(text, model):
+    """(keep, step) for a long recording after a wake word. First match wins: his name first (a name later in the
+    sentence does not count), then a real command by the rules, then a local yes/no judge. Anything else, and a judge
+    that is down, slow or nonsense, is a drop."""
+    if strip_name(text) != text:
+        return True, "name"
+    if route(text)[0] != "chat":
+        return True, "rules"
+    words = text.split()
+    short = " ".join(words[:60] + (["..."] + words[-60:] if len(words) > 120 else words[60:]))   # first and last ~60 words
+    try:
+        return bool(chat_json(model, FOR_ME_SCHEMA, FOR_ME_PROMPT, short, 8, 8)["to_assistant"]), "judge"
+    except Exception:
+        return False, "judge"
+
+
 # ------------------------------------------------------------------ autocorrect: a command Whisper got slightly wrong
 FILLER = re.compile(r"\b(?:please|could you|can you|would you|um+|uh+|so|like|just|for me|i want you to|go ahead and)\b,?", re.I)
 SOUNDALIKE = [(r"\bthe value\b", "the volume"), (r"\btime are\b", "timer"), (r"\ba larm\b", "alarm"), (r"\bwon\b", "one"),
