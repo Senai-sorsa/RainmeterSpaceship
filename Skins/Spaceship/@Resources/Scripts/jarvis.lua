@@ -362,7 +362,7 @@ function Update()
   if startedAt and os.time() - startedAt > 25 then
     startedAt = nil
     note = { 'START FAILED', os.time() + 30 }
-    print('Jarvis: the service did not start - open Control Center > JARVIS > LOG (or run SETUP)')
+    print('Clover: the service did not start - open Control Center > CLOVER > LOG (or run SETUP)')
   end
   if note and os.time() <= note[2] then label = note[1] elseif note then note = nil end
   H.text(1, 1, 8, z.h - 26, 'J.A.R.V.I.S', { size = 5, weight = 700, align = 'LeftBottom', color = H.mix(A1, W, 0.3) })

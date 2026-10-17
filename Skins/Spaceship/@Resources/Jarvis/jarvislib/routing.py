@@ -244,7 +244,7 @@ def for_me(text, model):
     that is down, slow or nonsense, is a drop."""
     if strip_name(text) != text:
         return True, "name"
-    if route(text)[0] != "chat":
+    if route(text)[0] not in ("chat", "guard"):   # a danger word in a long chat is not an order
         return True, "rules"
     words = text.split()
     short = " ".join(words[:60] + (["..."] + words[-60:] if len(words) > 120 else words[60:]))   # first and last ~60 words

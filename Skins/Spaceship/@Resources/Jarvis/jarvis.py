@@ -898,7 +898,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             way.update(kind="false_wake")
             log("transcript: nothing after the wake word - ended quietly")
             return
-        if woke and t_spoke - t_listen >= 24:                  # hit the 25 s cap: likely a conversation, not an order
+        if woke and t_spoke - t_listen - onset[0] >= 24:        # hit the 25 s cap (the wait before speech does not count): likely a conversation, not an order
             mine, step = for_me(text, model)
             if not mine:
                 way.update(kind="false_wake", result="long talk, not for him - dropped")
@@ -1275,19 +1275,20 @@ def wake_model():
 
 def wake_name():
     """The name to say after "Hey": Clover for the hey_clover model, else Jarvis."""
-    return "Clover" if wake_model()[1] == "hey_clover" else "Jarvis"
+    return "Clover" if wake_model()[1].lower() == "hey_clover" else "Jarvis"
 
 
 def speech_feats(clip, oww):
     """The openWakeWord features of every 80 ms moment of `clip` in which the speech filter hears speech."""
     import numpy as np
     out = []
+    n = next(iter(oww.model_inputs.values()))          # the loaded model's input length, not the setting (it may have changed since)
     oww_reset(oww)
     for i in range(0, len(clip) - 1280, 1280):
         oww.predict(clip[i:i + 1280])
         if heard_speech(oww):
-            out.append(oww.preprocessor.get_features(oww.model_inputs[wake_model()[1]]))
-    return np.vstack(out) if out else np.empty((0, oww.model_inputs[wake_model()[1]], 96))
+            out.append(oww.preprocessor.get_features(n))
+    return np.vstack(out) if out else np.empty((0, n, 96))
 
 
 # shortcut: a click stops it only between clips (at most 15 s late); a stoppable recorder if that ever matters
@@ -1334,7 +1335,7 @@ def train_wake():
             try:                                               # the speech filter picks the moments of a bare word
                 oww = Model(wakeword_models=[arg], inference_framework="onnx", vad_threshold=0.5)
             except Exception as e:
-                log(f"train: without the speech filter ({type(e).__name__}) - Hey and bare Jarvis stay off")
+                log(f"train: without the speech filter ({type(e).__name__}) - Hey and bare {wake_name()} stay off")
                 oww = Model(wakeword_models=[arg], inference_framework="onnx")
             pad = np.zeros(16000, dtype=np.int16)              # the model scores 0 for its first frames
             oww.reset()
@@ -1532,7 +1533,7 @@ def wake_loop():
             elif follow is None and not talking:
                 mine = {}
                 if checks and heard_speech(model):             # silence costs nothing
-                    feats = model.preprocessor.get_features(model.model_inputs[wake_model()[1]])
+                    feats = model.preprocessor.get_features(next(iter(model.model_inputs.values())))
                     mine = {n: float(c.predict_proba(feats)[0][-1]) for n, c in checks.items()}
                 try:
                     easy, hard = (float(setting("JarvisWakeEasy", "0.5")), float(setting("JarvisWakeHard", "0.35")))
