@@ -520,6 +520,13 @@ assert j.run_action("mic_mute", None, ("mic_mute", None)) and micst[0] and j.don
 assert j.undo_last() == "Microphone unmuted." and not micst[0]
 micst[0] = True
 assert j.run_action("mic_unmute", None) and j.done_line("mic_unmute", None) == "Microphone unmuted." and j.undo_last() == "Microphone muted." and micst[0]
+# P7-04: undo restores the state read before; an unmute of an already-open mic is left unmuted. P7-08: the undo replaces the forward line
+micst[:] = [False, 70]
+assert j.run_action("mic_unmute", None) and j.undo_last() == "Microphone unmuted." and not micst[0] and j.did[-1][1] == j.DID["undo"]
+micst[0] = True
+assert j.run_action("mic_mute", None, ("mic_mute", None)) and j.undo_last() == "Microphone muted." and micst[0]
+j.undo[:] = [j.time.time() + 60, "theme", "mixed"]                # P7-08: the theme before was neither dark nor light
+assert j.undo_last() == "It was mixed before, so I can't put that back."
 micst[:] = [False, 70]
 _Done.returncode = 1190                                           # non-zero exit code
 assert not j.run_action("restart", None, ("restart", None))

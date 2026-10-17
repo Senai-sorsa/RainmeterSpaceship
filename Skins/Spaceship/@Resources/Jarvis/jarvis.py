@@ -175,6 +175,14 @@ def can_undo(what, before=None):
         did_add(what, before)
 
 
+def undone(ok):
+    """A device undo: its history line replaces the forward action run_action just recorded."""
+    if ok:
+        del did[-1:]
+        did_add("undo")
+    return ok
+
+
 def undo_last():
     """Put the last change back if it is under 2 minutes old, and say what is true now."""
     if not undo or time.time() > undo[0]:
@@ -192,41 +200,41 @@ def undo_last():
         undo.clear()
         return " ".join(said)
     if what in ("bluetooth", "bluetooth_off"):                 # back to what was read before
-        ok = (run_action("bluetooth", "on") if before == "on"
-              else run_action("bluetooth_off", None, ("bluetooth_off", None)) if before == "off" else False)
+        ok = undone(run_action("bluetooth", "on") if before == "on"
+                    else run_action("bluetooth_off", None, ("bluetooth_off", None)) if before == "off" else False)
         undo.clear()
         return f"Bluetooth back {bluetooth_radio()}." if ok else "That didn't work."
     if what == "btlink":                                       # the device as it was: connected or not
         addr, name, was = before
-        ok = was is not None and run_action("btlink", (addr, was, name), ("btlink", (addr, was, name)))
+        ok = was is not None and undone(run_action("btlink", (addr, was, name), ("btlink", (addr, was, name))))
         undo.clear()
         return f"{'Connected to' if was else 'Disconnected from'} {name} again." if ok else "That didn't work."
     if what == "power":                                        # the plan that was active, if it is one we may switch to
-        ok = bool(before) and power_key(before) and run_action("power", before, ("power", before))
+        ok = bool(before) and power_key(before) and undone(run_action("power", before, ("power", before)))
         undo.clear()
         return f"Power mode back to {POWER_NAMES.get(power_key(before))}." if ok else "That didn't work."
     if what == "theme":
-        ok = before != "mixed" and run_action("theme", before)
+        ok = before != "mixed" and undone(run_action("theme", before))
         undo.clear()
-        return f"Back to {theme_mode()} mode." if ok else "That didn't work."
+        return f"Back to {theme_mode()} mode." if ok else "It was mixed before, so I can't put that back." if before == "mixed" else "That didn't work."
     if what == "brightness":
-        ok = run_action("brightness", ("set", before))
+        ok = undone(run_action("brightness", ("set", before)))
         undo.clear()
         return f"Brightness back at {screen_brightness()} percent." if ok else "That didn't work."
     if what == "micdev":                                       # the microphone setting as it was
-        ok = run_action("micdev", before, ("micdev", before))
+        ok = undone(run_action("micdev", before, ("micdev", before)))
         undo.clear()
         return f"Back to {before}." if ok and before else "Back to the Windows default microphone." if ok else "That didn't work."
     if what.startswith("mic_"):                                # 7a: put the microphone back as it was read before
         was_muted, percent = before
-        ok = (run_action("mic_level", ("set", percent)) if what == "mic_level"
-              else run_action("mic_mute", None, ("mic_mute", None)) if what == "mic_unmute" else run_action("mic_unmute", None))
+        ok = undone(run_action("mic_level", ("set", percent)) if what == "mic_level"      # mute/unmute: back to the state read before
+                    else run_action("mic_mute", None, ("mic_mute", None)) if was_muted else run_action("mic_unmute", None))
         undo.clear()
         if not ok:
             return "That didn't work."
-        return f"Microphone back at {mic_volume()[1]} percent." if what == "mic_level" else "Microphone muted." if was_muted else "Microphone unmuted."
+        return f"Microphone back at {mic_volume()[1]} percent." if what == "mic_level" else "Microphone muted." if mic_volume()[0] else "Microphone unmuted."
     if what in ("volume", "mute", "unmute"):
-        ok = run_action("volume", ("set", before[1])) if what == "volume" else run_action("mute" if before[0] else "unmute", None)
+        ok = undone(run_action("volume", ("set", before[1])) if what == "volume" else run_action("mute" if before[0] else "unmute", None))
         undo.clear()                                           # an undo is not itself undone
         if not ok:
             return "That didn't work."
@@ -527,7 +535,7 @@ def alarm():
                     said = time.time()
                 S.set(state="listening", level=0.0)
                 # matched and dropped, never kept; an alarm's gap is short, and Whisper runs only if someone speaks
-                heard = hear(patience=1.5) if alarm_at else hear()
+                heard = hear(patience=1.5, duck=False) if alarm_at else hear()
                 nap = snooze_for(heard)                        # before the stop words: "okay, snooze" snoozes
                 if nap and not cancel.is_set():                # rings again once; a repeating one keeps its own series
                     again = time.time() + nap
@@ -871,7 +879,8 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio = None if typed is not None else listen(patience=max(ear_wait(), follow_name_wait()), dim_after=ear_wait()) if follow else listen()
+        wait = ear_wait()
+        audio = None if typed is not None else listen(patience=max(wait, follow_name_wait()), dim_after=wait) if follow else listen()
         if (audio is None and typed is None) or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
@@ -897,7 +906,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         if not text or cancel.is_set():
             return
-        if follow and onset[0] > ear_wait() and strip_name(text) == text:   # 8a: late in the open ear and no name: room talk
+        if follow and onset[0] > wait and strip_name(text) == text:   # 8a: late in the open ear and no name: room talk
             way.update(kind="ear", result="late, no name - dropped")
             log("ear: started late without his name - dropped")
             return
@@ -913,7 +922,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             convo_add("U", text)
             reply_line(room_ask(), muted())
             offer.clear()
-            offer.update(room=text, expires=time.time() + 30 + follow_wait())
+            offer.update(room=text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
             left["again"] = not muted() and "ear"
             return
         convo_add("U", text)
@@ -935,9 +944,12 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             # S2-10: after any reply the ear stays open ("undo" is just one thing it can hear); not after "Cancelled."
             left["again"] = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply) and "ear"
         S.set(err="")
-        fact = offer.pop("fact", None) if time.time() < offer.get("expires", 0) else None
-        room = offer.pop("room", None) if time.time() < offer.get("expires", 0) else None
-        closing = offer.pop("close", None) if time.time() < offer.get("expires", 0) else None
+        # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
+        live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
+                      and (typed_turn[0] or heard_score[0] >= -1.0))
+        fact = offer.pop("fact", None) if live_offer else None
+        room = offer.pop("room", None) if live_offer else None
+        closing = offer.pop("close", None) if live_offer else None
         offer.clear()
         plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
         if room and is_yes(text):                              # "Are you talking to me, sir?" "Yes": answer what was said
@@ -950,7 +962,15 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         if fact and (is_yes(text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
             way.update(kind="memory", action="save", via="rule", lane="command")
-            fixed(memory_reply("save", fact))
+            res = fact_save(fact)                              # an older fact about the same thing asks "Replace?" first
+            if res[0] == "memory":
+                fixed(memory_reply("save", fact))
+            elif ask_yes(res[3], muted()):
+                ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
+                way["result"] = "done" if ok else "failed"
+                fixed("Done." if ok else "That didn't work.")
+            else:
+                fixed(memory_reply("save", fact) + " I kept the old one too.")
             return
         said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(text).lower().replace("’", "'")).split())
         polite = text != room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
@@ -974,33 +994,30 @@ def exchange(tier, follow, woke, mode, left, typed=None):
                 fixed("Okay.")
                 history.clear()                                # "new topic" / "Okay." is not talk to keep
                 return
-        if quiet_talk.TALK.fullmatch(said) and quiet_talk.talk():   # 8c: "you can talk" ends QUIET for this class only
+        if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
             way.update(kind="quiet", via="rule")
+            if not quiet_talk.talk():
+                fixed("I'm not in quiet mode.")
+                return
             quiet = muted()
             fixed("Okay, I can talk." if not quiet else "Okay.")
             return
         # "show me what you've said" / "close the log": handled here, no model needed
         way["kind"] = "log"
         if HIDE_LOG.search(text):
-            S.set(pop="close")
-            reply = "Closing the log."
-            convo_add("J", reply)
-            if not quiet:
-                speak_all([reply])
+            fixed("Closing the log.")
+            S.set(pop="close")                                 # after: a quiet reply_line opens it
             return
         if SHOW_LOG.search(text):
+            fixed("Here's everything we've said.")
             S.set(pop="open")
-            reply = "Here's everything we've said."
-            convo_add("J", reply)
-            if not quiet:
-                speak_all([reply])
             return
         kind, action, target, prompt, via = understand(text, model, quiet, room)
         way.update(kind=kind, action=action, via=via)
         if kind == "room":                                     # asked once; a "yes" answers it in full
             log("transcript: not for me? asked")
             reply_line(room_ask(), quiet)
-            offer.update(room=text, expires=time.time() + 30 + follow_wait())
+            offer.update(room=text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
             left["again"] = not quiet and "ear"
             return
         if kind == "heard":
@@ -1052,7 +1069,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             if line:
                 fixed(line + (" Want me to close it?" if exe else ""))
                 if exe:
-                    offer.update(close=exe, expires=time.time() + 30 + follow_wait())
+                    offer.update(close=exe, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
                 return
             extra, close_offer = prompt_findings(items), exe
         if kind != "act" or prompt is None:
@@ -1067,8 +1084,9 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             if ask_yes(prompt, quiet):
                 ok = run_action(action, target, pending=(action, target))
                 way["result"] = "done" if ok else "failed"
-                unsure = prompt.startswith("Did you say: ")    # then say what really happened, as an unasked command does
-                fixed(("Added." if action == "todo" else done_line(action, target) if unsure or action == "sleep" else "Done.") if ok else "That didn't work.")
+                if action == "stealth":
+                    quiet = True                               # pop-up only: no voice, no open ear
+                fixed(("Added." if action == "todo" else done_line(action, target)) if ok else "That didn't work.")
             else:
                 way["result"] = "left - no yes"
                 log(f"action {action} not confirmed")
@@ -1151,10 +1169,10 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         fact = learnable(text) if kind == "chat" and not cancel.is_set() else ""
         if fact:                                               # M4a-3: one offer; the next turn's yes saves it
             reply_line("Want me to remember that?", quiet)
-            offer.update(fact=fact, expires=time.time() + 30 + follow_wait())
+            offer.update(fact=fact, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
         if close_offer and reply and not cancel.is_set():      # 9e: one offer; the next turn's yes closes it
             reply_line("Want me to close it?", quiet)
-            offer.update(close=close_offer, expires=time.time() + 30 + follow_wait())
+            offer.update(close=close_offer, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
         left["again"] = not quiet and not cancel.is_set() and "ear"   # fixed replies set it in fixed()
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
@@ -1226,13 +1244,17 @@ def heard_speech(oww):
     return bool(vad) and max(vad) >= 0.5
 
 
+def oww_reset(m):
+    m.reset()
+    if hasattr(m, "vad"):
+        m.vad.prediction_buffer.clear()                   # reset() keeps it: the last clip's speech would count here
+
+
 def speech_feats(clip, oww):
     """The openWakeWord features of every 80 ms moment of `clip` in which the speech filter hears speech."""
     import numpy as np
     out = []
-    oww.reset()
-    if hasattr(oww, "vad"):
-        oww.vad.prediction_buffer.clear()             # reset() keeps it: the last clip's speech would count here
+    oww_reset(oww)
     for i in range(0, len(clip) - 1280, 1280):
         oww.predict(clip[i:i + 1280])
         if heard_speech(oww):
@@ -1417,7 +1439,7 @@ def wake_loop():
                 try:
                     stream = sd.InputStream(samplerate=16000, channels=1, dtype="int16", blocksize=1280, device=mic_device())
                     stream.start()
-                    model.reset()
+                    oww_reset(model)
                     mic_bad = False
                     found = wake_checks() if getattr(model, "vad", None) is not None else {}   # re-read: a training may
                     if checks is None or set(found) != set(checks):                               # have just ended
@@ -1446,7 +1468,7 @@ def wake_loop():
                     log(f"stop word heard ({hit})")
                     stop_now("stop word")
                     drop()
-                    model.reset()
+                    oww_reset(model)
                     heard_talk = 0
                     continue
             scores = model.predict(np.asarray(data[:, 0], dtype=np.int16))
@@ -1492,7 +1514,7 @@ def wake_loop():
                 if talking:
                     stop_now("barge-in")
                 drop()
-                model.reset()
+                oww_reset(model)
                 if talking:
                     threading.Thread(target=barge_turn, args=(follow,), daemon=True).start()
                 else:
@@ -1618,9 +1640,9 @@ def main():
                 if not text:
                     pass
                 elif busy.locked():
-                    reply_line("One moment, I'm busy.", muted())
+                    silent_note("One moment, I'm busy.")
                 else:
-                    threading.Thread(target=turn, args=(0,), kwargs={"typed": text}, daemon=True).start()
+                    threading.Thread(target=turn, args=(min(hud_tier(), 2),), kwargs={"typed": text}, daemon=True).start()
             elif parts[0] == "CANCEL":
                 stop_now("click")
             elif parts[0] == "REINDEX":
