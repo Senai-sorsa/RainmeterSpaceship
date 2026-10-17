@@ -106,6 +106,7 @@ assert j.route("open e")[0] == "chat"
 assert j.running_window("e") is None and j.running_window("ex") is None and j.running_window("exe") is None
 assert j.running_window("code") == "Code.exe" and j.running_window("explorer") == "explorer.exe"
 assert j.running_window("plorer") == "explorer.exe" and j.running_window("chr") == "chrome.exe"
+assert j.running_window("google chrome") == "chrome.exe" and j.running_window("my unknown thing") is None    # P7-05: last word retried
 assert j.route("kill explorer")[:3] == ("say", None, None) and "Windows needs it" in j.route("kill explorer")[3], "9e: protected process refused"
 
 # mute / unmute set the state they name, never a toggle
@@ -206,6 +207,12 @@ for heard, want in (("set the brightness to 40", ("set", 40)), ("brightness to 0
                     ("dim the screen", ("step", -10)), ("make the screen brighter", ("step", 10)), ("turn up the brightness", ("step", 10)),
                     ("turn the brightness down a bit", ("step", -10)), ("lower the brightness", ("step", -10)), ("brighten the display", ("step", 10))):
     assert j.route(heard) == ("act", "brightness", want, None), (heard, j.route(heard))
+for heard, want in (("increase brightness by 20", ("step", 20)), ("dim the screen by 30", ("step", -30)), ("dim the screen to 40", ("set", 40)),
+                    ("brighten to 60", ("set", 60))):                                  # P7-02 / P7-03
+    assert j.route(heard) == ("act", "brightness", want, None), (heard, j.route(heard))
+assert j.route("turn the mic up by 20") == ("act", "mic_level", ("step", 20), None) and j.route("toggle bluetooth")[3] != j.CANT
+assert j.route("open microphone settings")[3] != j.CANT
+assert j.route("exit stealth mode") == ("say", None, None, "You leave stealth in the Control Center.")      # P7-07
 assert j.route("set the brightness to 150")[0] == "say" and j.route("why is my screen dim?")[0] == "chat"
 brist[0] = 60
 assert j.run_action("brightness", ("set", 30)) and brist[0] == 30 and j.done_line("brightness", None) == "Brightness is at 30 percent."
@@ -560,6 +567,11 @@ try:
     j.act_close("explorer.exe"); raise AssertionError("9e: act_close must refuse a protected process")
 except OSError:
     assert not ran, "9e: refused before taskkill"
+j.open_windows = lambda: ["ollama.exe"]
+try:
+    j.act_close("ollama.exe"); raise AssertionError("P9-01: act_close must refuse his own model")
+except OSError:
+    assert not ran, "P9-01: refused before taskkill"
 j.open_windows = _ow9
 assert not j.run_action("close", "chrome.exe", ("close", "chrome.exe")) and ran == [["taskkill", "/IM", "chrome.exe"]], "asked, but it stayed open"
 now_t = int(j.time.time())
@@ -1670,6 +1682,8 @@ assert j.route("set the volume to two hundred")[0] != "act" and j.route("set it 
 # ---- he never claims an action: a command no parser took gets a fixed line, and the model is not asked
 for text in ("Change the screen colour to blue.", "set the volume to 30 decibels", "please open the settings app"):
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
+assert j.tidy("un mute") == "unmute" and j.tidy("blue tooth") == "bluetooth" and j.tidy("screen shot") == "screenshot"      # EDGE-06
+assert j.tidy("change the volume from 20 to 60") == "set the volume to 60" and j.tidy("set brightness from 20 to forty") == "set the brightness to forty"   # EDGE-05
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
 for text in ("unpair my headphones", "turn off wifi", 
              "change my wallpaper", "hibernate", "sign out", "log me off"):
@@ -3455,6 +3469,7 @@ assert _f[0]["text"] == "chrome is using the GPU" and _f[0]["closable"], _f
 _f = j.findings({"cpus": 1, "procs": [{"name": "explorer.exe", "pid": 1, "cpu": 90.0}]})
 assert _f[0]["text"] == "explorer is using 90% of the CPU" and _f[0]["closable"] is False, _f
 assert j.is_protected("Explorer.EXE") and not j.is_protected("python") and not j.is_protected("chrome")
+assert j.is_protected("ShipCore.exe") and j.is_own_model("pythonw.exe") and j.is_own_model("Ollama") and not j.is_own_model("chrome")   # P9-01
 for _k in ("cpus", "procs", "cpu_pct", "mem_pct", "disks", "disk_busy", "gpu_util", "gpu", "gpumem", "temps", "throttle", "battery_saver",
            "battery", "wifi", "gateway", "public", "faulty_devices", "events", "reboot_pending", "uptime_days", "jarvis_on_cpu"):
     for _v in (None, [], {}):

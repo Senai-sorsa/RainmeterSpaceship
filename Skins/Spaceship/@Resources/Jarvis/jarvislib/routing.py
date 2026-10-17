@@ -11,7 +11,7 @@ from .mic import pick_mic
 from .base import log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
-from .diag import is_protected
+from .diag import is_own_model, is_protected
 from .llm import chat_json
 from .memory import ACTIVE_TTL, MEMORY_BAD, fact_save, facts_about, load_gist, load_memory, load_topics, save_gist, save_memory, save_topics, talk_forget, talk_list
 from .reminders import reminder_cmd, snooze_for
@@ -72,7 +72,9 @@ def interpret(model, text):
     """What the AI made of a missed command, as a checked route; None when there is none or it can't be trusted."""
     t0, low = time.time(), text.lower()
     heard = set(_words(text))
-    nums = {_num(w) for w in heard} - {None}
+    nums = {_num(w) for w in heard if w not in ("a", "an")} - {None}      # "a bit" is not the number 1
+    said_nums = [_num(w) for w in _words(text) if w not in ("a", "an")]
+    last = next((x for x in reversed(said_nums) if x is not None), None)   # "40 no wait 60": only 60 counts
     said = lambda s: all(w in heard or w in ("at", "in", "for", "to", "the", "and") or _num(w) in nums for w in _words(s))
     try:
         prompt = AI_PROMPT.replace("{now}", datetime.now().strftime("%A %d %B %Y, %I:%M %p"))
@@ -91,14 +93,14 @@ def interpret(model, text):
             noun = "timer" if "timer" in low else "reminder" if "remind" in low else "alarm"
             spec = " ".join(x for x in (bare, label) if x)
             n = c.get("number")
-            if intent == "volume_set" and not (isinstance(n, int) and 0 <= n <= 100 and n in nums):
+            if intent == "volume_set" and not (isinstance(n, int) and 0 <= n <= 100 and n == last):
                 raise ValueError("volume not said")
             down, step_by = False, ""
             if intent == "volume_step":
                 down, up = bool(AI_DOWN.search(low)), bool(AI_UP.search(low))
                 if down == up:                                 # neither way, or both ("be quiet, turn up"): do not guess
                     raise ValueError("not what was said")
-                step_by = f" by {n}" if isinstance(n, int) and 1 <= n <= 100 and n in nums else ""
+                step_by = f" by {n}" if isinstance(n, int) and 1 <= n <= 100 and n == last else ""
             sentence = {
                 "alarm_set": f"set an alarm {at}".strip(),
                 "reminder_set": f"remind me {label if re.match(r'(?:to|about|that) ', label) or not label else 'to ' + label} {at}".strip(),
@@ -204,11 +206,9 @@ CANT = "I can't do that yet."
 # S2-8 capability table, the part not built yet: a request for one is said by code before the model (it would answer
 # "done"). What IS built: ACTIONS, the reminder / volume / media lanes. Phase 7-0 folds both into one action table.
 UNBUILT_CAPS = {
-    "brightness": r"brightness|brighter|dimmer|dim|darker",
-    "bluetooth": r"bluetooth|headphones|earbuds|airpods",
+    "bluetooth": r"unpair|forget (?:my |the )?(?:bluetooth )?(?:headphones|earbuds|airpods)",   # connect / on / off / pair are built
     "wifi": r"wi-?fi|airplane mode|flight mode|hotspot",
     "display": r"wallpaper|(?:desktop )?background|resolution|screen ?saver",
-    "microphone": r"microphone|mic",
     "account": r"hibernat\w*|sign (?:me )?out|log (?:me )?(?:off|out)",
     "keyboard light": r"keyboard (?:light|backlight)",
 }
@@ -235,8 +235,11 @@ def strip_name(text):
 # ------------------------------------------------------------------ autocorrect: a command Whisper got slightly wrong
 FILLER = re.compile(r"\b(?:please|could you|can you|would you|um+|uh+|so|like|just|for me|i want you to|go ahead and)\b,?", re.I)
 SOUNDALIKE = [(r"\bthe value\b", "the volume"), (r"\btime are\b", "timer"), (r"\ba larm\b", "alarm"), (r"\bwon\b", "one"),
-              (r"\bate\b", "eight"), (r"\bfor for\b", "for four"), (r"\bto+ (?=(?:minutes|seconds|hours)\b)", "two ")]
-PHRASES = [(r"^(?:make|change) (?:the )?volume (?:to |at )?(\w+(?: \w+)?)$", r"set the volume to \1")]   # what route() misses
+              (r"\bate\b", "eight"), (r"\bun[- ]mute\b", "unmute"), (r"\bblue tooth\b", "bluetooth"),
+              (r"\bscreen shot\b", "screenshot"), (r"\bfor for\b", "for four"), (r"\bto+ (?=(?:minutes|seconds|hours)\b)", "two ")]
+PHRASES = [(r"^(?:make|change) (?:the )?volume (?:to |at )?(\w+(?: \w+)?)$", r"set the volume to \1"),
+           (r"^(?:make|change|set) (?:the )?volume from \w+(?: \w+)? to (\w+(?: \w+)?)$", r"set the volume to \1"),
+           (r"^(?:make|change|set) (?:the |my )?(screen |display )?brightness from \w+(?: \w+)? to (\w+(?: \w+)?)$", r"set the \1brightness to \2")]   # what route() misses
 CMD_WORDS = ("volume mute unmute timer alarm reminder snooze cancel pause resume skip next previous track song louder "
              "quieter remind minutes seconds hours").split()
 KEEP = set("minute second hour alarms timers reminders tracks songs volumes mutes muted music".split())   # already right
@@ -549,9 +552,10 @@ def route(text):
     if m:                                                      # 7c: both the apps and Windows; "turn off dark mode" is light
         return ("act", "theme", m.group(1) if not cmd.startswith(("turn off", "disable")) else ("light" if m.group(1) == "dark" else "dark"), None)
     bright = r"(?:the |my )?(?:screen |display )?brightness"      # 7c: "a bit" is 10 percent, 0 is allowed
-    bit = r"(?: (?:a )?(?:bit|little|tad)| slightly)?"
+    bit = r"(?: (?:a )?(?:bit|little|tad)| slightly| by (.+?)(?: ?%| percent)?)?"      # "by 20" like volume
     m = (re.match(rf"(?:set|turn|change|put|bring) {bright}(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
-         or re.match(rf"{bright} (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
+         or re.match(rf"{bright} (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+         or re.match(r"(?:dim|brighten|darken)(?: (?:the |my )?(?:screen|display|brightness))? (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
     if m and _num(m.group(1)) is not None:
         n = _num(m.group(1))
         return ("act", "brightness", ("set", int(n)), None) if n <= 100 else ("say", None, None, "I can set it between 0 and 100.")
@@ -559,8 +563,9 @@ def route(text):
          or re.match(rf"make (?:the |my )?(?:screen|display) (brighter|dimmer|darker){bit}$", cmd)
          or re.match(rf"turn (up|down) {bright}{bit}$", cmd) or re.match(rf"turn {bright} (up|down){bit}$", cmd)
          or re.match(rf"(raise|increase|boost|lower|decrease|reduce) {bright}{bit}$", cmd))
-    if m:
-        return ("act", "brightness", ("step", 10 if m.group(1) in ("brighten", "brighter", "up", "raise", "increase", "boost") else -10), None)
+    n = m and (_num(m.group(2)) if m.group(2) else 10)
+    if m and n is not None:
+        return ("act", "brightness", ("step", n if m.group(1) in ("brighten", "brighter", "up", "raise", "increase", "boost") else -n), None)
     mic_word = r"(?:the |my )?(?:mic|microphone)"
     m = re.match(rf"(mute|unmute) {mic_word}$", cmd)
     if m:                                                      # 7a: he cannot hear "unmute" once muted, so mute asks first
@@ -573,11 +578,12 @@ def route(text):
     if m and _num(m.group(1)) is not None:
         n = _num(m.group(1))
         return ("act", "mic_level", ("set", int(n)), None) if n <= 100 else ("say", None, None, "I can set it between 0 and 100.")
-    m = (re.match(rf"turn (up|down) {mic_word}(?: volume| level)?(?: (?:a )?(?:bit|little|tad)| slightly)?$", cmd)
-         or re.match(rf"turn {mic_word}(?: volume| level)? (up|down)(?: (?:a )?(?:bit|little|tad)| slightly)?$", cmd)
-         or re.match(rf"(raise|increase|boost|lower|decrease|reduce) {mic_word}(?: volume| level)?(?: (?:a )?(?:bit|little|tad)| slightly)?$", cmd))
-    if m:
-        return ("act", "mic_level", ("step", 10 if m.group(1) in ("up", "raise", "increase", "boost") else -10), None)
+    m = (re.match(rf"turn (up|down) {mic_word}(?: volume| level)?(?: (?:a )?(?:bit|little|tad)| slightly| by (.+?)(?: ?%| percent)?)?$", cmd)
+         or re.match(rf"turn {mic_word}(?: volume| level)? (up|down)(?: (?:a )?(?:bit|little|tad)| slightly| by (.+?)(?: ?%| percent)?)?$", cmd)
+         or re.match(rf"(raise|increase|boost|lower|decrease|reduce) {mic_word}(?: volume| level)?(?: (?:a )?(?:bit|little|tad)| slightly| by (.+?)(?: ?%| percent)?)?$", cmd))
+    n = m and (_num(m.group(2)) if m.group(2) else 10)
+    if m and n is not None:
+        return ("act", "mic_level", ("step", int(n) if m.group(1) in ("up", "raise", "increase", "boost") else -int(n)), None)
     m = re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd)
     if m:
         return ("act", m.group(1), None, None)
@@ -614,10 +620,12 @@ def route(text):
         return ("act", "media", "next", None)
     if re.match(r"(?:(?:play |go back to )?(?:the )?(?:previous|last) (?:track|song)|go back a (?:track|song)|previous)$", cmd):
         return ("act", "media", "prev", None)
+    if re.fullmatch(r"(?:exit|leave|turn off|disable|get out of) (?:the )?stealth(?: mode)?", cmd):
+        return ("say", None, None, "You leave stealth in the Control Center.")      # it can't be undone by voice
     m = re.match(r"(?:close|quit|exit|kill)\s+(?:the\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
     if m and not re.search(r"\b(log|transcript|history|conversation|chat|pop ?up|window)\b", m.group(1)):
         exe = running_window(m.group(1))
-        if exe and is_protected(exe):                               # 9e: Windows needs it; never reaches taskkill
+        if exe and (is_protected(exe) or is_own_model(exe)):        # 9e: Windows needs it (or it is his own model); never reaches taskkill
             return ("say", None, None, f"I won't close {exe.replace('.exe', '')}, Windows needs it.")
         if exe:
             return ("act", "close", exe, f"You want me to close {exe.replace('.exe', '')}. Unsaved work could be lost. Confirm with yes.")
@@ -646,7 +654,7 @@ def route(text):
         return ("say", None, None, CANT)
     # a command that no parser above took: said plainly, never handed to the model (it would answer "done")
     if (re.match(r"(?:i (?:want|need) (?:you )?to |i'?d like (?:you )?to )?(?:set|turn|change|open|close|mute|cancel|"
-                 r"connect|snooze|switch)\b", cmd)
+                 r"connect|snooze|switch|dim|brighten|toggle)\b", cmd)
             and re.search(r"\b(?:volume|alarms?|timers?|reminders?|apps?|application|bluetooth|microphone|mic|brightness|"
                           r"screen|display|colou?r|settings?|wi-?fi|headphones|speakers?|sound)\b", cmd)
             and not re.match(r"(?:how|why|what|when|who|where|which|can you explain|could you explain)\b", t)):

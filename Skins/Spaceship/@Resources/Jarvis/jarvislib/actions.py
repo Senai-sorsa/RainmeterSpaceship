@@ -43,13 +43,15 @@ def best_app(name):
 
 def running_window(name):
     """An open app (from the HUD's window list) whose exe matches what you said, e.g. 'chrome' -> chrome.exe."""
-    want = re.sub(r"[^a-z0-9]", "", name.lower())
     stems = [(exe, re.sub(r"[^a-z0-9]", "", os.path.splitext(exe)[0].lower())) for exe in open_windows()]
-    # exact name first, then a 3+ letter prefix, then a 4+ letter fragment: "close e" must not pick explorer
-    for ok in (lambda s: s == want, lambda s: len(want) >= 3 and s.startswith(want), lambda s: len(want) >= 4 and want in s):
-        for exe, stem in stems:
-            if want and ok(stem):
-                return exe
+    words = name.lower().split()
+    # the whole name first, then its last word: "google chrome" -> chrome.exe
+    for want in dict.fromkeys([re.sub(r"[^a-z0-9]", "", name.lower()), re.sub(r"[^a-z0-9]", "", words[-1]) if words else ""]):
+        # exact name first, then a 3+ letter prefix, then a 4+ letter fragment: "close e" must not pick explorer
+        for ok in (lambda s: s == want, lambda s: len(want) >= 3 and s.startswith(want), lambda s: len(want) >= 4 and want in s):
+            for exe, stem in stems:
+                if want and ok(stem):
+                    return exe
     return None
 
 
@@ -207,8 +209,11 @@ public static class Bt {
 
 
 def _bt_ps(call, timeout=40):
-    out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", BT_DEV_SCRIPT % call], creationflags=NO_WINDOW,
-                         capture_output=True, text=True, timeout=timeout)
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", BT_DEV_SCRIPT % call], creationflags=NO_WINDOW,
+                             capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise OSError("Windows timed out listing or changing Bluetooth devices")
     if out.returncode:
         raise OSError("Windows would not list or change Bluetooth devices")
     return out.stdout
@@ -369,7 +374,7 @@ def open_windows():
 # action handlers: (description for the confirmation, function). Only these can ever run.
 def act_open(app):
     target = app[1] if os.path.isabs(app[1]) else "shell:AppsFolder\\" + app[1]
-    exe = os.path.basename(app[1]) if app[1].lower().endswith(".exe") else running_window(app[0])
+    exe = os.path.basename(app[1]).lower() if app[1].lower().endswith(".exe") else running_window(app[0])
     core = os.path.join(RES, "Bin", "ShipCore.exe")
     if exe and exe in open_windows() and os.path.exists(core):  # 7-A8: already open: bring that window forward, no second copy
         run_ok([core, "focus", exe, target])
@@ -378,8 +383,8 @@ def act_open(app):
 
 
 def act_close(exe):
-    from .diag import is_protected                           # here, not at the top: diag imports other modules of this package
-    if is_protected(exe):                                     # 9e: defence in depth, the route already refuses
+    from .diag import is_own_model, is_protected             # here, not at the top: diag imports other modules of this package
+    if is_protected(exe) or is_own_model(exe):                # 9e: defence in depth, the route already refuses
         raise OSError("Windows needs it")
     if exe not in open_windows():                             # it went away while you were being asked
         raise OSError("it is not open any more")

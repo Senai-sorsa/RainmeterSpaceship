@@ -191,12 +191,17 @@ SEV = {"heat": 90, "cpu_app": 80, "mem": 78, "disk_full": 76, "gpu": 70, "disk_b
 # they are named "my own model" and are never closable (OWN_MODEL).
 PROTECTED = frozenset({"explorer", "svchost", "csrss", "wininit", "winlogon", "lsass", "services", "smss", "dwm", "system",
                        "registry", "fontdrvhost", "sihost", "ctfmon", "audiodg", "msmpeng", "searchhost", "taskhostw",
-                       "rainmeter", "jarvis"})
+                       "rainmeter", "jarvis", "shipcore"})
 OWN_MODEL = frozenset({"ollama", "python"})
 
 
 def is_protected(name):
     return re.sub(r"\.exe$", "", str(name or "").lower()) in PROTECTED
+
+
+def is_own_model(name):
+    """ollama, python, pythonw...: the stem starts with one of OWN_MODEL; closing one would cut off his own brain."""
+    return re.sub(r"\.exe$", "", str(name or "").lower()).startswith(tuple(OWN_MODEL))
 
 
 def findings(snap):
@@ -345,6 +350,7 @@ def gather(topic, hours=24, own_cpu=False):
     lg = got.get("logs")
     if lg:
         snap["boot"] = lg.get("boot")
+        snap["raw_events"] = lg.get("events")                  # kept so "since the restart" cuts these, not a second read
         snap["events"] = group_events(lg.get("events"))
     return snap
 
@@ -376,8 +382,8 @@ def diagnose(topic, span=None, own_cpu=False):
     if snap is None:
         return COULDNT, []
     if span == "boot" and snap.get("boot") and snap.get("events") is not None:   # the read covered 30 days: cut at the restart
-        lg = snapshot("logs", 720)
-        snap["events"] = group_events((lg or {}).get("events"), since=snap["boot"]) if lg else snap["events"]
+        if snap.get("raw_events") is not None:
+            snap["events"] = group_events(snap["raw_events"], since=snap["boot"])
     items = findings(snap)
     procs, cpus = snap.get("procs"), snap.get("cpus")
     if topic == "wrong":
@@ -489,7 +495,7 @@ def watch(now, skip, show):
 
     def name_it():
         try:
-            snap = gather("cpu", 24, False)
+            snap = gather("cpu" if any(("CPU" in t or "memory" in t) for t in trips) else "storage", 24, False)
             top = (findings(snap) or [None])[0] if snap else None
             show("Heads up: " + (top["text"] if top else trips[0]) + ".")
         finally:
