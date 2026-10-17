@@ -59,6 +59,7 @@ from jarvislib.llm import (_moved, chat_json, chat_stream, chat_to_gpu, ctx_toke
     installed_models, keep_alive, ollama_on_cpu, pick_model, warm)
 from jarvislib.audio import _com, mic_volume, speakers, speakers_mute
 from jarvislib import quiet as quiet_talk
+from jarvislib import mood
 from jarvislib.mic import (_listen, _mic_missing, _duck, follow_name_wait, follow_wait, list_mics, listen, mic_device,
                            onset, unduck)
 from jarvislib.notes import STOP, search_notes, vault_dir
@@ -87,7 +88,7 @@ from jarvislib.routing import (ACTION_TABLE, ACTIONS, AI_CUES, AI_NOT, AI_PROMPT
     CMD_WORDS, FILLER, KEEP, NEAR_MISS, ORDINALS, PHRASES, REFER, SOUNDALIKE, UNBUILT, UNBUILT_ASK, UNBUILT_CAPS,
     _words, as_said, ask_ai, fix_route, for_me, holds_words, interpret, no_claims, pick_last, route, strip_name, tidy)
 from jarvislib.prompt import (ABOUT_ME, ASKING, BLOCKS, BLOCK_EXAMPLES, BRIEFING, INFO_PROMPT, MOODS, SYSTEM,
-    about_me, context, info_blocks, lane_of, no_data, system_prompt, wants)
+    about_me, context, info_blocks, lane_of, mood_key, no_data, system_prompt, wants)
 
 def load_meaning():
     try:
@@ -1142,17 +1143,19 @@ def exchange(tier, follow, woke, mode, left, typed=None):
                         for r in readings if r.startswith("Pending:") and "pending" in want]
         extra += "" if apart else recall(text)                # M2: an earlier talk, only when the question is about it
         extra += INFO_PROMPT if lane == "info" else ""
-        messages = fit_context([{"role": "system", "content": system_prompt(ask, kind) + "".join("\n" + r for r in readings) + extra}],
+        turn_key = mood.turn_mood(text, mood_key(), counted=not follow)   # Phase 10: serious topic / class time; silent
+        adds = mood.additions(text, past[-2]["content"] if len(past) >= 2 else "", turn_key) if lane == "chat" else []
+        messages = fit_context([{"role": "system", "content": system_prompt(ask, kind, turn_key, adds) + "".join("\n" + r for r in readings) + extra}],
                                past, {"role": "user", "content": text})
         collected, spoke = [], None
         way["via"] = "model"
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
         stream = chat_stream(model, messages, 0 if lane == "info" else 0.5)
         if quiet and setting("JarvisMutedPopup", "1") == "1":
-            say_text_only(no_claims(sentences_from(stream, collected), collected), collected)
+            say_text_only(mood.no_hope(no_claims(sentences_from(stream, collected), collected)), collected)
         else:
-            spoke = speak_all(no_claims(sentences_from(stream, collected), collected))
-        reply = "".join(collected).strip()
+            spoke = speak_all(mood.no_hope(no_claims(sentences_from(stream, collected), collected)))
+        reply = mood.clean_reply("".join(collected).strip())
         if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
             reply = spoke
         convo_add("J", reply)                                  # at once: the live line was just cleared (empty: no-op)

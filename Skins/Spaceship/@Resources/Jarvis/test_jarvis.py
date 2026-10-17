@@ -3703,4 +3703,70 @@ j.setting = lambda name, default="": "0" if name == "JarvisWatch" else default  
 assert [_look() for _ in range(4)] == [False] * 4 and not _shown
 j.setting = lambda name, default="": default
 
+# ---- Phase 10 slice 2, checkpoint A: serious topics, class time, turn-only additions, "hope this helps"
+M = j.mood
+M.reset()
+assert M.serious_topic("my grandmother died last week") and M.serious_topic("I failed my exam")
+assert not M.serious_topic("there is a dead pixel on my screen") and not M.serious_topic("kill the process called chrome")
+assert not M.serious_topic("what is the capital of France")
+j.setting = lambda name, default="": "0" if name == "JarvisSeriousTopics" else default   # the switch is off: never serious
+assert not M.serious_topic("my grandmother died last week")
+j.setting = lambda name, default="": default
+# C5: trigger turn + 1 counted turn; a follow-up (not counted) neither ends it nor triggers it
+M.class_time = lambda: False
+assert M.turn_mood("my dog died", "playful") == "serious"
+assert M.turn_mood("and then", "playful", counted=False) == "serious"          # follow-up: still the extra turn
+assert M.turn_mood("and then", "playful", counted=False) == "serious"
+assert M.turn_mood("what is a rocket", "playful") == "serious"                  # the one extra counted turn
+assert M.turn_mood("what is a rocket", "playful") == "playful" and M.state["left"] == 0
+assert M.turn_mood("I failed my exam", "brief") == "serious" and M.turn_mood("hi", "brief") == "serious" and M.turn_mood("hi", "brief") == "brief"
+M.reset()
+M.class_time = lambda: True                                                        # B9: class time -> serious; base mood returns after
+assert M.turn_mood("tell me a joke", "playful") == "serious" and not M.state["topic"]
+M.class_time = lambda: False
+assert M.turn_mood("tell me a joke", "playful") == "playful"
+# additions: an ordinary turn adds nothing; each trigger adds only its own rule
+M.reset()
+assert M.additions("what is the capital of France", "", "playful", hour=14) == []
+assert M.additions("what is the capital of France", "", "playful", hour=2) == [M.ADD["late"]]
+assert M.additions("that's wrong", "", "playful", hour=14) == [M.ADD["apology"]] and "I apologize, sir," in M.ADD["apology"]
+assert M.additions("you are useless", "", "playful", hour=14) == [M.ADD["rude"]]
+assert M.additions("help me with my homework", "", "playful", hour=14) == [M.ADD["homework"]]
+assert M.additions("what do you think of Python", "", "playful", hour=14) == [M.ADD["opinion"]]
+assert M.additions("explain in detail how a jet works", "", "playful", hour=14) == [M.ADD["long"]]
+assert M.additions("Who was Lincoln?", "[Fri 17 Oct, 10:00 AM] who was lincoln", "playful", hour=14) == [M.ADD["repeat"]]
+assert M.additions("Who was Lincoln?", "who was Adams", "playful", hour=14) == []
+j.setting = lambda name, default="": "1" if name == "JarvisPrivacy" else default
+assert M.additions("hello", "", "playful", hour=14) == [M.ADD["privacy"]]
+j.setting = lambda name, default="": default
+M.state["topic"] = True
+assert M.additions("hello", "", "serious", hour=14) == [M.ADD["serious"]] and "Mr. Sorsa" in M.ADD["serious"]
+M.reset()
+assert all(len(v) < 260 for v in M.ADD.values())                                  # each rule is short
+# the prompt: no extras = unchanged size; extras and the turn mood are the only differences
+j.context = lambda *a: ""
+base_len = len(j.system_prompt("hello"))
+assert base_len <= 1500 + 400 and len(j.system_prompt("hello", None, None, ())) == base_len
+sp = j.system_prompt("hello", None, "serious", [M.ADD["apology"]])
+assert "Never joke" in sp and "I apologize, sir," in sp and "witty banter" not in sp
+assert "witty banter" in j.system_prompt("hello") and "I apologize" not in j.system_prompt("hello")
+# E3: only "hope this helps" is banned; "as an AI" is allowed
+assert list(M.no_hope(["Paris is the capital.", "I hope this helps, sir.", "As an AI, I like maps."])) == ["Paris is the capital.", "As an AI, I like maps."]
+assert M.clean_reply("Paris. I hope that helps, sir. Anything else?") == "Paris. Anything else?" and M.clean_reply("Hello sir.") == "Hello sir."
+# whole turns: the real exchange() chooses the mood and the additions
+M.class_time = lambda: False
+M.LATE = range(0)
+prompts.clear()
+say("what is the capital of France")
+assert prompts and "witty banter" in prompts[-1] and "SERIOUS TOPIC" not in prompts[-1] and "I apologize" not in prompts[-1], prompts[-1]
+say("my grandmother died last week")
+assert "Never joke" in prompts[-1] and "SERIOUS TOPIC" in prompts[-1]
+say("what is the capital of France")
+assert "Never joke" in prompts[-1] and "witty banter" not in prompts[-1]           # the one extra turn
+say("what is the capital of France")
+assert "witty banter" in prompts[-1] and "SERIOUS TOPIC" not in prompts[-1]        # back to the setting
+say("you were wrong about that")
+assert "I apologize, sir," in prompts[-1]
+M.reset()
+
 print("test_jarvis: OK")

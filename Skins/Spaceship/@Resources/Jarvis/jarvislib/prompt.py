@@ -182,14 +182,18 @@ def about_me():
     return text
 
 
-def system_prompt(text=None, kind=None):
-    """text / kind: the question, so only the HUD blocks and the profile it needs go in. None = everything."""
+def system_prompt(text=None, kind=None, mood=None, extras=()):
+    """text / kind: the question, so only the HUD blocks and the profile it needs go in. None = everything.
+    mood: this turn's mood key when it differs from the setting (serious topic, class); extras: the few turn-only rules
+    from mood.additions() - an ordinary turn passes none, so its prompt is the same as before."""
     me = about_me() if text is None or kind == "brief" or ABOUT_ME.search(text) else ""
     if me and text is not None and kind != "brief" and len(me) > 500:                # a question about you: the note's start, not all of it
         me = me[:500].rsplit(" ", 1)[0] + " ..."
-    p, key = persona(), mood_key()
+    p, key = persona(), MOOD_ALIAS.get(mood, mood) if mood in MOODS or mood in MOOD_ALIAS else mood_key()
     name = setting("JarvisName", "Clover").strip().strip('"') or "Clover"
     out = ((p.get("system") or SYSTEM_HEAD) + " " + (p.get(key) or MOODS[key]) + " " + SAFE).replace("{name}", name)
+    if extras:
+        out += "".join(x + "\n" for x in extras)
     if me:
         out += ("\nABOUT THE USER (from their own note - use it to personalise answers; don't recite it unless "
                 "asked):\n" + me + "\n")
