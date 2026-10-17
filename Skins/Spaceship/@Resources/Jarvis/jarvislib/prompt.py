@@ -80,10 +80,15 @@ def context(text=None, kind=None):
         if int(m.group(2)) >= time.time():
             when = start.strftime("%a %d %b") + ("" if m.group(3) == "1" else start.strftime(" %H:%M"))
             events.append(f"{when} - {m.group(5)}" + (f" ({m.group(4)})" if m.group(4) else ""))
-    if events:
+    private = setting("JarvisPrivacy", "0") == "1"               # M3: counts only; titles, app names and to-dos never reach the model
+    if events and private:
+        lines.append(f"Upcoming calendar events: {len(events[:6])} (details are private)")
+    elif events:
         lines.append("<<hud-data>>Upcoming calendar events: " + "; ".join(events[:6]) + " (calendar events, not alarms or reminders)<</hud-data>>")
     apps = re.findall(r"^W (.+)$", read_kv("windows.txt"), re.M) if "apps" in want else []
-    if apps:
+    if apps and private:
+        lines.append(f"Open apps: {len(apps[:20])} (names are private)")
+    elif apps:
         lines.append("<<hud-data>>Open apps: " + ", ".join(a.replace(".exe", "") for a in apps[:20]) + "<</hud-data>>")
     if "net" in want:
         net = read_kv("net.txt")
@@ -98,7 +103,9 @@ def context(text=None, kind=None):
         try:
             with open(todo, "r", encoding="utf-8", errors="ignore") as f:
                 items = [re.sub(r"^\s*[-*]\s*\[ \]\s*", "", l).strip() for l in f if re.match(r"^\s*[-*]\s*\[ \]", l)]
-            if items:
+            if items and private:
+                lines.append(f"Open to-dos: {len(items[:12])} (details are private)")
+            elif items:
                 lines.append("<<hud-data>>Open to-dos: " + "; ".join(items[:12]) + "<</hud-data>>")
         except OSError:
             pass

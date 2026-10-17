@@ -44,6 +44,7 @@ class Everywhere:
 
 
 j = Everywhere(jarvis)
+REAL_CONTEXT = j.context      # later tests fake j.context; the privacy test needs the real one
 real_convo_add = jarvis.convo_add                                 # faked further down; the BUG-05 test needs the real one
 j.DUCK_FILE = os.path.join(tempfile.mkdtemp(), "duck.txt")       # never the real Data folder
 j.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
@@ -3767,7 +3768,7 @@ assert M.additions("hello", "", "serious", hour=14) == [M.ADD["serious"]] and "M
 M.reset()
 assert all(len(v) < 260 for v in M.ADD.values())                                  # each rule is short
 # the prompt: no extras = unchanged size; extras and the turn mood are the only differences
-j.context = lambda *a: ""
+real_context, j.context = j.context, lambda *a: ""
 base_len = len(j.system_prompt("hello"))
 assert base_len <= 1500 + 400 and len(j.system_prompt("hello", None, None, ())) == base_len
 sp = j.system_prompt("hello", None, "serious", [M.ADD["apology"]])
@@ -3776,6 +3777,7 @@ assert "witty banter" in j.system_prompt("hello") and "I apologize" not in j.sys
 # E3: only "hope this helps" is banned; "as an AI" is allowed
 assert list(M.no_hope(["Paris is the capital.", "I hope this helps, sir.", "As an AI, I like maps."])) == ["Paris is the capital.", "As an AI, I like maps."]
 assert M.clean_reply("Paris. I hope that helps, sir. Anything else?") == "Paris. Anything else?" and M.clean_reply("Hello sir.") == "Hello sir."
+j.context = real_context
 # whole turns: the real exchange() chooses the mood and the additions
 M.class_time = lambda: False
 M.LATE = range(0)
@@ -3866,6 +3868,14 @@ import jarvislib.tts as TTS
 for value, want in (("1", 1.0), ("1.1", 1.1), ("5", 1.2), ("0.1", 0.8), ("fast", 1.0), ("", 1.0)):
     j.setting = lambda name, default="", v=value: v if name == "JarvisVoiceSpeed" and v != "" else default
     assert TTS.voice_speed() == want, (value, TTS.voice_speed())
+j.setting = lambda name, default="": default
+
+# ---- checkpoint D: privacy mode is enforced in code - counts only reach the model
+j.read_kv = lambda name: "W chrome.exe\nW Code.exe\n"
+assert "Open apps: chrome, Code" in REAL_CONTEXT("which apps are open")
+j.setting = lambda name, default="": "1" if name == "JarvisPrivacy" else default
+ctx = REAL_CONTEXT("which apps are open")
+assert "Open apps: 2 (names are private)" in ctx and "chrome" not in ctx and "Code" not in ctx, ctx
 j.setting = lambda name, default="": default
 
 print("test_jarvis: OK")

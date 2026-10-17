@@ -708,10 +708,36 @@ local function rowsJarvis()
   local wh = H.num('JarvisWakeHard', 0.35)
   rows[#rows + 1] = { 'WAKE STRICT', string.format('%.2f   - the wake-word score needed while he talks or music plays; higher = fewer false wakes', wh), {
     { '-', function() jbump('JarvisWakeHard', -0.05, 0.1, 0.9, 0.35) end }, { '+', function() jbump('JarvisWakeHard', 0.05, 0.1, 0.9, 0.35) end } } }
-  local lrn = string.lower(H.str('JarvisLearn', 'ask'))
-  local lon = lrn ~= 'off' and lrn ~= '0'
-  rows[#rows + 1] = { 'LEARN FACTS', lon and 'ASK - after a chat he may offer to remember a fact about you (never a number or a secret)' or 'OFF - he never offers', {
-    { 'ASK', function() jset('JarvisLearn', 'ask') end, lon }, { 'OFF', function() jset('JarvisLearn', 'off') end, not lon } } }
+  local lrn = string.lower(H.str('JarvisLearn', 'auto'))
+  if lrn == '0' then lrn = 'off' end
+  if lrn ~= 'off' and lrn ~= 'ask' then lrn = 'auto' end
+  rows[#rows + 1] = { 'LEARN FACTS', (lrn == 'auto' and 'AUTO - he saves a fact about you quietly (never a number or a secret); say "undo" or "forget" to remove it'
+    or lrn == 'ask' and 'ASK - after a chat he may offer to remember a fact about you (never a number or a secret)' or 'OFF - he never saves or offers'), {
+    { 'AUTO', function() jset('JarvisLearn', 'auto') end, lrn == 'auto' }, { 'ASK', function() jset('JarvisLearn', 'ask') end, lrn == 'ask' },
+    { 'OFF', function() jset('JarvisLearn', 'off') end, lrn == 'off' } } }
+  local function flag(name, default)
+    local v = string.lower(H.str(name, default))
+    return v ~= '0' and v ~= 'off' and v ~= 'no' and v ~= 'false'
+  end
+  local st = flag('JarvisSeriousTopics', '1')
+  rows[#rows + 1] = { 'SERIOUS TOPICS', st and 'ON - on a heavy topic he turns serious for that turn and the next, then goes back' or 'OFF - he keeps your PERSONALITY on every topic', {
+    { 'ON', function() jset('JarvisSeriousTopics', 1) end, st }, { 'OFF', function() jset('JarvisSeriousTopics', 0) end, not st } } }
+  local tl = flag('JarvisTalkLess', '0')
+  rows[#rows + 1] = { 'TALK LESS', tl and 'ON - he gives the shortest useful answer and skips small talk' or 'OFF', {
+    { 'ON', function() jset('JarvisTalkLess', 1) end, tl }, { 'OFF', function() jset('JarvisTalkLess', 0) end, not tl } } }
+  local pv = flag('JarvisPrivacy', '0')
+  rows[#rows + 1] = { 'PRIVACY', pv and 'ON - the model gets only counts of your calendar, to-dos and open apps, never the details' or 'OFF', {
+    { 'ON', function() jset('JarvisPrivacy', 1) end, pv }, { 'OFF', function() jset('JarvisPrivacy', 0) end, not pv } } }
+  local ra = flag('JarvisRoomAsk', '0')
+  rows[#rows + 1] = { 'ROOM TALK', ra and 'ASK - when he is unsure you meant him, he asks "were you talking to me?"' or 'QUIET - when he is unsure you meant him, he says nothing', {
+    { 'QUIET', function() jset('JarvisRoomAsk', 0) end, not ra }, { 'ASK', function() jset('JarvisRoomAsk', 1) end, ra } } }
+  local vs = H.num('JarvisVoiceSpeed', 1)
+  rows[#rows + 1] = { 'VOICE SPEED', string.format('%.2f   - 0.80 slow to 1.20 fast; 1.00 is normal (on top of SLOWER / FASTER above)', vs), {
+    { '-', function() jbump('JarvisVoiceSpeed', -0.05, 0.8, 1.2, 1.0) end }, { '+', function() jbump('JarvisVoiceSpeed', 0.05, 0.8, 1.2, 1.0) end },
+    { 'RESET', function() jset('JarvisVoiceSpeed', 1) end, math.abs(vs - 1) < 0.001 } } }
+  local aname = H.str('JarvisName', 'Clover')
+  rows[#rows + 1] = { 'NAME', (aname ~= '' and aname or 'Clover') .. '   - what he calls himself in answers. Edit JarvisName in Settings.inc', {
+    { 'EDIT', function() SKIN:Bang('["' .. RES .. 'Settings.inc"]'); say('EDIT JarvisName, THEN RELOAD') end } } }
   local rc = string.lower(H.str('JarvisRecall', 'on'))
   local ron = rc ~= 'off' and rc ~= '0'
   rows[#rows + 1] = { 'RECALL', ron and 'ON - remembered facts about a topic are given to the model' or 'OFF - the model sees no remembered facts', {
