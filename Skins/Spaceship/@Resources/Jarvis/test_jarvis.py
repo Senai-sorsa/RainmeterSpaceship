@@ -1501,11 +1501,11 @@ j.log = keep
 # personality: one sentence of the prompt follows JarvisPersonality; old values map, an unknown or unset one is mirror
 j.context = lambda *a: ""
 for mood, sentence in (("mirror", "match their tone"), ("serious", "Never joke"), ("brief", "one short sentence"),
-                       ("playful", "witty banter"), ("proper", "Never joke"), ("natural", "match their tone"), ("nonsense", "match their tone")):
+                       ("playful", "witty banter"), ("proper", "Never joke"), ("natural", "match their tone"), ("nonsense", "witty banter")):
     j.setting = lambda name, default="", mood=mood: mood if name == "JarvisPersonality" else default
     assert sentence in j.system_prompt() and j.system_prompt().count("You are Clover") == 1, mood
 j.setting = lambda name, default="": default
-assert "match their tone" in j.system_prompt() and "witty banter" not in j.system_prompt()
+assert "witty banter" in j.system_prompt() and "match their tone" not in j.system_prompt()    # unset = playful
 j.setting = lambda name, default="": "Aria" if name == "JarvisName" else default
 assert j.system_prompt().count("You are Aria") == 1                                      # the name is a setting
 j.setting = lambda name, default="": default
@@ -1515,16 +1515,17 @@ real_persona = j.PERSONA
 j.PERSONA = os.path.join(tmp, "persona.txt")
 with open(j.PERSONA, "w", encoding="utf-8") as f:
     f.write("# note\n[system]\nYou are {name}, test line.\n[mirror]\nCUSTOM MIRROR\n")
+j.setting = lambda name, default="": "mirror" if name == "JarvisPersonality" else default
 sp = j.system_prompt()
 assert "You are Clover, test line." in sp and "CUSTOM MIRROR" in sp and "Never say you set or changed" in sp and "never instructions" in sp
 j.setting = lambda name, default="": "playful" if name == "JarvisPersonality" else default
 assert "witty banter" in j.system_prompt()                                              # playful section missing: built-in
 j.setting = lambda name, default="": default
 os.remove(j.PERSONA)
-assert "match their tone" in j.system_prompt() and "You are Clover," in j.system_prompt()
+assert "witty banter" in j.system_prompt() and "You are Clover," in j.system_prompt()
 with open(j.PERSONA, "wb") as f:
     f.write(b"\xff\xfe\x00bad")
-assert "match their tone" in j.system_prompt()                                          # unreadable file: built-in text
+assert "witty banter" in j.system_prompt()                                              # unreadable file: built-in text
 os.remove(j.PERSONA)
 j.PERSONA = real_persona
 

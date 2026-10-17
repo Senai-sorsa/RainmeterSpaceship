@@ -585,9 +585,9 @@ local function rowsJarvis()
     { '>', function() jset('JarvisKokoroVoice', cycle(KV, kv, 1)) end },
     { 'SLOWER', function() jbump('JarvisVoiceRate', -1, -5, 5, 1) end },
     { 'FASTER', function() jbump('JarvisVoiceRate', 1, -5, 5, 1) end } } }
-  local mood = string.lower(H.str('JarvisPersonality', 'mirror'))
-  if mood == 'proper' then mood = 'serious' end   -- the old values (same mapping as prompt.py)
-  if mood ~= 'serious' and mood ~= 'brief' and mood ~= 'playful' then mood = 'mirror' end
+  local mood = string.lower(H.str('JarvisPersonality', 'playful'))
+  if mood == 'proper' then mood = 'serious' elseif mood == 'natural' then mood = 'mirror' end   -- the old values (same mapping as prompt.py)
+  if mood ~= 'serious' and mood ~= 'brief' and mood ~= 'mirror' then mood = 'playful' end
   local callme = H.str('JarvisCallMe', '')
   rows[#rows + 1] = { 'CALL ME', (callme ~= '' and callme or 'NO NAME') .. '   - what he calls you at the end of greetings and goodbyes', {
     { 'CHANGE', function() SKIN:Bang('!CommandMeasure', 'mInput', 'ExecuteBatch 1') end },
