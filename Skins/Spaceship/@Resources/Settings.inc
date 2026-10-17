@@ -191,7 +191,7 @@ MasterPrev=0
 ; startup sequence when Rainmeter starts: 1 = on, 0 = off (replay any time: right-click a panel > Play startup sequence)
 ; hull brightness: 0 = black metal, 100 = as rendered (the windows are not affected)
 ; automatic speed test every N hours when the network is quiet (0 = off)
-; ---------------------------------------------------------------- Jarvis (Control Center > JARVIS)
+; ---------------------------------------------------------------- Clover (Control Center > CLOVER)
 JarvisEnabled=1
 JarvisAutoStart=1
 ; blank = find Python automatically (py launcher), or the full path to pythonw.exe
@@ -229,10 +229,10 @@ JarvisVault=
 ; orb animation speed in frames per second (the animation has 210; lower = slower, every frame still shown), and 1 = frames on a black background (key it out)
 JarvisFrameRate=15
 JarvisBlackBackground=0
-; Jarvis "about me" note (Control Center > JARVIS > ABOUT ME)
+; Clover "about me" note (Control Center > CLOVER > ABOUT ME)
 JarvisProfile=
 JarvisVoice=Jarvis\kokoro\kokoro-v1.0.onnx
-; what JARVIS calls you in greetings and goodbyes (empty = no name)
+; what CLOVER calls you in greetings and goodbyes (empty = no name)
 JarvisCallMe=Senai
    JarvisKokoroVoice=bm_lewis
    JarvisSilence=2

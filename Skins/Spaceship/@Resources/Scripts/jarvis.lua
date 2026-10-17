@@ -365,7 +365,7 @@ function Update()
     print('Clover: the service did not start - open Control Center > CLOVER > LOG (or run SETUP)')
   end
   if note and os.time() <= note[2] then label = note[1] elseif note then note = nil end
-  H.text(1, 1, 8, z.h - 26, 'J.A.R.V.I.S', { size = 5, weight = 700, align = 'LeftBottom', color = H.mix(A1, W, 0.3) })
+  H.text(1, 1, 8, z.h - 26, 'C.L.O.V.E.R', { size = 5, weight = 700, align = 'LeftBottom', color = H.mix(A1, W, 0.3) })
   H.text(1, 2, 8, z.h - 12, label, { size = 4.4, weight = 700, align = 'LeftBottom', color = label == 'START FAILED' and H.C.warn or (st == 'listening' and H.mix(DEEP, W, 0.35) or (st == 'offline' and H.mix(OFF, W, 0.2) or W)), glow = false })
   for k = 3, 8 do H.hideText(1, k) end
   if frame < 6 or frame % 30 == 0 then

@@ -67,7 +67,7 @@ function Update()
   local A1, D, T, W = H.C.accent, H.C.dim, H.C.text, H.C.white
   c:chamfer(0, 0, z.w, z.h, 18, A1, 1.6, 255, 230)
   c:fillRect(0, 0, z.w, z.h, { 2, 8, 14 }, 175, 0)
-  H.text(1, 1, LX, 14, 'J.A.R.V.I.S', { size = 13, font = H.fontTitle, weight = 700, color = A1 })
+  H.text(1, 1, LX, 14, 'C.L.O.V.E.R', { size = 13, font = H.fontTitle, weight = 700, color = A1 })
   local muted = string.match(readAll('jarvis_env.txt'), 'MUTED 1') ~= nil
   H.text(1, 2, z.w - 64, 18, muted and 'SPEAKERS MUTED - TEXT ONLY' or 'CONVERSATION LOG', { size = 7.5, align = 'RightTop', color = muted and A1 or D })
   c:line(LX - 10, 50, z.w - 30, 50, D, 1, 200)

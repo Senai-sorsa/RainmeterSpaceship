@@ -520,7 +520,7 @@ It **does not** delete your files, install software, or change Windows settings 
 | `imap.gmail.com` (TLS) | Gmail unread count, only if you set it up | every 2 min |
 | Your Google Calendar secret iCal links | Upcoming events, only for calendars you switched on | every 10 min |
 | Ookla Speedtest servers | Speed test | on click / every 6 h when idle |
-| `127.0.0.1:11434` (Ollama, on your PC) | Clover's AI model - local only | when you talk to Jarvis |
+| `127.0.0.1:11434` (Ollama, on your PC) | Clover's AI model - local only | when you talk to Clover |
 | Hugging Face (one time, during setup) | Downloads the speech-recognition model and the optional Piper voice | setup only |
 | `PingHost` (default `1.1.1.1`, Cloudflare) | Ping latency | every ~10 s |
 
