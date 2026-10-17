@@ -1973,6 +1973,12 @@ j.muted, j.listen, j.transcribe = (lambda: False), (lambda **k: "audio"), (lambd
 routes.clear()
 j.turn(0, woke=True)
 assert len(routes) == 1 and routes[0].startswith("route: false_wake via rule") and routes[0].endswith("-> nothing said"), routes
+patience = []                                                     # a wake waits 10 s for the first word; a click keeps the default
+j.listen = lambda **k: patience.append(k.get("patience")) or None
+j.turn(0, woke=True)
+j.turn(0)
+assert patience == [10, None], patience
+j.listen = lambda **k: "audio"
 routes.clear()
 ear(["Set a timer for 10 minutes.", "Uh huh."])
 assert routes[-1].startswith("route: ear via rule") and routes[-1].endswith("-> not for me - quiet"), routes

@@ -880,7 +880,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
         wait = ear_wait()
-        audio = None if typed is not None else listen(patience=max(wait, follow_name_wait()), dim_after=wait) if follow else listen()
+        audio = None if typed is not None else listen(patience=max(wait, follow_name_wait()), dim_after=wait) if follow else listen(patience=10) if woke else listen()   # a wake: 10 s for the first word
         if (audio is None and typed is None) or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
