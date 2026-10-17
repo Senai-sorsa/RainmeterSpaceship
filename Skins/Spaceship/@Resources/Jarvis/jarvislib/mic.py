@@ -6,17 +6,19 @@ from .audio import speakers
 from .base import DUCK_FILE, MICS_FILE, S, cancel, log, mic, problem, setting
 
 
-def listen(wait=3, patience=6, dim_after=None):
+def listen(wait=3, patience=6, dim_after=None, duck=True):
     """Record until you stop talking: waits up to `patience` s for speech, then stops after JarvisSilence seconds of
     quiet (default 1 s; raise it if he cuts you off mid-sentence), max 25 s."""
     if not mic.acquire(timeout=wait):                          # the wake word lets go within a second of a turn starting
         raise RuntimeError("The microphone is busy - try again")
     try:
-        duck()
+        if duck:                                               # the alarm loop keeps the other sound playing
+            _duck()
         return _listen(patience, dim_after) if dim_after else _listen(patience)
     finally:
         mic.release()
-        unduck()                                               # before anything is said or run: a volume command keeps its value
+        if duck:
+            unduck()                                           # before anything is said or run: a volume command keeps its value
 
 
 _mic_missing = [""]
@@ -51,6 +53,21 @@ def pick_mic(term):
     except OSError:
         return None
     hits = [n for n in names if term.strip().lower() in n.lower()]
+    if not hits and mic.acquire(blocking=False):               # a device plugged in later: PortAudio's list is stale until reinitialised
+        try:
+            try:
+                import sounddevice as sd
+                sd._terminate()
+                sd._initialize()
+            except Exception as e:
+                log(f"audio re-scan failed ({type(e).__name__})")
+            list_mics()
+            with open(MICS_FILE, encoding="utf-8") as f:
+                hits = [n.strip() for n in f if term.strip().lower() in n.lower()]
+        except OSError:
+            pass
+        finally:
+            mic.release()
     return hits[0] if len(hits) == 1 else hits or None
 
 
@@ -68,7 +85,7 @@ def list_mics():
 
 
 # shortcut: lowers the whole Windows volume, not single apps; per-app (Core Audio sessions) is ~60 more lines, if it annoys
-def duck():
+def _duck():
     """While he listens, other sound goes down to JarvisDuckLevel % (default 30) of what it was; JarvisDuck=0 = off.
     What to put back is written to a file first, so a crash meanwhile is put right at the next start."""
     if setting("JarvisDuck", "1") != "1" or os.path.exists(DUCK_FILE):   # a file left over: its value is the real one
@@ -148,7 +165,7 @@ def _listen(patience=6, dim_after=None):
                 x = data[:, 0]
                 rms = float(np.sqrt(np.mean(x * x)) + 1e-9)
                 if floor is None:
-                    floor = rms
+                    floor = min(rms, 0.004)                # speech on the first frame must not become the noise floor
                 if not started:
                     floor = 0.95 * floor + 0.05 * rms    # follow the room's background noise
                 thresh = max(floor * 3.0, 0.012)
@@ -170,7 +187,7 @@ def _listen(patience=6, dim_after=None):
                     break
                 if dim_after and not started and not dim and waited * 0.03 > dim_after:
                     dim = True
-                    S.set(state="idle")                     # 8a: past the direct window the hologram shows STANDBY (name needed)
+                    S.set(state="standby")                  # 8a: past the direct window the hologram shows STANDBY (name needed)
                 if not started and waited > patience / 0.03:
                     return None
                 if time.time() - t0 > 25:

@@ -45,6 +45,7 @@ def when(s, now):
     if s.startswith("in "):
         d = duration(s[3:])
         return None if d is None else now + d
+    nxt = re.search(rf"\bnext ({'|'.join(WEEKDAYS)})\b", s)     # "next Friday" said on a Friday is a week away
     lead = re.fullmatch(rf"(?:on |next |this )*(tomorrow|today|{'|'.join(WEEKDAYS)}),?(?: at)? (.+)", s)
     if lead:                                                   # "tomorrow at 9", "on Friday at 9" -> "at 9 friday"
         s = f"at {lead.group(2)} {lead.group(1)}"
@@ -57,6 +58,8 @@ def when(s, now):
     if wd:                                                     # "Monday at 7": that day, at most 7 days ahead
         days = (WEEKDAYS.index(wd.group(1)) - datetime.fromtimestamp(now).weekday()) % 7
         s = s[:wd.start()] + " " + s[wd.end():]
+    if nxt and days == 0:
+        days = 7
     # "half past six", "quarter to 8", "ten past 7" -> 6:30, 7:45, 7:10
     q = re.match(r" (half|quarter|[a-z0-9 ]+?)(?: minutes?)? (past|after|to|till) ([a-z0-9]+) ", s)
     if q:
@@ -212,10 +215,12 @@ def reminder_cmd(t, cmd, now):
         if not m.group(1).startswith(("alarm", "wake")) and not rest:
             return ("set", "alarm", None, "alarm", "")        # he asks when
     m = re.match(r"(?:(?:what|which) (?:are )?(?:my |the )?|(?:list|show|read)(?: me| out)? (?:all )?(?:my |the )?|"
-                 r"do i have (?:any )?|how (?:much time|long) (?:is |do i have )?left on (?:my |the )?)(reminder|timer)s?"
+                 r"do i have (?:any )?|how (?:much time|long) (?:is |do i have )?left on (?:my |the )?(?:\S+ )?)(reminder|timer)s?"
                  r"(?: (?:do i have|have i (?:got|set)|are (?:set|there|left|pending|running)).*)?$", t)
     if m:
         return ("list", m.group(1))
+    if re.fullmatch(r"how (?:much time|long) is left", t):
+        return ("list", "timer")
     m = re.match(r"(?:cancel|delete|remove|clear|stop|forget) (?:(?:all|every|both|of|the|my|that) )*(?:(.+) )?(reminder|timer)s?"
                  r"(?: (?:to|about|for) (.+))?$", cmd)
     if m:
@@ -240,6 +245,8 @@ def reminder_cmd(t, cmd, now):
         return None
     verb, before, after = m.groups()
     if before and " and " in before:                           # "set an alarm for 7 and set a timer": two commands
+        return None
+    if after and " and " in after and duration(after) is None:     # "5 minutes and mute": the router splits it
         return None
     secs, label = (duration(before) if before else None), ""
     if before and secs is None:

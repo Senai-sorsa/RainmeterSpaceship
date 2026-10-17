@@ -59,7 +59,7 @@ from jarvislib.llm import (_moved, chat_json, chat_stream, chat_to_gpu, ctx_toke
     installed_models, keep_alive, ollama_on_cpu, pick_model, warm)
 from jarvislib.audio import _com, mic_volume, speakers, speakers_mute
 from jarvislib import quiet as quiet_talk
-from jarvislib.mic import (_listen, _mic_missing, duck, follow_name_wait, follow_wait, list_mics, listen, mic_device,
+from jarvislib.mic import (_listen, _mic_missing, _duck, follow_name_wait, follow_wait, list_mics, listen, mic_device,
                            onset, unduck)
 from jarvislib.notes import STOP, search_notes, vault_dir
 from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _filler_thread, _filler_voice, _speak_queue,

@@ -150,7 +150,7 @@ def sentences_from(stream, collected):
         buf += piece
         collected.append(piece)
         while True:
-            m = re.search(r"(.+?[.!?])(\s+|$)", buf)
+            m = re.search(r"(.+?(?<!\bMr)(?<!\bMrs)(?<!\bMs)(?<!\bDr)(?<!\bProf)(?<!\bSt)(?<!\bvs)(?<!\betc)(?<!\be\.g)(?<!\bi\.e)[.!?])(\s+|$)", buf, re.I)
             if m and m.end() == len(buf) and not buf.endswith((" ", "\n")):
                 m = None
             m2 = re.match(r"\s*(?:\S+\s+){%d}" % n, buf) if (first and n) else None

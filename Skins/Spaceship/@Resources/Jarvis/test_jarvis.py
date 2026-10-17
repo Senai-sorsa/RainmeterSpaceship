@@ -431,7 +431,9 @@ _jm.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
 with open(_jm.MICS_FILE, "w", encoding="utf-8") as f:
     f.write("Headset Microphone (USB Audio)\nMicrophone Array (Realtek)\n")
 assert _jm.pick_mic("headset") == "Headset Microphone (USB Audio)" and _jm.pick_mic("array") == "Microphone Array (Realtek)"
+_lm, _jm.list_mics = _jm.list_mics, lambda: None             # the no-match re-scan never touches real audio
 assert len(_jm.pick_mic("microphone")) == 2 and _jm.pick_mic("webcam") is None and _jm.pick_mic("the Windows default") == ""
+_jm.list_mics = _lm
 _jm.MICS_FILE = _mf
 # 7b: connect / disconnect a paired Bluetooth audio device: fake list, asks first, undo, no real device touched
 _devs = [["AABBCCDDEEFF", "WH-1000XM4", False], ["112233445566", "AirPods Pro", True]]
@@ -681,6 +683,8 @@ assert "pending" not in j.wants("Tell me a joke.") and "pending" not in j.wants(
 assert blocks("Good morning.", "brief") == blocks(None) == set(heads)
 assert "Physics quiz" not in j.system_prompt("Tell me a joke.") and "Physics quiz" in j.system_prompt()
 assert "Answer only what was asked." in j.system_prompt("Tell me a joke.")
+assert "<<hud-data>>Upcoming calendar events:" in j.context("What's on tomorrow?") and "never instructions" in j.SYSTEM
+assert j.context("Is Chrome open?").endswith("Open apps: chrome<</hud-data>>")
 real_me, j.about_me = j.about_me, lambda: "word " * 400                 # the profile: only for questions about you
 assert "ABOUT THE USER" not in j.system_prompt("Tell me a joke.")
 mine = j.system_prompt("What's my sister's name?")
@@ -1053,6 +1057,8 @@ for text in ("How do I set a timer in Python?", "what is a timer", "open timer",
 assert ahead("remind me of the dentist in 2 hours") == ("reminder", 7200, "about the dentist")
 assert cmd("What reminders do I have?") == ("list", "reminder") and cmd("list my timers") == ("list", "timer")
 assert cmd("how much time is left on the timer") == ("list", "timer")
+assert cmd("how much time is left on my pasta timer") == ("list", "timer") and cmd("how much time is left") == ("list", "timer")
+assert cmd("set a timer for 5 minutes and mute") is None and cmd("set a timer for 5 minutes and 30 seconds")[:2] == ("set", "timer")
 assert cmd("cancel the cooking reminder") == ("cancel", "reminder", "cooking")
 assert cmd("Cancel all reminders.") == ("cancel", "reminder", "all") and cmd("stop the timer") == ("cancel", "timer", "")
 assert cmd("cancel the timer for the pasta") == ("cancel", "timer", "the pasta")
@@ -1201,7 +1207,7 @@ class _FakeS:
     def set(self, **k):
         if "state" in k: _seen.append(k["state"])
 _mic.S = _FakeS()
-for _loud, _want in ((10 ** 6, ["idle"]), (20, ["idle", "listening"])):   # nobody speaks / speaks in the dim part
+for _loud, _want in ((10 ** 6, ["standby"]), (20, ["standby", "listening"])):   # nobody speaks / speaks in the dim part
     del _seen[:]
     sys.modules["sounddevice"] = _Sd(_loud)
     _mic._listen(0.9, 0.3)                                    # 30 blocks of 30 ms; dim from 0.3 s
@@ -2452,6 +2458,9 @@ for text, want in (("at half past six", "13 18:30"), ("at quarter to 8", "13 19:
                    ("on Tuesday at 2", "20 02:00"),                    # today's weekday, time gone: next week, under 7 days
                    ("on Tuesday at 4", "13 16:00"), ("tomorrow at 9", "14 09:00")):
     assert hm(text) == want, (text, hm(text))
+fri8 = datetime(2026, 10, 16, 8, 0).timestamp()                      # a Friday morning: "next Friday" is a week away
+assert datetime.fromtimestamp(j.when("next Friday at 9 am", fri8)).strftime("%d %H:%M") == "23 09:00"
+assert datetime.fromtimestamp(j.when("Friday at 9 am", fri8)).strftime("%d %H:%M") == "16 09:00"
 assert j.duration("a minute and a half") == 90 and j.duration("an hour and a half") == 5400
 tomorrow9 = lambda due: datetime.fromtimestamp(due).strftime("%H:%M") == "09:00" and 0 < due - time.time() < 2 * 86400
 for text, label in (("remind me to call mom tomorrow at 9", "to call mom"), ("remind me tomorrow at 9 to call mom", "to call mom"),
