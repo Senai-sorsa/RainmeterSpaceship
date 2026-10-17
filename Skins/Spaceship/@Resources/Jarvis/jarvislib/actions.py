@@ -7,6 +7,7 @@ import time
 import winreg
 from .audio import mic_volume, speakers
 from .base import BT_FILE, DATA, NO_WINDOW, RES, log, read_kv, setting
+from .mood import SAID
 
 
 def start_apps():
@@ -326,6 +327,8 @@ def done_line(action, target):
     """What to say after an action that worked: the value Windows reports, never the one asked for."""
     if action == "micdev":                                     # the HUD writes the setting a moment later: this is what was asked
         return f"Listening through {target}. It applies the next time I listen." if target else "Back to the Windows default microphone."
+    if action == "mood":                                       # the setting was read back by act_mood before this
+        return SAID.get(target, "Done.")
     if action == "open":
         return f"Opening {target[0]}."
     if action == "volume":

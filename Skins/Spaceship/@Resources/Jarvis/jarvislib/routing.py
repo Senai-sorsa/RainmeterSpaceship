@@ -8,6 +8,7 @@ from .actions import BT_GENERIC, MEDIA_KEYS, bt_devices, bt_link, bt_names, pick
 from .audio import mic_volume, speakers_mute
 from .base import set_setting
 from .mic import pick_mic
+from .mood import act_mood, command as mood_command
 from .base import NAME, log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
@@ -166,6 +167,7 @@ ACTION_TABLE = {
     "mic_level": Action(act_mic_level, "change", "set or step the microphone level"),
     "micdev": Action(lambda t: set_setting("mic", t), "ask", "change which microphone he listens to"),
     "stealth": Action(lambda _: set_setting("stealth"), "ask", "put the HUD in STEALTH"),
+    "mood": Action(act_mood, "change", "change how he talks (serious, playful, brief, natural)"),   # M2: undoable, no confirm
     "bluetooth": Action(act_bluetooth, "change", "turn the Bluetooth radio on or off"),
     "btlink": Action(lambda t: bt_link(t[0], t[1]), "ask", "connect or disconnect a paired Bluetooth audio device"),
     "bluetooth_off": Action(lambda _: act_bluetooth("off"), "ask", "turn the Bluetooth radio off"),
@@ -387,10 +389,13 @@ def route(text):
     if text.strip().endswith("?") and cmd == t and not named:   # "Jarvis, ...?" was a command before the name moved out
         cmd = ""
     if re.fullmatch(rf"(?:(?:no|oh|oops|wait|actually|never ?mind|{'|'.join([NAME] + NAMES)})[,.!]? +)*"
-                    r"(?:undo(?: that| it)?|put it back|cancel that|take that back)", whole):
+                    r"(?:undo(?: that| it)?|put it back|cancel that|take that back|back to (?:before|how it was|how you were))", whole):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
         return ("say", None, None, "Okay, never mind.")
+    key = mood_command(cmd)
+    if key:                                                    # M2: "be serious", "just answer briefly", "stop joking"
+        return ("act", "mood", key, None)
     # "no, AM" / "I meant the evening" just after a clock time was set: moved 12 hours (remind_reply). "Morning." alone
     # is a greeting, so a part of the day needs the "no" / "I meant" in front
     m = re.fullmatch(r"((?:no,? |i meant |make (?:it|that) )*)(?:in the |the |at )?(a\.? ?m|p\.? ?m|morning|afternoon|evening|night)", whole)
@@ -419,6 +424,8 @@ def route(text):
                      r"discussed) about (.+)", whole)
     if m:
         return talk_forget(m.group(1))
+    if re.fullmatch(r"what do you (?:know|remember|recall) about me|what (?:all )?do you know about me|tell me what you know about me", whole):
+        return ("memory", "about", None, None)                   # H5: said by code, in the normal voice
     m = re.fullmatch(r"what do you (?:remember|recall) about (.+)|what (?:did|have) we (?:say|said|talk|talked|discuss|"
                      r"discussed) about (.+)", whole)
     if m:

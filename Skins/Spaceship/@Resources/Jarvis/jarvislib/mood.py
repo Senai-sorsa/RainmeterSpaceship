@@ -119,6 +119,48 @@ def _norm(s):
     return " ".join(re.findall(r"[a-z0-9']+", re.sub(r"^\[[^\]]*\]\s*", "", s or "").lower()))   # the history's time stamp is not part of it
 
 
+# M2: voice commands that change the mood setting. Fixed code, fullmatch on the command (a question never matches).
+VALUES = ("mirror", "serious", "brief", "playful")
+SAID = {"serious": "Serious mode, sir.", "playful": "Playful mode, sir.", "brief": "Brief mode, sir.",
+        "mirror": "I'll match your tone, sir."}
+NAMED = {"serious": "serious mode", "playful": "playful mode", "brief": "brief mode", "mirror": "matching your tone"}
+_BE = r"(?:(?:please|just|now) )*(?:be|go|get|sound|act|talk|switch to|change to|use)? ?(?:more |a bit |a little )?"
+COMMANDS = (("serious", _BE + r"(?:serious|proper|formal)(?: mode)?|stop (?:joking|the jokes|kidding)|no more jokes|no jokes"),
+            ("playful", _BE + r"(?:playful|funny|fun|silly|jokey)(?: mode)?|joke (?:around|more)|(?:tell|crack) more jokes"),
+            ("brief", _BE + r"(?:brief|short|concise)(?: mode)?|(?:just )?(?:answer|reply|respond|talk) (?:briefly|shortly|short|in short)|"
+                            r"keep (?:it|answers|your answers) (?:short|brief)|short answers"),
+            ("mirror", _BE + r"(?:natural|normal|casual|friendly|yourself)(?: mode)?|(?:mirror|match) my (?:tone|mood)"))
+
+
+def command(cmd):
+    """The mood a voice command asks for, or None."""
+    c = re.sub(r"[.!,]", "", (cmd or "").strip().lower())
+    for key, pat in COMMANDS:
+        if re.fullmatch(pat, c):
+            return key
+    return None
+
+
+def current():
+    """The mood setting as it is now (old values mapped), for the undo."""
+    v = setting("JarvisPersonality", "playful").strip().lower()
+    v = {"proper": "serious", "natural": "mirror"}.get(v, v)
+    return v if v in VALUES else "playful"
+
+
+def act_mood(key):
+    """Ask the HUD to save the mood (it is the only writer of Settings.inc) and wait to see it changed."""
+    from .base import set_setting
+    if key not in VALUES:
+        raise ValueError("not a mood")
+    set_setting("mood", key)
+    for _ in range(40):
+        if current() == key:
+            return
+        time.sleep(0.1)
+    raise RuntimeError("the HUD did not confirm the change")
+
+
 # E3: the only banned phrase. A sentence holding it is dropped from what is spoken.
 HOPE = re.compile(r"\bhope (?:this|that|it|these) (?:helps|was helpful|is helpful)\b", re.I)
 
@@ -129,6 +171,18 @@ def no_hope(sentences):
             log("chat answer said 'hope this helps' - sentence dropped")
             continue
         yield s
+
+
+# D4: a promise in his own reply ("I'll remember that", "I'll let you know") is written down so the next turn can see it.
+PROMISE = re.compile(r"\bI(?:'ll| will) (?:remember|keep (?:that|it) in mind|let you know|keep an eye on|make a note of|remind you)\b[^.!?]*", re.I)
+
+
+def promise(reply):
+    """The sentence of a reply that makes a promise, as a short memory line, or ""."""
+    for s in re.split(r"(?<=[.!?])\s+", reply or ""):
+        if PROMISE.search(s):
+            return ("I promised: " + re.sub(r"\s+", " ", s).strip().rstrip(".!"))[:200]
+    return ""
 
 
 def clean_reply(reply):

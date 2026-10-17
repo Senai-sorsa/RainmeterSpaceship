@@ -128,7 +128,7 @@ def run_action(action, target, pending=None):
         log(f"action {action} refused: needs a confirmed yes")
         return False
     try:
-        before = (speakers() if action in ("volume", "mute", "unmute") else mic_volume() if action.startswith("mic_") else setting("JarvisMic", "") if action == "micdev" else screen_brightness() if action == "brightness" else theme_mode() if action == "theme" else bluetooth_radio() if action in ("bluetooth", "bluetooth_off") else (target[0], target[2], next((d[2] for d in bt_devices() if d[0] == target[0]), None)) if action == "btlink" else power_plans()[0] if action == "power" else target if action in ("replace_fact", "forget_facts")
+        before = (speakers() if action in ("volume", "mute", "unmute") else mic_volume() if action.startswith("mic_") else setting("JarvisMic", "") if action == "micdev" else screen_brightness() if action == "brightness" else theme_mode() if action == "theme" else bluetooth_radio() if action in ("bluetooth", "bluetooth_off") else (target[0], target[2], next((d[2] for d in bt_devices() if d[0] == target[0]), None)) if action == "btlink" else power_plans()[0] if action == "power" else mood.current() if action == "mood" else target if action in ("replace_fact", "forget_facts")
                   else None)
         if action == "forget_all":                             # what was there, so "undo that" can put it back
             try:
@@ -222,6 +222,10 @@ def undo_last():
         ok = undone(run_action("brightness", ("set", before)))
         undo.clear()
         return f"Brightness back at {screen_brightness()} percent." if ok else "That didn't work."
+    if what == "mood":                                         # M2: the mood as it was
+        ok = undone(run_action("mood", before))
+        undo.clear()
+        return f"Back to {mood.NAMED[before]}, sir." if ok else "That didn't work."
     if what == "micdev":                                       # the microphone setting as it was
         ok = undone(run_action("micdev", before, ("micdev", before)))
         undo.clear()
@@ -320,7 +324,7 @@ NO_LEARN = re.compile(r"password|passcode|\bpin\b|code|card|account|bank|social 
 def learnable(text):
     """The sentence of a chat turn worth offering to remember, or "": never a question, a number or a secret,
     never one already saved, never with JarvisLearn=off."""
-    if setting("JarvisLearn", "ask").strip().lower() in ("off", "0"):
+    if setting("JarvisLearn", "auto").strip().lower() in ("off", "0"):
         return ""
     for part in re.split(r"(?<=[.!?])\s+", strip_name(text)):
         part = re.sub(r"^(?:(?:and|so|oh|well|also|by the way),? )+", "", part.strip(), flags=re.I).rstrip(".!")
@@ -340,6 +344,13 @@ def memory_reply(op, text):
         facts = load_memory()
     except (OSError, ValueError):
         return MEMORY_BAD
+    if op == "about":                                          # H5: the saved facts and the start of the about-me note
+        note = about_me()
+        if not facts and not note:
+            return "I don't know anything about you yet, sir."
+        return ("You told me: " + "; ".join(facts) + "." if facts else "") + \
+               ((" " if facts else "") + "Your note says: " + (note[:300].rsplit(" ", 1)[0] + "..." if len(note) > 300 else note)
+                if note else "")
     if op == "list":
         if not facts:
             return "You haven't asked me to remember anything."
@@ -924,6 +935,10 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         if heard_as == "no":                                   # a fragment or room noise: no answer, the window ends
             log("ear: not for me - stayed quiet")
             return
+        if heard_as == "ask" and setting("JarvisRoomAsk", "0") != "1":   # D6: unsure means quiet unless you want the question
+            log("ear: unsure - stayed quiet")
+            way.update(kind="ear", result="not for me - quiet")
+            return
         if heard_as == "ask":                                  # unsure: ask once; "yes" answers what was said
             log("ear: unsure - asked")
             convo_add("U", text)
@@ -1021,6 +1036,9 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         kind, action, target, prompt, via = understand(text, model, quiet, room)
         way.update(kind=kind, action=action, via=via)
+        if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
+            log("transcript: not for me - stayed quiet")
+            return
         if kind == "room":                                     # asked once; a "yes" answers it in full
             log("transcript: not for me? asked")
             reply_line(room_ask(), quiet)
@@ -1176,7 +1194,13 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             last_turn = time.time()
         S.set(say=reply)
         fact = learnable(text) if kind == "chat" and not cancel.is_set() else ""
-        if fact:                                               # M4a-3: one offer; the next turn's yes saves it
+        auto = setting("JarvisLearn", "auto").strip().lower() == "auto"
+        if fact and auto:                                      # H3: saved quietly; "forget that" / undo still work
+            memory_reply("save", fact)
+        promised = mood.promise(reply) if auto and kind == "chat" and not cancel.is_set() else ""
+        if promised:                                           # D4: written down like a fact; "what do you remember" lists it
+            memory_reply("save", promised)
+        if fact and not auto:                                  # M4a-3 ("ask"): one offer; the next turn's yes saves it
             reply_line("Want me to remember that?", quiet)
             offer.update(fact=fact, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
         if close_offer and reply and not cancel.is_set():      # 9e: one offer; the next turn's yes closes it

@@ -23,7 +23,10 @@ local rot1, rot2, rot3, yaw, sweep = 0, 0, 0, 0, 0
 local js = { state = 'offline', level = 0, t = 0, say = '', err = '', pop = nil }
 local hudSeen = nil                          -- last HUD setting request handled (HUD <n> <name>); only names in HUD_OK are obeyed
 local HUD_OK = { stealth = function() SKIN:Bang('!CommandMeasure', 'mScript', 'SetOverride(3)', 'Spaceship\\Controller') end,
-                 mic = function(v) H.save('JarvisMic', (v:gsub('%c', ''))) end }
+                 mic = function(v) H.save('JarvisMic', (v:gsub('%c', ''))) end,
+                 mood = function(v)    -- only the four known moods are saved (JarvisPersonality)
+                   if v == 'mirror' or v == 'serious' or v == 'brief' or v == 'playful' then H.save('JarvisPersonality', v) end
+                 end }
 local popSeen = nil                         -- last pop-up request handled (POP <n> open|close)
 local mutedSent = nil
 local lvl, act = 0, 0                        -- smoothed voice / mic level, echo opacity

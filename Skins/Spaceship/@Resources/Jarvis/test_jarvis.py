@@ -1436,7 +1436,13 @@ assert j.load_memory() == ["my dentist is on Mondays", "my bike is in the shed"]
 assert j.route("remember my dentist is on Mondays")[0] == "memory"          # already saved: no question
 assert j.route("remember the wifi box is upstairs")[0] == "memory"          # nothing in common: saved straight away
 assert j.route("what do you know about my dentist") == ("say", None, None, "You told me: my dentist is on Mondays.")
-assert j.route("What do you know about me?")[3] == "You told me: my dentist is on Mondays; my bike is in the shed."
+assert j.route("What do you know about me?")[:2] == ("memory", "about")             # H5: facts and the note, said by code
+real_me = j.about_me
+j.about_me = lambda: ""
+assert j.memory_reply("about", None) == "You told me: my dentist is on Mondays; my bike is in the shed."
+j.about_me = lambda: "I like chess"
+assert j.memory_reply("about", None).endswith("Your note says: I like chess")
+j.about_me = real_me
 assert j.route("what do you know about black holes")[0] == "chat"         # nothing saved about it: the model answers
 j.save_memory(["my bike is in the shed", "my bike is blue"])
 r = j.route("forget my bike")
@@ -1546,11 +1552,11 @@ def _listen(**k):
     return "audio" if heard[0] <= speaks[0] else None
 
 
-def talk(times, mute=False, follow="1", words="Tell me a joke."):
+def talk(times, mute=False, follow="1", words="Tell me a joke.", learn="ask"):
     """One turn in which you speak up to `times` times in a row: how often the microphone was opened."""
     heard[0], speaks[0] = 0, times
     j.muted, j.listen, j.transcribe = lambda: mute, _listen, lambda a: words
-    j.setting = lambda name, default="": follow if name == "JarvisFollowUp" else default
+    j.setting = lambda name, default="": {"JarvisFollowUp": follow, "JarvisLearn": learn}.get(name, default)
     j.turn(0)
     assert states[-1] == idle and not j.busy.locked()
     return heard[0]
@@ -1569,11 +1575,14 @@ def ear(lines):
     seq, n = iter(lines), len(prompts)
     heard[0], speaks[0] = 0, len(lines)
     j.muted, j.listen, j.transcribe = (lambda: False), _listen, (lambda a: next(seq, ""))
-    j.setting = lambda name, default="": default
+    j.setting = lambda name, default="": ROOMASK[0] if name == "JarvisRoomAsk" else default
     j.offer.clear()
     j.turn(0)
     assert states[-1] == idle and not j.busy.locked()
     return heard[0], len(prompts) - n
+
+
+ROOMASK = ["1"]                                                     # these older tests are about the question; D6 below is the default
 
 
 # "undo" in the window: done at once, no extra yes ("Never mind Jarvis, undo" left the alarm before)
@@ -1585,6 +1594,10 @@ assert ear(["Set a timer for 10 minutes.", "Uh huh."]) == (2, 0) and asked[-1] !
 assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over."])[1] == 0 and asked[-1] in j.ROOM_ASKS
 assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over.", "Yes."]) == (4, 1)   # yes: answered
 assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over.", "No."]) == (3, 0)    # no: ended
+ROOMASK[0] = "0"                                                    # D6: by default unsure room talk gets no question at all
+asked.clear()
+assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over."])[1] == 0 and not any(a in j.ROOM_ASKS for a in asked)
+ROOMASK[0] = "1"
 assert ear(["Set a timer for 10 minutes.", "What is the capital of France?"]) == (3, 1)
 j.save_reminders([])
 for text, want in (("Uh huh.", "no"), ("okay", "no"), ("Mom the pasta is boiling over.", "ask"), ("What's the time?", "yes"),
@@ -1641,6 +1654,7 @@ ROOM = ("So I'm going to go ahead and get started on the essay now and then we w
 assert j.room_talk(ROOM) and not j.room_talk(ROOM[:-1] + "?") and not j.room_talk("Jarvis, " + ROOM)
 assert not j.room_talk("I think you should go ahead " + ROOM) and not j.room_talk("Tell me a joke.")
 for answer, answered in (("Yes.", True), ("No.", False)):
+    j.setting = lambda name, default="": "1" if name == "JarvisRoomAsk" else default
     j.offer.clear(), j.history.clear()
     seq, n = iter([ROOM, answer]), len(prompts)
     heard[0], speaks[0] = 0, 2
@@ -1650,6 +1664,7 @@ for answer, answered in (("Yes.", True), ("No.", False)):
     assert (len(prompts) == n + 1) is answered, answer                 # the model ran only after "yes"
     assert (j.history[:1] == [{"role": "user", "content": ROOM}]) is answered, j.history
     assert asked[-1] in j.ROOM_ASKS                 # asked once (reply_line is faked above)
+j.setting = lambda name, default="": default
 assert j.route("I'm still in four loop, so what's the name for it?")[0] == "chat" and not j.room_talk(
     "I'm still in four loop, so what's the name for it?")                         # a question is answered as before
 j.offer.clear(), j.history.clear()
@@ -2099,6 +2114,7 @@ j.log = keep
 j.history.clear()
 
 # ---- M4a-3: he offers to remember a lasting fact said in chat; only a yes saves it
+j.setting = lambda name, default="": "ask" if name == "JarvisLearn" else default       # the offer path is JarvisLearn=ask now
 j.save_memory(["my dentist is on Fridays"])
 for text, fact in (("My sister's name is Ana and she loves cats.", "My sister's name is Ana and she loves cats"),
                    ("I'm allergic to peanuts. What snacks are safe?", "I'm allergic to peanuts"),
@@ -2138,6 +2154,13 @@ assert "I live in Leeds" not in j.load_memory()
 j.setting = lambda name, default="": "off" if name == "JarvisLearn" else default
 assert j.learnable("I live in Leeds.") == ""
 j.setting = lambda name, default="": default
+# H3: the default is auto - saved quietly, no question, and "undo" still takes it back
+j.save_memory(["my dentist is on Fridays"])
+asked.clear()
+talk(1, words="My sister's name is Ana.", learn="auto")
+assert "Want me to remember that?" not in asked and "My sister's name is Ana" in j.load_memory() and j.offer == {}
+j.undo_last()
+assert "My sister's name is Ana" not in j.load_memory()
 os.remove(j.MEMORY_FILE)
 asked.clear()
 
@@ -3767,6 +3790,56 @@ say("what is the capital of France")
 assert "witty banter" in prompts[-1] and "SERIOUS TOPIC" not in prompts[-1]        # back to the setting
 say("you were wrong about that")
 assert "I apologize, sir," in prompts[-1]
+M.reset()
+
+# ---- Phase 10 slice 2, checkpoint B: mood by voice, promises, "what do you know about me"
+for said, key in (("be serious", "serious"), ("Stop joking.", "serious"), ("be more playful", "playful"),
+                  ("just answer briefly", "brief"), ("be natural", "mirror"), ("please be formal", "serious")):
+    assert M.command(said) == key, said
+for no in ("what is serious", "tell me a joke", "be careful", "is it serious?"):
+    assert M.command(no) is None, no
+assert j.route("be serious")[:3] == ("act", "mood", "serious") and j.route("Clover, stop joking")[:3] == ("act", "mood", "serious")
+import jarvislib.base as B
+real_set = B.set_setting
+for bad in (("mood", "angry"), ("nope", "")):
+    try:
+        real_set(*bad)
+        assert False, bad
+    except ValueError:
+        pass
+store = {"v": "playful"}
+B.set_setting = lambda name, value="": store.update(v=value)           # the HUD saves it and the setting changes
+j.setting = lambda name, default="": store["v"] if name == "JarvisPersonality" else default
+M.class_time = lambda: False
+closed.clear()
+say("be serious")                                                     # run_action is faked here: the turn asks for the right action
+assert closed == [("mood", "serious")] and asked[-1] == "Serious mode, sir.", (closed, asked[-1:])
+M.act_mood("brief")                                                   # the real writer, with the HUD faked
+assert store["v"] == "brief" and M.current() == "brief"
+j.undo[:] = [j.time.time() + 100, "mood", "playful"]                  # what run_action records
+closed.clear()
+say("undo")
+assert closed == [("mood", "playful")] and asked[-1] == "Back to playful mode, sir.", (closed, asked[-1:])
+assert j.route("back to before")[0] == "undo"                         # M2: another way to say undo
+B.set_setting = lambda name, value="": None                           # the HUD never confirms: reported, not claimed
+real_sleep, M.time.sleep = M.time.sleep, lambda s: None
+try:
+    M.act_mood("serious")
+    assert False
+except RuntimeError:
+    pass
+M.time.sleep = real_sleep
+B.set_setting = real_set
+closed.clear()
+j.undo.clear()
+j.setting = lambda name, default="": default
+# D4: a promise in his own reply is written down; nothing else is
+assert M.promise("Sure thing. I'll let you know when the download finishes, sir.") == "I promised: I'll let you know when the download finishes, sir"
+assert M.promise("Paris is the capital.") == "" and M.promise("") == ""
+# H5: "what do you know about me" is said by code
+j.save_memory(["my dog is called Rex"])
+assert j.route("what do you know about me")[:2] == ("memory", "about") and j.route("What do you remember about me?")[:2] == ("memory", "about")
+os.remove(j.MEMORY_FILE)
 M.reset()
 
 print("test_jarvis: OK")
