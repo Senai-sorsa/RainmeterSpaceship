@@ -1780,7 +1780,11 @@ assert j.run_action("volume", ("step", 10)) and vol == [55]
 j.time.time = lambda: real_time() + 121
 assert j.undo_last() == "There's nothing to undo." and vol == [55]
 j.time.time = real_time
-assert j.run_action("lock", None, ("lock", None)) and j.undo_last() == "I can't undo that."
+locked, acts_before_lock = [], j.ACTIONS     # never the real LockWorkStation: this line used to lock the PC
+j.ACTIONS = dict(acts_before_lock, lock=lambda _: locked.append(1) or True)
+assert j.ACTIONS["lock"] is not acts_before_lock["lock"]
+assert j.run_action("lock", None, ("lock", None)) and j.undo_last() == "I can't undo that." and locked == [1]
+j.ACTIONS = acts_before_lock
 j.save_reminders([])
 do("set a timer for 10 minutes")
 assert j.undo_last() == "Removed that timer." and j.load_reminders() == []
