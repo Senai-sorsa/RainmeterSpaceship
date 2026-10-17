@@ -111,7 +111,7 @@ ChargeLimit=80
 
 ; ---------------------------------------------------------------- Legion Toolkit (LLT) CLI
 ; Enable "CLI" in Legion Toolkit settings first. Check names with:  llt.exe feature list
-LltPath=
+LltPath=C:\Users\Senai\AppData\Local\Programs\LenovoLegionToolkit\llt.exe
 LltHybridFeature=hybrid-mode
 LltHybridECO=on-igpu-only
 LltHybridHYBRID=on
@@ -149,7 +149,7 @@ LastSpeedTest=2026-10-11 11:22
 ; hover hints: 1 = HUD captions, 0 = Windows tooltips
 CaptionStyle=1
 ; Obsidian to-do note for the reticle (Control Center > DATA > BROWSE), and whether the reticle shows it
-ObsidianTodo=
+ObsidianTodo=C:\Users\Senai\Downloads\Senai-TODOLISTS\School-Year1\To do list.md
 ReticleTodo=1
 ; 1 = mask IP addresses in the network block (click the LAN / WAN rows to toggle)
 IpMask=1
@@ -170,7 +170,7 @@ BootAnim=1
 ; startup sequence when Rainmeter starts: 1 = on, 0 = off (replay any time: right-click a panel > Play startup sequence)
 ; hull brightness: 0 = black metal, 100 = as rendered (the windows are not affected)
 FrameBrightness=95
-ObsidianVault=
+ObsidianVault="C:\Users\Senai\Downloads\NotesForSchool"
 
 ; ---------------------------------------------------------------- update: network, captions, data links
 ; your connection (Mbps) from your last speed test - the network block's speed test updates these
@@ -223,7 +223,7 @@ JarvisContext=2048
 JarvisBars=1
 JarvisSpeed=1
 JarvisWakeSensitivity=0.5
-JarvisVault=
+JarvisVault="C:\Users\Senai\Downloads\NotesForSchool\School Notes"
 ; orb animation speed in frames per second (the animation has 210; lower = slower, every frame still shown), and 1 = frames on a black background (key it out)
 JarvisFrameRate=15
 JarvisBlackBackground=0
