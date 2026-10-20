@@ -1,0 +1,42 @@
+/* Shared settings components. Only the theme variables from tokens.css; DOM, thin lines, chamfered corners. */
+html:has(.panel), body:has(.panel) { overflow: auto; }
+.panel { --cut: 8px; max-width: 640px; margin: 0 auto; padding: 16px; color: var(--text); font: 13px/1.3 ui-monospace, monospace; display: grid; gap: 10px; }
+.group { background: var(--panel); border: 1px solid var(--dim); clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.group[open] { border-color: var(--accent); }
+.group > summary { cursor: pointer; padding: 8px 12px; min-height: 28px; box-sizing: border-box; color: var(--accent); list-style: none; }
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary::before { content: '+ '; }
+.group[open] > summary::before { content: '- '; }
+.group > summary:hover, .group > summary:focus-visible { color: var(--white); outline: 1px solid var(--accent); outline-offset: -2px; }
+.group-body { padding: 0 12px 8px; display: grid; }
+.group .group { margin-top: 8px; }
+.row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 55%) 20px; gap: 8px; align-items: center; min-height: 36px; border-top: 1px solid var(--dim); padding: 4px 0; }
+.row-label { position: relative; display: flex; gap: 6px; align-items: center; min-width: 0; }
+.row-label .label { fill: none; color: var(--text); overflow-wrap: anywhere; }
+.row-help { display: none; position: absolute; top: 100%; left: 0; z-index: 5; max-width: 280px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--accent); color: var(--white); font-size: 12px; }
+.row:hover .row-help, .row:focus-within .row-help { display: block; }
+.row-ctl { display: flex; justify-content: flex-end; min-width: 0; }
+.row-state { display: flex; justify-content: center; }
+.row-err { grid-column: 1 / -1; color: var(--alert); font-size: 12px; }
+.badge { border: 1px solid var(--warn); color: var(--warn); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; padding: 1px 4px; }
+.dot { width: 12px; height: 12px; min-width: 12px; padding: 0; border: 1px solid var(--accent); border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent); cursor: pointer; }
+.dot:hover, .dot:focus-visible { background: var(--white); outline: none; }
+.help-btn { width: 20px; height: 20px; padding: 0; background: none; color: var(--dim); border: 1px solid var(--dim); cursor: pointer; }
+.help-btn:hover, .help-btn:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+:is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn, .ctl-slider input) { box-sizing: border-box; min-height: 28px; font: inherit; color: var(--text); background: transparent; border: 1px solid var(--dim); }
+:is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn):hover, :is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn):focus-visible, .ctl-slider input:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 6px var(--dim); }
+.ctl-switch { position: relative; width: 48px; cursor: pointer; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+.ctl-switch i { position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; background: var(--dim); }
+.ctl-switch[aria-checked='true'] { border-color: var(--accent); }
+.ctl-switch[aria-checked='true'] i { left: 25px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.ctl-select, .ctl-text, .ctl-action { padding: 0 8px; width: 100%; }
+.ctl-action { cursor: pointer; text-transform: uppercase; letter-spacing: .2em; font-size: 11px; }
+.ctl-slider { display: flex; gap: 8px; align-items: center; width: 100%; }
+.ctl-slider input { flex: 1; min-width: 0; padding: 0; accent-color: var(--accent); }
+.ctl-slider output { min-width: 44px; text-align: right; color: var(--white); }
+.ctl-color { display: flex; gap: 8px; width: 100%; align-items: center; }
+.swatch { flex: none; width: 28px; height: 28px; border: 1px solid var(--dim); box-sizing: border-box; }
+.rail { display: grid; gap: 4px; }
+.rail-btn { text-align: left; padding: 0 12px; cursor: pointer; color: var(--dim); fill: none; }
+.rail-btn[aria-current='page'] { color: var(--accent); border-color: var(--accent); }
+.empty { color: var(--dim); }
