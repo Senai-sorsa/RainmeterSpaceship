@@ -66,6 +66,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   let nextId = 1;
   let errId = 0; // id of the newest failed write; only a newer ok clears the error
   let openKey: string | null = null; // key of the coalesced run that new coalesced sets may merge into
+  const waiters = new Set<() => void>(); // settled() callers, woken when inflight drains
 
   function send(key: string, value: string, res?: (ok: boolean) => void) {
     const id = nextId++;
@@ -110,6 +111,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     const e = inflight.get(id);
     if (!e) return; // duplicate or foreign ack
     inflight.delete(id);
+    if (!inflight.size) for (const w of [...waiters]) w();
     const latest = latestId[e.key] === id;
     if (m.ok === true) {
       if (latest && id > errId && error.value?.key === e.key) error.value = null; // a stale ok must not hide a newer failure
@@ -219,6 +221,19 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     return { ok: failed.length === 0, failed };
   }
 
+  /** Sends pending writes and resolves true once every write is acked; false if one stays unacked past ackTimeoutMs. Check `error` for rejected writes. */
+  function settled(): Promise<boolean> {
+    flush();
+    if (!inflight.size) return Promise.resolve(true);
+    return new Promise((res) => {
+      let cancel = () => {};
+      const done = (ok: boolean) => { waiters.delete(wake); cancel(); res(ok); };
+      const wake = () => done(true);
+      waiters.add(wake);
+      cancel = schedule(() => done(false), ackTimeoutMs);
+    });
+  }
+
   function search(q: string): SettingDef[] {
     const s = q.trim().toLowerCase();
     if (!s) return [];
@@ -237,7 +252,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     error: error as ReadonlySignal<{ key: string; message: string } | null>,
     canUndo: computed(() => past.value.length > 0),
     canRedo: computed(() => future.value.length > 0),
-    set, undo, redo, flush, loadFromHost, resetKey, resetGroup, isChanged, applyDefaults, search, visibleDefs,
+    set, undo, redo, flush, settled, loadFromHost, resetKey, resetGroup, isChanged, applyDefaults, search, visibleDefs,
   };
 }
 export type SettingsStore = ReturnType<typeof createSettingsStore>;
