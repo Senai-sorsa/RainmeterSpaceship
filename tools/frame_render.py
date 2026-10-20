@@ -174,8 +174,10 @@ def hull_png(base):
     return img
 
 
-def glass_fx_png():
-    glass = np.asarray(window_mask(1.5), dtype=np.float32) / 255
+def glass_fx_png(glass=None):
+    """glass: optional float 0-1 mask (CH x CW) instead of the reference windows (picture mode)"""
+    if glass is None:
+        glass = np.asarray(window_mask(1.5), dtype=np.float32) / 255
     smudge = np.clip(noise(7, 10, sx=4, sy=4), 0, 1) ** 2 * 0.55 + np.clip(noise(8, 3, sx=2, sy=2) - 0.55, 0, 1) * 0.4
     yy, xx = np.mgrid[0:CH, 0:CW].astype(np.float32)
     glare = np.zeros((CH, CW), np.float32)
@@ -190,8 +192,9 @@ def glass_fx_png():
     return Image.fromarray(img, "RGBA")
 
 
-def scan_png():
-    glass = np.asarray(window_mask(1.0), dtype=np.float32) / 255
+def scan_png(glass=None):
+    if glass is None:
+        glass = np.asarray(window_mask(1.0), dtype=np.float32) / 255
     rows = ((np.arange(CH) % 5) < 2).astype(np.float32)[:, None] * np.ones((1, CW), np.float32)
     img = np.dstack([np.zeros((CH, CW, 3), np.float32), rows * glass * 40]).astype(np.uint8)
     return Image.fromarray(img, "RGBA")
@@ -217,17 +220,20 @@ def shade_png():
     return Image.fromarray(img, "RGBA")
 
 
-def mist_png():
+def mist_png(edges=None):
     """neon mist: the window edges and the corner cuts, blurred very wide and kept very dim, plus a glow rising
     off the top and bottom edges of the screen itself (about 3x the window mist, spreading well in). White
-    with an alpha falloff; the Frame tints it with the theme colour (ImageTint) so it follows colour themes."""
-    m = Image.new("L", (CW, CH), 0)
-    d = ImageDraw.Draw(m)
-    for w in R.WINDOWS:
-        pts = [(x * R.SX, y * R.SY) for x, y in w]
-        d.line(pts + [pts[0]], fill=255, width=4)
-    for rim in R.RIMS:
-        d.line([(x * R.SX, y * R.SY) for x, y in rim], fill=255, width=6)
+    with an alpha falloff; the Frame tints it with the theme colour (ImageTint) so it follows colour themes.
+    edges: optional 0-255 "L" image of the edge lines (picture mode) instead of the reference windows."""
+    m = edges
+    if m is None:
+        m = Image.new("L", (CW, CH), 0)
+        d = ImageDraw.Draw(m)
+        for w in R.WINDOWS:
+            pts = [(x * R.SX, y * R.SY) for x, y in w]
+            d.line(pts + [pts[0]], fill=255, width=4)
+        for rim in R.RIMS:
+            d.line([(x * R.SX, y * R.SY) for x, y in rim], fill=255, width=6)
     a = np.asarray(m, dtype=np.float32) / 255
     a[:6, :] = a[-6:, :] = 0                    # window sides lying on the screen border are not edges
     a[:, :6] = a[:, -6:] = 0

@@ -37,7 +37,7 @@ def skins_status(repo):
     return r.stdout
 
 
-def run_safe(repo, out, scale="1.0", rm_args=(), strict=False, python=VENV_PY):
+def run_safe(repo, out, scale="1.0", rm_args=(), strict=False, python=VENV_PY, sets=()):
     repo, out = Path(repo), Path(out)
     if out.suffix.lower() != ".png" or not out.parent.is_dir():
         print("error: --out must end in .png and its parent must exist", file=sys.stderr)
@@ -59,6 +59,17 @@ def run_safe(repo, out, scale="1.0", rm_args=(), strict=False, python=VENV_PY):
         new, n = re.subn(r"(?im)^Scale=.*$", f"Scale={scale}", si.read_text(encoding="utf-8-sig"))
         if n:
             si.write_text(new, encoding="utf-8")
+        for kv in sets:                    # --set KEY=VALUE: rewritten in the temp copy only
+            k, _, v = kv.partition("=")
+            if not (re.fullmatch(r"[A-Za-z0-9_]+", k) and re.fullmatch(r"[A-Za-z0-9_.,-]*", v) and _ == "="):
+                print(f"error: bad --set {kv!r}", file=sys.stderr)
+                return 2
+            txt = si.read_text(encoding="utf-8")
+            txt, n = re.subn(rf"(?im)^{k}=.*$", lambda m: f"{k}={v}", txt)
+            if not n:
+                print(f"error: --set key {k!r} not in Settings.inc", file=sys.stderr)
+                return 2
+            si.write_text(txt, encoding="utf-8")
         png = tmp / "render.png"
         r = subprocess.run([str(python), "-I", str(tmp / "tools" / "rmsim.py"), "--out", str(png), *rm_args],
                            cwd=tmp, capture_output=True, text=True)
@@ -84,12 +95,14 @@ def main():
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--scenario")
     ap.add_argument("--updates")
+    ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                    help="override a Settings.inc key in the temp copy (repeatable)")
     a = ap.parse_args()
     rm = []
     for k in ("scenario", "updates"):
         if getattr(a, k) is not None:
             rm += [f"--{k}", getattr(a, k)]
-    sys.exit(run_safe(REPO, a.out, a.scale, rm, a.strict))
+    sys.exit(run_safe(REPO, a.out, a.scale, rm, a.strict, sets=a.set))
 
 
 if __name__ == "__main__":

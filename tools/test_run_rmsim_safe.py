@@ -17,6 +17,8 @@ sc = Path(__file__).parent.parent / "Skins/Spaceship/@Resources/Settings.inc"
 assert "Scale=2.5" in sc.read_text(), sc.read_text()
 assert not (sc.parent / "Icons").exists() and not list((sc.parent / "Data").glob("jarvis*"))
 assert (sc.parent / "Data/keep.txt").exists() and Path(__file__).with_name("layoutlib.py").exists()
+if "--flag1" in a:
+    assert "Flag=1" in sc.read_text() and "Other=2" in sc.read_text(), sc.read_text()
 Path(a[a.index("--out") + 1]).write_bytes(b"PNG")
 if "--mutate" in a:
     open(ORIG, "a").write("!")
@@ -32,7 +34,7 @@ with tempfile.TemporaryDirectory() as d:
     (repo / "tools/rmsim.py").write_text(f"ORIG = {str(res / 'Settings.inc')!r}\n" + FAKE)
     (repo / "tools/layoutlib.py").write_text("")
     (repo / "layout/layout.json").write_text("{}")
-    (res / "Settings.inc").write_text("[V]\nScale=0.67\n")
+    (res / "Settings.inc").write_text("[V]\nScale=0.67\nFlag=0\nOther=2\n")
     (res / "Icons/a.png").write_text("x")
     (res / "Data/keep.txt").write_text("k")
     (res / "Data/jarvis_x.txt").write_text("secret")
@@ -54,6 +56,13 @@ with tempfile.TemporaryDirectory() as d:
     assert rs.run_safe(repo, out, "x;rm", python=py) == 2
     assert "Scale=0.67" in (res / "Settings.inc").read_text()              # real file untouched
     assert set(glob.glob(tmpglob)) == pre                                  # temp dirs cleaned up
+
+    assert rs.run_safe(repo, out, "2.5", ["--flag1"], python=py, sets=["Flag=1"]) == 0   # --set applies
+    assert rs.run_safe(repo, out, "2.5", python=py, sets=["Nope=1"]) == 2              # unknown key
+    assert rs.run_safe(repo, out, "2.5", python=py, sets=["Flag=1;x"]) == 2            # bad value
+    assert rs.run_safe(repo, out, "2.5", python=py, sets=["Fl-ag=1"]) == 2             # bad key
+    assert rs.run_safe(repo, out, "2.5", python=py, sets=["Flag"]) == 2                # no '='
+    assert "Flag=0" in (res / "Settings.inc").read_text()                              # real file untouched
 
     # a run that modifies the repo's Skins tree must fail loudly
     assert rs.run_safe(repo, out, "2.5", ["--mutate"], python=py) == 2
