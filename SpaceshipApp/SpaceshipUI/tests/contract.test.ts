@@ -15,7 +15,7 @@ function derive() {
   const keys = defs.filter((d) => allowed.has(d.key) && d.control.kind !== 'action')
     .map((d) => ({ key: d.key, file: d.file, control: d.control, default: d.default }))
     .sort((a, b) => a.key.localeCompare(b.key));
-  const actions = [...new Set(REGISTRY.flatMap((d) => (d.control.kind === 'action' ? [d.control.id] : [])))].sort();
+  const actions = [...new Set(REGISTRY.flatMap((d) => (d.control.kind === 'action' && d.control.id !== 'flow.open' ? [d.control.id] : [])))].sort(); // flow.open travels as its own message with a flow, never as a bare action
   return { schema: 1, generator: 'SpaceshipApp/SpaceshipUI/tests/contract.test.ts (UPDATE_CONTRACT=1)', keys, actions };
 }
 

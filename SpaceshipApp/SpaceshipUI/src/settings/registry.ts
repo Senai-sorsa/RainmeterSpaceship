@@ -11,6 +11,7 @@ export const CATEGORIES: { id: CategoryId; label: string }[] = [
 export const INTERNAL_KEYS = new Set([
   'MasterPrev', 'LastSpeedTest', 'LastAppScan', 'MonX', 'MonY', 'SensorStatus', 'CtlTab', 'CtlPage', 'CtlMod', 'DialSel',
   'UseShipImage', 'FrameOff',
+  'LltPath', 'JarvisPython', // executable paths: the page must never set what the host later runs; edit Settings.inc by hand
 ]);
 export const WRITABLE_INTERNAL = ['UseShipImage', 'FrameOff'];
 
@@ -165,7 +166,6 @@ add('performance', 'Tier', 'advanced', [
   ['TierStealth', 'Stealth above', 'GPU percent where Stealth starts.', sl(10, 100, 5), '85'],
 ]);
 add('performance', 'Hardware control', 'advanced', [
-  ['LltPath', 'LLT path', 'Path to the laptop control tool.', path, ''],
   ['LltPowerFeature', 'Power feature', 'Feature name for power mode.', tx('^[A-Za-z0-9._-]{0,40}$', 40), 'power-mode'],
   ['LltPowerModes', 'Power modes', 'Comma list of power modes.', tx('^[A-Za-z0-9,._-]{0,80}$', 80), 'quiet,balance,performance'],
   ['LltRefreshFeature', 'Refresh feature', 'Feature name for refresh rate.', tx('^[A-Za-z0-9._-]{0,40}$', 40), 'refresh-rate'],
@@ -219,7 +219,6 @@ add('assistant', 'Model', 'advanced', [
   ['JarvisContext', 'Context size', 'How much conversation the model remembers.', sl(512, 16384, 512), '2048'],
   ['JarvisGPU', 'GPU use', 'Prefer the GPU or require it.', sel('prefer|Prefer', 'require|Require'), 'prefer', O],
   ['JarvisIdleUnload', 'Idle unload', 'Minutes idle before the model unloads (0 = never).', sl(0, 120, 5), '10', O],
-  ['JarvisPython', 'Python path', 'Python used to run the assistant (empty = automatic).', path, ''],
   ['JarvisAIRouter', 'AI router', 'Let the AI route requests.', tog, '1', O],
 ]);
 add('assistant', 'Behaviour', 'normal', [

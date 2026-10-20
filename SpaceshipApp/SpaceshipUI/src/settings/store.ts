@@ -137,7 +137,10 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   function onValues(m: Msg) {
     const got = m.values && typeof m.values === 'object' ? (m.values as Record<string, unknown>) : {};
     const next = { ...raw.value };
-    for (const [k, v] of Object.entries(got)) if (typeof v === 'string' && isRaw(byKey.get(k))) { next[k] = v; sent[k] = v; }
+    const busy = new Set<string>([...inflight.values()].map((e) => e.key));
+    for (const k of th.keys()) busy.add(k);
+    // a key being edited keeps the user's value; the host's older answer must not overwrite it
+    for (const [k, v] of Object.entries(got)) if (typeof v === 'string' && isRaw(byKey.get(k)) && !busy.has(k)) { next[k] = v; sent[k] = v; }
     raw.value = next;
   }
   host.onMessage((m) => {
@@ -178,7 +181,11 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     apply(Object.fromEntries(Object.entries(changes).map(([k, c]) => [k, c.to])), !!ckey);
   }
   function set(key: string, value: string, o: { coalesce?: boolean } = {}) {
-    try { commit(plan(byKey.get(key), value), o.coalesce ? key : null); } catch (e) { error.value = { key, message: (e as Error).message }; }
+    try {
+      const t = plan(byKey.get(key), value);
+      if (error.value?.key === key) error.value = null; // a valid retry clears the old complaint even when nothing needs sending
+      commit(t, o.coalesce ? key : null);
+    } catch (e) { error.value = { key, message: (e as Error).message }; }
   }
 
   function step(from: Entry[], to: Entry[], dir: 'from' | 'to') {
@@ -219,6 +226,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
       });
       if (!ok) failed.push(k);
     }
+    if (failed.length) loadFromHost(); // a timed-out write may still have landed: show what the host really has
     return { ok: failed.length === 0, failed };
   }
 

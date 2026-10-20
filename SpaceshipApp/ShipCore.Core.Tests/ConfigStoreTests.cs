@@ -25,6 +25,24 @@ public sealed class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void AnIndentedOrDifferentlyCasedKeyIsReplacedNotDuplicated()
+    {
+        File.WriteAllText(Path.Combine(_dir, "Settings.inc"), "[Variables]\r\n   JarvisName=Old\r\nscale=1\n");
+        Assert.True(_store.Set("JarvisName", "Friday").Ok);
+        Assert.True(_store.Set("Scale", "0.8").Ok);
+        Assert.Equal("[Variables]\r\n   JarvisName=Friday\r\nScale=0.8\n", Read("Settings.inc"));
+        Assert.Equal("Friday", _store.Get(new[] { "JarvisName" })["JarvisName"]);
+    }
+
+    [Fact]
+    public void MixedLineEndingsStayAsTheyWereAndNothingIsMerged()
+    {
+        File.WriteAllText(Path.Combine(_dir, "Settings.inc"), "[Variables]\r\nScale=1\nColorAccent=0,210,255\r\n");
+        Assert.True(_store.Set("JarvisName", "Friday").Ok);
+        Assert.Equal("[Variables]\r\nScale=1\nColorAccent=0,210,255\r\nJarvisName=Friday\r\n", Read("Settings.inc"));
+    }
+
+    [Fact]
     public void AnAbsentKeyIsAddedAtTheEndOfVariablesNotAfterOtherSections()
     {
         Assert.True(_store.Set("JarvisName", "Friday").Ok);

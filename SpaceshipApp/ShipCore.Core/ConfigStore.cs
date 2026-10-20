@@ -43,25 +43,31 @@ public sealed class ConfigStore
             {
                 var path = PathOf(s);
                 var text = ReadFile(s);
-                var nl = text.Contains("\r\n") ? "\r\n" : "\n";
-                var lines = text.Length == 0 ? new List<string>() : text.Split(nl).ToList();
+                // Lines keep their own "\r"; new lines copy the file's style. Matching ignores indent and case, like Rainmeter.
+                var cr = text.Contains("\r\n") ? "\r" : "";
+                var lines = text.Length == 0 ? new List<string>() : text.Split('\n').ToList();
                 var prefix = key + "=";
-                var i = lines.FindLastIndex(l => l.StartsWith(prefix, StringComparison.Ordinal));
-                if (i >= 0) lines[i] = prefix + value;
+                var i = lines.FindLastIndex(l => IsKeyLine(l, key));
+                if (i >= 0)
+                {
+                    var old = lines[i];
+                    var indent = old[..(old.Length - old.TrimStart().Length)];
+                    lines[i] = indent + prefix + value + (old.EndsWith('\r') ? "\r" : "");
+                }
                 else
                 {
                     // absent (optional key): add it to the end of [Variables], or to the file end when there is no such section
                     var at = lines.FindIndex(l => l.Trim() == "[Variables]");
-                    if (at < 0) { lines.Add(prefix + value); }
+                    if (at < 0) { lines.Add(prefix + value + cr); }
                     else
                     {
                         var end = lines.FindIndex(at + 1, l => l.TrimStart().StartsWith('[')); // next section
                         end = end < 0 ? lines.Count : end;
                         while (end > at + 1 && lines[end - 1].Trim() == "") end--;
-                        lines.Insert(end, prefix + value);
+                        lines.Insert(end, prefix + value + cr);
                     }
                 }
-                WriteAtomic(path, string.Join(nl, lines));
+                WriteAtomic(path, string.Join("\n", lines));
                 return new(true);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -71,11 +77,18 @@ public sealed class ConfigStore
         }
     }
 
+    private static bool IsKeyLine(string l, string key)
+    {
+        var t = l.TrimStart('\uFEFF', ' ', '\t');
+        var eq = t.IndexOf('=');
+        return eq > 0 && t[0] is not (';' or '[') && t[..eq].Trim().Equals(key, StringComparison.OrdinalIgnoreCase);
+    }
+
     private string ReadFile(KeySpec s) => File.Exists(PathOf(s)) ? File.ReadAllText(PathOf(s), new UTF8Encoding(false)) : "";
 
     private static Dictionary<string, string> Parse(string text)
     {
-        var d = new Dictionary<string, string>();
+        var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var raw in text.Split('\n'))
         {
             var l = raw.TrimEnd('\r').TrimStart('﻿');

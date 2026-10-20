@@ -6,6 +6,16 @@ public class PipeGateTests
     private PipeGate Gate() => new(_clock, "n0nce", "sess1", TimeSpan.FromSeconds(10));
 
     [Fact]
+    public void FailedHellosAreCappedAndANullNonceIsRefused()
+    {
+        var g = Gate();
+        Assert.False(g.Verify(new Hello(null!, 42, "sess1"), 42));
+        Assert.False(g.Verify(new Hello("bad", 42, "sess1"), 42));
+        Assert.False(g.Verify(new Hello("bad", 42, "sess1"), 42));
+        Assert.False(g.Verify(new Hello("n0nce", 42, "sess1"), 42)); // fourth try, even a right hello, is too late
+    }
+
+    [Fact]
     public void NothingIsSentBeforeAValidHello()
     {
         var g = Gate();

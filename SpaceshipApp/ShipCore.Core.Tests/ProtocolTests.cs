@@ -4,6 +4,21 @@ namespace ShipCore.Core.Tests;
 
 public class ProtocolTests
 {
+    [Theory]
+    [InlineData("{\"type\":\"aboutme.set\",\"text\":\"\\ud800\"}")]
+    [InlineData("{\"type\":\"config.set\",\"key\":\"Scale\",\"value\":\"\\udc00\",\"id\":1}")]
+    public void ALoneSurrogateIsRefusedNotThrown(string json) => Assert.NotNull(Protocol.Problem(json, Repo.Schema()));
+
+    [Fact]
+    public void NonAsciiDigitsAreNotNumbers()
+    {
+        var s = Repo.Schema();
+        var colour = s.Keys.Values.First(k => k.Kind == "color").Key;
+        Assert.NotNull(s.Problem(colour, "\u0661,2,3"));
+        var slider = s.Keys.Values.First(k => k.Kind == "slider").Key;
+        Assert.NotNull(s.Problem(slider, "\u0661"));
+    }
+
     [Fact]
     public void EveryFixtureGetsTheVerdictItDeclares()
     {
@@ -15,7 +30,7 @@ public class ProtocolTests
             var ok = Protocol.Problem(f.GetProperty("msg"), schema) is null;
             if (ok != f.GetProperty("valid").GetBoolean()) wrong.Add(f.GetProperty("name").GetString()!);
         }
-        Assert.Empty(wrong);
+        Assert.True(wrong.Count == 0, string.Join(", ", wrong));
         Assert.True(doc.RootElement.GetArrayLength() > 20);
     }
 

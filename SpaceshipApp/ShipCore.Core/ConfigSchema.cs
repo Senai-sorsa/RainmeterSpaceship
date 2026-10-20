@@ -46,7 +46,7 @@ public sealed class ConfigSchema
             case "select": return s.Options.Contains(value) ? null : "not an allowed option";
             case "slider":
             {
-                if (!Regex.IsMatch(value, @"^-?\d+(\.\d+)?$") ||
+                if (!Regex.IsMatch(value, @"^-?[0-9]+(\.[0-9]+)?$") ||
                     !double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n))
                     return "must be a number";
                 if (n < s.Min || n > s.Max) return $"must be from {s.Min} to {s.Max}";
@@ -58,7 +58,7 @@ public sealed class ConfigSchema
                 return s.Pattern is not null && Regex.IsMatch(value, s.Pattern, RegexOptions.None, TimeSpan.FromMilliseconds(100)) ? null : "contains characters that are not allowed";
             case "color":
                 if (value == "" && s.Default == "") return null; // empty = follow the theme
-                return Regex.IsMatch(value, @"^\d{1,3},\d{1,3},\d{1,3}(,\d{1,3})?$") && value.Split(',').All(p => int.Parse(p) <= 255) ? null : "must be r,g,b or r,g,b,a (0-255)";
+                return Regex.IsMatch(value, @"^[0-9]{1,3},[0-9]{1,3},[0-9]{1,3}(,[0-9]{1,3})?$") && value.Split(',').All(p => int.Parse(p) <= 255) ? null : "must be r,g,b or r,g,b,a (0-255)";
             default: return "not a setting";
         }
     }

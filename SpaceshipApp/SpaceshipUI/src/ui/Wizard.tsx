@@ -3,6 +3,7 @@ import { useMemo, useState } from 'preact/hooks';
 import type { HostBridge } from '../host/HostBridge';
 import type { SettingsStore } from '../settings/store';
 import type { SettingDef } from '../settings/types';
+import { messageProblem } from '../host/contract';
 import { validateLabel, validateName } from '../settings/identity';
 import { STEPS, createWizard } from '../wizard/wizard';
 import { SettingsPanel } from './SettingsPanel';
@@ -10,6 +11,7 @@ import { SettingsPanel } from './SettingsPanel';
 type P = { store: SettingsStore; host: HostBridge; defs: SettingDef[] };
 const ABOUT_MAX = 4000;
 const FLOWS = [['gmail', 'Gmail'], ['calendars', 'Calendars'], ['obsidian', 'Obsidian']] as const;
+const aboutErr = signal(''); // set when the host refuses the about-me text; the typed text is kept
 const aboutMe = signal(''); // personal text: kept only here and sent to the host, never logged
 const listening = new WeakSet<HostBridge>();
 
@@ -38,7 +40,11 @@ export function Wizard({ store, host, defs }: P) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   if (!listening.has(host)) {
     listening.add(host);
-    host.onMessage((m) => { if (m.type === 'aboutme.value' && typeof m.text === 'string') aboutMe.value = m.text; });
+    host.onMessage((m) => {
+      if (m.type !== 'aboutme.value' || typeof m.text !== 'string') return;
+      if (m.ok === false) aboutErr.value = 'Could not save your text (too long or contains unsupported characters). Your text is still here; edit it and try again.';
+      else { aboutMe.value = m.text; aboutErr.value = ''; }
+    });
   }
   useMemo(() => host.send({ type: 'aboutme.get' }), []);
 
@@ -76,7 +82,13 @@ export function Wizard({ store, host, defs }: P) {
             <span class="label">About me (optional, helps the assistant know you)</span>
             <textarea class="ctl-text" maxLength={ABOUT_MAX} rows={4} value={aboutMe.value} aria-label="About me"
               onInput={(e) => { aboutMe.value = (e.target as HTMLTextAreaElement).value; }}
-              onBlur={() => host.send({ type: 'aboutme.set', text: aboutMe.value })} />
+              onBlur={() => {
+                const msg = { type: 'aboutme.set', text: aboutMe.value };
+                const bad = messageProblem(msg);
+                if (bad) aboutErr.value = 'Your text contains characters the assistant cannot store (control characters). Remove them and try again.';
+                else host.send(msg);
+              }} />
+            {aboutErr.value && <p class="wiz-bad" role="alert">{aboutErr.value}</p>}
             <small>{aboutMe.value.length}/{ABOUT_MAX}</small>
           </label>
         )}

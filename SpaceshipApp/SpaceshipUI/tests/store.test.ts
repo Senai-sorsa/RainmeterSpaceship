@@ -92,6 +92,38 @@ describe('settings store', () => {
     expect(store.error.value).toBeNull();
   });
 
+  it('a valid retry after a validation error clears the error even when nothing is sent', () => {
+    const { store, sets } = make();
+    store.set('name', 'Jarvis!');
+    expect(store.error.value?.key).toBe('name');
+    store.set('name', 'Jarvis'); // same as the current value: no write, but the complaint is stale
+    expect(store.error.value).toBeNull();
+    expect(sets()).toHaveLength(0);
+  });
+
+  it('a late config.values does not overwrite a key with a write in flight', () => {
+    const sent: Msg[] = [];
+    let cb: (m: Msg) => void = () => {};
+    const host: HostBridge = { send: (m) => { sent.push(m); }, onMessage: (f) => { cb = f; }, telemetry: () => new Float32Array(8) };
+    const store = createSettingsStore(host, DEFS, { schedule: clock().schedule, virtuals: VIRT });
+    store.set('mode', 'b');
+    cb({ type: 'config.values', values: { mode: 'a', flag: '1' } });
+    expect(store.values.value.mode).toBe('b'); // the user's edit wins
+    expect(store.values.value.flag).toBe('1'); // untouched keys take the host's value
+  });
+
+  it('applyDefaults that times out re-reads the host instead of trusting its rollback', async () => {
+    const sent: Msg[] = [];
+    const host: HostBridge = { send: (m) => { sent.push(m); }, onMessage: () => {}, telemetry: () => new Float32Array(8) };
+    const c = clock();
+    const store = createSettingsStore(host, DEFS, { schedule: c.schedule, virtuals: VIRT, ackTimeoutMs: 100 });
+    store.set('mode', 'b');
+    const p = store.applyDefaults();
+    c.advance(200);
+    expect((await p).ok).toBe(false);
+    expect(sent.filter((m) => m.type === 'config.get').length).toBeGreaterThan(1);
+  });
+
   it('undo/redo restore values and send writes', () => {
     const { store, sets } = make();
     expect(store.canUndo.value).toBe(false);

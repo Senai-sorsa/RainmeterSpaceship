@@ -852,5 +852,49 @@
   "name": "string",
   "valid": false,
   "msg": "config.get"
+ },
+ {
+  "name": "config.set lone surrogate in value",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "\ud800",
+   "id": 1
+  }
+ },
+ {
+  "name": "aboutme.set lone surrogate",
+  "valid": false,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "hi \udc00"
+  }
+ },
+ {
+  "name": "config.set id beyond safe integer",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "1",
+   "id": 1e+20
+  }
+ },
+ {
+  "name": "bare action flow.open without a flow",
+  "valid": false,
+  "msg": {
+   "type": "action",
+   "id": "flow.open"
+  }
+ },
+ {
+  "name": "aboutme.set vertical tab",
+  "valid": false,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "a\u000bb"
+  }
  }
 ]

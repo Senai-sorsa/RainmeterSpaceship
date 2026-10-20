@@ -1,3 +1,4 @@
+import { messageProblem } from './contract';
 import settings from '../generated/settings.json';
 import modules from '../generated/modules.json';
 import { REGISTRY, allowedKeys } from '../settings/registry';
@@ -10,7 +11,6 @@ export interface HostBridge {
 }
 
 const STORE_KEY = 'mockhost.v1';
-const ABOUT_MAX = 4000;
 type Persisted = { config: Record<string, string>; setupDone: boolean; aboutMe: string };
 export type MockOpts = { seed?: Record<string, string>; allow?: (key: string) => boolean; storage?: Storage | null; failKeys?: Set<string> };
 
@@ -65,8 +65,8 @@ export class MockHost implements HostBridge {
         return;
       case 'aboutme.get': return this.reply({ type: 'aboutme.value', text: this.st.aboutMe });
       case 'aboutme.set': {
-        const text = msg.text;
-        if (typeof text !== 'string' || text.length > ABOUT_MAX) return this.reply({ type: 'aboutme.value', text: this.st.aboutMe, ok: false });
+        const text = msg.text as string; // checked just below
+        if (messageProblem(msg) !== null) return this.reply({ type: 'aboutme.value', text: this.st.aboutMe, ok: false });
         this.st.aboutMe = text;
         this.save();
         return this.reply({ type: 'aboutme.value', text });

@@ -1514,16 +1514,6 @@
       "default": ""
     },
     {
-      "key": "JarvisPython",
-      "file": "Settings.inc",
-      "control": {
-        "kind": "text",
-        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
-        "max": 200
-      },
-      "default": ""
-    },
-    {
       "key": "JarvisQuietCalendar",
       "file": "Settings.inc",
       "control": {
@@ -2024,16 +2014,6 @@
         "max": 40
       },
       "default": "on"
-    },
-    {
-      "key": "LltPath",
-      "file": "Settings.inc",
-      "control": {
-        "kind": "text",
-        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
-        "max": 200
-      },
-      "default": ""
     },
     {
       "key": "LltPowerFeature",
@@ -3042,7 +3022,6 @@
     "apps.scan",
     "defaults.all",
     "edit.toggle",
-    "flow.open",
     "presets.open",
     "setup.rerun",
     "setup.reset"

@@ -13,9 +13,16 @@ public static class Protocol
     {
         try { using var d = JsonDocument.Parse(json); return Problem(d.RootElement, schema); }
         catch (JsonException) { return "not json"; }
+        catch (InvalidOperationException) { return "not a message"; } // e.g. a lone surrogate in a string
     }
 
     public static string? Problem(JsonElement m, ConfigSchema schema)
+    {
+        try { return Check(m, schema); }
+        catch (Exception e) when (e is InvalidOperationException or FormatException or OverflowException) { return "not a message"; }
+    }
+
+    private static string? Check(JsonElement m, ConfigSchema schema)
     {
         if (m.ValueKind != JsonValueKind.Object || !Str(m, "type", out var type)) return "not a message";
         switch (type)

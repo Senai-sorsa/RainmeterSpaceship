@@ -18,6 +18,8 @@ function TextInput({ def, store, describedBy }: Omit<P, 'host'>) {
   );
 }
 
+const FLOW_OF: Record<string, string> = { 'flow.gmail': 'gmail', 'flow.calendar': 'calendars' };
+
 export function ControlWidget({ def, store, host, describedBy }: P) {
   const c = def.control;
   const v = store.values.value[def.key] ?? def.default;
@@ -50,6 +52,6 @@ export function ControlWidget({ def, store, host, describedBy }: P) {
     case 'text':
       return <TextInput def={def} store={store} describedBy={describedBy} />;
     case 'action':
-      return <button type="button" class="ctl-action" data-primary aria-describedby={describedBy} onClick={() => host.send({ type: 'action', id: c.id })}>{def.label}</button>;
+      return <button type="button" class="ctl-action" data-primary aria-describedby={describedBy} onClick={() => host.send(c.id === 'flow.open' ? { type: 'flow.open', flow: FLOW_OF[def.key] } : { type: 'action', id: c.id })}>{def.label}</button>;
   }
 }
