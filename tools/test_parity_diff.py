@@ -18,4 +18,6 @@ with tempfile.TemporaryDirectory() as d:
     assert abs(mad - 100 / 3) < 1e-6 and pct == 100.0, (mad, pct)
     assert pd.compare(p("a.png"), p("b.png"), p("d2.png"), threshold=100)[1] == 0.0  # not strictly over
     assert Image.open(p("d1.png")).size == (40, 20)
+    mad, pct = pd.compare(p("a.png"), p("b.png"), p("d3.png"), size=(80, 40))   # --size: both resized
+    assert Image.open(p("d3.png")).size == (80, 40) and abs(mad - 100 / 3) < 1e-6 and pct == 100.0
 print("ok")
