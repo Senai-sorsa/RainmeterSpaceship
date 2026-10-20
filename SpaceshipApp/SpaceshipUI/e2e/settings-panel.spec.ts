@@ -97,7 +97,7 @@ test('slider drag writes coalesced and closes the run on release', async ({ page
   await s.focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
-  expect((await sent(page)).at(-1)).toMatchObject({ key: 'GlowAlpha', value: '96' });
+  expect((await sent(page)).at(-1)).toMatchObject({ key: 'GlowAlpha', value: '84' });
 });
 
 test('screenshots', async ({ page }) => {

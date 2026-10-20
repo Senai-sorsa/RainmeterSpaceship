@@ -47,7 +47,7 @@ const V = { virtual: 1 } as const;
 add('display', 'Theme', 'normal', [
   ['ColorAccent', 'Accent colour', 'Main HUD colour (r,g,b).', col, '0,210,255', { w: 'look' }],
   ['ColorWarn', 'Warning colour', 'Colour for warnings such as a low battery.', col, '255,130,40'],
-  ['GlowAlpha', 'Glow strength', 'How strongly the neon lines glow.', sl(0, 160, 8), '76'],
+  ['GlowAlpha', 'Glow strength', 'How strongly the neon lines glow.', sl(0, 160, 4), '76'],
 ]);
 add('display', 'Theme', 'advanced', [
   ['ColorDim', 'Dim colour', 'Colour for inactive lines and labels.', col, '0,110,150'],
@@ -69,7 +69,7 @@ add('display', 'Frame', 'normal', [
 ]);
 add('display', 'Frame', 'advanced', [
   ['FrameBehindTaskbar', 'Frame behind taskbar', 'Draw the frame under the Windows taskbar.', tog, '1'],
-  ['GlassTint', 'Window tint', 'Darkness of the cockpit glass tint.', sl(0, 255, 5), '66'],
+  ['GlassTint', 'Window tint', 'Darkness of the cockpit glass tint.', sl(0, 255, 3), '66'],
   ['GlassGlare', 'Glass glare', 'Strength of smudges and reflections on the glass.', sl(0, 60, 4), '12'],
   ['ScanLines', 'Scanlines', 'Show scanlines over the HUD.', tog, '1'],
   ['ScanAlpha', 'Scanline darkness', 'How dark the scanlines are.', sl(0, 14, 1), '6'],
@@ -199,7 +199,7 @@ add('assistant', 'Voice', 'advanced', [
   ['JarvisVoice', 'Voice model file', 'Path of the voice model.', path, 'Jarvis\\kokoro\\kokoro-v1.0.onnx'],
   ['JarvisVoiceRate', 'Voice rate', 'Speaking rate offset.', sl(-5, 5, 1), '1'],
   ['JarvisSpeed', 'Orb speed', 'Animation speed.', sl(0.25, 3, 0.25), '1'],
-  ['JarvisSilence', 'Silence wait', 'Seconds of silence before it stops listening.', sl(0.5, 6, 0.5), '1.2'],
+  ['JarvisSilence', 'Silence wait', 'Seconds of silence before it stops listening.', sl(0.5, 6, 0.1), '1.2'],
   ['JarvisChime', 'Chime', 'Play a chime when listening starts.', tog, '1'],
   ['JarvisChimeVolume', 'Chime volume', 'Chime loudness, 0 to 100.', sl(0, 100, 5), '25', O],
   ['JarvisDuck', 'Duck music', 'Lower other audio while the assistant talks.', tog, '1', O],
@@ -244,7 +244,7 @@ add('assistant', 'Orb and panel', 'advanced', [
   ['JarvisShell', 'Shell', 'Show the orb shell.', tog, '1'],
   ['JarvisDial', 'Dial', 'Show the dial.', tog, '1'],
   ['JarvisBars', 'Bars', 'Show the audio bars.', tog, '1'],
-  ['JarvisTint', 'Tint', 'Strength of the panel tint.', sl(0, 0.8, 0.05), '0.42'],
+  ['JarvisTint', 'Tint', 'Strength of the panel tint.', sl(0, 0.8, 0.01), '0.42'],
   ['JarvisFrameRate', 'Frame rate', 'Orb animation frames per second.', sl(5, 60, 5), '15'],
   ['JarvisBlackBackground', 'Black background', 'Use a solid black panel.', tog, '0'],
   ['JarvisColorIdle', 'Colour: standby', 'Orb colour while idle (empty = follow the theme).', col, ''],

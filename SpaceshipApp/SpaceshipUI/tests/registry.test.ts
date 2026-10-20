@@ -34,6 +34,14 @@ describe('settings registry', () => {
       expect([d.key, c.min < c.max && c.step > 0 && n >= c.min && n <= c.max]).toEqual([d.key, true]);
     }
   });
+  it('slider defaults sit on their own step grid (a reset-to-default write must pass store validation)', () => {
+    for (const d of [...REGISTRY, ...mods]) {
+      const c = d.control;
+      if (c.kind !== 'slider') continue;
+      const q = (Number(d.default) - c.min) / c.step;
+      expect([d.key, Math.abs(q - Math.round(q)) < 1e-6]).toEqual([d.key, true]);
+    }
+  });
   it('select default is an option', () => {
     for (const d of REGISTRY) if (d.control.kind === 'select') expect([d.key, d.control.options.some((o) => o.value === d.default)]).toEqual([d.key, true]);
   });
