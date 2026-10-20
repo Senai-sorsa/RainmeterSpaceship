@@ -5,6 +5,11 @@ Facts come from git history (`git log`) and from test runs on the Ubuntu VM. Not
 
 ## 1. Progress log
 
+### 2026-10-20 (session 3): host logic, exam-browser list, P-D prototype
+- `contract/exam-browsers.json`: Respondus LockDown Browser (the one TAMU's LMS lists, `LockDown.exe` from one third-party file database), Safe Exam Browser, Examplify; Honorlock and Proctorio are Chrome extensions (no process); Zoom deliberately excluded. **Every name is unverified**; confirm in Task Manager on your machine.
+- Core, with tests (83 pass): `ExamBrowserList` (feeds `VisibilityPolicy`), `AutoStart` (HKCU Run only, opt-in, path-validated), `Lifecycle` (tray Refresh / Switch to Rainmeter / Quit, `WM_QUERYENDSESSION` never blocks, teardown once).
+- `SpaceshipApp/ShipCore.Proto` + `docs/P-D-PROTOTYPE.md`: the go/no-go prototype. Compiles here; never run.
+
 ### 2026-10-20 (session 3): fixes from the whole-branch review
 Reviewed `4d3f2d2..HEAD` with an Opus subagent (read only). Fixed items 1-11 of its report:
 
@@ -73,11 +78,11 @@ The two requests pasted into this session were: (A) setup page + Control Center 
 
 | Requirement | Status |
 |---|---|
-| Starts at power-on with little delay (opt-in `HKCU\...\Run`, no admin) | Not built. Needs the Windows host; the delay must be measured, not assumed |
+| Starts at power-on with little delay (opt-in `HKCU\...\Run`, no admin) | Logic written and tested (`AutoStart`); the Windows registry glue is not; the delay must be measured, not assumed |
 | Fluid animation (WebView2 composition hosting) | Not built. Needs the Windows transparent-window prototype (P-D go/no-go) |
 | CPU/GPU no higher than Rainmeter | Not measurable here. Windows baselines first (`tools/gpu_baseline.ps1` exists) |
-| Easy close and refresh (tray: Refresh / Quit / Switch to Rainmeter; `WM_QUERYENDSESSION`) | Not built. Host code only |
-| No interference with other apps (never topmost, no hooks, suspend when an exam browser runs) | Not built. The process-name list is needed from you; Respondus names are unverified |
+| Easy close and refresh (tray: Refresh / Quit / Switch to Rainmeter; `WM_QUERYENDSESSION`) | Logic tested (`Lifecycle`); the prototype wires it up but has never run |
+| No interference with other apps (never topmost, no hooks, suspend when an exam browser runs) | Policy + list tested; names unverified; not wired into a running host |
 | Modules ported from Rainmeter into the UI | Not started; the host messages they need are not defined yet |
 | Merge `feature/setup-control-center` to `main` | Waiting for your yes |
 | Windows run of `py -3 -B test_jarvis.py` | Waiting for you |

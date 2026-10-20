@@ -1,0 +1,16 @@
+{
+ "schema": 1,
+ "note": "Process names that make the HUD suspend itself. NONE of these were confirmed on a machine with the software installed; the only web-sourced name is LockDown.exe (one third-party file database). Confirm each in Task Manager > Details while the app runs, then set 'verified' to true. Extensions (Honorlock, Proctorio) are not processes: the HUD cannot see them, and they run inside Chrome, which the HUD does not touch.",
+ "sources": [
+  "https://lms.tamu.edu/menu/ltis/respondus-software",
+  "https://www.freefixer.com/library/file/LockDown.exe-107832/"
+ ],
+ "entries": [
+  { "product": "Respondus LockDown Browser / Respondus Monitor", "usedAtTamu": true,  "processes": ["LockDown.exe", "LockDownBrowser.exe", "LockDownBrowserOEM.exe"], "verified": false, "basis": "LockDown.exe: file database entry; the other two: recalled, unconfirmed" },
+  { "product": "Safe Exam Browser",                              "usedAtTamu": false, "processes": ["SafeExamBrowser.exe", "SEB.exe"],                                    "verified": false, "basis": "recalled, unconfirmed (3.x and 2.x names)" },
+  { "product": "ExamSoft Examplify",                             "usedAtTamu": false, "processes": ["Examplify.exe"],                                                      "verified": false, "basis": "recalled, unconfirmed" },
+  { "product": "Honorlock",                                      "usedAtTamu": true,  "processes": [],                                                                     "verified": false, "basis": "Chrome extension; no process to watch" },
+  { "product": "Proctorio",                                      "usedAtTamu": false, "processes": [],                                                                     "verified": false, "basis": "Chrome extension; no process to watch" },
+  { "product": "Zoom (live proctoring)",                         "usedAtTamu": true,  "processes": [],                                                                     "verified": false, "basis": "TAMU lists Zoom proctoring; Zoom is also used for normal calls, so it is deliberately NOT on the suspend list" }
+ ]
+}
