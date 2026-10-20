@@ -20,7 +20,7 @@ type Throttle = { cancel: (() => void) | null; pending?: string };
 const HISTORY_MAX = 200;
 
 /** Returns an error message, or null when the value is valid for the control. */
-function validate(c: Control, v: string): string | null {
+function validate(c: Control, v: string, allowEmpty = false): string | null {
   switch (c.kind) {
     case 'toggle': return v === '0' || v === '1' ? null : 'must be 0 or 1';
     case 'select': return c.options.some((o) => o.value === v) ? null : 'not an allowed option';
@@ -34,7 +34,8 @@ function validate(c: Control, v: string): string | null {
       if (v.length > c.max) return `at most ${c.max} characters`;
       try { return new RegExp(c.pattern).test(v) ? null : 'contains characters that are not allowed'; } catch { return 'invalid pattern'; }
     }
-    case 'color': return /^\d{1,3},\d{1,3},\d{1,3}(,\d{1,3})?$/.test(v) && v.split(',').every((p) => Number(p) <= 255) ? null : 'must be r,g,b or r,g,b,a (0-255)';
+    case 'color': if (allowEmpty && v === '') return null; // empty = follow the theme (rows whose default is empty)
+      return /^\d{1,3},\d{1,3},\d{1,3}(,\d{1,3})?$/.test(v) && v.split(',').every((p) => Number(p) <= 255) ? null : 'must be r,g,b or r,g,b,a (0-255)';
     case 'action': return 'actions are not settings';
   }
 }
@@ -149,7 +150,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   /** Maps one logical setting to the raw keys to write; throws a user-facing message when it cannot. */
   function plan(d: SettingDef | undefined, value: string, check = true): Record<string, string> {
     if (!d) throw new Error('unknown setting');
-    if (check) { const bad = validate(d.control, value); if (bad) throw new Error(bad); }
+    if (check) { const bad = validate(d.control, value, d.default === ''); if (bad) throw new Error(bad); }
     if (d.control.kind === 'action') throw new Error('actions are not settings');
     if (!d.virtual) return { [d.key]: value };
     const v = virtuals[d.key];

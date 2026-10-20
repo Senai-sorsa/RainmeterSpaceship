@@ -1,0 +1,3050 @@
+{
+  "schema": 1,
+  "generator": "SpaceshipApp/SpaceshipUI/tests/contract.test.ts (UPDATE_CONTRACT=1)",
+  "keys": [
+    {
+      "key": "AssistantLabel",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9. ]{0,24}$",
+        "max": 24
+      },
+      "default": ""
+    },
+    {
+      "key": "AutoFit",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "AutoSpeedTestHours",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 48,
+        "step": 1
+      },
+      "default": "6"
+    },
+    {
+      "key": "BatteryMinTier",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 3,
+        "step": 1
+      },
+      "default": "1"
+    },
+    {
+      "key": "BootAnim",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "BootSound",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "BottomAudio_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "BottomAudio_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "BottomPanels_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "BottomPanels_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "BottomStorage_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "BottomStorage_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "BottomStrip_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "BottomStrip_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "CaptionStyle",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 3,
+        "step": 1
+      },
+      "default": "1"
+    },
+    {
+      "key": "CenterHUD_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "CenterHUD_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "CenterSphere_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "CenterSphere_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "CenterTarget_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "CenterTarget_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "ChargeLimit",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 50,
+        "max": 100,
+        "step": 5
+      },
+      "default": "80"
+    },
+    {
+      "key": "ColorAccent",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "0,210,255"
+    },
+    {
+      "key": "ColorAlert",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "255,60,70"
+    },
+    {
+      "key": "ColorDim",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "0,110,150"
+    },
+    {
+      "key": "ColorGood",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "60,255,170"
+    },
+    {
+      "key": "ColorHighlight",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "255,105,135"
+    },
+    {
+      "key": "ColorPanel",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "0,30,45,90"
+    },
+    {
+      "key": "ColorText",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "170,235,255"
+    },
+    {
+      "key": "ColorWarn",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "255,130,40"
+    },
+    {
+      "key": "ColorWhite",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "215,240,255"
+    },
+    {
+      "key": "Controller_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "Controller_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "CoreWhite",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "default": "0.3"
+    },
+    {
+      "key": "CT_BottomAudio",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_BottomPanels",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_BottomStorage",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_BottomStrip",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_CenterHUD",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_CenterSphere",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_CenterTarget",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_Controller",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_Frame",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_LeftCategory",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_LeftLocation",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_LeftSlot1",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_LeftSlot2",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_LeftSlot3",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_LeftSlot4",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_LeftUpkeep",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_OverlayControl",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_OverlayDrawer",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_RightCategory",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_RightDev",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_RightSlot5",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_RightSlot6",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_RightSlot7",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_RightSlot8",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_RightSysInfo",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopAlert",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopBattery",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopConsole",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopGraphA",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopGraphB",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopGraphCPU",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopGraphRAM",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "CT_TopPower",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "DataDivider",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "Drive1",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z]:$",
+        "max": 2
+      },
+      "default": "C:"
+    },
+    {
+      "key": "Drive2",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z]:$",
+        "max": 2
+      },
+      "default": "D:"
+    },
+    {
+      "key": "FontNum",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9 ._-]{1,40}$",
+        "max": 40
+      },
+      "default": "B612 Mono"
+    },
+    {
+      "key": "FontText",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9 ._-]{1,40}$",
+        "max": 40
+      },
+      "default": "B612 Mono"
+    },
+    {
+      "key": "FontTitle",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9 ._-]{1,40}$",
+        "max": 40
+      },
+      "default": "B612 Mono"
+    },
+    {
+      "key": "Frame_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "Frame_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "FrameBehindTaskbar",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "FrameBrightness",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 100,
+        "step": 5
+      },
+      "default": "95"
+    },
+    {
+      "key": "FrameOff",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "GlassGlare",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 60,
+        "step": 4
+      },
+      "default": "12"
+    },
+    {
+      "key": "GlassTint",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 255,
+        "step": 3
+      },
+      "default": "66"
+    },
+    {
+      "key": "GlowAlpha",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 160,
+        "step": 4
+      },
+      "default": "76"
+    },
+    {
+      "key": "GlowWidth",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 1,
+        "max": 8,
+        "step": 0.1
+      },
+      "default": "3.0"
+    },
+    {
+      "key": "GraphA_Source",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "cpu",
+            "label": "cpu"
+          },
+          {
+            "value": "ram",
+            "label": "ram"
+          },
+          {
+            "value": "gpu",
+            "label": "gpu"
+          },
+          {
+            "value": "vram",
+            "label": "vram"
+          },
+          {
+            "value": "cputemp",
+            "label": "CPU temp"
+          },
+          {
+            "value": "gputemp",
+            "label": "GPU temp"
+          },
+          {
+            "value": "power",
+            "label": "power"
+          },
+          {
+            "value": "disk",
+            "label": "disk"
+          },
+          {
+            "value": "netdown",
+            "label": "Net down"
+          },
+          {
+            "value": "netup",
+            "label": "Net up"
+          },
+          {
+            "value": "battery",
+            "label": "battery"
+          }
+        ]
+      },
+      "default": "gpu"
+    },
+    {
+      "key": "GraphB_Source",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "cpu",
+            "label": "cpu"
+          },
+          {
+            "value": "ram",
+            "label": "ram"
+          },
+          {
+            "value": "gpu",
+            "label": "gpu"
+          },
+          {
+            "value": "vram",
+            "label": "vram"
+          },
+          {
+            "value": "cputemp",
+            "label": "CPU temp"
+          },
+          {
+            "value": "gputemp",
+            "label": "GPU temp"
+          },
+          {
+            "value": "power",
+            "label": "power"
+          },
+          {
+            "value": "disk",
+            "label": "disk"
+          },
+          {
+            "value": "netdown",
+            "label": "Net down"
+          },
+          {
+            "value": "netup",
+            "label": "Net up"
+          },
+          {
+            "value": "battery",
+            "label": "battery"
+          }
+        ]
+      },
+      "default": "netdown"
+    },
+    {
+      "key": "HomeMonitor",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9 _.:-]{1,40}$",
+        "max": 40
+      },
+      "default": "auto"
+    },
+    {
+      "key": "HomeSize",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[0-9]{3,5}x[0-9]{3,5}$",
+        "max": 11
+      },
+      "default": "2560x1600"
+    },
+    {
+      "key": "HudAlpha",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 40,
+        "max": 255,
+        "step": 5
+      },
+      "default": "255"
+    },
+    {
+      "key": "HullAlpha",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 255,
+        "step": 5
+      },
+      "default": "255"
+    },
+    {
+      "key": "HullDark",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "10,12,15"
+    },
+    {
+      "key": "HullEdge",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "60,70,85"
+    },
+    {
+      "key": "HullLight",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "35,40,50"
+    },
+    {
+      "key": "HullMid",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": "20,25,30"
+    },
+    {
+      "key": "HW_ChargeRate",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_CpuPower",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_CpuTemp",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_Fan1",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_Fan2",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_FullCap",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_GpuClock",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_GpuPower",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_GpuTemp",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_RemainCap",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_SsdTemp",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "HW_Wear",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1,
+        "max": 199,
+        "step": 1
+      },
+      "default": "-1"
+    },
+    {
+      "key": "IpMask",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisAIRouter",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisAutoStart",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisBargeIn",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "off",
+            "label": "Off"
+          },
+          {
+            "value": "wake",
+            "label": "Wake word"
+          },
+          {
+            "value": "voice",
+            "label": "Voice"
+          }
+        ]
+      },
+      "default": "wake"
+    },
+    {
+      "key": "JarvisBars",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisBlackBackground",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "JarvisCallMe",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9. ]{1,24}$",
+        "max": 24
+      },
+      "default": "Sir"
+    },
+    {
+      "key": "JarvisChime",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisChimeVolume",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 100,
+        "step": 5
+      },
+      "default": "25"
+    },
+    {
+      "key": "JarvisColorIdle",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisColorListen",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisColorSpeak",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "color"
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisContext",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 512,
+        "max": 16384,
+        "step": 512
+      },
+      "default": "2048"
+    },
+    {
+      "key": "JarvisDiagnose",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisDial",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisDuck",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisDuckLevel",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 10,
+        "max": 80,
+        "step": 10
+      },
+      "default": "30"
+    },
+    {
+      "key": "JarvisEnabled",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisFirstWords",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 12,
+        "step": 1
+      },
+      "default": "5"
+    },
+    {
+      "key": "JarvisFollowNameWindow",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 3,
+        "max": 60,
+        "step": 1
+      },
+      "default": "10"
+    },
+    {
+      "key": "JarvisFollowUp",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisFollowUpWait",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 3,
+        "max": 30,
+        "step": 1
+      },
+      "default": "3"
+    },
+    {
+      "key": "JarvisFrameRate",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 5,
+        "max": 60,
+        "step": 5
+      },
+      "default": "15"
+    },
+    {
+      "key": "JarvisGPU",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "prefer",
+            "label": "Prefer"
+          },
+          {
+            "value": "require",
+            "label": "Require"
+          }
+        ]
+      },
+      "default": "prefer"
+    },
+    {
+      "key": "JarvisIdleUnload",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 120,
+        "step": 5
+      },
+      "default": "10"
+    },
+    {
+      "key": "JarvisKeepAlive",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 120,
+        "step": 1
+      },
+      "default": "10"
+    },
+    {
+      "key": "JarvisKokoroVoice",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "bm_lewis",
+            "label": "bm_lewis"
+          },
+          {
+            "value": "bf_emma",
+            "label": "bf_emma"
+          },
+          {
+            "value": "am_michael",
+            "label": "am_michael"
+          },
+          {
+            "value": "af_heart",
+            "label": "af_heart"
+          },
+          {
+            "value": "default",
+            "label": "default"
+          }
+        ]
+      },
+      "default": "bm_lewis"
+    },
+    {
+      "key": "JarvisLearn",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "auto",
+            "label": "Auto"
+          },
+          {
+            "value": "ask",
+            "label": "Ask"
+          },
+          {
+            "value": "off",
+            "label": "Off"
+          }
+        ]
+      },
+      "default": "auto"
+    },
+    {
+      "key": "JarvisMic",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n=;\\[\\]#\"%]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisModel",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9_.:/-]{0,80}$",
+        "max": 80
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisModelFast",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9_.:/-]{0,80}$",
+        "max": 80
+      },
+      "default": "llama3.2:3b"
+    },
+    {
+      "key": "JarvisMutedPopup",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisName",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9]{1,24}$",
+        "max": 24
+      },
+      "default": "Jarvis"
+    },
+    {
+      "key": "JarvisNameAliases",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n=;\\[\\]#\"%]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisOrbBright",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.4,
+        "max": 1.6,
+        "step": 0.1
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisOrbits",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisOrbSize",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.8,
+        "max": 1.15,
+        "step": 0.05
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisPersonality",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "playful",
+            "label": "Playful"
+          },
+          {
+            "value": "mirror",
+            "label": "Mirror"
+          },
+          {
+            "value": "serious",
+            "label": "Serious"
+          },
+          {
+            "value": "brief",
+            "label": "Brief"
+          }
+        ]
+      },
+      "default": "playful"
+    },
+    {
+      "key": "JarvisPrivacy",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "JarvisProfile",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisPython",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisQuietCalendar",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n=;\\[\\]#\"%]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisRecall",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "on",
+            "label": "On"
+          },
+          {
+            "value": "off",
+            "label": "Off"
+          }
+        ]
+      },
+      "default": "on"
+    },
+    {
+      "key": "JarvisRoomAsk",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "JarvisSeriousTopics",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisShell",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisSilence",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.5,
+        "max": 6,
+        "step": 0.1
+      },
+      "default": "1.2"
+    },
+    {
+      "key": "JarvisSmartSearch",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisSpeed",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.25,
+        "max": 3,
+        "step": 0.25
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisStopKey",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "end",
+            "label": "End"
+          },
+          {
+            "value": "off",
+            "label": "Off"
+          }
+        ]
+      },
+      "default": "end"
+    },
+    {
+      "key": "JarvisTalkLess",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "JarvisTint",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 0.8,
+        "step": 0.01
+      },
+      "default": "0.42"
+    },
+    {
+      "key": "JarvisVault",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "JarvisVoice",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
+        "max": 200
+      },
+      "default": "Jarvis\\kokoro\\kokoro-v1.0.onnx"
+    },
+    {
+      "key": "JarvisVoiceRate",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -5,
+        "max": 5,
+        "step": 1
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisVoiceSpeed",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.8,
+        "max": 1.2,
+        "step": 0.05
+      },
+      "default": "1.0"
+    },
+    {
+      "key": "JarvisWakeModel",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+        "max": 40
+      },
+      "default": "hey_jarvis"
+    },
+    {
+      "key": "JarvisWakeSensitivity",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.2,
+        "max": 0.9,
+        "step": 0.05
+      },
+      "default": "0.5"
+    },
+    {
+      "key": "JarvisWakeWord",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisWatch",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "JarvisWhisper",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "tiny.en",
+            "label": "tiny.en"
+          },
+          {
+            "value": "base.en",
+            "label": "base.en"
+          },
+          {
+            "value": "small.en",
+            "label": "small.en"
+          },
+          {
+            "value": "medium.en",
+            "label": "medium.en"
+          }
+        ]
+      },
+      "default": "small.en"
+    },
+    {
+      "key": "JarvisWhisperDevice",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "auto",
+            "label": "auto"
+          },
+          {
+            "value": "cpu",
+            "label": "cpu"
+          },
+          {
+            "value": "cuda",
+            "label": "cuda"
+          }
+        ]
+      },
+      "default": "cuda"
+    },
+    {
+      "key": "LeftCategory_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftCategory_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftLocation_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftLocation_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot1_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot1_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot2_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot2_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot3_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot3_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot4_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftSlot4_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftUpkeep_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LeftUpkeep_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "LinkDownMbps",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 10000,
+        "step": 1
+      },
+      "default": "176"
+    },
+    {
+      "key": "LinkUpMbps",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 10000,
+        "step": 1
+      },
+      "default": "423"
+    },
+    {
+      "key": "LltBatteryConserve",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "conservation"
+    },
+    {
+      "key": "LltBatteryFeature",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "battery"
+    },
+    {
+      "key": "LltBatteryNormal",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "normal"
+    },
+    {
+      "key": "LltHybridAUTO",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "on-auto"
+    },
+    {
+      "key": "LltHybridDGPU",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "off"
+    },
+    {
+      "key": "LltHybridECO",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "on-igpu-only"
+    },
+    {
+      "key": "LltHybridFeature",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "hybrid-mode"
+    },
+    {
+      "key": "LltHybridHYBRID",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "on"
+    },
+    {
+      "key": "LltPath",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "LltPowerFeature",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "power-mode"
+    },
+    {
+      "key": "LltPowerModes",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9,._-]{0,80}$",
+        "max": 80
+      },
+      "default": "quiet,balance,performance"
+    },
+    {
+      "key": "LltRefreshFeature",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{0,40}$",
+        "max": 40
+      },
+      "default": "refresh-rate"
+    },
+    {
+      "key": "LltRefreshRates",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[0-9,]{0,40}$",
+        "max": 40
+      },
+      "default": "60,165"
+    },
+    {
+      "key": "LocationEnabled",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "LocationMask",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "MistAlpha",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 255,
+        "step": 5
+      },
+      "default": "255"
+    },
+    {
+      "key": "ObsidianTodo",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "ObsidianVault",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[^\\r\\n\"%;#=]{0,200}$",
+        "max": 200
+      },
+      "default": ""
+    },
+    {
+      "key": "Off_BottomAudio",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_BottomPanels",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_BottomStorage",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_BottomStrip",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_CenterHUD",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_CenterSphere",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_CenterTarget",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_Controller",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_Frame",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_LeftCategory",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_LeftLocation",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_LeftSlot1",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_LeftSlot2",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_LeftSlot3",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_LeftSlot4",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_LeftUpkeep",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_OverlayControl",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_OverlayDrawer",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_RightCategory",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_RightDev",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_RightSlot5",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_RightSlot6",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_RightSlot7",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_RightSlot8",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_RightSysInfo",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopAlert",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopBattery",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopConsole",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopGraphA",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopGraphB",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopGraphCPU",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopGraphRAM",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "Off_TopPower",
+      "file": "State.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "OriginX",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -4000,
+        "max": 4000,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "OriginY",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": -4000,
+        "max": 4000,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "OverlayControl_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "OverlayControl_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "OverlayDrawer_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "OverlayDrawer_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "PerfOverride",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "-1",
+            "label": "Auto"
+          },
+          {
+            "value": "0",
+            "label": "Full"
+          },
+          {
+            "value": "1",
+            "label": "Lite"
+          },
+          {
+            "value": "2",
+            "label": "Low"
+          },
+          {
+            "value": "3",
+            "label": "Stealth"
+          }
+        ]
+      },
+      "default": "0"
+    },
+    {
+      "key": "PerfTier",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "0",
+            "label": "Full"
+          },
+          {
+            "value": "1",
+            "label": "Lite"
+          },
+          {
+            "value": "2",
+            "label": "Low"
+          },
+          {
+            "value": "3",
+            "label": "Stealth"
+          }
+        ]
+      },
+      "default": "0"
+    },
+    {
+      "key": "PingHost",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9.:-]{1,64}$",
+        "max": 64
+      },
+      "default": "1.1.1.1"
+    },
+    {
+      "key": "ReticleTodo",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "RightCategory_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightCategory_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightDev_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightDev_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot5_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot5_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot6_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot6_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot7_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot7_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot8_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSlot8_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSysInfo_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "RightSysInfo_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "Scale",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.4,
+        "max": 3,
+        "step": 0.01
+      },
+      "default": "0.67"
+    },
+    {
+      "key": "ScanAlpha",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 14,
+        "step": 1
+      },
+      "default": "6"
+    },
+    {
+      "key": "ScanLines",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "ShadeAlpha",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 255,
+        "step": 5
+      },
+      "default": "155"
+    },
+    {
+      "key": "ShipImage",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^[A-Za-z0-9._-]{1,64}$",
+        "max": 64
+      },
+      "default": "ship.png"
+    },
+    {
+      "key": "TextGlow",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 12,
+        "step": 1
+      },
+      "default": "4"
+    },
+    {
+      "key": "TextGlowAlpha",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 255,
+        "step": 5
+      },
+      "default": "150"
+    },
+    {
+      "key": "TextScaleLarge",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.5,
+        "max": 3,
+        "step": 0.05
+      },
+      "default": "1.45"
+    },
+    {
+      "key": "TextScaleSmall",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0.5,
+        "max": 3,
+        "step": 0.05
+      },
+      "default": "1.85"
+    },
+    {
+      "key": "TierLite",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 10,
+        "max": 95,
+        "step": 5
+      },
+      "default": "50"
+    },
+    {
+      "key": "TierLow",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 10,
+        "max": 98,
+        "step": 5
+      },
+      "default": "75"
+    },
+    {
+      "key": "TierStealth",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 10,
+        "max": 100,
+        "step": 5
+      },
+      "default": "85"
+    },
+    {
+      "key": "TopAlert_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopAlert_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopBattery_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopBattery_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopConsole_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopConsole_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphA_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphA_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphB_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphB_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphCPU_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphCPU_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphRAM_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopGraphRAM_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopPower_DX",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -2560,
+        "max": 2560,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "TopPower_DY",
+      "file": "Offsets.inc",
+      "control": {
+        "kind": "slider",
+        "min": -1600,
+        "max": 1600,
+        "step": 1
+      },
+      "default": "0"
+    },
+    {
+      "key": "UseShipImage",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "WarnBattery",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 5,
+        "max": 50,
+        "step": 1
+      },
+      "default": "20"
+    },
+    {
+      "key": "WarnCpuTemp",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 50,
+        "max": 110,
+        "step": 1
+      },
+      "default": "92"
+    },
+    {
+      "key": "WarnDiskPct",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 50,
+        "max": 100,
+        "step": 1
+      },
+      "default": "90"
+    },
+    {
+      "key": "WarnGpuTemp",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 50,
+        "max": 110,
+        "step": 1
+      },
+      "default": "85"
+    }
+  ],
+  "actions": [
+    "apps.icons",
+    "apps.scan",
+    "defaults.all",
+    "edit.toggle",
+    "flow.open",
+    "presets.open",
+    "setup.rerun",
+    "setup.reset"
+  ]
+}
