@@ -67,23 +67,24 @@ function Update()
   local A1, D, T, W = H.C.accent, H.C.dim, H.C.text, H.C.white
   c:chamfer(0, 0, z.w, z.h, 18, A1, 1.6, 255, 230)
   c:fillRect(0, 0, z.w, z.h, { 2, 8, 14 }, 175, 0)
-  H.text(1, 1, LX, 14, 'C.L.O.V.E.R', { size = 13, font = H.fontTitle, weight = 700, color = A1 })
+  H.text(1, 1, LX, 14, H.assistant('dots'), { size = 13, font = H.fontTitle, weight = 700, color = A1 })
   local muted = string.match(readAll('jarvis_env.txt'), 'MUTED 1') ~= nil
   H.text(1, 2, z.w - 64, 18, muted and 'SPEAKERS MUTED - TEXT ONLY' or 'CONVERSATION LOG', { size = 7.5, align = 'RightTop', color = muted and A1 or D })
   c:line(LX - 10, 50, z.w - 30, 50, D, 1, 200)
   c:line(z.w - 36, 16, z.w - 20, 32, A1, 1.6); c:line(z.w - 20, 16, z.w - 36, 32, A1, 1.6)
+  H.text(1, 3, z.w - 250, 18, 'TYPE', { size = 7.5, weight = 700, align = 'RightTop', color = A1 })   -- T5: the box for typing to him
   -- the visible window of lines, newest at the bottom
   local n = #lines
   local maxScroll = math.max(0, n - ROWS)
   scroll = H.clamp(scroll, 0, maxScroll)
   local first = math.max(1, n - ROWS + 1 - scroll)
-  local k = 3
+  local k = 4
   for r = 0, ROWS - 1 do
     local L = lines[first + r]
     local y = TOP + r * RH
     if L and L.text ~= '' then
       if L.first and L.who ~= '' then
-        local tag = L.who == 'U' and 'YOU' or (L.who == 'S' and 'SYSTEM' or 'CLOVER')
+        local tag = L.who == 'U' and 'YOU' or (L.who == 'S' and 'SYSTEM' or H.assistant('upper'))
         H.text(1, k, LX, y, tag, { size = 7.2, weight = 700, color = L.who == 'U' and D or (L.who == 'S' and H.C.warn or A1), glow = false }); k = k + 1
       end
       H.text(1, k, TX, y, L.text, { size = SIZE, color = L.who == 'U' and T or (L.who == 'S' and H.C.warn or W), font = H.fontNum, glow = false }); k = k + 1
@@ -101,11 +102,17 @@ function Update()
   for i = k, 44 do H.hideText(1, i) end
   H.hit(1, 1, 0, 0, z.w, z.h, 'Scroll: read back   right-click: open the log file')
   H.hit(1, 2, z.w - 44, 8, 32, 32, 'Close')
+  H.hit(1, 3, z.w - 330, 8, 90, 32, 'Type to ' .. H.assistant() .. ' (works with the speakers muted)')
   c:flush()
   return n
 end
 
-function OnClick(z, k) if k == 2 then SKIN:Bang('!DeactivateConfig') end end
+function OnClick(z, k)
+  if k == 2 then SKIN:Bang('!DeactivateConfig')
+  elseif k == 3 then SKIN:Bang('!CommandMeasure', 'mAsk', 'ExecuteBatch 1'); idle = 0 end
+end
+-- InputText (mAsk) answer: the same ASK line the Control Center sends
+function AskJarvis(v) H.ask(v or SKIN:GetVariable('AskIn', '')) end
 function OnRightClick(z, k) SKIN:Bang('["notepad.exe" "' .. H.res .. 'Data\\jarvis_log.txt"]') end
 function OnScroll(z, k, d) scroll = scroll - d * 3; idle = 0; Update() end
 function OnHover(z, k, on) idle = 0 end

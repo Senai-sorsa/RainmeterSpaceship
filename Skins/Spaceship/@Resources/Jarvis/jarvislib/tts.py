@@ -185,12 +185,13 @@ _resolved = set()
 
 def resolve_voice(voice):
     """If JarvisVoice points at a missing file or an old Kokoro v0.19 model, use a kokoro-v1*.onnx found in the
-    same folder (or in @Resources\\Jarvis\\kokoro) instead, so downloading the v1.0 files is all that's needed."""
+    same folder (or in @Resources\\Jarvis\\kokoro, or \\voices, where Setup-Jarvis.ps1 puts them) instead, so downloading
+    the v1.0 files is all that's needed."""
     import glob
     base = os.path.basename(voice).lower()
     if "kokoro" not in base or (os.path.exists(voice) and not re.search(r"v0[._]", base)):
         return voice
-    for folder in (os.path.dirname(voice), os.path.join(RES, "Jarvis", "kokoro")):
+    for folder in (os.path.dirname(voice), os.path.join(RES, "Jarvis", "kokoro"), os.path.join(RES, "Jarvis", "voices")):
         found = sorted(glob.glob(os.path.join(folder, "kokoro-v1*.onnx")))
         if found:
             if voice not in _resolved:

@@ -60,8 +60,13 @@ from jarvislib.llm import (_moved, chat_json, chat_stream, chat_to_gpu, ctx_toke
 from jarvislib.audio import _com, mic_volume, speakers, speakers_mute
 from jarvislib import quiet as quiet_talk
 from jarvislib import mood
+from jarvislib import followup, wake
+from jarvislib.followup import ear_wait
+from jarvislib.wake import (HV_FLOOR, WAKE_FLOOR, WAKE_STYLES, _wake_bad, _wake_warned, heard_speech, load_model, need_level,
+    oww_reset, record, wake_checks, wake_model, wake_name, wake_way)
 from jarvislib.mic import (_listen, _mic_missing, _duck, follow_name_wait, follow_wait, list_mics, listen, mic_device,
                            onset, unduck)
+from jarvislib.mic import peak as mic_peak
 from jarvislib.notes import STOP, search_notes, vault_dir
 from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _filler_thread, _filler_voice, _speak_queue,
     filler, filler_done, first_words, muted, play_samples, prepare_fillers, say_text_only, sentences_from, speak_all)
@@ -716,12 +721,6 @@ def directed(text, answering):
     return "ask" if len(words) >= 3 else "no"
 
 
-def ear_wait():
-    """S2-10: the open-ear window after a reply: JarvisFollowUpWait (3 s); 8 s when he asked or offered something."""
-    asked = (recent["me"] or "").rstrip().endswith("?") or time.time() < offer.get("expires", 0)
-    return max(follow_wait(), 8.0) if asked else follow_wait()
-
-
 def room_talk(text):
     """FR5 N3: long talk with no question, no "you" and not his name: likely meant for someone else in the room."""
     words = re.findall(r"[a-z']+", text.lower().replace("’", "'"))
@@ -836,7 +835,11 @@ def turn(tier, follow=0, woke=False, typed=None):
         left = {}                                              # exchange() fills "again"; survives its early returns
         exchange(tier, follow, woke, mode, left, typed)
         mode = left.get("again")
-        if typed is not None or not mode or setting("JarvisFollowUp", "1") != "1" or cancel.is_set():
+        if typed is not None or setting("JarvisFollowUp", "1") != "1":
+            return
+        if cancel.is_set():                                    # T3: a stop word or the End key leaves one second for what comes next
+            mode = None if muted() else followup.after_stop()
+        if not mode:
             return
         follow, woke = follow + 1, False
 
@@ -880,7 +883,8 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             problem(f"Model {want} is not downloaded (Control Center > CLOVER > MODEL, or: ollama pull {want})")
             return
         if follow:
-            time.sleep(0.3)                                    # let the last of his own voice fade before the microphone opens
+            if mode != "stop":
+                time.sleep(0.3)                                # let the last of his own voice fade before the microphone opens
         else:
             warm(model)
             threading.Thread(target=prepare_fillers, daemon=True).start()   # cheap if nothing changed
@@ -891,8 +895,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         hud = []
         reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
         reading.start()                                        # read while you speak, so it costs the reply nothing
-        wait = ear_wait()
-        audio = None if typed is not None else listen(patience=max(wait, follow_name_wait()), dim_after=wait) if follow else listen(patience=10) if woke else listen()   # a wake: 10 s for the first word
+        audio, wait = (None, 0.0) if typed is not None else followup.listen_for(mode, follow, woke)
         if (audio is None and typed is None) or cancel.is_set():
             return
         t_spoke = way["t"] = time.time()
@@ -919,17 +922,24 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
             way.update(result="asked again")
             quiet = muted()
-            reply_line("Sorry, I didn't catch that.", quiet)
+            line, box = hearing.missed_line(mic_peak[0], setting("JarvisCallMe", "").strip())
+            reply_line(line, quiet)
+            if box:
+                S.set(pop="open")                              # the type box is in the pop-up (T5)
             left["again"] = not quiet and "ear"
             return
         if not text or cancel.is_set():
             return
+        hearing.missed[0] = 0                                  # words came out: the next miss is a first one again
         if follow and onset[0] > wait and strip_name(text) == text:   # 8a: late in the open ear and no name: room talk
             way.update(kind="ear", result="late, no name - dropped")
             log("ear: started late without his name - dropped")
             return
         answering = time.time() < offer.get("expires", 0) or (recent["me"] or "").rstrip().endswith("?")
-        heard_as = directed(text, answering) if mode == "ear" else "yes"
+        if mode == "undo" and not followup.only_undo(route(strip_name(text))[0]):   # T2: after a command only "undo" counts
+            way.update(kind="ear", result="not an undo - quiet")
+            return
+        heard_as = directed(text, answering) if mode in ("ear", "stop") else "yes"
         if heard_as != "yes":
             way.update(kind="ear", result="not for me - quiet" if heard_as == "no" else "asked if for me")
         if heard_as == "no":                                   # a fragment or room noise: no answer, the window ends
@@ -964,7 +974,8 @@ def exchange(tier, follow, woke, mode, left, typed=None):
                         {"role": "assistant", "content": reply}]
             last_turn = time.time()
             # S2-10: after any reply the ear stays open ("undo" is just one thing it can hear); not after "Cancelled."
-            left["again"] = not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply) and "ear"
+            left["again"] = (not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
+                             and followup.mode_after(way.get("kind"), way.get("action")))
         S.set(err="")
         # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
         live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
@@ -1036,6 +1047,10 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         kind, action, target, prompt, via = understand(text, model, quiet, room)
         way.update(kind=kind, action=action, via=via)
+        if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
+            way.update(kind="control")
+            log("control: ended by you")
+            return
         if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
             log("transcript: not for me - stayed quiet")
             return
@@ -1260,181 +1275,10 @@ def barge_turn(follow):
     turn(hud_tier(), follow, True)
 
 
-# ------------------------------------------------------------------ wake word training (plan R5-6, step 6a)
-# Your own "Hey Jarvis", "Hey" and "Jarvis" become small checks next to the normal score (Fix Round 5 N1).
-# The recordings stay in memory and are never written; only the checks are saved, as Data\wake_<style>.pkl.
-WAKE_STYLES = (("hey_jarvis", "Hey {n}", 'say "Hey {n}"'),    # style names are pickle names; {n} = wake_name()
-               ("hey", "Hey", 'say just "Hey"'),
-               ("jarvis", "bare {n}", 'say just "{n}"'))
-WAKE_FLOOR = 0.1                       # the lowest normal score a moment needs to count as an example
-HV_FLOOR = 0.3                         # the lowest normal score the trained "Hey Jarvis" check may wake on (0.1-0.26 were all accidents)
-WORD_STYLES = ("hey", "jarvis")        # single words: examples are the moments with speech, not a normal score
-                                       # (the normal model knows only the whole phrase, a bare "Hey" may never score)
-
-
-def heard_speech(oww):
-    """The speech filter heard speech 0.4-0.56 s ago, the same frames openWakeWord itself checks."""
-    vad = list(getattr(getattr(oww, "vad", None), "prediction_buffer", []))[-7:-4]
-    return bool(vad) and max(vad) >= 0.5
-
-
-def oww_reset(m):
-    m.reset()
-    if hasattr(m, "vad"):
-        m.vad.prediction_buffer.clear()                   # reset() keeps it: the last clip's speech would count here
-
-
-_wake_warned = [None]
-_wake_bad = set()                                              # custom wake files that would not load: Hey Jarvis instead
-
-
-def wake_model():
-    """JarvisWakeModel -> (model argument, score key). A value ending in .onnx is a file in Jarvis\\wake\\."""
-    v = setting("JarvisWakeModel", "hey_jarvis").strip()
-    if v.lower().endswith(".onnx") and v not in _wake_bad:
-        path = os.path.join(RES, "Jarvis", "wake", os.path.basename(v.replace("\\", "/")))
-        if os.path.isfile(path):
-            return path, os.path.basename(path)[:-5]
-        if _wake_warned[0] != v:                               # once per value, not every 80 ms
-            _wake_warned[0] = v
-            log(f"wake: {v} not found - using Hey Jarvis")
-    return "hey_jarvis", "hey_jarvis"
-
-
-def wake_name():
-    """The name to say after "Hey": Clover for the hey_clover model, else Jarvis."""
-    return "Clover" if wake_model()[1].lower() == "hey_clover" else "Jarvis"
-
-
-def speech_feats(clip, oww):
-    """The openWakeWord features of every 80 ms moment of `clip` in which the speech filter hears speech."""
-    import numpy as np
-    out = []
-    n = next(iter(oww.model_inputs.values()))          # the loaded model's input length, not the setting (it may have changed since)
-    oww_reset(oww)
-    for i in range(0, len(clip) - 1280, 1280):
-        oww.predict(clip[i:i + 1280])
-        if heard_speech(oww):
-            out.append(oww.preprocessor.get_features(n))
-    return np.vstack(out) if out else np.empty((0, n, 96))
-
-
-# shortcut: a click stops it only between clips (at most 15 s late); a stoppable recorder if that ever matters
-def record(sec):
-    """`sec` seconds from the microphone as 16 kHz int16, the form openWakeWord reads."""
-    import sounddevice as sd
-    if not mic.acquire(timeout=3):
-        raise RuntimeError("The microphone is busy - try again")
-    try:
-        a = sd.rec(int(16000 * sec), samplerate=16000, channels=1, dtype="int16", device=mic_device())
-        sd.wait()
-        return a[:, 0]
-    finally:
-        mic.release()
-
-
+# ------------------------------------------------------------------ wake word training (Phase 10B: jarvislib/wake.py)
 def train_wake():
-    """Control Center WAKE WORD > TRAIN: each style six times after a ding, then 15 s of normal talk as the
-    "not Jarvis" examples. Holds the turn lock, so the wake word lets go of the microphone; a click stops it."""
-    import pickle
-    import numpy as np
-    from openwakeword.model import Model
-    from openwakeword.custom_verifier_model import get_reference_clip_features, train_verifier_model
-    with busy:
-        cancel.clear()
-        turn_id[0] = time.time()
-        try:
-            clips = {}
-            for name, _, how in WAKE_STYLES:
-                reply_line(f"After each ding, {how.format(n=wake_name())}. Six times.", False)
-                clips[name] = []
-                for _ in range(6):
-                    S.set(state="listening", level=0.0)        # not "speaking": the wake word would keep the microphone
-                    play_samples(*ding())
-                    if cancel.is_set():
-                        return
-                    clips[name].append(record(3))
-            reply_line("Now talk normally for fifteen seconds, about anything, without my name.", False)
-            S.set(state="listening", level=0.0)
-            neg = record(15)
-            if cancel.is_set():
-                return
-            arg, key = wake_model()
-            try:                                               # the speech filter picks the moments of a bare word
-                oww = Model(wakeword_models=[arg], inference_framework="onnx", vad_threshold=0.5)
-            except Exception as e:
-                log(f"train: without the speech filter ({type(e).__name__}) - Hey and bare {wake_name()} stay off")
-                oww = Model(wakeword_models=[arg], inference_framework="onnx")
-            pad = np.zeros(16000, dtype=np.int16)              # the model scores 0 for its first frames
-            oww.reset()
-            negf = get_reference_clip_features(np.concatenate([pad, neg]), oww, key, threshold=0.0, N=1)
-            word = {n: np.vstack([speech_feats(np.concatenate([pad, c]), oww) for c in clips[n]]) for n in WORD_STYLES}
-            made = 0
-            old = os.path.join(DATA, "wake_hey_pause.pkl")     # the dropped "Hey ... Jarvis" style
-            if os.path.exists(old):
-                os.remove(old)
-            for name, label, _ in WAKE_STYLES:
-                label = label.format(n=wake_name())
-                path = os.path.join(DATA, f"wake_{name}.pkl")
-                peak, pos = 0.0, []
-                for c in clips[name]:
-                    c = np.concatenate([pad, c])
-                    oww.reset()
-                    peak = max([peak] + [oww.predict(c[i:i + 1280])[key] for i in range(0, len(c) - 1280, 1280)])
-                    if name not in WORD_STYLES:
-                        oww.reset()
-                        pos.append(get_reference_clip_features(c, oww, key, threshold=WAKE_FLOOR, N=3))
-                pos = word[name] if name in WORD_STYLES else np.vstack(pos)
-                log(f"train: {label} " + (f"from {len(pos)} word samples" if name in WORD_STYLES
-                                          else f"peaks {peak:.2f} ({len(pos)} examples)"))
-                if len(pos) == 0:                              # never reached the floor / no speech heard: that way stays off
-                    if os.path.exists(path):
-                        os.remove(path)                        # an older check must not outlive this training
-                    continue
-                # "Hey" learns that your "Jarvis" is not it, and the other way round
-                other = [word[o] for o in WORD_STYLES if o != name and name in WORD_STYLES]
-                neg_all = np.vstack([negf] + other)
-                check = train_verifier_model(np.vstack([pos, neg_all]), np.array([1] * len(pos) + [0] * len(neg_all)))
-                with open(path + ".tmp", "wb") as f:
-                    pickle.dump(check, f)
-                os.replace(path + ".tmp", path)
-                made += 1
-            reply_line(f"Done. I learned {made} of the 3 ways." + ("" if made == 3 else " The log says which."), False)
-        except Exception as e:
-            log(f"wake training failed: {e!r}")
-            problem("Wake word training failed")
-        finally:
-            S.set(state="idle", level=0.0)
-
-
-def wake_way(score, held, mine, now, hey_until, need, easy, hard, gap):
-    """Which way wakes him on this 80 ms moment (or None), and until when a "Hey" waits for "Jarvis".
-    score: the normal "Hey Jarvis" score; held: it was >= need on the moment before too; mine: your trained checks'
-    scores by style (only while speech is heard). "Hey" alone never wakes him."""
-    if score >= need and held:                                 # W0, the backup: 2 moments in a row
-        return "W0", 0.0
-    if score >= HV_FLOOR and mine.get("hey_jarvis", 0.0) >= 0.5:   # HV: a soft "Hey Jarvis" in your voice
-        return "HV", 0.0
-    if now <= hey_until and mine.get("jarvis", 0.0) >= hard:   # HJ: your "Jarvis" within `gap` s of your "Hey"
-        return "HJ", 0.0
-    if easy > 0 and mine.get("hey", 0.0) >= easy and now > hey_until:
-        hey_until = now + gap
-    return None, hey_until
-
-
-def wake_checks():
-    """Your trained checks from Data\\wake_<style>.pkl; a missing or broken one leaves that way off."""
-    import pickle
-    checks = {}
-    for name, _, _ in WAKE_STYLES:
-        path = os.path.join(DATA, f"wake_{name}.pkl")
-        if os.path.exists(path):
-            try:
-                with open(path, "rb") as f:
-                    checks[name] = pickle.load(f)
-            except Exception as e:
-                log(f"wake: check {name} not loaded ({type(e).__name__})")
-    return checks
+    """Control Center WAKE WORD > TRAIN. The work is in jarvislib/wake.py; the ding, reply_line and turn_id are this file's."""
+    wake.train(reply_line, ding, turn_id)
 
 
 def wake_loop():
@@ -1443,27 +1287,7 @@ def wake_loop():
     off, mic_bad, best, minute = None, False, 0.0, time.time()   # why it is off (logged once per change); top score this minute
     heard_talk, no_vad = 0, False                              # 80 ms blocks heard while he speaks; "voice" without a VAD logged
     spot = None                                                # the stop words (StopWords); False: not available
-    checks, last_score, hey_until = None, 0.0, 0.0             # your trained checks (loaded with the model); FR5 N1
-
-    def load(**vad):
-        import openwakeword
-        from openwakeword.model import Model
-        arg = wake_model()[0]
-        try:
-            return Model(wakeword_models=[arg], inference_framework="onnx", **vad)
-        except ImportError:
-            raise
-        except Exception as e:
-            if arg != "hey_jarvis" and os.path.isfile(arg):
-                try:
-                    Model(wakeword_models=[arg], inference_framework="onnx")   # without the speech filter: is the file itself bad?
-                except Exception as e2:
-                    _wake_bad.add(setting("JarvisWakeModel", "hey_jarvis").strip())
-                    log(f"wake: {os.path.basename(arg)} would not load ({type(e2).__name__}) - using Hey Jarvis")
-                    return load(**vad)                         # wake_model() now answers hey_jarvis
-                raise e                                        # the file is fine, the speech filter is not: the caller handles it
-            openwakeword.utils.download_models(model_names=[arg])   # first run: fetch the shipped model
-            return Model(wakeword_models=[arg], inference_framework="onnx", **vad)
+    checks, last_score, loaded = None, 0.0, None               # your trained check (loaded with the model); the model's score key
 
     def drop():
         """Close the microphone and hand it back."""
@@ -1485,20 +1309,24 @@ def wake_loop():
                 WAKE_OFF[0] = why
                 log(f"wake off: {why}" if why else "wake on")
             barge = barge_in()
-            talking = busy.locked() and getattr(S, "state", "") == "speaking" and barge != "off"
+            talking = wake.is_talking(busy.locked(), getattr(S, "state", ""), barge)   # W3: never during the wake training
             heard_talk = heard_talk if talking else 0
             if why or (busy.locked() and not talking):         # mic kept only while he speaks: listen() gets it at once
                 drop()
                 time.sleep(0.05 if barge != "off" and busy.locked() and not why else 0.5)   # catch him starting to speak
                 continue
+            if model is not None and loaded != wake_model()[1]:    # JarvisWakeModel changed: load the other one, no restart
+                drop()
+                model = None
             if model is None:
                 try:
-                    model = load(vad_threshold=0.5)                # Silero VAD: no wake on music or a TV without speech
+                    model = load_model(vad_threshold=0.5)          # Silero VAD: no wake on music or a TV without speech
                 except ImportError:
                     raise
                 except Exception as e:
                     log(f"wake word: without the speech filter ({type(e).__name__})")
-                    model = load()
+                    model = load_model()
+                loaded = wake_model()[1]                           # after the load: a file that would not load answered hey_jarvis
                 log(f"wake word ready - say 'Hey {wake_name()}'")
             if stream is None:
                 import sounddevice as sd
@@ -1511,8 +1339,8 @@ def wake_loop():
                     mic_bad = False
                     found = wake_checks() if getattr(model, "vad", None) is not None else {}   # re-read: a training may
                     if checks is None or set(found) != set(checks):                               # have just ended
-                        log(f"wake: your checks: {', '.join(found) or 'none (train in Control Center)'}")
-                    checks, last_score, hey_until = found, 0.0, 0.0
+                        log(f"wake: your check: {', '.join(found) or 'none (train in Control Center)'}")
+                    checks, last_score = found, 0.0
                 except Exception as e:
                     if stream is None:
                         mic.release()
@@ -1540,10 +1368,7 @@ def wake_loop():
                     heard_talk = 0
                     continue
             scores = model.predict(np.asarray(data[:, 0], dtype=np.int16))
-            try:
-                need = max(0.2, min(0.9, float(setting("JarvisWakeSensitivity", "0.5"))))
-            except ValueError:
-                need = 0.5
+            need = need_level()
             best = max(best, max(scores.values()))
             if time.time() - minute >= 60:                     # a near miss shows what sensitivity would have worked
                 if best >= 0.1:
@@ -1569,15 +1394,10 @@ def wake_loop():
                 if checks and heard_speech(model):             # silence costs nothing
                     feats = model.preprocessor.get_features(next(iter(model.model_inputs.values())))
                     mine = {n: float(c.predict_proba(feats)[0][-1]) for n, c in checks.items()}
-                try:
-                    easy, hard = (float(setting("JarvisWakeEasy", "0.5")), float(setting("JarvisWakeHard", "0.35")))
-                    gap = float(setting("JarvisWakeGap", "5"))
-                except ValueError:
-                    easy, hard, gap = 0.5, 0.35, 5.0
-                way, hey_until = wake_way(score, held, mine, time.time(), hey_until, need, easy, hard, gap)
+                way = wake_way(score, held, mine, need)
                 follow = 0 if way else None
             if follow is not None:
-                last_score, hey_until = 0.0, 0.0
+                last_score = 0.0
                 log(f"wake word heard ({score:.2f}, {way})" if not talking else f"barge-in ({'voice' if follow else 'wake'})")
                 if talking:
                     stop_now("barge-in")

@@ -153,10 +153,12 @@ mic = threading.Lock()                  # whoever has the microphone open holds 
 NAME = r"(?:clover|jarvis)"                   # the names he answers to (regex piece)
 JARVIS_WORD = re.compile(rf"\b{NAME}\b", re.I)
 name_until = [0.0]                      # until then he is saying "Clover" himself: the wake word ignores it
+stopped = ["", 0.0]                     # why and when he was last stopped (followup.after_stop reads it)
 
 
 def stop_now(why):
     """Stop him at once (a click, the stop key, talking over him): sound, Windows voice and turn end, the HUD is idle."""
+    stopped[:] = [why, time.time()]
     cancel.set()
     S.set(state="idle", level=0.0)
     log(f"stop: {why}")

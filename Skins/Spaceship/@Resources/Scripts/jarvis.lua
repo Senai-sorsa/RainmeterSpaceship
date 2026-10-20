@@ -287,6 +287,8 @@ function Update()
     return 0
   end
   local every = ({ [0] = 1, [1] = 2, [2] = 4 })[H.tier] or 4
+  -- G2: at rest (idle or offline) FULL draws every JarvisIdleEvery-th update (2 = 15 fps, same motion speed); a conversation draws every one
+  if every == 1 and (js.state == 'idle' or js.state == 'offline') then every = floor(H.clamp(H.num('JarvisIdleEvery', 2), 1, 4)) end
   if frame % 3 == 1 then pollState() end
   -- tell Jarvis whether the speakers are muted (or at 0 %): then he answers in the pop-up instead
   if frame % 30 == 2 then
@@ -368,15 +370,15 @@ function Update()
     print('Clover: the service did not start - open Control Center > CLOVER > LOG (or run SETUP)')
   end
   if note and os.time() <= note[2] then label = note[1] elseif note then note = nil end
-  H.text(1, 1, 8, z.h - 26, 'C.L.O.V.E.R', { size = 5, weight = 700, align = 'LeftBottom', color = H.mix(A1, W, 0.3) })
+  H.text(1, 1, 8, z.h - 26, H.assistant('dots'), { size = 5, weight = 700, align = 'LeftBottom', color = H.mix(A1, W, 0.3) })
   H.text(1, 2, 8, z.h - 12, label, { size = 4.4, weight = 700, align = 'LeftBottom', color = label == 'START FAILED' and H.C.warn or (st == 'listening' and H.mix(DEEP, W, 0.35) or (st == 'offline' and H.mix(OFF, W, 0.2) or W)), glow = false })
   for k = 3, 8 do H.hideText(1, k) end
   if frame < 6 or frame % 30 == 0 then
-    local tip
-    if H.num('JarvisEnabled', 1) ~= 1 then tip = 'Clover is off (JarvisEnabled=0 in Settings.inc)'
-    elseif st == 'offline' then tip = 'Clover service not running   click: start it   right-click: conversation log'
-    elseif st == 'idle' then tip = 'Clover running   click: talk to Clover   right-click: conversation log'
-    else tip = 'Clover ' .. string.lower(LABEL[st] or '') .. '   click: stop' end
+    local tip, NM = nil, H.assistant()
+    if H.num('JarvisEnabled', 1) ~= 1 then tip = NM .. ' is off (JarvisEnabled=0 in Settings.inc)'
+    elseif st == 'offline' then tip = NM .. ' service not running   click: start it   right-click: conversation log'
+    elseif st == 'idle' then tip = NM .. ' running   click: talk to ' .. NM .. '   right-click: conversation log'
+    else tip = NM .. ' ' .. string.lower(LABEL[st] or '') .. '   click: stop' end
     local RR = 206
     H.hit(1, 1, CX - RR, CY - RR, RR * 2, RR * 2, tip)
     H.set('H1_1', 'Shape', string.format('Ellipse %.2f,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', RR * H.S, RR * H.S, RR * H.S))

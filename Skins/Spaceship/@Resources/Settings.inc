@@ -235,5 +235,5 @@ JarvisVoice=Jarvis\kokoro\kokoro-v1.0.onnx
 ; what CLOVER calls you in greetings and goodbyes (empty = no name)
 JarvisCallMe=Sir
    JarvisKokoroVoice=bm_lewis
-   JarvisSilence=2
+   JarvisSilence=1.2
    JarvisWakeWord=1

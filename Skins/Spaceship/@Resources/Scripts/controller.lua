@@ -28,7 +28,7 @@ local function setTier(t)
 end
 
 local function wanted(gpu, ac)
-  local lite, low, st = H.num('TierLite', 50), H.num('TierLow', 75), H.num('TierStealth', 90)
+  local lite, low, st = H.num('TierLite', 50), H.num('TierLow', 75), H.num('TierStealth', 85)
   local function level(g, margin)
     if g >= st - margin then return 3 end
     if g >= low - margin then return 2 end

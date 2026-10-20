@@ -118,6 +118,7 @@ CURRENT STATE (updated end of the 2026-10-16 "Phase 9" session; READ THIS FIRST)
     "Why is my PC slow" takes about 2-4 s (PowerShell start + 1 s counter sample); the 4 s target is for the live test.
     NEXT: PHASE 10 (personality and voice): its FIRST step is telling the user and getting their hand-review.
   PHASE 10 STATUS (2026-10-17): SLICE 1 BUILT, tested with fakes only, NOT live, not pushed. Plan: tasks/phase10-slice1-plan.md.
+  NEXT AFTER PHASE 10 (2026-10-20): PHASE 10B (live-test fixes, planned only, nothing built; before Phase 11, line ~3776).
   PHASE 10 SLICE 2 (2026-10-17): BUILT checkpoints A-D (moods, serious topics, apology rule, auto-remember, promises, room silence, speakable text, pronounce.txt, voice speed, privacy mode, Control Center rows). Fakes only; NOT live, not pushed. Defaults: JarvisLearn auto, JarvisRoomAsk 0, JarvisSeriousTopics 1, JarvisTalkLess 0, JarvisPrivacy 0, JarvisVoiceSpeed 1.0.
   NOT DONE / STAGE 2: prompt_cases.txt + runner + model comparison (T10), temporary moods, streaming voice, voice training, speaker detection, Hey Clover model, headphone-softer voice (J4), NAME text input in Control Center. Unverified: Lua parse (jarvis.lua, control.lua), real-model behaviour, voices by ear.
     Done: persona.txt loader (Jarvis\persona.txt, built-in fallback per section), new minimal system text, four moods
@@ -1010,6 +1011,7 @@ Order: what breaks trust first, then what every later phase depends on, then com
    Phase 8   Follow-up timing and sounds                     issues 1, 17
    Phase 9   Ask him what is wrong (diagnosis)               issue 21
    Phase 10  Personality and voice (tone, honesty, speech)   issues 3, 28
+   Phase 10B Live-test fixes + usability (before Phase 11)   the 2026-10-17/20 live test complaints, verified Gemini items
    Phase 8 is small and independent. It can be done at any point for a quick win.
 
 
@@ -3450,6 +3452,21 @@ LIVE TEST AFTER PHASE 7   (added 2026-10-15; the user moved ALL live testing her
     9-8   Control Center > JARVIS > DIAGNOSIS: ASK OFF then "what's wrong" -> "Diagnosis is off."; WATCH OFF stops step 8.
     Watch timing: a problem must last about 15 minutes (3 looks, 5 min apart) before the line; then 30 min of quiet.
 
+  PART 6   Phase 10B (planned 2026-10-20; not built, so nothing here can be run yet). Steps, per item of PHASE 10B:
+    W1   Say only "Jarvis" 10 times: no wake. "Hey Jarvis" 10 times: wakes.
+    W2   Say "Hey Clover" 10 times (9 of 10 wake: B1), then 5 minutes of TV/room talk (0 false wakes: B2); the log shows the
+         model file that loaded.
+    W3   Volume 0: start the training: the HUD says the volume is off and shows "n of 6"; say "stop" or "Hey Jarvis"
+         during a prompt: training goes on; a click ends it.
+    T1   "Set a timer, never mind": no reply, no timer. T2: after "set a timer" no follow-up listening beyond about 2 s and
+         "undo" in that window works; after a chat answer the full window; after a memory recall the chat rules.
+    T3   Make him talk, say "stop", then a command inside 1 s: it is taken.
+    T4   Five woken chat questions: paste the "timing:" lines; target end of speech to first audio under 2 s.
+    T5   Mute Windows, ask by typing in the pop-up: the reply appears in the pop-up. T6: pick JARVIS in NAME: both labels change.
+    G1/G2 The measurement list in PHASE 10B; paste the numbers before and after each change.
+    U1-U5 A clear command with a cough after it: no "Did you say". "Hey Jarvis, could you please turn the volume down": done.
+         A command now ends in about the new silence time. A mumble: "Pardon, sir?". Silence: the mic hint.
+
 
 --------------------------------------------------------------------------------------------------------
 PHASE 8   FOLLOW-UP TIMING AND SOUNDS
@@ -3772,6 +3789,156 @@ Also holds (added 2026-10-14 from the user's feature list):
           PERSONALITY button must keep the Control Center row count (INV-6); tone goes through the hand review.
     P1-29 Kokoro voice-vector blending = the custom-voices idea above. Idea only, no code before the user says.
 
+
+--------------------------------------------------------------------------------------------------------
+PHASE 10B  FIXES FROM THE 2026-10-17/20 LIVE TEST + VERIFIED GEMINI USABILITY ITEMS   (added 2026-10-20; PLAN ONLY, nothing built)
+--------------------------------------------------------------------------------------------------------
+  Sources: "User complaints - from live test.md" (the user's live test with the full jarvis.log) and
+  "jarvis_user_improvment.md" (Gemini usability list). Every claim below was checked in the code on 2026-10-20 (file:line);
+  the Gemini items kept are only the ones that held up. Placed before Phase 11 on the user's word.
+  The user's decisions (2026-10-20):
+    - Wake word: train a SYNTHETIC model (S2-4 pulled forward). The user's own voice checks stay only as an extra
+      filter and never wake him alone.
+    - Gemini: verified small fixes only (U1-U5). The one-time setup wizard stays in Stage 2.
+    - GPU: measure first, then the smallest fix the numbers support (CLAUDE.md section 4).
+  Each item still gets goal / scope / non-goals / acceptance / rollback (CLAUDE.md section 3) and the user's word before
+  it starts. Order: trust first (W), then flow (T), then GPU (G), then the small fixes (U, X).
+
+  W  WAKE WORD
+  W1 A BARE "JARVIS" WAKES HIM (complaint 7)
+     Evidence: log 23:50:36 "wake word heard (0.04, HJ)" then "you: 1 words". HJ = the trained "hey" check opens a 5 s
+     window and the trained "jarvis" check then needs only 0.35 (jarvis.py:1418-1421); the base model's score (0.04) is
+     not asked. HV = base score >= 0.3 AND the trained hey_jarvis check >= 0.5 (jarvis.py:1416-1417). W0 = base score alone.
+     Fix: remove the HJ branch and the hey window; drop JarvisWakeEasy / JarvisWakeHard and their Control Center row
+     (control.lua:612-614). HV and W0 stay, so "Hey Jarvis" / "Hey Clover" still wake him; a lone name does not.
+     Stop-gap today, no code: Control Center HEY...JARVIS -> OFF (sets JarvisWakeEasy=0).
+     Test (fakes): base 0.04 + jarvis check 0.9 -> no wake; base 0.8 -> wakes; HV unchanged.
+     Live: say only "Jarvis" 10 times (no wake), "Hey Jarvis" 10 times (wake).
+  W2 SYNTHETIC "HEY CLOVER" MODEL (complaint 6; = S2-4, moved here)
+     The user asked: would recordings from an online generator beat the training, and is it needed for "Hey Clover" anyway?
+     Answer: yes to both. openWakeWord's shipped models were trained this way, on thousands of generated voices, so the
+     model works for any voice and room and does not depend on one muted or interrupted session. "Hey Clover" needs it
+     anyway, because the shipped model only knows "Hey Jarvis". The user's own recorded checks (.pkl) remain useful to
+     reject other people and TV, but only as a filter on top of the base score (HV), never alone.
+     Steps: train once OFF this PC (Colab or a throw-away folder; the official notebook may need a patched version, see
+     S2-4) -> Jarvis\wake\hey_clover.onnx -> JarvisWakeModel=hey_clover.onnx. The loader and the fallback to Hey Jarvis
+     exist (jarvis.py:1291-1306, 1453-1464; commits 0bbb1cc, 7d6894b). The Jarvis\wake\ folder does not exist yet, and a
+     change of JarvisWakeModel needs a service restart (the model loads once, jarvis.py:1494). Only .onnx works.
+     Retrain the voice checks after switching (they are not tied to a model).
+     Pass rule unchanged: 9 of 10 (B1) and 0 false wakes (B2) before it replaces Hey Jarvis. Never load a model file from
+     someone else. Needs the user's word and a decision on where it is trained.
+  W3 TRAINING THAT CANNOT BE MISSED OR INTERRUPTED (complaints 1, 3, 4)
+     - Volume off (complaint 1): the prompts are spoken (jarvis.py:1349, 1357) and the ding has no text. When muted the
+       prompt only reaches the pop-up line, which is cleared at the end of speaking (live("")). Fix: at the start, warn on
+       the HUD ("Volume is off - read the steps here"); keep a step line with a counter ("Say 'Hey Clover' - 3 of 6")
+       until the next step; the ding gets a text/flash cue.
+     - Interrupted (complaint 4): while the lock is held and he is speaking, the wake loop takes the mic for barge-in, so a
+       stop word, "Hey Jarvis" or (BargeIn=voice) any speech cancels training (jarvis.py:1488, 1535-1537, 1559-1587).
+       Fix: no barge-in and no stop words while training holds the lock. Only a click, the End key or QUIT cancels it.
+       A cancel during the processing step does nothing today (flag checked only at jarvis.py:1354 and 1360); check it
+       there too.
+     - A failed openwakeword import dies silently (jarvis.py:1339-1342 sit before the try): show it on the HUD.
+     - Chat while muted (complaint 2) is T5.
+     Test (fakes): training with barge-in conditions -> not cancelled; muted -> step text with counter is shown.
+  T  TURN FLOW
+  T1 "NEVER MIND" SHOULD SAY NOTHING (complaint 5)
+     Evidence: routing.py:394-395 returns ("say", ..., "Okay, never mind.") when "never mind" appears anywhere. The silent
+     ENDERS path already exists for a whole-reply "never mind" (jarvis.py:673-676, 1005-1008). Fix: the same silence, no
+     reply, no follow-up. Known side case, kept as is: "never mind the timer, set an alarm" drops the alarm
+     (test_jarvis.py:3070). Other cancel replies ("Okay, no timer.", "Cancelled.") stay: they confirm something was undone.
+     Test: "set a timer, never mind" -> no spoken reply, no timer, no listening afterwards.
+  T2 FOLLOW-UP ONLY WHERE IT BELONGS (complaint 8; audit BUG-P8-04)
+     Evidence: Slice D said "chat and info only; after a command a 5 s undo window"; S2-10 replaced it with one window after
+     EVERY reply (jarvis.py:967 fixed(), :1209 chat). The log shows the memory save and the recall answer both opening
+     "listening". Wanted (the user): nothing but direct commands skips the follow-up, and even commands listen for an undo
+     for a couple of seconds. Recalling memory goes back to a normal answer: it keeps the follow-up only if the
+     chat/info rules say so ("After recalling memory it can directly skip follow-up mode").
+     Fix: fixed() leaves mode "undo" for command kinds (act, remind/timer, memory save, multi, level) filtered by
+     way["kind"]; exchange() gets its own short wait (about 2 s) because follow_wait() cannot go below 3 s (mic.py:126) and
+     follow_name_wait() stretches to 10 s (jarvis.py:894-895); in that window only route()[0]=="undo" counts. Chat-like
+     fixed replies ("I heard...", diag, "new topic") are NOT commands: filter on kind, not on fixed().
+     Memory recall: the topic recall (jarvis.py:1162) feeds a chat answer; save the result and skip the ear at :1209.
+     Test: after each kind, the mode is as above; speech that is not "undo" in the undo window is dropped.
+  T3 LISTEN ONE SECOND AFTER A STOP (complaint 9)
+     Evidence: after a stop turn() returns (jarvis.py:839, cancel set) and nothing listens. Fix: a stop by stop word or End
+     key while he speaks -> mode "ear" with a 1 s wait and no 0.3 s sleep (jarvis.py:883); speech counts as a follow-up.
+     A click-cancel or QUIT does not reopen listening. Test: stop word, then "set a timer" within 1 s -> taken.
+  T4 SLOWER ANSWERS (complaints 10, 13; measure first)
+     Evidence (jarvis.log): follow-ups reply in 0.3-0.4 s; every WOKEN chat turn needs 3.6 s to the first sentence
+     (10-17 23:36:52 4.28 s, 23:44:17 3.62 s ...), and on 10-20 6.8-9.3 s (llama3.2:3b) with 20.3 s once
+     (10:38:32, llama3.1:8b), with whisper medium.en loaded. "Stop" took long: reply done 35.8 s.
+     Suspects, each to be measured before any fix:
+       a. warm(model) runs on every new turn (jarvis.py:885) with no num_ctx (llm.py:95); chat uses 2048 (llm.py:147). If
+          Ollama's default differs, the model reloads on every woken turn. Matches "only woken turns are slow". Check
+          `ollama ps` (context column) and the Ollama server log.
+       b. The busy lock is held while ollama_on_cpu() runs (HTTP, up to 2 s, llm.py:104) and chat_to_gpu() may reload the
+          model (jarvis.py:1181, llm.py:116-131). The HUD already shows idle, so a click then is silently dropped (:848).
+       c. HUD tier >= 1 swaps to JarvisModelFast (llm.py:66-82): a reload; medium.en shares the VRAM.
+       d. No stable prompt prefix: "Now: HH:MM" and per-turn blocks sit first in the system message (prompt.py:62), so the
+          whole history (up to 40 messages / 1650 tokens, memory.py:58, jarvis.py:624) is processed again every turn.
+       e. MiniLM embedding work before the model call (history, recall, facts; meaning.py): compare the log lines
+          "end of speech -> reply start" (this) with "reply start -> first sentence" (the model).
+       f. Abandoned stream after a stop still being read (llm.py:159-162) delays the next request.
+     Fix only what the numbers show. Likely smallest: the same options in warm(), the on-CPU check outside the lock, the
+     time line moved to the end of the prompt. The user's whisper medium.en choice (10-20) is to be re-measured too.
+     Acceptance: woken chat turn, end of speech to first audio, under 2 s on the GPU (numbers in the plan before/after).
+  T5 TYPE TO HIM IN THE CHAT POP-UP WHILE MUTED (complaint 2)
+     Evidence: the only text box is [mAsk] in the Control Center (Control.ini:46-57, control.lua:595-596, AskJarvis
+     control.lua:951-956). Overlay\Jarvis (Jarvis.ini, jarvislog.lua) has scroll, close and right-click only.
+     Fix: an InputText measure + hit zone in the pop-up that writes the same "ASK <unix> <text>" line. Typed turns keep
+     their rules (untrusted, 500 characters, a typed turn never follows up, no voice "yes": jarvis.py:803-805, 839).
+     Optional on the user's word: queue an ASK that arrives while he is busy instead of dropping it (jarvis.py:1710-1711).
+     Test: ASK reaches route() unchanged; muted reply shows in the pop-up; too-long line cut.
+  T6 "C.L.O.V.E.R" DOES NOT CHANGE (complaint 11)
+     Evidence: the label is fixed text at jarvis.lua:371 and jarvislog.lua:70 (also the speaker tag 'CLOVER' at
+     jarvislog.lua:86 and tooltips jarvis.lua:376-379). The NAME buttons only write JarvisName (control.lua:738-741) and
+     push it live to Center\Sphere (control.lua:462-466); nothing reads it for these labels.
+     Fix: build the label from JarvisName (letters with dots, upper case) in both files and push !SetVariable to
+     Overlay\Jarvis as well. Lua is unverified until a live run (W5 of the bug list).
+  G  GPU AT ABOUT 80 PERCENT, DROPS WHEN RAINMETER CLOSES (complaint 12)
+     Likely Rainmeter drawing, not the JARVIS daemon (0 percent GPU busy idle in the M0 baseline, plan l.2558). Not measured on this PC.
+  G1 MEASURE (about 5 minutes, read-only, the user does it; numbers go in the plan)
+     1. QUIT JARVIS from the Control Center, leave Rainmeter running: does the load stay near 80 percent?
+     2. Task Manager > Details > add GPU and GPU engine columns: which GPU is Rainmeter.exe on (the Radeon or the RTX)?
+        nvidia-smi --query-gpu=utilization.gpu --format=csv -l 1 shows whether the RTX is busy at all.
+     3. Control Center > PERFORMANCE: FULL / LITE / LOW / STEALTH, about 30 s each.
+     4. Unload one skin at a time: Center\Sphere, Center\HUD, Center\Target, Bottom\Audio, Left and Right Category.
+     5. Compare the HUD's own GPU number (control.lua:334 NOW row) with Task Manager: UsageMonitor may add up both GPUs
+        and all engines (Sensors.inc:16-21, controller.lua:117).
+  G2 FIX BY THE NUMBERS (in this order; stop when the target is met)
+     1. PerfOverride=0 pins FULL (Settings.inc:76, controller.lua:113-115), so the automatic tiers never act. Set -1.
+     2. Sphere updates every 33 ms (210-frame PNG sprite drawn twice + 56-point network with 3 glow passes,
+        jarvis.lua:70-145, lib.lua:169-179); HUD, Target, Audio every 50 ms. JarvisFrameRate=15 changes only the animation
+        speed, not the redraw rate. Raise the Update/UpdateDivider per tier.
+     3. Storage.ini redraws the whole canvas every 100 ms with no tier check (storage.lua:18-54): redraw only on change.
+     4. Text glow and AccurateText/DynamicWindowSize on every module (Common.inc:3-4, lib.lua:396-400) cost more on FULL.
+     5. TierStealth default is 90 in control.lua:339 but 85 in Settings.inc:80: make them agree.
+     Acceptance: GPU percent before/after for each change in the plan; nothing visibly broken; JARVIS functions unchanged.
+     Rollback: the settings; git revert.
+  U  GEMINI ITEMS THAT HELD UP IN THE CODE (small, independent)
+  U1 CONFIDENCE FROM THE WORST SEGMENT: hearing.py:110 takes the minimum avg_logprob of all segments, so one noisy tail
+     forces "Did you say: ...?" (jarvis.py:774). Use a word-weighted mean that ignores 1-word trailing segments.
+     Measure both sides first (W3 of the bug list: never a threshold by feel). Test: a clear command + a noisy 1-word tail
+     -> no question; a really unsure command -> still asks.
+  U2 NEAR-MISS RECOVERY COUNTS FILLER: fix_route gives up above 8 words counted BEFORE tidy() (routing.py:283), so
+     "Hey Jarvis, could you please turn the volume down" skips the typo recovery. Count after tidy(). Run check_route.py:
+     0 routes changed except the intended ones.
+  U3 THE SILENCE WAIT: JarvisSilence=2 (Settings.inc:238) is a mandatory 2 s after every command. First measure in the log how
+     long the user's mid-sentence pauses are (not by feel); then choose a lower default (about 1.2 s) and keep it a setting.
+     The two-tier (short for short commands / longer for unfinished clauses) and the Silero gate stay in Stage 2.
+  U4 KOKORO PATH: Setup-Jarvis.ps1 installs Kokoro into Jarvis\voices\, but Settings.inc:234 points to Jarvis\kokoro and
+     resolve_voice() searches only dirname(voice) and Jarvis\kokoro (tts.py:193): a fresh install falls back to the
+     Windows voice. Add Jarvis\voices to the search. Test: a fake file in voices\ is found. (This PC already works.)
+  U5 THE MISSED-WORDS ANSWER: "Sorry, I didn't catch that." (jarvis.py:922) says nothing about why. First miss: "Pardon,
+     <callme>?"; a near-silent peak: "I barely heard anything - check the microphone."; a second miss in a row: open
+     the type box (T5). Wording goes through the Phase 10 tone rules (the user's hand review).
+  X  FOUND WHILE READING (verify first)
+  X1 prompt.py:137 builds PERSONA from RES + "@Resources" + ..., but RES already is the @Resources folder (the other files use
+     join(RES, "Jarvis", ...)), so persona.txt is probably never read and the built-in text is used. The tests replace
+     PERSONA and cannot see it. First add a log line "persona: loaded <path> / not found"; fix only if confirmed live.
+  PARKED TO STAGE 2 (Gemini): unified one-time setup wizard; Silero-VAD silence gate; clause-aware first TTS chunk (= 6g);
+     topic-continuity check before ROOM_ASKS; push-to-talk hotkey stays rejected.
+  Rollback for the phase: git revert the item's commit; settings return to their old values; Jarvis\wake\ files can be deleted.
 
 --------------------------------------------------------------------------------------------------------
 PHASE 11  LEFT-OVERS FROM THE GEMINI AUDIT   (added 2026-10-15; after Phases 7-10 are built and live-tested)
@@ -4104,6 +4271,7 @@ S2-3  "LOOK AT WHAT I'M DOING" (computer vision)
 --------------------------------------------------------------------------------------------------------
 S2-4  A NEW NAME AS THE WAKE WORD
 --------------------------------------------------------------------------------------------------------
+  MOVED 2026-10-20 (the user) to PHASE 10B, item W2: the synthetic model is trained there. The text below stays as its spec.
   Phase 10 adds the name he uses for himself (JarvisName). Waking on a new name needs a new model:
   openWakeWord's own models were trained from 100 percent synthetic (text-to-speech) speech; a new word
   is trained the same way on top of its shared feature part (its notebook: "under an hour"). A 2026

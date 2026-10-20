@@ -138,6 +138,7 @@ def follow_name_wait():
 
 
 onset = [0.0]                                                  # seconds the last _listen waited before speech began
+peak = [0.0]                                                   # U5: the loudest 30 ms block (rms, 0-1) of the last _listen
 
 
 def _listen(patience=6, dim_after=None):
@@ -146,7 +147,7 @@ def _listen(patience=6, dim_after=None):
     rate, block = 16000, 480                     # 30 ms blocks
     frames, started, silent, waited, dim = [], False, 0, 0, False
     floor = None
-    onset[0] = 0.0
+    onset[0] = peak[0] = 0.0
     try:
         quiet_blocks = int(max(0.5, min(6.0, float(setting("JarvisSilence", "1.0")))) / 0.03)
     except ValueError:
@@ -176,6 +177,7 @@ def _listen(patience=6, dim_after=None):
                         if dim:
                             S.set(state="listening")        # 8a: speech began in the dim part of the window
                     started, silent = True, 0
+                    peak[0] = max(peak[0], rms)
                 elif started:
                     silent += 1
                 if started:

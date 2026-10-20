@@ -95,8 +95,34 @@ def real_words(text):
     return text
 
 
-heard_score = [0.0]            # the lowest segment avg_logprob of the last transcript: below -1.0 Whisper was unsure
+heard_score = [0.0]            # how sure Whisper was of the last transcript (confidence()): below -1.0 it was unsure
 HINT = "Hey Clover, set a timer for ten minutes. Clover, turn the volume down."   # words he should expect
+
+
+def confidence(segs):
+    """U1: the words' average avg_logprob, each segment weighted by its word count. A one-word tail after longer talk (a
+    breath, a chair creak) no longer drags a clear command below the -1.0 line; when all parts are one word (a bare
+    "yes") they all count."""
+    rows = [(max(1, len(getattr(s, "text", "").split())), getattr(s, "avg_logprob", 0.0)) for s in segs]
+    longer = [r for r in rows if r[0] > 1]
+    use = longer or rows
+    return sum(n * lp for n, lp in use) / sum(n for n, _ in use) if use else 0.0
+
+
+missed = [0]                   # U5: how many turns in a row ended with speech heard but no words
+QUIET_PEAK = 0.025             # shortcut: unmeasured (speech starts at 0.012); the log prints the peak of each miss, tune from it
+
+
+def missed_line(peak, call=""):
+    """U5: what to say when speech came out as no words. Returns (line, open_type_box). A near-silent level points at the
+    microphone; the first miss is a short "Pardon?"; the second in a row opens the type box instead of asking again."""
+    missed[0] += 1
+    log(f"transcript: no words (level {peak:.3f}, miss {missed[0]})")           # numbers only
+    if peak < QUIET_PEAK:
+        return "I barely heard anything - check the microphone.", False
+    if missed[0] >= 2:
+        return "Still nothing. You can type to me here.", True
+    return f"Pardon{', ' + call if call else ''}?", False
 
 
 def _decode(model, audio):
@@ -107,7 +133,7 @@ def _decode(model, audio):
     if not segs:
         segs = list(model.transcribe(audio, vad_filter=False, **opts)[0])
     segs = no_loops(segs)
-    heard_score[0] = min((getattr(s, "avg_logprob", 0.0) for s in segs), default=0.0)
+    heard_score[0] = confidence(segs)
     return real_words(no_repeats(" ".join(s.text for s in segs).strip()))
 
 

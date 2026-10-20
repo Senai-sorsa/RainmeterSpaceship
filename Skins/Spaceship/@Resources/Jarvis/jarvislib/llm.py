@@ -89,10 +89,20 @@ def keep_alive():
         return "10m"
 
 
+def load_options():
+    """The options that decide how Ollama LOADS the model: the same for the warm-up and for every chat call. A call
+    with another num_ctx makes Ollama unload the model and load it again (seconds), so these must never differ."""
+    opts = {"num_ctx": ctx_tokens()}
+    if not gpu():
+        opts["num_thread"] = cpu_threads()
+    return opts
+
+
 def warm(model):
     def go():
         try:
-            http_json("/api/generate", {"model": model, "prompt": "", "keep_alive": keep_alive()}, timeout=120)
+            http_json("/api/generate", {"model": model, "prompt": "", "keep_alive": keep_alive(), "options": load_options()},
+                      timeout=120)
         except Exception:
             pass
     threading.Thread(target=go, daemon=True).start()
@@ -134,9 +144,7 @@ def chat_to_gpu(model):
 
 def chat_json(model, schema, system, user, predict, timeout):
     """One answer in a JSON schema, parsed (AI router, compaction); raises when the model is down or answers nonsense."""
-    opts = {"num_ctx": ctx_tokens(), "temperature": 0, "num_predict": predict}   # chat's num_ctx: no model reload
-    if not gpu():
-        opts["num_thread"] = cpu_threads()
+    opts = dict(load_options(), temperature=0, num_predict=predict)   # the same load options as warm(): no model reload
     out = http_json("/api/chat", {"model": model, "stream": False, "format": schema, "keep_alive": keep_alive(),
                                   "options": opts, "messages": [{"role": "system", "content": system},
                                                                 {"role": "user", "content": user}]}, timeout=timeout)
@@ -144,9 +152,7 @@ def chat_json(model, schema, system, user, predict, timeout):
 
 
 def chat_stream(model, messages, temperature=0.5):
-    opts = {"num_ctx": ctx_tokens(), "temperature": temperature, "num_predict": 160}
-    if not gpu():
-        opts["num_thread"] = cpu_threads()
+    opts = dict(load_options(), temperature=temperature, num_predict=160)
     body = json.dumps({"model": model, "messages": messages, "stream": True, "keep_alive": keep_alive(),
                        "options": opts}).encode()
     req = urllib.request.Request(OLLAMA + "/api/chat", data=body, headers={"Content-Type": "application/json"})

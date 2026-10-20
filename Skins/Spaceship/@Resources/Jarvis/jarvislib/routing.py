@@ -278,12 +278,15 @@ def tidy(text):
 
 
 def fix_route(text, routed):
-    """A chat line or near-miss of up to 8 words that becomes exactly one command once tidied or with one word swapped
-    for a close command word (volyum -> volume) is that command; two different ones -> he asks. Otherwise as heard."""
-    if not (routed[0] == "chat" or routed[3] == NEAR_MISS) or len(text.split()) > 8:
+    """A chat line or near-miss of up to 8 words (counted AFTER the filler is out: "could you please go ahead and turn
+    the volume down" is 5) that becomes exactly one command once tidied or with one word swapped for a close command
+    word (volyum -> volume) is that command; two different ones -> he asks. Otherwise as heard."""
+    if not (routed[0] == "chat" or routed[3] == NEAR_MISS):
+        return routed
+    base = tidy(text)
+    if len(base.split()) > 8:
         return routed
     import difflib
-    base = tidy(text)
     tries = [base] + [re.sub(rf"\b{w}\b", m, base, flags=re.I) for w in {w.lower() for w in re.findall(r"[A-Za-z]{4,}", base)}
                       if w not in CMD_WORDS and w not in KEEP for m in difflib.get_close_matches(w, CMD_WORDS, n=2, cutoff=0.8)]
     found = {}
@@ -392,7 +395,7 @@ def route(text):
                     r"(?:undo(?: that| it)?|put it back|cancel that|take that back|back to (?:before|how it was|how you were))", whole):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
-        return ("say", None, None, "Okay, never mind.")
+        return ("end", None, None, None)                       # T1: he drops it and says nothing (jarvis.py: control)
     key = mood_command(cmd)
     if key:                                                    # M2: "be serious", "just answer briefly", "stop joking"
         return ("act", "mood", key, None)

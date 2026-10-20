@@ -336,7 +336,7 @@ local function rowsPerf()
     { 'MASTER SWITCH', 'STEALTH hides the sphere + waveform and drops everything to minimum', { { 'STEALTH', setOv(3), ov == 3 } } },
     { 'LITE ABOVE', H.num('TierLite', 50) .. '% GPU', { { '-5', function() bump('TierLite', -5, 10, 95) end }, { '+5', function() bump('TierLite', 5, 10, 95) end } } },
     { 'LOW ABOVE', H.num('TierLow', 75) .. '% GPU', { { '-5', function() bump('TierLow', -5, 10, 98) end }, { '+5', function() bump('TierLow', 5, 10, 98) end } } },
-    { 'STEALTH ABOVE', H.num('TierStealth', 90) .. '% GPU', { { '-5', function() bump('TierStealth', -5, 10, 100) end }, { '+5', function() bump('TierStealth', 5, 10, 100) end } } },
+    { 'STEALTH ABOVE', H.num('TierStealth', 85) .. '% GPU', { { '-5', function() bump('TierStealth', -5, 10, 100) end }, { '+5', function() bump('TierStealth', 5, 10, 100) end } } },
     { 'ON BATTERY', 'at least ' .. (names[H.num('BatteryMinTier', 1)] or '?'), { { '-', function() bump('BatteryMinTier', -1, 0, 3) end }, { '+', function() bump('BatteryMinTier', 1, 0, 3) end } } },
     { 'HOW IT WORKS', 'Steps down 5 s after the GPU crosses a line, back up 20 s after it is 15% lower', {} },
   }
@@ -462,7 +462,9 @@ local WHISPERS = { 'tiny.en', 'base.en', 'small.en', 'medium.en' }
 local function jset(key, value, quiet)
   if type(value) == 'string' then value = value:gsub('%c', '') end   -- a line break would write a second line into Settings.inc
   writeVar('Settings.inc', key, value)
-  SKIN:Bang('!SetVariable', key, value, 'Spaceship\\Center\\Sphere')       -- the hologram picks it up live
+  for _, cfg in ipairs({ 'Spaceship\\Center\\Sphere', 'Spaceship\\Overlay\\Jarvis' }) do   -- the hologram and the log pop-up pick it up live
+    SKIN:Bang('!SetVariable', key, value, cfg)
+  end
   if not quiet then say(key .. ' = ' .. (value == '' and '(default)' or tostring(value))) end
 end
 local function jbump(key, delta, lo, hi, default)
@@ -606,12 +608,8 @@ local function rowsJarvis()
     { 'ON', function() jset('JarvisWakeWord', 1) end, ww }, { 'OFF', function() jset('JarvisWakeWord', 0) end, not ww },
     { 'EASIER', function() jbump('JarvisWakeSensitivity', -0.05, 0.2, 0.9, 0.5) end },
     { 'STRICTER', function() jbump('JarvisWakeSensitivity', 0.05, 0.2, 0.9, 0.5) end } } }
-  rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey ' .. wname .. '", "Hey" and "' .. wname .. '" (about 2 minutes; he says what to do)', {
+  rows[#rows + 1] = { 'WAKE TRAINING', 'Teaches him your "Hey ' .. wname .. '" (about 1 minute; the steps also show in the log pop-up, so it works with the volume off)', {
     { 'TRAIN', function() H.cmd('TRAINWAKE ' .. os.time()); say('CLOVER WILL TELL YOU WHAT TO SAY') end } } }
-  local heyOn, gap = H.num('JarvisWakeEasy', 0.5) > 0, H.num('JarvisWakeGap', 5)
-  rows[#rows + 1] = { 'HEY ... ' .. string.upper(wname), heyOn and string.format('ON - your trained "Hey", a pause, then "%s" within %d s wakes him (needs TRAIN)', wname, gap) or 'OFF - only "Hey ' .. wname .. '" said together wakes him', {
-    { 'ON', function() jset('JarvisWakeEasy', 0.5) end, heyOn }, { 'OFF', function() jset('JarvisWakeEasy', 0) end, not heyOn },
-    { '-', function() jbump('JarvisWakeGap', -1, 2, 10, 5) end }, { '+', function() jbump('JarvisWakeGap', 1, 2, 10, 5) end } } }
   local mic, mics = H.str('JarvisMic', ''), models('jarvis_mics.txt')   -- listed by jarvis.py at start
   local function nextMic(d)
     if #mics == 0 then say('START CLOVER ONCE TO LIST THE MICROPHONES') else jset('JarvisMic', cycle(mics, mic, d)) end
@@ -705,9 +703,6 @@ local function rowsJarvis()
   rows[#rows + 1] = { 'IDLE UNLOAD', (iu > 0 and string.format('speech models are freed after %d min without a turn', iu) or 'OFF - the speech models stay loaded') .. '   (they load again on the next turn)', {
     { '-', function() jbump('JarvisIdleUnload', -5, 0, 120, 10) end }, { '+', function() jbump('JarvisIdleUnload', 5, 0, 120, 10) end },
     { 'OFF', function() jset('JarvisIdleUnload', 0) end, iu <= 0 } } }
-  local wh = H.num('JarvisWakeHard', 0.35)
-  rows[#rows + 1] = { 'WAKE STRICT', string.format('%.2f   - the wake-word score needed while he talks or music plays; higher = fewer false wakes', wh), {
-    { '-', function() jbump('JarvisWakeHard', -0.05, 0.1, 0.9, 0.35) end }, { '+', function() jbump('JarvisWakeHard', 0.05, 0.1, 0.9, 0.35) end } } }
   local lrn = string.lower(H.str('JarvisLearn', 'auto'))
   if lrn == '0' then lrn = 'off' end
   if lrn ~= 'off' and lrn ~= 'ask' then lrn = 'auto' end
@@ -949,11 +944,7 @@ function SetCallMe(v)
   Update()
 end
 -- InputText (mAsk) answer for the TYPE TO HIM row: one line, at most 500 characters; the service checks it again
-function AskJarvis(v)
-  v = string.gsub(tostring(v or SKIN:GetVariable('AskIn', '')), '%c', ' ')
-  v = string.sub(string.match(v, '^%s*(.-)%s*$'), 1, 500)
-  if v ~= '' then H.cmd('ASK ' .. os.time() .. ' ' .. v) end
-end
+function AskJarvis(v) H.ask(v or SKIN:GetVariable('AskIn', '')) end
 function OnHover(zi, k, on)
   if dragging and on == 1 and k >= BARHIT and k < BARHIT + NSLICE then barTo((k - BARHIT + 0.5) / NSLICE) end
 end

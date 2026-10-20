@@ -134,8 +134,9 @@ MOODS = {"mirror": "Be calm and friendly. Joke only if the user jokes first, and
          "playful": "Be quick and funny, dark humor and witty banter welcome. Answer a real question first, then joke. "
                     "Never joke about a failed action."}
 MOOD_ALIAS = {"proper": "serious", "natural": "mirror"}          # the old setting values keep working
-PERSONA = os.path.join(RES, "@Resources", "Jarvis", "persona.txt")
+PERSONA = os.path.join(RES, "Jarvis", "persona.txt")             # RES is the @Resources folder itself (X1: it was joined twice)
 _persona = [None, {}]                                            # file stamp, its sections
+_persona_said = [None]                                           # what the log already says about the file: once, not per turn
 
 
 def persona():
@@ -143,6 +144,9 @@ def persona():
     try:
         stamp = (PERSONA, os.path.getmtime(PERSONA))
     except OSError:
+        if _persona_said[0] != "missing":
+            _persona_said[0] = "missing"
+            log("persona.txt not found - using the built-in text")
         return {}
     if _persona[0] != stamp:
         try:
@@ -150,6 +154,8 @@ def persona():
                 text = re.sub(r"^#.*$", "", f.read(), flags=re.M)                         # # lines are comments
             found = re.findall(r"^\[(\w+)\][ \t]*\n(.*?)(?=^\[\w+\][ \t]*$|\Z)", text, re.M | re.S)
             _persona[:] = [stamp, {k.lower(): " ".join(v.split()) for k, v in found}]
+            _persona_said[0] = "loaded"
+            log(f"persona.txt loaded ({len(_persona[1])} sections)")
         except (OSError, UnicodeDecodeError) as e:
             log(f"persona.txt unreadable ({type(e).__name__}) - using the built-in text")
             _persona[:] = [stamp, {}]

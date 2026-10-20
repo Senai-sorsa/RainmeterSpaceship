@@ -24,6 +24,16 @@ local function str(name, default)
 end
 H.str = str
 
+-- The assistant's name from JarvisName (Settings.inc), letters and digits only. style: 'dots' = "C.L.O.V.E.R" (the
+-- hologram's label), 'upper' = "CLOVER" (the log's speaker tag), else "Clover" (tooltips).
+function H.assistant(style)
+  local n = (string.gsub(str('JarvisName', 'Clover'), '[^%w]', ''))
+  if n == '' then n = 'Clover' end
+  if style == 'dots' then return string.sub((string.gsub(string.upper(n), '(.)', '%1.')), 1, -2) end
+  if style == 'upper' then return string.upper(n) end
+  return string.upper(string.sub(n, 1, 1)) .. string.lower(string.sub(n, 2))
+end
+
 local function parseColor(s, fallback)
   local r, g, b, a = string.match(s or '', '^%s*(%d+)%s*,%s*(%d+)%s*,%s*(%d+)%s*,?%s*(%d*)')
   if not r then return fallback end
@@ -690,6 +700,14 @@ function H.cmd(s)
     f = io.open(dst, 'w')
     if f then f:write(s, '\n'); f:close() end
   end
+end
+
+-- One typed line for him (ASK in Data\jarvis_cmd.txt): control characters out, at most 500 characters; the service checks
+-- it again. Used by the Control Center's TYPE row and by the log pop-up's TYPE button.
+function H.ask(v)
+  v = string.gsub(tostring(v or ''), '%c', ' ')
+  v = string.sub(string.match(v, '^%s*(.-)%s*$'), 1, 500)
+  if v ~= '' then H.cmd('ASK ' .. os.time() .. ' ' .. v) end
 end
 
 -- HWiNFO value through the registry gadget; nil when not mapped / not running

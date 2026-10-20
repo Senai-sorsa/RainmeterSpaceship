@@ -1590,17 +1590,178 @@ ROOMASK = ["1"]                                                     # these olde
 for undo_line in ("Undo that.", "Never mind Jarvis, undo."):
     assert ear(["Set a timer for 10 minutes.", undo_line]) == (3, 0) and j.load_reminders() == [], undo_line
     assert asked[-1] == "Removed that timer.", asked[-2:]
-# room talk in the window: a fragment is ignored, 3+ words with no cue are asked about, a question is answered
-assert ear(["Set a timer for 10 minutes.", "Uh huh."]) == (2, 0) and asked[-1] != "Uh huh."
-assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over."])[1] == 0 and asked[-1] in j.ROOM_ASKS
-assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over.", "Yes."]) == (4, 1)   # yes: answered
-assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over.", "No."]) == (3, 0)    # no: ended
+# T2: after a command the ear is the undo window: anything but "undo" (a fragment, room talk, a question) is dropped, no words
+for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital of France?"):
+    asked.clear()
+    assert ear(["Set a timer for 10 minutes.", other]) == (2, 0) and len(j.load_reminders()) == 1, other   # one listen, no reply
+    assert asked == ["Timer set for 10 minutes."], asked
+    j.save_reminders([])
+# room talk in the open ear after a chat answer: a fragment is ignored, 3+ words with no cue are asked about, a question is answered
+assert ear(["Tell me a joke.", "Uh huh."]) == (2, 1) and asked[-1] != "Uh huh."
+assert ear(["Tell me a joke.", "Mom the pasta is boiling over."])[1] == 1 and asked[-1] in j.ROOM_ASKS
+assert ear(["Tell me a joke.", "Mom the pasta is boiling over.", "Yes."]) == (4, 2)   # yes: answered
+assert ear(["Tell me a joke.", "Mom the pasta is boiling over.", "No."]) == (3, 1)    # no: ended
 ROOMASK[0] = "0"                                                    # D6: by default unsure room talk gets no question at all
 asked.clear()
-assert ear(["Set a timer for 10 minutes.", "Mom the pasta is boiling over."])[1] == 0 and not any(a in j.ROOM_ASKS for a in asked)
+assert ear(["Tell me a joke.", "Mom the pasta is boiling over."])[1] == 1 and not any(a in j.ROOM_ASKS for a in asked)
 ROOMASK[0] = "1"
-assert ear(["Set a timer for 10 minutes.", "What is the capital of France?"]) == (3, 1)
+assert ear(["Tell me a joke.", "What is the capital of France?"]) == (3, 2)
 j.save_reminders([])
+
+# ---- Phase 10B T2/T3: what listens after a reply (jarvislib\followup.py)
+F = j.followup
+for kind, action, want in (("act", "volume", "undo"), ("multi", None, "undo"), ("undo", None, "undo"), ("remind", "set", "undo"),
+                           ("remind", "cancel", "undo"), ("memory", "save", "undo"), ("memory", "forget", "undo"),
+                           ("remind", "list", "ear"), ("memory", "list", "ear"), ("level", None, "ear"), ("say", None, "ear"),
+                           ("diag", "cpu", "ear"), ("chat", None, "ear"), ("log", None, "ear"), (None, None, "ear")):
+    assert F.mode_after(kind, action) == want, (kind, action)
+real_when = j.stopped[:]
+for why, ago, want in (("stop word", 0.5, "stop"), ("stop key", 1.0, "stop"), ("click", 0.5, None), ("barge-in", 0.5, None),
+                       ("stop word", 10.0, None)):
+    j.stopped[:] = [why, time.time() - ago]
+    assert F.after_stop() == want, (why, ago)
+j.stopped[:] = real_when
+# the windows: a command listens 2 s for "undo", a stop listens 1 s, a chat answer the open ear (3 s, then his name)
+pat = []
+j.listen = lambda **k: pat.append(k.get("patience")) or ("audio" if len(pat) == 1 else None)
+j.muted, j.transcribe = (lambda: False), (lambda a: "Set a timer for 10 minutes.")
+j.setting = lambda name, default="": default
+j.turn(0)
+assert pat == [None, F.UNDO_WAIT] and F.UNDO_WAIT == 2.0, pat       # a command: no open ear, two seconds for "undo"
+j.save_reminders([])
+pat.clear()
+j.transcribe = lambda a: "Tell me a joke."
+j.turn(0)
+assert pat == [None, 10.0] and len(pat) == 2, pat                   # a chat answer: the open ear (JarvisFollowNameWindow)
+real_speak = j.speak_all
+
+
+def stopping(sentences, *a):
+    list(sentences)
+    j.stop_now(stop_why[0])                                         # the stop word / End key / click arrives while he talks
+    return "stopped"
+
+
+stop_why = ["stop word"]
+j.speak_all = stopping
+for why, want in (("stop word", [None, F.STOP_WAIT]), ("stop key", [None, F.STOP_WAIT]), ("click", [None])):
+    pat.clear(), j.history.clear()
+    stop_why[0] = why
+    j.turn(0)
+    assert pat == want, (why, pat)                                  # T3: one second for what comes right after "stop"; a click ends it
+    assert states[-1] == idle and not j.busy.locked()
+pat.clear(), j.history.clear()
+stop_why[0] = "stop word"
+j.muted = lambda: True                                              # muted: nothing is spoken, nothing listens again
+j.speak_all = j.say_text_only = lambda sentences, *a: list(sentences)
+j.turn(0)
+assert pat == [None], pat
+j.muted, j.speak_all = (lambda: False), real_speak
+# in the 1 s window what you say is a follow-up: it is answered
+pat.clear(), j.history.clear()
+seq_words = iter(["Tell me a joke.", "And another one?"])
+j.transcribe = lambda a: next(seq_words, "")
+j.listen = lambda **k: pat.append(k.get("patience")) or ("audio" if len(pat) <= 2 else None)
+speaks_n = [0]
+
+
+def stop_first(sentences, *a):
+    list(sentences)
+    speaks_n[0] += 1
+    if speaks_n[0] == 1:
+        j.stop_now("stop word")
+
+
+j.speak_all = j.say_text_only = stop_first
+n = len(prompts)
+j.turn(0)
+assert pat[:2] == [None, F.STOP_WAIT] and len(prompts) == n + 2, (pat, len(prompts) - n)   # asked again inside the second, answered
+j.speak_all = j.say_text_only = real_speak
+j.history.clear()
+# T1: "never mind" in a sentence: no reply, no timer, and no listening afterwards
+asked.clear()
+pat.clear()
+j.listen, j.transcribe = (lambda **k: pat.append(k.get("patience")) or "audio"), (lambda a: "Set a timer for 10 minutes, never mind.")
+j.turn(0)
+assert pat == [None] and asked == [] and j.load_reminders() == [], (pat, asked)
+j.save_reminders([])
+j.listen, j.transcribe = _listen, (lambda a: "")
+
+# ---- Phase 10B U1: Whisper's confidence is the word-weighted mean; a one-word noisy tail does not drag a clear command down
+CS = lambda text, lp: S_(text=text, avg_logprob=lp)
+assert j.confidence([CS(" set a timer for ten minutes", -0.3), CS(" uh", -2.5)]) == -0.3   # the tail is ignored
+assert abs(j.confidence([CS(" set a timer", -0.3), CS(" for ten minutes", -1.4)]) - (-0.85)) < 1e-9
+assert j.confidence([CS(" yes", -0.2)]) == -0.2 and j.confidence([CS(" yes", -0.2), CS(" okay", -1.8)]) == -1.0   # all single words count
+assert j.confidence([]) == 0.0
+assert j.confidence([CS(" what is the weather", -1.6)]) < -1.0                                 # a really unsure one still is
+
+# ---- Phase 10B U2: the near-miss limit counts the words left after the filler is out
+for text, kind in (("could you please just go ahead and turn the volyum down", "act"),
+                   ("Hey Jarvis could you please go ahead and turn the volume down", "act"),
+                   ("could you please just go ahead and set a timer for ten minutes please", "remind")):
+    assert len(text.split()) > 8 and len(j.tidy(text).split()) <= 8, text
+    assert j.fix_route(text, j.route(text))[0] == kind, (text, j.fix_route(text, j.route(text)))
+long_chat = "could you tell me why the sky is blue during the day but red when the sun goes down in the evening"
+assert j.fix_route(long_chat, j.route(long_chat)) == j.route(long_chat)             # a real long question is left alone
+
+# ---- Phase 10B U4: the Kokoro files Setup-Jarvis.ps1 puts in Jarvis\voices are found
+real_res = j.RES
+j.RES = tempfile.mkdtemp()
+os.makedirs(os.path.join(j.RES, "Jarvis", "voices"))
+want_voice = os.path.join(j.RES, "Jarvis", "voices", "kokoro-v1.0.onnx")
+with open(want_voice, "wb") as f:
+    f.write(b"x")
+assert j.resolve_voice(os.path.join(j.RES, "Jarvis", "kokoro", "kokoro-v1.0.onnx")) == want_voice
+j.RES = real_res
+
+# ---- Phase 10B X1: persona.txt is looked for in Jarvis\ under RES (RES already is the @Resources folder), and the shipped one reads
+assert j.PERSONA == os.path.join(j.RES, "Jarvis", "persona.txt") and "@Resources" + os.sep + "@Resources" not in j.PERSONA
+prompt_mod = sys.modules["jarvislib.prompt"]
+real_persona, real_stamp = j.PERSONA, prompt_mod._persona[:]
+j.PERSONA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "persona.txt")
+prompt_mod._persona[:], prompt_mod._persona_said[0] = [None, {}], None
+lines[:], j.log = [], lines.append
+sections = j.persona()
+assert sections and "system" in sections and lines == [f"persona.txt loaded ({len(sections)} sections)"], (sections.keys(), lines)
+j.persona()
+assert len(lines) == 1                                                                 # said once, not on every turn
+j.PERSONA = os.path.join(tempfile.mkdtemp(), "persona.txt")
+prompt_mod._persona[:], prompt_mod._persona_said[0] = [None, {}], None
+lines[:] = []
+assert j.persona() == {} and j.persona() == {} and lines == ["persona.txt not found - using the built-in text"]
+j.PERSONA, prompt_mod._persona[:], prompt_mod._persona_said[0] = real_persona, real_stamp, None
+j.log = lambda *a: None
+
+# ---- Phase 10B T4: the warm-up loads the model with the same options as every chat call (a different num_ctx reloads it)
+import json as _json
+sent = []
+real_http2 = j.http_json
+j.http_json = lambda path, payload=None, timeout=5: sent.append((path, payload)) or {}
+j.warm("m")
+assert until(lambda: len(sent) == 1)
+assert sent[0][0] == "/api/generate" and sent[0][1]["options"] == j.load_options() and j.load_options()["num_ctx"] == j.ctx_tokens(), sent
+for card in (True, False):
+    j.gpu = lambda card=card: card
+    sent.clear()
+    bodies = []
+
+    class _Resp:
+        def __enter__(self):
+            return iter([b'{"message": {"content": "hi"}, "done": true}\n'])
+
+        def __exit__(self, *a):
+            return False
+    real_open = j.urllib.request.urlopen
+    j.urllib.request.urlopen = lambda req, timeout=0: bodies.append(_json.loads(req.data)) or _Resp()
+    try:
+        assert "".join(j.chat_stream("m", [{"role": "user", "content": "x"}])) == "hi"
+    finally:
+        j.urllib.request.urlopen = real_open
+    opts = bodies[0]["options"]
+    assert all(opts[k] == v for k, v in j.load_options().items()), (card, opts)       # chat asks for what warm() loaded
+    assert ("num_thread" in opts) == (not card)
+j.gpu, j.http_json = real_gpu, real_http2
+
 for text, want in (("Uh huh.", "no"), ("okay", "no"), ("Mom the pasta is boiling over.", "ask"), ("What's the time?", "yes"),
                    ("Thank you.", "yes"), ("No.", "yes"), ("Jarvis, the pasta.", "yes"), ("set a timer for 2 minutes", "yes"),
                    ("Tell me a joke", "yes"), ("I think you are right", "yes"), ("the pasta is boiling", "ask")):
@@ -1893,7 +2054,7 @@ for text in ("Set me an alarm for one minute.", "Set up an alarm for one minute"
     assert ahead(text) == ("alarm", 60, "alarm"), (text, j.route(text))
 for text in ("Set a timer for actually don't set a timer.", "Set a timer for... never mind.", "Never mind.",
              "Set an alarm, never mind", "actually, don't set a timer"):
-    assert j.route(text) == ("say", None, None, "Okay, never mind."), text
+    assert j.route(text) == ("end", None, None, None), text           # Phase 10B T1: he drops it and says nothing
 j.save_reminders([])
 for answer, op, want in (("Never mind.", "set a timer", "Okay, no timer."), ("No.", "set an alarm", "Okay, no alarm."),
                          ("Cancel that.", "remind me to cook", "Okay, no reminder."), ("forget it", "set a timer", "Okay, no timer.")):
@@ -2000,7 +2161,15 @@ assert j.history[-2]["content"].endswith("] Set a timer for 10 minutes.")
 n = len(j.history)
 assert talk(99, words="Never mind.") == 1 and len(j.history) == n   # FR6: a control word ends it quietly, kept nowhere
 assert j.re.match(r"\[\w{3} \d\d \w{3}, \d\d:\d\d [AP]M\] ", j.history[-2]["content"]), j.history[-2]   # day, date and time
-assert talk(1, words="") == 2 and asked[-1] == "Sorry, I didn't catch that."
+j.mic_peak[0] = 0.2                                               # U5: speech was heard, loud enough
+j.hearing.missed[0] = 0
+assert talk(1, words="") == 2 and asked[-1] == "Pardon?"          # the first miss: a short question (JarvisCallMe empty here)
+assert talk(1, words="") == 2 and asked[-1] == "Still nothing. You can type to me here."   # the second in a row
+j.mic_peak[0] = 0.01
+j.hearing.missed[0] = 0
+assert talk(1, words="") == 2 and asked[-1] == "I barely heard anything - check the microphone."   # almost no sound: the microphone
+j.hearing.missed[0] = 0
+j.mic_peak[0] = 0.2
 assert talk(99, words="") == 2                                    # silence after "didn't catch" ends it: no loop
 real_turn, n = j.turn, len(asked)
 j.turn = lambda tier, follow=0, woke=False: real_turn(tier, follow, True)
@@ -2035,8 +2204,12 @@ j.turn(0)
 assert patience == [10, None], patience
 j.listen = lambda **k: "audio"
 routes.clear()
-ear(["Set a timer for 10 minutes.", "Uh huh."])
+ear(["Tell me a joke.", "Uh huh."])
 assert routes[-1].startswith("route: ear via rule") and routes[-1].endswith("-> not for me - quiet"), routes
+routes.clear()
+ear(["Set a timer for 10 minutes.", "Uh huh."])                    # T2: after a command only "undo" counts
+assert routes[-1].startswith("route: ear via rule") and routes[-1].endswith("-> not an undo - quiet"), routes
+j.save_reminders([])
 routes.clear()
 ear(["Lock the computer.", "No."])
 assert routes[-1].startswith("route: command.") and routes[-1].endswith("-> left - no yes"), routes
@@ -2712,7 +2885,7 @@ for dev, beam in (("cuda", 5), ("cpu", 3)):
     k = calls[0]
     assert k["beam_size"] == beam and k["vad_filter"] is True and k["hotwords"] == "Clover Jarvis" and k["language"] == "en", k
     assert "Clover" in k["initial_prompt"] and k["condition_on_previous_text"] is False, k
-    assert j.heard_score[0] == -1.4, j.heard_score
+    assert abs(j.heard_score[0] - (-0.85)) < 1e-9, j.heard_score      # U1: 3 words at -0.3, 3 words at -1.4: the weighted mean
 calls.clear()
 j.whisper = lambda: OptWhisper([])                                # VAD cut a short "yes"
 assert real_transcribe("audio") == "yes" and [c["vad_filter"] for c in calls] == [True, False]
@@ -3314,7 +3487,7 @@ assert j.wake_model() == ("hey_jarvis", "hey_jarvis") and j.wake_name() == "Jarv
 j._wake_bad.discard("hey_clover.onnx")
 j.RES, j.setting, j.log, j._wake_warned[0] = real_res, real_set, real_log, real_warned
 
-# ---- R5-6 6a: wake word training. Fake clips carry their score as the sample value (500 = 0.5)
+# ---- R5-6 6a: wake word training (Phase 10B: jarvislib\wake.py). Fake clips carry their score as the sample value (500 = 0.5)
 try:
     import numpy as np
 except ImportError:
@@ -3338,45 +3511,77 @@ if np is not None:
     def _feats(clip, oww, name, threshold=0.5, N=3):
         return np.ones((1 if clip.max() / 1000 >= threshold else 0, 2, 2))
 
-    # "Hey Jarvis" never reaches the 0.1 floor here; "Hey" and "Jarvis" are words: every moment with speech counts
-    level = {"hey_jarvis": 50, "hey": 200, "jarvis": 300}
-    said = []
+    level, said, spoken, steps, problems = [50], [], [], [], []      # "Hey Jarvis" at 0.05 never reaches the 0.1 floor; 300 does
+    quiet_now = [False]
 
     def _record(sec):
-        style = WAKE_ORDER[min(len(said) // 6, 2)] if sec == 3 else None
         said.append(sec)
-        return np.full(int(16000 * sec), level[style] if style else 0, dtype=np.int16)
+        return np.full(int(16000 * sec), level[0] if sec == 3 else 0, dtype=np.int16)
 
     real_oww = {m: sys.modules.get(m) for m in ("openwakeword.model", "openwakeword.custom_verifier_model")}
     sys.modules["openwakeword.model"] = S_(Model=TrainOww)
     sys.modules["openwakeword.custom_verifier_model"] = S_(get_reference_clip_features=_feats,
                                                            train_verifier_model=lambda f, y: {"pos": int(sum(y)), "all": len(y)})
-    WAKE_ORDER = [s[0] for s in j.WAKE_STYLES]
-    assert WAKE_ORDER == ["hey_jarvis", "hey", "jarvis"]
+    assert [w[0] for w in j.WAKE_STYLES] == ["hey_jarvis"]           # W1: the bare "Hey" and "Jarvis" checks are gone
     real_data, j.DATA = j.DATA, tempfile.mkdtemp()
-    for old in ("wake_hey_jarvis.pkl", "wake_hey_pause.pkl"):          # left from an older training
-        with open(os.path.join(j.DATA, old), "wb") as f:
-            f.write(b"old")
-    j.record, j.play_samples, j.reply_line = _record, (lambda *a: None), (lambda text, quiet: lines.append(text))
-    j.log, j.S, lines[:] = lines.append, _S(), []
-    assert within(5, j.train_wake) is None and not j.busy.locked() and said == [3] * 18 + [15]
-    files = sorted(os.listdir(j.DATA))
-    assert files == ["wake_hey.pkl", "wake_jarvis.pkl"], files       # no recording written; old ones gone
-    import pickle
-    with open(os.path.join(j.DATA, "wake_hey.pkl"), "rb") as f:
-        hey = pickle.load(f)
-    with open(os.path.join(j.DATA, "wake_jarvis.pkl"), "rb") as f:
-        jar = pickle.load(f)
-    # each word learns the 15 s of talk (1 example here) AND the other word as "not it"
-    assert hey["pos"] == jar["pos"] > 0 and hey["all"] == jar["all"] == 2 * hey["pos"] + 1, (hey, jar)
+    real_live, real_problem, real_muted = j.live, j.problem, j.muted
+
+    def stale():
+        for old in ("wake_hey_jarvis.pkl", "wake_hey.pkl", "wake_jarvis.pkl", "wake_hey_pause.pkl"):   # left from older trainings
+            with open(os.path.join(j.DATA, old), "wb") as f:
+                f.write(b"old")
+
+    def fresh():
+        said[:], spoken[:], steps[:], problems[:], lines[:] = [], [], [], [], []
+
+    j.record, j.play_samples = _record, (lambda *a: None)
+    j.reply_line = lambda text, quiet: spoken.append((text, quiet, j.wake.TRAINING.is_set()))
+    j.live, j.problem, j.muted = steps.append, (lambda msg, popup=True: problems.append(msg)), (lambda: quiet_now[0])
+    j.log, j.S = lines.append, _S()
+    stale()
+    fresh()
+    assert within(5, j.train_wake) is None and not j.busy.locked() and said == [3] * 6 + [15]
+    assert sorted(os.listdir(j.DATA)) == [], os.listdir(j.DATA)      # nothing learned: the old checks are gone, none written
     assert "train: Hey Jarvis peaks 0.05 (0 examples)" in lines, lines
-    assert lines[-1] == "Done. I learned 2 of the 3 ways. The log says which." and states[-1]["state"] == "idle"
-    for name in files:                                                 # a click part-way: nothing new saved
+    assert spoken[-1][0] == "I couldn't learn it - the log says why." and states[-1]["state"] == "idle"
+    assert all(t[2] for t in spoken) and not j.wake.TRAINING.is_set()  # his prompts ran with TRAINING set (no barge-in), and it is cleared after
+    assert [x for x in steps if x][:6] == [f'Say "Hey Jarvis" after the ding - {i} of 6' for i in range(1, 7)], steps   # W3: the step stays on screen
+    assert "Talk normally now - 15 seconds" in steps and steps[-1] == "", steps
+    level[0] = 300                                                   # the check is learned
+    stale()
+    fresh()
+    assert within(5, j.train_wake) is None and not j.busy.locked() and said == [3] * 6 + [15]
+    assert sorted(os.listdir(j.DATA)) == ["wake_hey_jarvis.pkl"], os.listdir(j.DATA)   # no recording written; the dropped styles are gone
+    import pickle
+    with open(os.path.join(j.DATA, "wake_hey_jarvis.pkl"), "rb") as f:
+        hey = pickle.load(f)
+    assert hey == {"pos": 6, "all": 7}, hey                          # six examples against the 15 s of talk
+    assert spoken[-1][0] == "Done. I learned your Hey Jarvis." and not any(t[1] for t in spoken)   # spoken, not just shown
+    quiet_now[0] = True                                              # W3: the volume is off: he says where the steps will be, and shows them
+    fresh()
+    assert within(5, j.train_wake) is None
+    assert spoken[0] == ("The volume is off. I'll show each step here instead.", True, True) and all(t[1] for t in spoken), spoken
+    assert len([x for x in steps if x.startswith('Say "Hey Jarvis" after the ding')]) == 6
+    quiet_now[0] = False
+    for name in os.listdir(j.DATA):                                  # a click part-way: nothing new saved
         os.remove(os.path.join(j.DATA, name))
-    said[:] = []
-    j.play_samples = lambda *a: j.cancel.set() if len(said) == 6 else None
+    fresh()
+    j.play_samples = lambda *a: j.cancel.set() if len(said) == 3 else None
+    assert within(5, j.train_wake) is None and os.listdir(j.DATA) == [] and not j.busy.locked() and not j.wake.TRAINING.is_set()
+    assert said == [3, 3, 3] and steps[-1] == "", (said, steps)
+    j.cancel.clear()
+    j.play_samples = lambda *a: None
+    fresh()                                                          # a click during the 15 s of talk: stops before the work
+    j.record = lambda sec: (j.cancel.set() if sec == 15 else None) or _record(sec)
     assert within(5, j.train_wake) is None and os.listdir(j.DATA) == [] and not j.busy.locked()
     j.cancel.clear()
+    j.record = _record
+    fresh()                                                          # a missing package is reported, the lock is let go
+    sys.modules["openwakeword.model"] = None
+    assert within(5, j.train_wake) is None and not j.busy.locked() and not j.wake.TRAINING.is_set()
+    assert problems and problems[-1].startswith("Wake word training needs "), problems
+    sys.modules["openwakeword.model"] = S_(Model=TrainOww)
+    j.live, j.problem, j.muted = real_live, real_problem, real_muted
     j.DATA = real_data
     for m, mod in real_oww.items():
         if mod is None:
@@ -3385,26 +3590,34 @@ if np is not None:
             sys.modules[m] = mod
     j.log = lambda *a: None
 
-# ---- FR5 N1: the ways to wake. wake_way(score, held, mine, now, hey_until, need, easy, hard, gap)
-W = lambda score=0.0, held=False, now=100.0, until=0.0, **mine: j.wake_way(score, held, mine, now, until, 0.5, 0.5, 0.35, 5.0)
-assert W(0.9) == (None, 0.0)                                        # W0: one moment is not enough (S1)
-assert W(0.9, held=True) == ("W0", 0.0) and W(0.5, held=True)[0] == "W0"
-assert W(0.45, held=True) == (None, 0.0)                            # under the backup's 0.5
-assert W(hey=0.9) == (None, 105.0)                                  # "Hey" alone never wakes: it waits 5 s
-assert W(now=103.0, until=105.0, jarvis=0.4) == ("HJ", 0.0)         # ... and "Jarvis" inside the wait does
-assert W(now=106.0, until=105.0, jarvis=0.9) == (None, 105.0)       # "Jarvis" 6 s after "Hey": no
-assert W(jarvis=0.9) == (None, 0.0)                                 # "Jarvis" without "Hey": no
-assert W(now=103.0, until=105.0, jarvis=0.3) == (None, 105.0)       # under JarvisWakeHard
-assert W(now=103.0, until=105.0, hey=0.9) == (None, 105.0)          # a second "Hey" does not stretch the wait
-assert W(0.3, hey_jarvis=0.6) == ("HV", 0.0) and W(0.3, hey_jarvis=0.3) == (None, 0.0)   # your soft "Hey Jarvis"
-assert W(0.29, hey_jarvis=0.9) == (None, 0.0)                       # ... still needs the normal score's HV_FLOOR 0.3
-assert j.wake_way(0.0, False, {"hey": 0.9}, 100.0, 0.0, 0.5, 0.0, 0.35, 5.0) == (None, 0.0)   # JarvisWakeEasy=0: HJ off
-real_data, j.DATA = j.DATA, tempfile.mkdtemp()                       # the checks: only the 3 styles, broken = off
-for name, body in (("wake_hey.pkl", b"broken"), ("wake_hey_pause.pkl", b"old"), ("wake_jarvis.pkl", None)):
+# ---- FR5 N1 / W1: the ways to wake. wake_way(score, held, mine, need). A name alone never wakes him.
+W = lambda score=0.0, held=False, **mine: j.wake_way(score, held, mine, 0.5)
+assert W(0.9) is None                                               # W0: one moment is not enough (S1)
+assert W(0.9, held=True) == "W0" and W(0.5, held=True) == "W0"
+assert W(0.45, held=True) is None                                   # under the backup's 0.5
+assert W(0.0, hey=0.9) is None and W(0.0, jarvis=0.9) is None       # W1: no bare "Hey" or "Jarvis" check, even sure ones
+assert W(0.04, hey=0.99, jarvis=0.99, hey_jarvis=0.99) is None      # the live log: base score 0.04, "(0.04, HJ)" woke him
+assert W(0.3, hey_jarvis=0.6) == "HV" and W(0.3, hey_jarvis=0.3) is None   # your soft "Hey Jarvis"
+assert W(0.29, hey_jarvis=0.9) is None                              # ... still needs the normal score's HV_FLOOR 0.3
+assert j.wake.is_talking(True, "speaking", "wake") and not j.wake.is_talking(False, "speaking", "wake")
+assert not j.wake.is_talking(True, "speaking", "off") and not j.wake.is_talking(True, "thinking", "wake")
+j.wake.TRAINING.set()                                               # W3: while training, his prompts are never a barge-in
+assert not j.wake.is_talking(True, "speaking", "wake")
+j.wake.TRAINING.clear()
+real_set = j.setting
+for raw, want in (("0.5", 0.5), ("0.05", 0.2), ("2", 0.9), ("x", 0.5)):
+    j.setting = lambda name, default="", v=raw: v if name == "JarvisWakeSensitivity" else default
+    assert j.need_level() == want, (raw, j.need_level())
+j.setting = real_set
+real_data, j.DATA = j.DATA, tempfile.mkdtemp()                       # the check: only Hey Jarvis, broken = off, stale styles ignored
+for name, body in (("wake_hey_jarvis.pkl", b"broken"), ("wake_hey.pkl", None), ("wake_jarvis.pkl", None)):
     with open(os.path.join(j.DATA, name), "wb") as f:
         f.write(body) if body else __import__("pickle").dump({"a": 1}, f)
 lines[:], j.log = [], lines.append
-assert j.wake_checks() == {"jarvis": {"a": 1}} and any("check hey not loaded" in str(x) for x in lines), lines
+assert j.wake_checks() == {} and any("check hey_jarvis not loaded" in str(x) for x in lines), lines
+with open(os.path.join(j.DATA, "wake_hey_jarvis.pkl"), "wb") as f:
+    __import__("pickle").dump({"a": 1}, f)
+assert j.wake_checks() == {"hey_jarvis": {"a": 1}}
 j.DATA, j.log = real_data, (lambda *a: None)
 
 # ---- FR5 N2: Whisper's repetition loops

@@ -1,6 +1,7 @@
 -- Storage screen (reference: ENG / ATMOS / DMG rows + two vertical bars "TH FU").
 local H
 local peak = 50 * 1048576
+local lastSig = nil          -- what was drawn last; the disk numbers barely move, so an unchanged screen is not redrawn
 local SXR, SYR = 2560 / 1260, 1600 / 709
 local function X(rx) return (rx - 395) * SXR end
 local function Y(ry) return (ry - 565) * SYR end
@@ -17,8 +18,6 @@ end
 
 function Update()
   H.refreshTier()
-  local c = H.canvas(1)
-  local A1, W, D = H.C.accent, H.C.white, H.C.dim
   local tot, free = H.val('mD1Total', 0), H.val('mD1Free', 0)
   local used = tot > 0 and (tot - free) / tot or 0
   local t2, f2 = H.val('mD2Total', 0), H.val('mD2Free', 0)
@@ -26,6 +25,11 @@ function Update()
   local rd, wr = H.val('mRead', 0), H.val('mWrite', 0)
   peak = math.max(peak * 0.98, rd, wr, 1048576)
   local ssd = H.hw('mHwSsdTemp')
+  local sig = table.concat({ H.tier, tot, free, t2, f2, short(rd), short(wr), ssd and math.floor(ssd) or '-' }, '|')
+  if sig == lastSig then return used end
+  lastSig = sig
+  local c = H.canvas(1)
+  local A1, W, D = H.C.accent, H.C.white, H.C.dim
   local rows = {
     { 584, H.str('Drive1', 'C:'), string.format('%.0f/%.0fG', (tot - free) / 1073741824, tot / 1073741824), W },
     { 600, 'READ', short(rd), W },
