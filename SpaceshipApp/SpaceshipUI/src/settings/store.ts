@@ -238,10 +238,10 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     const s = q.trim().toLowerCase();
     if (!s) return [];
     const rank = (d: SettingDef) => (d.label.toLowerCase().includes(s) ? 0 : d.key.toLowerCase().includes(s) ? 1 : d.help.toLowerCase().includes(s) ? 2 : -1);
-    return defs.map((d) => ({ d, r: rank(d) })).filter((x) => x.r >= 0).sort((a, b) => a.r - b.r).map((x) => x.d);
+    return defs.map((d) => ({ d, r: rank(d) })).filter((x) => x.r >= 0 && !x.d.hidden).sort((a, b) => a.r - b.r).map((x) => x.d);
   }
   function visibleDefs(): SettingDef[] {
-    const list = query.value.trim() ? search(query.value) : defs;
+    const list = query.value.trim() ? search(query.value) : defs.filter((d) => !d.hidden);
     return level.value === 'normal' ? list.filter((d) => d.level !== 'advanced') : list;
   }
 

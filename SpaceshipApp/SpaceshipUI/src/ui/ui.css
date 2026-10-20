@@ -82,3 +82,5 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .wiz-btn { width: auto; padding: 0 14px; cursor: pointer; }
 .wiz-btn:disabled { color: var(--dim); cursor: default; }
 .wiz-primary { border-color: var(--accent); color: var(--accent); }
+/* Cockpit frame: same 16:10 box the HUD svg uses (viewBox meet), under it */
+.frame { position: fixed; inset: 0; margin: auto; width: min(100vw, 160vh); aspect-ratio: 16 / 10; pointer-events: none; }

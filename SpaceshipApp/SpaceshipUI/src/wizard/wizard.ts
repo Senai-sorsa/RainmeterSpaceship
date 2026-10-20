@@ -54,7 +54,7 @@ export function createWizard(store: SettingsStore, host: HostBridge, defs: Setti
   /** Settings that differ from their default, for the Review step. */
   function changes(): Change[] {
     const v = store.values.value;
-    return defs.filter((d) => store.isChanged(d.key)).map((d) => ({ key: d.key, label: d.label, from: d.default, to: v[d.key] }));
+    return defs.filter((d) => !d.hidden && store.isChanged(d.key)).map((d) => ({ key: d.key, label: d.label, from: d.default, to: v[d.key] }));
   }
 
   return { step: step as ReadonlySignal<number>, next, back, skip, useDefaults, finish, changes };

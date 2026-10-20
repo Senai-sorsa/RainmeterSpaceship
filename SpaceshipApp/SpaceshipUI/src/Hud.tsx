@@ -3,6 +3,9 @@ import icons from './generated/icons.json';
 import settings from './generated/settings.json';
 import { chamferPath, iconPath, inflateQuad, transformBox, type Matrix, type Prim } from './lib/geometry';
 import { num } from './lib/theme';
+import { store } from './settings/instance';
+import { frameStyleOf } from './settings/frameStyle';
+import { FrameLayers } from './ui/FrameLayers';
 
 const v = (settings as { variables: Record<string, string> }).variables;
 // Skin glow model (lib.lua Canvas:neon, tier 0): outer halo w*GlowWidth*2.1 at GlowAlpha*0.38, glow w*GlowWidth at GlowAlpha, core w.
@@ -27,10 +30,12 @@ function Neon({ d }: { d: string }) {
 
 export function Hud() {
   const pad = margins.module + margins.animationBleed;
+  const values = store.values.value;
   return (
-    <svg id="hud" viewBox={`0 0 ${canvas.w} ${canvas.h}`} style={{ width: '100vw', height: '100vh' }}
+    <>
+    <FrameLayers style={frameStyleOf(values)} values={values} />
+    <svg id="hud" viewBox={`0 0 ${canvas.w} ${canvas.h}`} style={{ width: '100vw', height: '100vh', position: 'relative' }}
       preserveAspectRatio="xMidYMid meet">
-      <rect width={canvas.w} height={canvas.h} fill="var(--bg)" />
       {debug && (
         <g id="debug-overlay" data-debug="1">
           <rect x={sa.inset} y={sa.inset} width={canvas.w - 2 * sa.inset} height={canvas.h - 2 * sa.inset - taskbar.height}
@@ -59,5 +64,6 @@ export function Hud() {
         </g>
       ))}
     </svg>
+    </>
   );
 }

@@ -15,7 +15,7 @@ export const INTERNAL_KEYS = new Set([
 export const WRITABLE_INTERNAL = ['UseShipImage', 'FrameOff'];
 
 // --- compact row DSL: [key, label, help, control, default, flags?]
-type Flags = { opt?: 1; w?: WizardStep; virtual?: 1; restart?: 1 };
+type Flags = { opt?: 1; w?: WizardStep; virtual?: 1; restart?: 1; hide?: 1 };
 type Row = [string, string, string, Control, string, Flags?];
 const tog: Control = { kind: 'toggle' };
 const col: Control = { kind: 'color' };
@@ -37,6 +37,7 @@ function add(category: CategoryId, group: string, level: Level, rows: Row[]) {
     if (f.virtual) d.virtual = true;
     if (f.w) d.wizard = f.w;
     if (f.restart) d.restartRequired = true;
+    if (f.hide) d.hidden = true;
     defs.push(d);
   }
 }
@@ -66,6 +67,10 @@ add('display', 'Frame', 'normal', [
   ['frameStyle', 'Cockpit frame', 'Choose the rendered hull, your own picture, or no frame.', sel('rendered|Rendered', 'picture|Picture', 'none|None'), 'rendered', { w: 'look', virtual: 1 }],
   ['FrameBrightness', 'Frame brightness', 'Brightness of the hull in percent.', sl(0, 100, 5), '95'],
   ['HullAlpha', 'Hull opacity', 'Opacity of the hull, 0 to 255.', sl(0, 255, 5), '255'],
+]);
+add('display', 'Frame', 'normal', [ // the two real keys behind frameStyle
+  ['UseShipImage', 'Frame uses picture', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
+  ['FrameOff', 'Frame off', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
 ]);
 add('display', 'Frame', 'advanced', [
   ['FrameBehindTaskbar', 'Frame behind taskbar', 'Draw the frame under the Windows taskbar.', tog, '1'],

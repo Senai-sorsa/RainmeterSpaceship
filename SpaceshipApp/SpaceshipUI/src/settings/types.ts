@@ -20,6 +20,7 @@ export interface SettingDef {
   default: string;
   optional?: boolean; // absent from the .inc until first change; the skin's own fallback applies
   virtual?: true; // UI-only row (action or mapped state), never written as a key
+  hidden?: true; // real key behind a virtual row: stored and reset like any key, never listed or searched
   helpId?: string;
   wizard?: WizardStep;
   restartRequired?: boolean;

@@ -61,10 +61,22 @@ with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
     assert ex.main(["--out", t1, "--check"]) == 0
     assert ex.main(["--out", t2]) == 0
     names = sorted(os.listdir(t1))
-    assert names == sorted(f + ".json" for f in list(ex.GENS) + ["_meta"]), names
+    assert names == sorted([f + ".json" for f in ex.GENS if f != "frame"] + ["_meta.json", "frame"]), names
     for n in names:                                                     # deterministic
-        assert (Path(t1) / n).read_bytes() == (Path(t2) / n).read_bytes(), n
-        assert (Path(t1) / n).read_bytes().endswith(b"\n")
+        if n != "frame":
+            assert (Path(t1) / n).read_bytes() == (Path(t2) / n).read_bytes(), n
+            assert (Path(t1) / n).read_bytes().endswith(b"\n")
+    fm = json.loads((Path(t1) / "frame/manifest.json").read_text())
+    assert sorted(fm) == sorted(ex.FRAME_IMAGES) and all(re.fullmatch(r"%s\.[0-9a-f]{8}\.png" % n, f) for n, f in fm.items()), fm
+    assert sorted(os.listdir(Path(t1) / "frame")) == sorted(list(fm.values()) + ["manifest.json"])
+    for f in os.listdir(Path(t1) / "frame"):
+        assert (Path(t1) / "frame" / f).read_bytes() == (Path(t2) / "frame" / f).read_bytes(), f
+    first = Path(t1) / "frame" / fm["hull"]
+    first.unlink()
+    assert ex.main(["--out", t1, "--check"]) == 1                      # --check sees a missing image
+    (Path(t1) / "frame" / "old.00000000.png").write_bytes(b"x")
+    assert ex.main(["--out", t1]) == 0 and not (Path(t1) / "frame" / "old.00000000.png").exists() and first.is_file()
+    assert ex.main(["--out", t1, "--check"]) == 0
     ic = json.loads((Path(t1) / "icons.json").read_text())
     assert len(ic["icons"]) > 50, len(ic["icons"])
     lay = json.loads((Path(t1) / "layout.json").read_text())

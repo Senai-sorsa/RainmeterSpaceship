@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deterministic exporter: Rainmeter skin UI source data -> JSON for the Preact UI. Stdlib only, no LLM, no network.
-Run:  python3 -I tools/export_ui_assets.py [--out DIR] [--check] [--only icons,layout,frameparts,apps,orb,settings]"""
+Run:  python3 -I tools/export_ui_assets.py [--out DIR] [--check] [--only icons,layout,frameparts,apps,orb,settings,modules,frame]"""
 import argparse
 import hashlib
 import json
@@ -173,6 +173,24 @@ def gen_settings(root):
     return {"variables": v, "redacted": red}, len(v), [RES / "Settings.inc"]
 
 
+FRAME_IMAGES = ["hull", "ship", "glass_fx", "glass_fx_pic", "glass_pic", "scan", "scan_pic", "shade", "mist", "mist_pic",
+                "corners", "window_mask"]
+
+
+def frame_files(root):
+    """{name: (hashed filename, source path)}; the hash is of the file content, so unchanged art keeps its URL."""
+    out = {}
+    for n in FRAME_IMAGES:
+        src = RES / "Images" / (n + ".png")
+        out[n] = ("%s.%s.png" % (n, hashlib.sha256((root / src).read_bytes()).hexdigest()[:8]), src)
+    return out
+
+
+def gen_frame(root):
+    f = frame_files(root)
+    return {n: v[0] for n, v in f.items()}, len(f), [v[1] for v in f.values()]
+
+
 def parse_module_keys(offsets_text, geometry_texts):
     """Module keys = every <Key>_DX in Offsets.inc; must equal the keys the skins' Geometry.inc reference as DX=#<Key>_DX#."""
     a = set(re.findall(r"^(\w+)_DX\s*=", offsets_text, re.M))
@@ -189,7 +207,7 @@ def gen_modules(root):
 
 
 GENS = {"icons": gen_icons, "layout": gen_layout, "frameparts": gen_frameparts, "apps": gen_apps, "orb": gen_orb,
-        "settings": gen_settings, "modules": gen_modules}
+        "settings": gen_settings, "modules": gen_modules, "frame": gen_frame}
 
 
 def dump(obj):
@@ -201,7 +219,12 @@ def generate(root, only=None):
     out, sources = {}, {}
     for name in only or GENS:
         data, n, srcs = GENS[name](root)
-        out[name + ".json"] = (dump(data), n)
+        if name == "frame":  # copied images beside their manifest: frame/<name>.<hash8>.png + frame/manifest.json
+            out["frame/manifest.json"] = (dump(data), n)
+            for fn, src in frame_files(root).values():
+                out["frame/" + fn] = ((root / src).read_bytes(), 1)
+        else:
+            out[name + ".json"] = (dump(data), n)
         for s in srcs:
             sources[s.as_posix()] = hashlib.sha256((root / s).read_bytes()).hexdigest()
     return out, sources
@@ -230,6 +253,8 @@ def main(argv=None):
         out.mkdir(parents=True, exist_ok=True)
     for fn, (b, n) in sorted(files.items()):
         p = out / fn
+        if not a.check:
+            p.parent.mkdir(parents=True, exist_ok=True)
         same = p.is_file() and p.read_bytes() == b
         if a.check:
             if not same:
@@ -239,6 +264,14 @@ def main(argv=None):
         if not same:
             p.write_bytes(b)
         print("%s: %s, %d items, %d bytes" % (fn, "unchanged" if same else "written", n, len(b)))
+    if "frame" in (only or GENS):  # hashed names change with the art; leftovers would pile up
+        stale = [p for p in (out / "frame").glob("*.png") if "frame/" + p.name not in files]
+        for p in stale:
+            print("frame/%s: %s" % (p.name, "stale" if a.check else "removed"))
+            if a.check:
+                bad = 1
+            else:
+                p.unlink()
     return bad
 
 
