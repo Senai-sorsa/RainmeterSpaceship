@@ -252,16 +252,38 @@ describe('settings store', () => {
   it('applyDefaults waits for each ack', async () => {
     const m = manual();
     m.store.set('vol', '10');
+    m.store.set('mode', 'b');
+    const before = m.sets().length;
     let done = false;
     const p = m.store.applyDefaults().then(() => { done = true; });
     await Promise.resolve();
+    expect(m.sets()).toHaveLength(before + 1); // only the first default write is out
     expect(done).toBe(false);
-    m.ack(m.sets()[0].id, true);
+    m.ack(m.sets()[before].id, true);
     await Promise.resolve();
+    await Promise.resolve();
+    expect(m.sets()).toHaveLength(before + 2);
     expect(done).toBe(false);
-    m.ack(m.sets()[1].id, true);
+    m.ack(m.sets()[before + 1].id, true);
     await p;
     expect(done).toBe(true);
+  });
+
+  it('applyDefaults counts a write that is never acked as failed after the timeout', async () => {
+    const sent: Msg[] = [];
+    const host: HostBridge = { send: (x) => { sent.push(x); }, onMessage: () => {}, telemetry: () => new Float32Array(8) };
+    const c = clock();
+    const store = createSettingsStore(host, DEFS, { schedule: c.schedule, virtuals: VIRT });
+    store.set('mode', 'b');
+    const p = store.applyDefaults();
+    await Promise.resolve();
+    c.advance(4999);
+    await Promise.resolve();
+    expect(store.values.value.mode).toBe('a'); // still optimistic: default not yet rolled back
+    c.advance(1);
+    expect(await p).toEqual({ ok: false, failed: ['mode'] });
+    expect(store.values.value.mode).toBe('b'); // rolled back to the pre-write value
+    expect(store.error.value).toEqual({ key: 'mode', message: 'timed out' });
   });
 
   it('missing optional key shows default', () => {
@@ -314,6 +336,9 @@ describe('settings store', () => {
       ['vol', 'NaN'],
       ['vol', ''],
       ['vol', 'Infinity'],
+      ['vol', ' 10'],
+      ['vol', '1e1'],
+      ['vol', '0x14'],
       ['mode', 'c'],
       ['flag', '2'],
       ['flag', 'true'],
@@ -337,6 +362,7 @@ describe('settings store', () => {
   it('accepts valid boundary values', () => {
     const { store } = make();
     store.set('vol', '0');
+    store.set('vol', '10.0');
     store.set('vol', '100');
     store.set('tint', '255,128,0');
     store.set('tint', '255,128,0,255');
@@ -362,6 +388,44 @@ describe('settings store', () => {
     expect(m2.store.values.value.vol).toBe('10');
     m2.ack(a2.id, false);
     expect(m2.store.values.value.vol).toBe('50');
+  });
+
+  it('A-B-A writes: a failed first write does not revert the value a later write set', () => {
+    const m = manual();
+    m.store.set('vol', '10');
+    m.store.set('vol', '20');
+    m.store.set('vol', '10');
+    const [a, b, c] = m.sets();
+    m.ack(a.id, false);
+    expect(m.store.values.value.vol).toBe('10');
+    m.ack(b.id, true);
+    m.ack(c.id, true);
+    expect(m.store.values.value.vol).toBe('10');
+  });
+
+  it('A-B-A with out-of-order failures settles on the last good value', () => {
+    const m = manual();
+    m.store.set('vol', '10');
+    m.store.set('vol', '20');
+    m.store.set('vol', '10');
+    const [a, b, c] = m.sets();
+    m.ack(c.id, false);
+    expect(m.store.values.value.vol).toBe('20');
+    m.ack(b.id, false);
+    expect(m.store.values.value.vol).toBe('10');
+    m.ack(a.id, true);
+    expect(m.store.values.value.vol).toBe('10'); // host holds 10 from write a
+  });
+
+  it('a stale ok ack does not clear the error of a newer failed write', () => {
+    const m = manual();
+    m.store.set('vol', '10');
+    m.store.set('vol', '20');
+    const [a, b] = m.sets();
+    m.ack(b.id, false);
+    expect(m.store.error.value?.key).toBe('vol');
+    m.ack(a.id, true);
+    expect(m.store.error.value?.key).toBe('vol');
   });
 
   it('duplicate and unknown acks are ignored', () => {

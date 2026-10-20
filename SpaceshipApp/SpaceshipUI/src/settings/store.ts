@@ -5,6 +5,7 @@ import type { Control, Level, SettingDef } from './types';
 export type Virtual = { read(v: Record<string, string>): string; write(value: string): Record<string, string> };
 export type StoreOpts = {
   throttleMs?: number;
+  ackTimeoutMs?: number; // applyDefaults counts a write unacked after this long as failed
   schedule?: (fn: () => void, ms: number) => () => void; // returns cancel
   virtuals?: Record<string, Virtual>;
 };
@@ -13,7 +14,7 @@ export type ApplyResult = { ok: boolean; failed: string[] };
 
 type Change = { from: string; to: string };
 type Entry = { changes: Record<string, Change> };
-type InFlight = { key: string; value: string; prev: string; res?: (ok: boolean) => void };
+type InFlight = { key: string; value: string; prev: string; prevId: number; res?: (ok: boolean) => void };
 type Throttle = { cancel: (() => void) | null; pending?: string };
 
 const HISTORY_MAX = 200;
@@ -25,7 +26,7 @@ function validate(c: Control, v: string): string | null {
     case 'select': return c.options.some((o) => o.value === v) ? null : 'not an allowed option';
     case 'slider': {
       const n = Number(v);
-      if (v.trim() === '' || !Number.isFinite(n) || n < c.min || n > c.max) return `must be a number from ${c.min} to ${c.max}`;
+      if (!/^-?\d+(\.\d+)?$/.test(v) || !Number.isFinite(n) || n < c.min || n > c.max) return `must be a number from ${c.min} to ${c.max}`;
       const q = (n - c.min) / c.step;
       return Math.abs(q - Math.round(q)) < 1e-6 ? null : `must step by ${c.step}`;
     }
@@ -40,6 +41,7 @@ function validate(c: Control, v: string): string | null {
 
 export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: StoreOpts = {}) {
   const throttleMs = opts.throttleMs ?? 100;
+  const ackTimeoutMs = opts.ackTimeoutMs ?? 5000;
   const schedule = opts.schedule ?? ((fn, ms) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); });
   const virtuals = opts.virtuals ?? {};
   const byKey = new Map(defs.map((d) => [d.key, d]));
@@ -48,6 +50,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   const initial = Object.fromEntries(defs.filter((d) => !d.virtual).map((d) => [d.key, d.default]));
   const raw = signal<Record<string, string>>(initial); // latest intent (optimistic)
   const sent: Record<string, string> = { ...initial }; // last value sent/loaded, the rollback base
+  const latestId: Record<string, number> = {}; // newest live write per key; rollback is decided by write identity, not value
   const values = computed(() => {
     const v = { ...raw.value };
     for (const d of defs) if (d.virtual) v[d.key] = virtuals[d.key]?.read(raw.value) ?? d.default;
@@ -61,13 +64,16 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   const inflight = new Map<number, InFlight>();
   const th = new Map<string, Throttle>();
   let nextId = 1;
+  let errId = 0; // id of the newest failed write; only a newer ok clears the error
   let openKey: string | null = null; // key of the coalesced run that new coalesced sets may merge into
 
   function send(key: string, value: string, res?: (ok: boolean) => void) {
     const id = nextId++;
-    inflight.set(id, { key, value, prev: sent[key], res });
+    inflight.set(id, { key, value, prev: sent[key], prevId: latestId[key] ?? 0, res });
+    latestId[key] = id;
     sent[key] = value;
     host.send({ type: 'config.set', key, value, id }); // MockHost acks synchronously, so register first
+    return id;
   }
   function sendIfNew(key: string, value: string) { if (value !== sent[key]) send(key, value); }
   function flushKey(key: string) {
@@ -100,17 +106,28 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   function flush() { openKey = null; for (const k of [...th.keys()]) flushKey(k); }
 
   function onAck(m: Msg) {
-    const e = inflight.get(m.id as number);
+    const id = m.id as number;
+    const e = inflight.get(id);
     if (!e) return; // duplicate or foreign ack
-    inflight.delete(m.id as number);
+    inflight.delete(id);
+    const latest = latestId[e.key] === id;
     if (m.ok === true) {
-      if (error.value?.key === e.key) error.value = null;
+      if (latest && id > errId && error.value?.key === e.key) error.value = null; // a stale ok must not hide a newer failure
       e.res?.(true);
       return;
     }
-    if (sent[e.key] === e.value) sent[e.key] = e.prev;
-    if (raw.value[e.key] === e.value) raw.value = { ...raw.value, [e.key]: e.prev }; // a newer value stays
-    for (const o of inflight.values()) if (o.key === e.key && o.prev === e.value) o.prev = e.prev; // later write rolls back past this one
+    if (latest) {
+      latestId[e.key] = e.prevId;
+      sent[e.key] = e.prev;
+      if (raw.value[e.key] === e.value && th.get(e.key)?.pending === undefined) raw.value = { ...raw.value, [e.key]: e.prev };
+    } else {
+      // a newer write is live: it now rolls back past this one
+      let next: InFlight | undefined;
+      let nid = Infinity;
+      for (const [i, o] of inflight) if (o.key === e.key && i > id && i < nid) { next = o; nid = i; }
+      if (next) { next.prev = e.prev; next.prevId = e.prevId; }
+    }
+    errId = Math.max(errId, id);
     error.value = { key: e.key, message: typeof m.error === 'string' ? m.error : 'write failed' };
     e.res?.(false);
   }
@@ -192,7 +209,12 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     for (const [k, v] of Object.entries(t)) {
       if (raw.value[k] === v) continue;
       raw.value = { ...raw.value, [k]: v };
-      if (!(await new Promise<boolean>((res) => send(k, v, res)))) failed.push(k);
+      const ok = await new Promise<boolean>((res) => {
+        let cancel = () => {};
+        const id = send(k, v, (x) => { cancel(); res(x); });
+        if (inflight.has(id)) cancel = schedule(() => onAck({ type: 'config.ack', id, ok: false, error: 'timed out' }), ackTimeoutMs);
+      });
+      if (!ok) failed.push(k);
     }
     return { ok: failed.length === 0, failed };
   }
