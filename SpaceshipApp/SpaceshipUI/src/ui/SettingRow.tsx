@@ -13,6 +13,7 @@ export function SettingRow({ def, store, host, onHelp }: P) {
     <div class="row" data-key={def.key}>
       <div class="row-label">
         <span class="label">{def.label}</span>
+        {def.level === 'advanced' && <span class="badge adv">adv</span>}
         {def.restartRequired && <span class="badge">restart</span>}
         {onHelp && <button type="button" class="help-btn" aria-label={`Help for ${def.label}`} onClick={() => onHelp(def.helpId ?? def.key)}>?</button>}
         <span class="row-help" id={helpId} role="tooltip">{def.help}</span>
