@@ -65,6 +65,7 @@ test('reset group resets only that group', async ({ page }) => {
 });
 
 test('Esc clears the query first, then closes', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('mockhost.v1', JSON.stringify({ config: {}, setupDone: true, aboutMe: '' })));
   await page.goto('/?host=mock');
   await page.getByRole('button', { name: 'Open Control Center' }).click();
   await page.keyboard.press('/');

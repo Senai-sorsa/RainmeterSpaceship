@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 const layout = JSON.parse(readFileSync('src/generated/layout.json', 'utf8'));
 const vars = JSON.parse(readFileSync('src/generated/settings.json', 'utf8')).variables;
 
+const SETUP_DONE = () => localStorage.setItem('mockhost.v1', JSON.stringify({ config: {}, setupDone: true, aboutMe: '' }));
+test.beforeEach(({ page }) => page.addInitScript(SETUP_DONE));
+
 test('static HUD: skin theme applied, icons drawn, no zone outlines by default', async ({ page }) => {
   await page.goto('/?host=mock');
   await expect(page.locator('g.zone')).toHaveCount(layout.zones.length);

@@ -185,8 +185,8 @@ add('assistant', 'Identity', 'normal', [
 ]);
 add('assistant', 'Wake word', 'normal', [['JarvisWakeModel', 'Wake model', 'Wake-word model name.', tx('^[A-Za-z0-9_.-]{1,40}$', 40), 'hey_jarvis', { w: 'assistant' }]]);
 add('assistant', 'Wake word', 'advanced', [
-  ['JarvisWakeSensitivity', 'Wake sensitivity', 'Lower hears you more easily, higher is stricter.', sl(0.2, 0.9, 0.05), '0.5'],
-  ['JarvisWakeWord', 'Use wake word', 'Listen for the wake word.', tog, '1'],
+  ['JarvisWakeSensitivity', 'Wake sensitivity', 'Lower hears you more easily, higher is stricter.', sl(0.2, 0.9, 0.05), '0.5', { w: 'assistant' }],
+  ['JarvisWakeWord', 'Use wake word', 'Listen for the wake word.', tog, '1', { w: 'assistant' }],
   ['JarvisNameAliases', 'Name aliases', 'Other spellings the assistant should answer to.', free, '', O],
   ['JarvisStopKey', 'Stop key', 'Key that stops the assistant talking (off disables).', sel('end|End', 'off|Off'), 'end', O],
   ['JarvisBargeIn', 'Barge in', 'How you may interrupt the assistant.', sel('off|Off', 'wake|Wake word', 'voice|Voice'), 'wake', O],

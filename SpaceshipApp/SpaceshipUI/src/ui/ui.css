@@ -57,3 +57,28 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .cc-results .rail-btn { width: 100%; display: flex; gap: 12px; justify-content: space-between; align-items: center; color: var(--text); }
 .cc-results small { color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
 .badge.adv { border-color: var(--dim); color: var(--dim); }
+/* First-run wizard */
+.wiz { position: fixed; inset: 0; z-index: 30; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--bg); color: var(--text); font: 13px/1.3 ui-monospace, monospace; }
+.wiz-head { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid var(--dim); }
+.wiz-title { color: var(--accent); font-size: 16px; }
+.wiz-dots { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.wiz-dots li { width: 12px; height: 12px; border: 1px solid var(--dim); border-radius: 50%; }
+.wiz-dots li.done { background: var(--dim); }
+.wiz-dots li.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.wiz-main { overflow: auto; min-height: 0; max-width: 640px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 16px; display: grid; gap: 10px; align-content: start; }
+.wiz-main .panel { padding: 0; width: 100%; }
+.wiz-intro { margin: 0; color: var(--text); }
+.wiz-about { display: grid; gap: 6px; }
+.wiz-about textarea { height: auto; padding: 8px; resize: vertical; }
+.wiz-about small, .wiz-changes small { color: var(--dim); }
+.wiz-preview { margin: 0; color: var(--white); }
+.wiz-preview b { color: var(--accent); }
+.wiz-bad { margin: 0; color: var(--alert); }
+.wiz-flows { display: flex; gap: 8px; flex-wrap: wrap; }
+.wiz-flows .ctl-action { width: auto; padding: 0 12px; }
+.wiz-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.wiz-foot { display: flex; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--dim); }
+.wiz-gap { flex: 1; }
+.wiz-btn { width: auto; padding: 0 14px; cursor: pointer; }
+.wiz-btn:disabled { color: var(--dim); cursor: default; }
+.wiz-primary { border-color: var(--accent); color: var(--accent); }

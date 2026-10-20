@@ -60,3 +60,21 @@ describe('MockHost config/setup', () => {
     expect(run(h, { type: 'aboutme.set', text: 'x'.repeat(4001) })).toEqual([{ type: 'aboutme.value', text: 'ok', ok: false }]);
   });
 });
+
+describe('MockHost setup actions', () => {
+  it('rerun reopens the wizard at once; reset clears the saved flag silently', () => {
+    const h = new MockHost({ storage: null });
+    const got: Record<string, unknown>[] = [];
+    h.onMessage((m) => got.push(m));
+    h.send({ type: 'setup.finish', mode: 'defaults' });
+    got.length = 0;
+    h.send({ type: 'action', id: 'setup.rerun' });
+    expect(got).toEqual([{ type: 'setup.state', done: false }]);
+    h.send({ type: 'setup.finish', mode: 'defaults' });
+    got.length = 0;
+    h.send({ type: 'action', id: 'setup.reset' });
+    expect(got).toEqual([]);
+    h.send({ type: 'setup.get' });
+    expect(got).toEqual([{ type: 'setup.state', done: false }]);
+  });
+});

@@ -59,6 +59,10 @@ export class MockHost implements HostBridge {
         this.st.setupDone = true;
         this.save();
         return this.reply({ type: 'setup.state', done: true });
+      case 'action': // rerun reopens the wizard now; reset only clears the saved flag for the next start
+        if (msg.id === 'setup.reset') { this.st.setupDone = false; this.save(); }
+        else if (msg.id === 'setup.rerun') this.reply({ type: 'setup.state', done: false });
+        return;
       case 'aboutme.get': return this.reply({ type: 'aboutme.value', text: this.st.aboutMe });
       case 'aboutme.set': {
         const text = msg.text;
