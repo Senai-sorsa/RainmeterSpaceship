@@ -1,0 +1,11 @@
+/* Reference sampled by tools/palette_from_reference.py (fallbacks only).
+   --theme-* are set at runtime from generated/settings.json (Settings.inc), so themes win. */
+:root {
+  --bg: var(--theme-bg, #02070a);
+  --line: var(--theme-accent, #376695);
+  --glow: var(--theme-dim, #1a3648);
+  --alert: var(--theme-alert, #783937);
+  --label: var(--theme-text, #376695);
+}
+html, body { margin: 0; background: var(--bg); overflow: hidden; }
+.label { font: 11px/1 ui-monospace, monospace; letter-spacing: .3em; text-transform: uppercase; fill: var(--label); }

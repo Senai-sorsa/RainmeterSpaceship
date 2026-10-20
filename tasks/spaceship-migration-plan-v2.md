@@ -83,14 +83,11 @@ Status legend: DONE / IN PROGRESS / NEXT / BLOCKED(needs X).
 - **P-G JARVIS integration**: BUG-01 change, pipe client, contract tests.
 - **P-H Opt-in cutover**: HKCU Run entry, 6-hour soak, rollback drill. You approve deployment explicitly.
 
-## 7. Visual direction (from RefrenceImage.png; used only where UI is new or changes)
-The reference is a first-person ship cockpit HUD. Observed conventions to follow:
-- Palette: near-black blue field, one dominant cyan/azure line colour with soft outer glow, and a single warm accent (orange-red) reserved for hostile, alert and warning states. Amber/yellow only for caution items. (I will sample exact values from the image with Pillow in P-B and store them as tokens; they must still defer to the user's existing theme variables in Settings.inc so colour themes keep working.)
-- Geometry: chamfered/angled panel corners, thin 1 px rules, short tick marks, corner brackets, panels that follow the cockpit's perspective (this is what the existing quad matrices already do).
-- Typography: small, wide-tracked uppercase labels; numbers large and light; tab rows like `OVR WEAP AVI PWR SHLD COMM` as the pattern for the Control Center tabs.
-- Data: segmented bars, thin dual-rail gauges, a faint scanline/dither texture, minimal fills (outline-first), subtle hover state = brighter line + glow, not a filled button.
-- Motion: short eased reveals (line draws on, label scrambles to final text), pulses only on alerts.
-New UI in this plan is limited to: boot/system-check card, Layout Studio, three modals. They get these tokens, not a generic web look. Everything else is a straight port of existing Lua drawing. I will not pull from outside sources I cannot cite; if you want outside inspiration beyond the reference, name the systems or send images.
+## 7. Visual direction (user ruling 2026-10-20)
+- **The Rainmeter app is the source of truth.** Colours, line weights, fonts, glow and behaviour are ported identically from the skin (Settings.inc theme variables, Common.inc, the Lua drawing). The UI reads the theme from the exported settings, so colour themes keep working.
+- **RefrenceImage.png is used only for frame and positioning** (the cockpit hull/canopy shape and where modules sit), and only where the Rainmeter skin has no equivalent to transfer. It does NOT supply colours, typography or motifs. The palette sampler (`tools/palette_from_reference.py`) is kept as a diagnostic, not as tokens.
+- If something cannot be ported identically (new UI: boot card, Layout Studio, three modals), it is built from the existing skin's own colours and line style first; the reference is consulted for frame/positioning only.
+- Acceptance for every ported module is the parity diff against the rmsim render of the real skin, not resemblance to the reference.
 
 ## 8. Needs your approval
 1. `sudo apt install dotnet-sdk-10.0` (Ubuntu 24.04 candidate 10.0.112) for L3/L4. Without it, C# stays unwritten and unverified.
