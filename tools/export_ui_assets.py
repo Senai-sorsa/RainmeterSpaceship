@@ -173,8 +173,23 @@ def gen_settings(root):
     return {"variables": v, "redacted": red}, len(v), [RES / "Settings.inc"]
 
 
+def parse_module_keys(offsets_text, geometry_texts):
+    """Module keys = every <Key>_DX in Offsets.inc; must equal the keys the skins' Geometry.inc reference as DX=#<Key>_DX#."""
+    a = set(re.findall(r"^(\w+)_DX\s*=", offsets_text, re.M))
+    b = {m for t in geometry_texts for m in re.findall(r"^DX=#(\w+)_DX#", t, re.M)}
+    if not a or a != b:
+        raise ParseError("module keys differ: Offsets.inc only %s, Geometry.inc only %s" % (sorted(a - b), sorted(b - a)))
+    return sorted(a)
+
+
+def gen_modules(root):
+    geo = sorted((root / "Skins/Spaceship").glob("*/Geometry.inc")) + sorted((root / "Skins/Spaceship").glob("*/*/Geometry.inc"))
+    keys = parse_module_keys(rd(root, RES / "Offsets.inc"), [g.read_text(encoding="utf-8-sig") for g in geo])
+    return {"keys": keys}, len(keys), [RES / "Offsets.inc"] + [g.relative_to(root) for g in geo]
+
+
 GENS = {"icons": gen_icons, "layout": gen_layout, "frameparts": gen_frameparts, "apps": gen_apps, "orb": gen_orb,
-        "settings": gen_settings}
+        "settings": gen_settings, "modules": gen_modules}
 
 
 def dump(obj):

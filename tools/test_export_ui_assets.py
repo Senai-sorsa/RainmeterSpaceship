@@ -48,6 +48,13 @@ except ex.ParseError:
 v, red = ex.parse_settings("[Variables]\nScale=1\nGmailPassword=hunter2\nCalendarId=x\nApiToken=t\nOrbSpeed=3\n")
 assert v == {"Scale": "1", "OrbSpeed": "3"} and red == ["ApiToken", "CalendarId", "GmailPassword"], (v, red)
 
+assert ex.parse_module_keys("[Variables]\nB_DX=0\nB_DY=0\nA_DX=0\n", ["DX=#A_DX#\nDX=#B_DX#\n"]) == ["A", "B"]
+try:
+    ex.parse_module_keys("A_DX=0\n", ["DX=#B_DX#\n"])
+    raise AssertionError("expected ParseError")
+except ex.ParseError:
+    pass
+
 with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
     assert ex.main(["--out", t1, "--check"]) == 1                      # missing files
     assert ex.main(["--out", t1]) == 0
@@ -65,6 +72,9 @@ with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
     assert lay["margins"] == {"module": 18, "animationBleed": 12}, lay["margins"]
     st = json.loads((Path(t1) / "settings.json").read_text())
     assert not [k for k in st["variables"] if re.search(ex.REDACT.pattern, k, re.I)]
+    mk = json.loads((Path(t1) / "modules.json").read_text())["keys"]
+    offs = (ex.ROOT / ex.RES / "Offsets.inc").read_text()
+    assert mk and mk == sorted(set(mk)) and all(re.search(r"^%s_DX=" % k, offs, re.M) for k in mk), mk
     meta = json.loads((Path(t1) / "_meta.json").read_text())
     assert meta["schema"] == 1 and all(len(h) == 64 for h in meta["sources"].values())
     (Path(t1) / "apps.json").write_text("x")

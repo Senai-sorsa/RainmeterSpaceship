@@ -1,11 +1,10 @@
 import type { SettingDef } from './types';
 
-/** Per-module keys from layout.json zones: Off_/CT_ (State.inc) and _DX/_DY (Offsets.inc). */
-export function moduleDefs(layout: { zones: { id: string; content?: string }[] }): SettingDef[] {
+/** Per-module keys from modules.json (the skin's real module keys): Off_/CT_ (State.inc), _DX/_DY (Offsets.inc). */
+export function moduleDefs(modules: { keys: string[] }): SettingDef[] {
   const out: SettingDef[] = [];
-  for (const z of layout.zones) {
-    const k = z.id;
-    const name = z.content ?? k;
+  for (const k of modules.keys) {
+    const name = k.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
     const base = { category: 'layout', group: 'Modules', optional: true } as const;
     out.push(
       { ...base, key: `Off_${k}`, file: 'State.inc', label: `${name}: hidden`, help: 'Hide this module on the HUD.', level: 'normal', control: { kind: 'toggle' }, default: '0', wizard: 'modules' },

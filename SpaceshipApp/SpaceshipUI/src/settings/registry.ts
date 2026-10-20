@@ -25,7 +25,7 @@ const sel = (...o: string[]): Control => ({ kind: 'select', options: o.map((s) =
 const act = (id: string): Control => ({ kind: 'action', id });
 const free = tx('^[^\\r\\n=;\\[\\]#"%]{0,200}$', 200);
 const name = tx('^[A-Za-z0-9]{1,24}$', 24);
-const label24 = tx('^[A-Za-z0-9. ]{1,24}$', 24);
+const label24 = tx('^[A-Za-z0-9. ]{0,24}$', 24); // empty = derive from the name
 const font = tx('^[A-Za-z0-9 ._-]{1,40}$', 40);
 const path = tx('^[^\\r\\n"%;#=]{0,200}$', 200);
 
@@ -276,6 +276,6 @@ add('system', 'Setup', 'advanced', [['defaults.all', 'Defaults for everything', 
 export const REGISTRY: SettingDef[] = defs;
 
 /** Keys config.set may write: real registry keys, per-module keys, and the frame internals. */
-export function allowedKeys(layout: { zones: { id: string; content?: string }[] }): Set<string> {
-  return new Set([...REGISTRY.filter((d) => !d.virtual).map((d) => d.key), ...moduleDefs(layout).map((d) => d.key), ...WRITABLE_INTERNAL]);
+export function allowedKeys(modules: { keys: string[] }): Set<string> {
+  return new Set([...REGISTRY.filter((d) => !d.virtual).map((d) => d.key), ...moduleDefs(modules).map((d) => d.key), ...WRITABLE_INTERNAL]);
 }

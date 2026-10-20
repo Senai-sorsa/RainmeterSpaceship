@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { INTERNAL_KEYS, REGISTRY, CATEGORIES, WRITABLE_INTERNAL, allowedKeys } from '../src/settings/registry';
 import { moduleDefs } from '../src/settings/dynamic';
 import settings from '../src/generated/settings.json';
-import layoutJson from '../src/generated/layout.json';
+import modulesJson from '../src/generated/modules.json';
 
 const vars = (settings as { variables: Record<string, string> }).variables;
-const layout = layoutJson as unknown as { zones: { id: string; content?: string }[] };
-const mods = moduleDefs(layout);
+const modules = modulesJson as { keys: string[] };
+const mods = moduleDefs(modules);
 
 describe('settings registry', () => {
   it('every Settings.inc key is registered or internal', () => {
@@ -43,17 +43,29 @@ describe('settings registry', () => {
     expect(j?.optional).toBe(true);
     expect(REGISTRY.find((d) => d.key === 'AssistantLabel')?.default).toBe('');
   });
-  it('dynamic defs cover every zone', () => {
-    for (const z of layout.zones) {
-      const k = z.id as string;
-      for (const key of [`Off_${k}`, `CT_${k}`, `${k}_DX`, `${k}_DY`]) expect(mods.some((d) => d.key === key)).toBe(true);
+  it('dynamic defs cover every real module key', () => {
+    expect(modules.keys.length).toBeGreaterThan(0);
+    for (const k of modules.keys) {
+      for (const [key, file] of [[`Off_${k}`, 'State.inc'], [`CT_${k}`, 'State.inc'], [`${k}_DX`, 'Offsets.inc'], [`${k}_DY`, 'Offsets.inc']]) {
+        expect([key, mods.find((d) => d.key === key)?.file]).toEqual([key, file]);
+      }
     }
-    expect(mods.filter((d) => d.file === 'Offsets.inc').length).toBe(layout.zones.length * 2);
+    expect(mods.length).toBe(modules.keys.length * 4);
+    expect(mods.some((d) => d.key.includes('T_power'))).toBe(false);
+  });
+  it('text control defaults match their own pattern and max', () => {
+    for (const d of REGISTRY) {
+      const c = d.control;
+      if (c.kind !== 'text') continue;
+      expect([d.key, new RegExp(c.pattern).test(d.default) && d.default.length <= c.max]).toEqual([d.key, true]);
+    }
   });
   it('allowedKeys excludes virtual, includes modules and writable internals', () => {
-    const a = allowedKeys(layout);
+    const a = allowedKeys(modules);
     expect(a.has('frameStyle')).toBe(false);
     expect(a.has('Scale') && a.has('UseShipImage') && a.has('FrameOff') && a.has(mods[0].key)).toBe(true);
+    expect(a.has(`Off_${modules.keys[0]}`)).toBe(true);
+    expect(a.has('Off_T_power')).toBe(false);
     expect(a.has('MasterPrev')).toBe(false);
     expect(WRITABLE_INTERNAL).toEqual(['UseShipImage', 'FrameOff']);
   });
