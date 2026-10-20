@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deterministic exporter: Rainmeter skin UI source data -> JSON for the Preact UI. Stdlib only, no LLM, no network.
-Run:  python3 -I tools/export_ui_assets.py [--out DIR] [--check] [--only icons,layout,frameparts,apps,orb,settings,modules,frame]"""
+Run:  python3 -I tools/export_ui_assets.py [--out DIR] [--check] [--only icons,layout,frameparts,apps,orb,settings,modules,frame,guide]"""
 import argparse
 import hashlib
 import json
@@ -200,6 +200,47 @@ def parse_module_keys(offsets_text, geometry_texts):
     return sorted(a)
 
 
+def _plain(s):
+    """Markdown inline -> plain text: links keep their label, emphasis and code marks go."""
+    return re.sub(r"\*\*|`", "", re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)).strip()
+
+
+def parse_guide(text):
+    """Guide markdown -> {"sections": [{id, title, level, text}]}: headings with the prose under them; code fences,
+    rules and table separators dropped, table rows flattened to 'a — b'. Ids are GitHub-style slugs, made unique."""
+    sections, seen, fence = [], set(), False
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("```"):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        m = re.match(r"(#{1,6})\s+(.+)", line)
+        if m:
+            title = _plain(m.group(2))
+            base = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "section"
+            sid, n = base, 1
+            while sid in seen:
+                n += 1
+                sid = "%s-%d" % (base, n)
+            seen.add(sid)
+            sections.append({"id": sid, "title": title, "level": len(m.group(1)), "lines": []})
+        elif sections and s and not re.fullmatch(r"[-*_]{3,}|\|?[\s:|-]+\|?", s):
+            if s.startswith("|"):
+                s = " — ".join(c.strip() for c in s.strip("|").split("|") if c.strip())
+            sections[-1]["lines"].append(_plain(s))
+    if fence:
+        raise ParseError("unclosed code fence")
+    return {"sections": [{"id": x["id"], "title": x["title"], "level": x["level"], "text": "\n".join(x["lines"])} for x in sections]}
+
+
+def gen_guide(root):
+    src = RES / "Docs/Spaceship-HUD-Guide.md"
+    d = parse_guide(rd(root, src))
+    return d, len(d["sections"]), [src]
+
+
 def gen_modules(root):
     geo = sorted((root / "Skins/Spaceship").glob("*/Geometry.inc")) + sorted((root / "Skins/Spaceship").glob("*/*/Geometry.inc"))
     keys = parse_module_keys(rd(root, RES / "Offsets.inc"), [g.read_text(encoding="utf-8-sig") for g in geo])
@@ -207,7 +248,7 @@ def gen_modules(root):
 
 
 GENS = {"icons": gen_icons, "layout": gen_layout, "frameparts": gen_frameparts, "apps": gen_apps, "orb": gen_orb,
-        "settings": gen_settings, "modules": gen_modules, "frame": gen_frame}
+        "settings": gen_settings, "modules": gen_modules, "frame": gen_frame, "guide": gen_guide}
 
 
 def dump(obj):

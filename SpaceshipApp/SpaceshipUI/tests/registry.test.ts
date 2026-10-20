@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import guide from '../src/generated/guide.json';
 import { INTERNAL_KEYS, REGISTRY, CATEGORIES, WRITABLE_INTERNAL, allowedKeys } from '../src/settings/registry';
 import { moduleDefs } from '../src/settings/dynamic';
 import settings from '../src/generated/settings.json';
@@ -76,5 +77,11 @@ describe('settings registry', () => {
     expect(a.has('Off_T_power')).toBe(false);
     expect(a.has('MasterPrev')).toBe(false);
     expect(WRITABLE_INTERNAL).toEqual(['UseShipImage', 'FrameOff']);
+  });
+  it('every helpId names a section of the exported guide', () => {
+    const ids = new Set(guide.sections.map((x) => x.id));
+    const bad = REGISTRY.filter((d) => d.helpId && !ids.has(d.helpId)).map((d) => `${d.key}:${d.helpId}`);
+    expect(bad).toEqual([]);
+    expect(REGISTRY.some((d) => d.helpId)).toBe(true);
   });
 });

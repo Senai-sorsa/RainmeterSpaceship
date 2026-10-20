@@ -84,3 +84,9 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .wiz-primary { border-color: var(--accent); color: var(--accent); }
 /* Cockpit frame: same 16:10 box the HUD svg uses (viewBox meet), under it */
 .frame { position: fixed; inset: 0; margin: auto; width: min(100vw, 160vh); aspect-ratio: 16 / 10; pointer-events: none; }
+/* Help panel (HUD guide section) over the Control Center */
+.help { position: absolute; top: 48px; right: 0; bottom: 0; width: min(420px, 60%); z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); border-left: 1px solid var(--accent); }
+.help-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--dim); }
+.help-title { color: var(--accent); }
+.help-body { overflow: auto; padding: 8px 16px 16px; }
+.help-body p { margin: 0 0 8px; overflow-wrap: anywhere; }

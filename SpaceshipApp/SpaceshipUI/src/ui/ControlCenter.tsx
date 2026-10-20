@@ -4,6 +4,7 @@ import { CATEGORIES } from '../settings/registry';
 import type { SettingsStore } from '../settings/store';
 import type { CategoryId, SettingDef } from '../settings/types';
 import { CategoryRail } from './CategoryRail';
+import { HelpPanel } from './HelpPanel';
 import { SettingsPanel } from './SettingsPanel';
 
 type P = { store: SettingsStore; host: HostBridge; defs: SettingDef[]; onClose: () => void };
@@ -12,6 +13,7 @@ const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isConte
 export function ControlCenter({ store, host, defs, onClose }: P) {
   const [cat, setCat] = useState<CategoryId>(CATEGORIES[0].id);
   const [jump, setJump] = useState<string | null>(null);
+  const [help, setHelp] = useState<string | null>(null);
   const q = store.query.value;
   const adv = store.level.value === 'advanced';
   const results = q.trim() ? store.search(q).filter((d) => adv || d.level !== 'advanced').slice(0, 30) : [];
@@ -29,7 +31,7 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { if (store.query.value) store.query.value = ''; else onClose(); e.preventDefault(); return; }
+      if (e.key === 'Escape') { if (help) setHelp(null); else if (store.query.value) store.query.value = ''; else onClose(); e.preventDefault(); return; }
       if (e.key === '/' && !typing(e.target)) { e.preventDefault(); document.querySelector<HTMLInputElement>('.cc-search')?.focus(); return; }
       if (!e.ctrlKey || typing(e.target)) return; // inside a text field Ctrl+Z stays the browser's own
       const k = e.key.toLowerCase();
@@ -38,7 +40,7 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [store, onClose]);
+  }, [store, onClose, help]);
 
   const pick = (d: SettingDef) => { setCat(d.category); store.query.value = ''; setJump(d.key); };
   const label = (id: string) => CATEGORIES.find((c) => c.id === id)?.label ?? id;
@@ -74,11 +76,12 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
               <div class="cc-resets">
                 {groups.map((g) => <button type="button" class="ctl-action cc-btn" aria-label={`Reset group ${g}`} onClick={() => store.resetGroup(cat, g)}>Reset {g}</button>)}
               </div>
-              <SettingsPanel store={store} host={host} defs={defs} categories={[cat]} mode="center" />
+              <SettingsPanel store={store} host={host} defs={defs} categories={[cat]} mode="center" onHelp={setHelp} />
             </>
           )}
         </div>
       </div>
+      {help && <HelpPanel sectionId={help} onClose={() => setHelp(null)} />}
     </div>
   );
 }

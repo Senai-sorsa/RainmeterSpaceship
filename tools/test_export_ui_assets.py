@@ -55,6 +55,15 @@ try:
 except ex.ParseError:
     pass
 
+g = ex.parse_guide("# A b\nintro **x** [l](u)\n```\ncode\n```\n---\n| h | i |\n|---|---|\n| 1 | 2 |\n## A b\n")
+assert g == {"sections": [{"id": "a-b", "title": "A b", "level": 1, "text": "intro x l\nh — i\n1 — 2"},
+                          {"id": "a-b-2", "title": "A b", "level": 2, "text": ""}]}, g
+try:
+    ex.parse_guide("# A\n```\nx\n")
+    raise AssertionError("expected ParseError")
+except ex.ParseError:
+    pass
+
 with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
     assert ex.main(["--out", t1, "--check"]) == 1                      # missing files
     assert ex.main(["--out", t1]) == 0
@@ -87,6 +96,9 @@ with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
     mk = json.loads((Path(t1) / "modules.json").read_text())["keys"]
     offs = (ex.ROOT / ex.RES / "Offsets.inc").read_text()
     assert mk and mk == sorted(set(mk)) and all(re.search(r"^%s_DX=" % k, offs, re.M) for k in mk), mk
+    gs = json.loads((Path(t1) / "guide.json").read_text())["sections"]
+    assert len(gs) > 10 and len({x["id"] for x in gs}) == len(gs) and not any("```" in x["text"] for x in gs), len(gs)
+    assert {"look", "6b-clover"} <= {x["id"] for x in gs}
     meta = json.loads((Path(t1) / "_meta.json").read_text())
     assert meta["schema"] == 1 and all(len(h) == 64 for h in meta["sources"].values())
     (Path(t1) / "apps.json").write_text("x")

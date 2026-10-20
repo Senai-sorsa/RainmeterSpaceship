@@ -278,6 +278,13 @@ add('system', 'Setup', 'normal', [
 ]);
 add('system', 'Setup', 'advanced', [['defaults.all', 'Defaults for everything', 'Reset every setting to its default.', act('defaults.all'), '', V]]);
 
+// Rows that have a section in the HUD guide (ids are generated/guide.json slugs; the registry test checks they exist).
+const HELP: Record<string, string> = {
+  ColorAccent: 'look', frameStyle: 'look', Scale: 'look', FrameBrightness: 'look',
+  JarvisName: '6b-clover', AssistantLabel: '6b-clover', JarvisCallMe: '6b-clover', JarvisWakeModel: '6b-clover', JarvisKokoroVoice: '6b-clover',
+  JarvisPrivacy: '9-4-accounts-and-secrets', PerfOverride: '7-performance-tiers-and-the-master-switch',
+};
+for (const d of defs) if (HELP[d.key]) d.helpId = HELP[d.key];
 export const REGISTRY: SettingDef[] = defs;
 
 /** Keys config.set may write: real registry keys, per-module keys, and the frame internals. */
