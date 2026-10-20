@@ -1,11 +1,18 @@
-/* Reference sampled by tools/palette_from_reference.py (fallbacks only).
-   --theme-* are set at runtime from generated/settings.json (Settings.inc), so themes win. */
+/* Defaults = the skin's own (Skins/Spaceship/@Resources/Settings.inc + Scripts/lib.lua).
+   main.tsx overwrites them on <html> from generated/settings.json (see lib/theme.ts), so themes win.
+   Custom properties must be set where they are declared/consumed: setting them on a descendant of :root does not
+   change values already resolved on :root (that was the earlier "dim" bug). */
 :root {
-  --bg: var(--theme-bg, #02070a);
-  --line: var(--theme-accent, #376695);
-  --glow: var(--theme-dim, #1a3648);
-  --alert: var(--theme-alert, #783937);
-  --label: var(--theme-text, #376695);
+  --accent: rgb(0,210,255);
+  --dim: rgb(0,110,150);
+  --text: rgb(170,235,255);
+  --warn: rgb(255,130,40);
+  --alert: rgb(255,60,70);
+  --good: rgb(60,255,170);
+  --hi: rgb(255,105,135);
+  --white: rgb(215,240,255);
+  --panel: rgb(0 30 45 / .3529);
+  --bg: #000; /* stand-in for the desktop wallpaper behind the transparent skin */
 }
 html, body { margin: 0; background: var(--bg); overflow: hidden; }
-.label { font: 11px/1 ui-monospace, monospace; letter-spacing: .3em; text-transform: uppercase; fill: var(--label); }
+.label { font: 11px/1 ui-monospace, monospace; letter-spacing: .3em; text-transform: uppercase; fill: var(--text); }
