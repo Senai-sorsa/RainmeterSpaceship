@@ -43,12 +43,8 @@ Skins/Spaceship/@Resources/testkoroko.py
 *.whl
 
 # tool output and local backups
-graphify-out/
-.tokenwise/
+
 CLAUDE.md.tokenwise-backup-*
 
 # editor config and external code reviews (local only)
 .continue/
-opus 4.8 Code review.md
-SOL-Code-Review.md
-JARVIS & Rainmeter Spaceship*Forensic Code Audit & Bug Report.txt

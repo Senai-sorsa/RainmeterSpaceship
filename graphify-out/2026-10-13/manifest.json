@@ -1,0 +1,992 @@
+{
+  "Skins/Spaceship/@Resources/Caption.inc": {
+    "mtime": 1791708284.3998272,
+    "seen": 1791911947.0348432,
+    "ast_hash": "295d85e2d063538992863edab74485d1",
+    "semantic_hash": "295d85e2d063538992863edab74485d1"
+  },
+  "Skins/Spaceship/@Resources/Common.inc": {
+    "mtime": 1791708284.4043417,
+    "seen": 1791911947.034848,
+    "ast_hash": "501a05e712f63ee9d6da41a00f531020",
+    "semantic_hash": "501a05e712f63ee9d6da41a00f531020"
+  },
+  "Skins/Spaceship/@Resources/HWiNFO.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.03485,
+    "ast_hash": "ac609247a72a96432036802ff679ae6a",
+    "semantic_hash": "ac609247a72a96432036802ff679ae6a"
+  },
+  "Skins/Spaceship/@Resources/Hardware.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348506,
+    "ast_hash": "e3a8528bc24b1f3444774351de59b5e9",
+    "semantic_hash": "e3a8528bc24b1f3444774351de59b5e9"
+  },
+  "Skins/Spaceship/@Resources/Jarvis/Setup-Jarvis.ps1": {
+    "mtime": 1791913333.8321738,
+    "seen": 1791922006.8344724,
+    "ast_hash": "0b450d938c865b2747b6f0b64b697961",
+    "semantic_hash": "0b450d938c865b2747b6f0b64b697961"
+  },
+  "Skins/Spaceship/@Resources/Jarvis/jarvis.py": {
+    "mtime": 1791921498.8471055,
+    "seen": 1791922006.8344831,
+    "ast_hash": "a88984c03eac603d3d1469f54c4bcb38",
+    "semantic_hash": "a88984c03eac603d3d1469f54c4bcb38"
+  },
+  "Skins/Spaceship/@Resources/Jarvis/voices/en_GB-alan-medium.onnx.json": {
+    "mtime": 1791700898.2984648,
+    "seen": 1791911947.0348525,
+    "ast_hash": "b11d9afd0a8f5372c42a52fbd6e021d4",
+    "semantic_hash": "b11d9afd0a8f5372c42a52fbd6e021d4"
+  },
+  "Skins/Spaceship/@Resources/Measures/Sensors.inc": {
+    "mtime": 1791708284.4208734,
+    "seen": 1791911947.0348535,
+    "ast_hash": "698b4b5fd7661c85ba040df0f3f941d6",
+    "semantic_hash": "698b4b5fd7661c85ba040df0f3f941d6"
+  },
+  "Skins/Spaceship/@Resources/Offsets.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034854,
+    "ast_hash": "b922a105aaa5ffbba004c68dfe0c365e",
+    "semantic_hash": "b922a105aaa5ffbba004c68dfe0c365e"
+  },
+  "Skins/Spaceship/@Resources/Scripts/ShipCore.cs": {
+    "mtime": 1791708284.4960608,
+    "seen": 1791911947.0348547,
+    "ast_hash": "14dcbd9cd31b15767c5680ae350196ed",
+    "semantic_hash": "14dcbd9cd31b15767c5680ae350196ed"
+  },
+  "Skins/Spaceship/@Resources/Scripts/alert.lua": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348551,
+    "ast_hash": "77e065bcee5f092d572e3267cb0d8935",
+    "semantic_hash": "77e065bcee5f092d572e3267cb0d8935"
+  },
+  "Skins/Spaceship/@Resources/Scripts/app-icons.ps1": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348558,
+    "ast_hash": "7c6045e0e8f87fca65d3a890248cc655",
+    "semantic_hash": "7c6045e0e8f87fca65d3a890248cc655"
+  },
+  "Skins/Spaceship/@Resources/Scripts/apps.lua": {
+    "mtime": 1791708284.4449732,
+    "seen": 1791911947.0348568,
+    "ast_hash": "a2cbe0de45bc1a4943a25a7276f87b77",
+    "semantic_hash": "a2cbe0de45bc1a4943a25a7276f87b77"
+  },
+  "Skins/Spaceship/@Resources/Scripts/audio.lua": {
+    "mtime": 1791914639.9886158,
+    "seen": 1791922006.836367,
+    "ast_hash": "00d62c5083efe1718a197d19124b3fca",
+    "semantic_hash": "00d62c5083efe1718a197d19124b3fca"
+  },
+  "Skins/Spaceship/@Resources/Scripts/battery.lua": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034858,
+    "ast_hash": "29d45de40c796cc63650e056e8412a9e",
+    "semantic_hash": "29d45de40c796cc63650e056e8412a9e"
+  },
+  "Skins/Spaceship/@Resources/Scripts/boot.lua": {
+    "mtime": 1791708284.4610853,
+    "seen": 1791911947.0348587,
+    "ast_hash": "b8ef2c151cf1e82435a9a05a914bd650",
+    "semantic_hash": "b8ef2c151cf1e82435a9a05a914bd650"
+  },
+  "Skins/Spaceship/@Resources/Scripts/category.lua": {
+    "mtime": 1791914619.471113,
+    "seen": 1791922006.8369415,
+    "ast_hash": "d235c1486cd683615797f803c405e97a",
+    "semantic_hash": "d235c1486cd683615797f803c405e97a"
+  },
+  "Skins/Spaceship/@Resources/Scripts/console.lua": {
+    "mtime": 1791708284.4985719,
+    "seen": 1791911947.0348604,
+    "ast_hash": "9a94af590083f919cf404ddefad571ca",
+    "semantic_hash": "9a94af590083f919cf404ddefad571ca"
+  },
+  "Skins/Spaceship/@Resources/Scripts/control.lua": {
+    "mtime": 1791921498.9975586,
+    "seen": 1791922006.837202,
+    "ast_hash": "696a6db1449cd0c69828d71cec1ea456",
+    "semantic_hash": "696a6db1449cd0c69828d71cec1ea456"
+  },
+  "Skins/Spaceship/@Resources/Scripts/controller.lua": {
+    "mtime": 1791708284.501627,
+    "seen": 1791911947.0348616,
+    "ast_hash": "1d6f16572f1a4a54d81e177dd99f48f5",
+    "semantic_hash": "1d6f16572f1a4a54d81e177dd99f48f5"
+  },
+  "Skins/Spaceship/@Resources/Scripts/core.ps1": {
+    "mtime": 1791708284.4915495,
+    "seen": 1791911947.034862,
+    "ast_hash": "e7a323c55a3131450ca90602d989d936",
+    "semantic_hash": "e7a323c55a3131450ca90602d989d936"
+  },
+  "Skins/Spaceship/@Resources/Scripts/dev.ps1": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348628,
+    "ast_hash": "52d6abdd7e34992c52774fc56155316d",
+    "semantic_hash": "52d6abdd7e34992c52774fc56155316d"
+  },
+  "Skins/Spaceship/@Resources/Scripts/dial.lua": {
+    "mtime": 1791708284.5179904,
+    "seen": 1791911947.034864,
+    "ast_hash": "96e318386500757b95499130050dda68",
+    "semantic_hash": "96e318386500757b95499130050dda68"
+  },
+  "Skins/Spaceship/@Resources/Scripts/drawer.lua": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348644,
+    "ast_hash": "2f0a394aadbd525d4a521aa789f739ed",
+    "semantic_hash": "2f0a394aadbd525d4a521aa789f739ed"
+  },
+  "Skins/Spaceship/@Resources/Scripts/graph.lua": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348651,
+    "ast_hash": "9918b2e735533a04306973e73ed45765",
+    "semantic_hash": "9918b2e735533a04306973e73ed45765"
+  },
+  "Skins/Spaceship/@Resources/Scripts/guard.lua": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348656,
+    "ast_hash": "a90d648aacfffdec363aec84734b4ae7",
+    "semantic_hash": "a90d648aacfffdec363aec84734b4ae7"
+  },
+  "Skins/Spaceship/@Resources/Scripts/hud.lua": {
+    "mtime": 1791708284.4890082,
+    "seen": 1791911947.0348663,
+    "ast_hash": "325c1430b7bac043a3b9957a9e01cbe9",
+    "semantic_hash": "325c1430b7bac043a3b9957a9e01cbe9"
+  },
+  "Skins/Spaceship/@Resources/Scripts/hwinfo-scan.ps1": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034867,
+    "ast_hash": "0964e1fe25ea722d0528607603e68b8f",
+    "semantic_hash": "0964e1fe25ea722d0528607603e68b8f"
+  },
+  "Skins/Spaceship/@Resources/Scripts/icons.lua": {
+    "mtime": 1791611448.0,
+    "seen": 1791911947.0348675,
+    "ast_hash": "49391a8ffb739d5c34d6fb2ace5b7351",
+    "semantic_hash": "49391a8ffb739d5c34d6fb2ace5b7351"
+  },
+  "Skins/Spaceship/@Resources/Scripts/jarvis.lua": {
+    "mtime": 1791917305.0334926,
+    "seen": 1791922006.8403006,
+    "ast_hash": "0a7eca6973f3931e88f13a3d79724776",
+    "semantic_hash": "0a7eca6973f3931e88f13a3d79724776"
+  },
+  "Skins/Spaceship/@Resources/Scripts/jarvislog.lua": {
+    "mtime": 1791708284.4706945,
+    "seen": 1791911947.0348687,
+    "ast_hash": "52b63ff2de4315b921bad5433697e2c4",
+    "semantic_hash": "52b63ff2de4315b921bad5433697e2c4"
+  },
+  "Skins/Spaceship/@Resources/Scripts/lib.lua": {
+    "mtime": 1791708284.4409473,
+    "seen": 1791911947.0348692,
+    "ast_hash": "3d10b31758d28f0447f2bf2b550833ea",
+    "semantic_hash": "3d10b31758d28f0447f2bf2b550833ea"
+  },
+  "Skins/Spaceship/@Resources/Scripts/llt.ps1": {
+    "mtime": 1791708284.5076413,
+    "seen": 1791911947.0348697,
+    "ast_hash": "34d140e40ae07d7b783c05a22c8f010e",
+    "semantic_hash": "34d140e40ae07d7b783c05a22c8f010e"
+  },
+  "Skins/Spaceship/@Resources/Scripts/location.lua": {
+    "mtime": 1791708284.431417,
+    "seen": 1791911947.0348704,
+    "ast_hash": "4a3ffbf348d27a97c9640b77e05cc1dc",
+    "semantic_hash": "4a3ffbf348d27a97c9640b77e05cc1dc"
+  },
+  "Skins/Spaceship/@Resources/Scripts/location.ps1": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034871,
+    "ast_hash": "df1f67d7175dd9c23b057ca5b0c484b1",
+    "semantic_hash": "df1f67d7175dd9c23b057ca5b0c484b1"
+  },
+  "Skins/Spaceship/@Resources/Scripts/media.ps1": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348718,
+    "ast_hash": "6e8e11e1e50343659ebb5f27e4c66165",
+    "semantic_hash": "6e8e11e1e50343659ebb5f27e4c66165"
+  },
+  "Skins/Spaceship/@Resources/Scripts/panels.lua": {
+    "mtime": 1791708284.4278977,
+    "seen": 1791911947.0348723,
+    "ast_hash": "df1af967d9bfcf0234130228bf61ace0",
+    "semantic_hash": "df1af967d9bfcf0234130228bf61ace0"
+  },
+  "Skins/Spaceship/@Resources/Scripts/power.lua": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348728,
+    "ast_hash": "d609c8bafc94c293ea1d5f647d84db4e",
+    "semantic_hash": "d609c8bafc94c293ea1d5f647d84db4e"
+  },
+  "Skins/Spaceship/@Resources/Scripts/scan-apps.ps1": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348735,
+    "ast_hash": "212fabd716a37e333a2d15b47238e673",
+    "semantic_hash": "212fabd716a37e333a2d15b47238e673"
+  },
+  "Skins/Spaceship/@Resources/Scripts/slot.lua": {
+    "mtime": 1791708284.5215132,
+    "seen": 1791911947.0348742,
+    "ast_hash": "61122e9e25c30e8436b21c2a8cce72e9",
+    "semantic_hash": "61122e9e25c30e8436b21c2a8cce72e9"
+  },
+  "Skins/Spaceship/@Resources/Scripts/sources.lua": {
+    "mtime": 1791708284.456053,
+    "seen": 1791911947.0348747,
+    "ast_hash": "ab6031e4204278bfffd555c2443cb58b",
+    "semantic_hash": "ab6031e4204278bfffd555c2443cb58b"
+  },
+  "Skins/Spaceship/@Resources/Scripts/sphere.lua": {
+    "mtime": 1791708284.5144887,
+    "seen": 1791911947.0348754,
+    "ast_hash": "f9e210e504fb4fb0c01dff2326058749",
+    "semantic_hash": "f9e210e504fb4fb0c01dff2326058749"
+  },
+  "Skins/Spaceship/@Resources/Scripts/status.ps1": {
+    "mtime": 1791708284.4530425,
+    "seen": 1791911947.0348759,
+    "ast_hash": "79070b058110118f46936c4371a64cbd",
+    "semantic_hash": "79070b058110118f46936c4371a64cbd"
+  },
+  "Skins/Spaceship/@Resources/Scripts/status_block.lua": {
+    "mtime": 1791708284.485526,
+    "seen": 1791911947.0348768,
+    "ast_hash": "c7c30da27ec309948617f306ef034716",
+    "semantic_hash": "c7c30da27ec309948617f306ef034716"
+  },
+  "Skins/Spaceship/@Resources/Scripts/storage.lua": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348775,
+    "ast_hash": "a0485e4fe607c9a723d5bbff67070bd8",
+    "semantic_hash": "a0485e4fe607c9a723d5bbff67070bd8"
+  },
+  "Skins/Spaceship/@Resources/Scripts/strip.lua": {
+    "mtime": 1791708284.4822364,
+    "seen": 1791911947.034878,
+    "ast_hash": "4c8fa153384d59cfb3d8cfdc141e28b0",
+    "semantic_hash": "4c8fa153384d59cfb3d8cfdc141e28b0"
+  },
+  "Skins/Spaceship/@Resources/Scripts/sysinfo.lua": {
+    "mtime": 1791708284.5109744,
+    "seen": 1791911947.0348787,
+    "ast_hash": "13736a161d4f14ec1fdb933d5ebbfe72",
+    "semantic_hash": "13736a161d4f14ec1fdb933d5ebbfe72"
+  },
+  "Skins/Spaceship/@Resources/Scripts/target.lua": {
+    "mtime": 1791708284.4742072,
+    "seen": 1791911947.0348792,
+    "ast_hash": "a16b29b4347a35b1af7722db145c26e6",
+    "semantic_hash": "a16b29b4347a35b1af7722db145c26e6"
+  },
+  "Skins/Spaceship/@Resources/Scripts/upkeep.ps1": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348797,
+    "ast_hash": "a27965a22fd9fc0ba38ee241546acf74",
+    "semantic_hash": "a27965a22fd9fc0ba38ee241546acf74"
+  },
+  "Skins/Spaceship/@Resources/Settings.inc": {
+    "mtime": 1791915593.2597992,
+    "seen": 1791922006.8442564,
+    "ast_hash": "62195650e286e8ae185b62f13c08c805",
+    "semantic_hash": "62195650e286e8ae185b62f13c08c805"
+  },
+  "Skins/Spaceship/@Resources/State.inc": {
+    "mtime": 1791741282.7955058,
+    "seen": 1791911947.0348809,
+    "ast_hash": "ad9610f938257d6af80773c9494ebaf4",
+    "semantic_hash": "ad9610f938257d6af80773c9494ebaf4"
+  },
+  "Skins/Spaceship/Apply-SpaceshipUpdate.ps1": {
+    "mtime": 1791665052.9884014,
+    "seen": 1791911947.0348828,
+    "ast_hash": "6c5119442f339e874ab3d12571e87834",
+    "semantic_hash": "6c5119442f339e874ab3d12571e87834"
+  },
+  "Skins/Spaceship/Bottom/Audio/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348833,
+    "ast_hash": "98491e63acb17d3ed3c29596f991512d",
+    "semantic_hash": "98491e63acb17d3ed3c29596f991512d"
+  },
+  "Skins/Spaceship/Bottom/Audio/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348842,
+    "ast_hash": "903b91d80d2a0938c7eb69e3e302aaa8",
+    "semantic_hash": "903b91d80d2a0938c7eb69e3e302aaa8"
+  },
+  "Skins/Spaceship/Bottom/Panels/Extra.inc": {
+    "mtime": 1791708285.7307456,
+    "seen": 1791911947.0348847,
+    "ast_hash": "a6b65a6499f6c39ddd5eb1a35afe802f",
+    "semantic_hash": "a6b65a6499f6c39ddd5eb1a35afe802f"
+  },
+  "Skins/Spaceship/Bottom/Panels/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348854,
+    "ast_hash": "9b04e0b0f5f44f24e8dd54a217a49c8d",
+    "semantic_hash": "9b04e0b0f5f44f24e8dd54a217a49c8d"
+  },
+  "Skins/Spaceship/Bottom/Panels/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034886,
+    "ast_hash": "773f8dbda95e8428dbd3a9432580203e",
+    "semantic_hash": "773f8dbda95e8428dbd3a9432580203e"
+  },
+  "Skins/Spaceship/Bottom/Storage/Extra.inc": {
+    "mtime": 1791708285.7160857,
+    "seen": 1791911947.0348864,
+    "ast_hash": "f93a494e8b0181c7b5627d259e4d9e4d",
+    "semantic_hash": "f93a494e8b0181c7b5627d259e4d9e4d"
+  },
+  "Skins/Spaceship/Bottom/Storage/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034887,
+    "ast_hash": "afe297c459b3b3f71629eb2bd6699880",
+    "semantic_hash": "afe297c459b3b3f71629eb2bd6699880"
+  },
+  "Skins/Spaceship/Bottom/Storage/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348878,
+    "ast_hash": "d15ae5e72d34113590a187a64bef16e5",
+    "semantic_hash": "d15ae5e72d34113590a187a64bef16e5"
+  },
+  "Skins/Spaceship/Bottom/Strip/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348883,
+    "ast_hash": "c60617a9c2d84dc82c097aba9b287d74",
+    "semantic_hash": "c60617a9c2d84dc82c097aba9b287d74"
+  },
+  "Skins/Spaceship/Bottom/Strip/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348892,
+    "ast_hash": "8b6985b7b1039ab06ffba800660b2f1f",
+    "semantic_hash": "8b6985b7b1039ab06ffba800660b2f1f"
+  },
+  "Skins/Spaceship/Center/HUD/Extra.inc": {
+    "mtime": 1791708284.3862505,
+    "seen": 1791911947.0348897,
+    "ast_hash": "3a212383553dd148816cb4d266d580e5",
+    "semantic_hash": "3a212383553dd148816cb4d266d580e5"
+  },
+  "Skins/Spaceship/Center/HUD/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348902,
+    "ast_hash": "077db2d7ee506cda2b488a327e885beb",
+    "semantic_hash": "077db2d7ee506cda2b488a327e885beb"
+  },
+  "Skins/Spaceship/Center/HUD/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034891,
+    "ast_hash": "0c10a7029a46813137a5baac31dc375a",
+    "semantic_hash": "0c10a7029a46813137a5baac31dc375a"
+  },
+  "Skins/Spaceship/Center/Sphere/Extra.inc": {
+    "mtime": 1791708284.375573,
+    "seen": 1791911947.0348916,
+    "ast_hash": "b7859bfb942b456af3affeca19ff4366",
+    "semantic_hash": "b7859bfb942b456af3affeca19ff4366"
+  },
+  "Skins/Spaceship/Center/Sphere/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348923,
+    "ast_hash": "b1230358ee563aadbcf5413770d13189",
+    "semantic_hash": "b1230358ee563aadbcf5413770d13189"
+  },
+  "Skins/Spaceship/Center/Sphere/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034893,
+    "ast_hash": "a989b6c9be4847f53e4f970c5b93069e",
+    "semantic_hash": "a989b6c9be4847f53e4f970c5b93069e"
+  },
+  "Skins/Spaceship/Center/Target/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348935,
+    "ast_hash": "baf0d609432bb82d752a5fa465288bd0",
+    "semantic_hash": "baf0d609432bb82d752a5fa465288bd0"
+  },
+  "Skins/Spaceship/Center/Target/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034894,
+    "ast_hash": "8ee96690c0ac4b3ccce135a4d4daa950",
+    "semantic_hash": "8ee96690c0ac4b3ccce135a4d4daa950"
+  },
+  "Skins/Spaceship/Controller/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034895,
+    "ast_hash": "0b4d0659d09d5a4f3c34e7c7deed4054",
+    "semantic_hash": "0b4d0659d09d5a4f3c34e7c7deed4054"
+  },
+  "Skins/Spaceship/Frame/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348957,
+    "ast_hash": "6aa1138a4b9660ee3e998541e8f37fd0",
+    "semantic_hash": "6aa1138a4b9660ee3e998541e8f37fd0"
+  },
+  "Skins/Spaceship/Frame/Parts/Accents.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348964,
+    "ast_hash": "0671aded31019b67fd06b7bcaccf7337",
+    "semantic_hash": "0671aded31019b67fd06b7bcaccf7337"
+  },
+  "Skins/Spaceship/Frame/Parts/Decor.inc": {
+    "mtime": 1791708285.705562,
+    "seen": 1791911947.0348969,
+    "ast_hash": "78d5683bf3b26ec44416da1d6cdbd4af",
+    "semantic_hash": "78d5683bf3b26ec44416da1d6cdbd4af"
+  },
+  "Skins/Spaceship/Frame/Parts/Glass.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348976,
+    "ast_hash": "93758b94a608183827824c4c2412d133",
+    "semantic_hash": "93758b94a608183827824c4c2412d133"
+  },
+  "Skins/Spaceship/Frame/Parts/Lights.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348988,
+    "ast_hash": "3c1f3ac77186bb4a48ae6816cbd7641d",
+    "semantic_hash": "3c1f3ac77186bb4a48ae6816cbd7641d"
+  },
+  "Skins/Spaceship/Frame/Parts/Spill.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0348992,
+    "ast_hash": "752a6d69415d43582387707cf4366205",
+    "semantic_hash": "752a6d69415d43582387707cf4366205"
+  },
+  "Skins/Spaceship/Left/Category/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349,
+    "ast_hash": "5c68e32c54f81aa0fbfe811233ac1446",
+    "semantic_hash": "5c68e32c54f81aa0fbfe811233ac1446"
+  },
+  "Skins/Spaceship/Left/Category/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349004,
+    "ast_hash": "155b63880d49f15a8c383e5a00631466",
+    "semantic_hash": "155b63880d49f15a8c383e5a00631466"
+  },
+  "Skins/Spaceship/Left/Location/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034901,
+    "ast_hash": "2d1f1a814b90f03db209ac1edd0c5530",
+    "semantic_hash": "2d1f1a814b90f03db209ac1edd0c5530"
+  },
+  "Skins/Spaceship/Left/Location/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349019,
+    "ast_hash": "e1fb9c7e642c21fe0693be20af68c4a9",
+    "semantic_hash": "e1fb9c7e642c21fe0693be20af68c4a9"
+  },
+  "Skins/Spaceship/Left/Slot1/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349023,
+    "ast_hash": "e937a6f43df59a5541842cfe9f3e5bc0",
+    "semantic_hash": "e937a6f43df59a5541842cfe9f3e5bc0"
+  },
+  "Skins/Spaceship/Left/Slot1/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349028,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Left/Slot2/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349035,
+    "ast_hash": "c01214f4ee829e6e948b1dd596ba7941",
+    "semantic_hash": "c01214f4ee829e6e948b1dd596ba7941"
+  },
+  "Skins/Spaceship/Left/Slot2/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349047,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Left/Slot3/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349054,
+    "ast_hash": "9f9e7ba13dcbc24d49067a5e35bc700c",
+    "semantic_hash": "9f9e7ba13dcbc24d49067a5e35bc700c"
+  },
+  "Skins/Spaceship/Left/Slot3/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349061,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Left/Slot4/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349066,
+    "ast_hash": "61f34428e62a0220b786ece33815a2ba",
+    "semantic_hash": "61f34428e62a0220b786ece33815a2ba"
+  },
+  "Skins/Spaceship/Left/Slot4/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034907,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Left/Upkeep/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349078,
+    "ast_hash": "55061896e5dca64321b6ce4818dc7fd2",
+    "semantic_hash": "55061896e5dca64321b6ce4818dc7fd2"
+  },
+  "Skins/Spaceship/Left/Upkeep/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349085,
+    "ast_hash": "6659ea61d983c978b1270a7c7f4d4d7c",
+    "semantic_hash": "6659ea61d983c978b1270a7c7f4d4d7c"
+  },
+  "Skins/Spaceship/Overlay/Control/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034909,
+    "ast_hash": "2d6f7d5db3e5de68b165acda9f339608",
+    "semantic_hash": "2d6f7d5db3e5de68b165acda9f339608"
+  },
+  "Skins/Spaceship/Overlay/Control/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349097,
+    "ast_hash": "7e9741a08f6b77a65ae9258d73ea6d32",
+    "semantic_hash": "7e9741a08f6b77a65ae9258d73ea6d32"
+  },
+  "Skins/Spaceship/Overlay/Drawer/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349102,
+    "ast_hash": "57bf4b7968b6823ec62d55b491cc5f67",
+    "semantic_hash": "57bf4b7968b6823ec62d55b491cc5f67"
+  },
+  "Skins/Spaceship/Overlay/Drawer/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349107,
+    "ast_hash": "3a2427e49432c3e2b49f2364e20ab7e2",
+    "semantic_hash": "3a2427e49432c3e2b49f2364e20ab7e2"
+  },
+  "Skins/Spaceship/Overlay/Jarvis/Geometry.inc": {
+    "mtime": 1791708284.2939186,
+    "seen": 1791911947.0349112,
+    "ast_hash": "45aa6cced5333de1ab4d0c1b1ec15005",
+    "semantic_hash": "45aa6cced5333de1ab4d0c1b1ec15005"
+  },
+  "Skins/Spaceship/Overlay/Jarvis/Meters.inc": {
+    "mtime": 1791708284.290412,
+    "seen": 1791911947.034912,
+    "ast_hash": "cb8fd10462d6fac7c47174dded91f356",
+    "semantic_hash": "cb8fd10462d6fac7c47174dded91f356"
+  },
+  "Skins/Spaceship/Right/Category/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349126,
+    "ast_hash": "0f09313ae4b5e95a0a7441fa1beeb545",
+    "semantic_hash": "0f09313ae4b5e95a0a7441fa1beeb545"
+  },
+  "Skins/Spaceship/Right/Category/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349133,
+    "ast_hash": "155b63880d49f15a8c383e5a00631466",
+    "semantic_hash": "155b63880d49f15a8c383e5a00631466"
+  },
+  "Skins/Spaceship/Right/Dev/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349138,
+    "ast_hash": "6b4c0605054a9bd603cbac30df57425f",
+    "semantic_hash": "6b4c0605054a9bd603cbac30df57425f"
+  },
+  "Skins/Spaceship/Right/Dev/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349143,
+    "ast_hash": "6659ea61d983c978b1270a7c7f4d4d7c",
+    "semantic_hash": "6659ea61d983c978b1270a7c7f4d4d7c"
+  },
+  "Skins/Spaceship/Right/Slot5/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034915,
+    "ast_hash": "d2ce4d797eb7db801363858d5edb84b7",
+    "semantic_hash": "d2ce4d797eb7db801363858d5edb84b7"
+  },
+  "Skins/Spaceship/Right/Slot5/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349157,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Right/Slot6/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349164,
+    "ast_hash": "79143d74c39d9cdfbe24b8494971859e",
+    "semantic_hash": "79143d74c39d9cdfbe24b8494971859e"
+  },
+  "Skins/Spaceship/Right/Slot6/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349169,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Right/Slot7/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349174,
+    "ast_hash": "93a60e6cbde5fed890e24ea8e6030b4e",
+    "semantic_hash": "93a60e6cbde5fed890e24ea8e6030b4e"
+  },
+  "Skins/Spaceship/Right/Slot7/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034918,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Right/Slot8/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349185,
+    "ast_hash": "fca9cb9c673c224f743cbf5c2b703d16",
+    "semantic_hash": "fca9cb9c673c224f743cbf5c2b703d16"
+  },
+  "Skins/Spaceship/Right/Slot8/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349195,
+    "ast_hash": "37fbd06b41287c3d4eb83c758c1bc54a",
+    "semantic_hash": "37fbd06b41287c3d4eb83c758c1bc54a"
+  },
+  "Skins/Spaceship/Right/SysInfo/Extra.inc": {
+    "mtime": 1791708285.8456242,
+    "seen": 1791911947.03492,
+    "ast_hash": "d18510dfcacc1775380e834515ffb5db",
+    "semantic_hash": "d18510dfcacc1775380e834515ffb5db"
+  },
+  "Skins/Spaceship/Right/SysInfo/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349205,
+    "ast_hash": "08255a62375c0bb7091935f97466ea0c",
+    "semantic_hash": "08255a62375c0bb7091935f97466ea0c"
+  },
+  "Skins/Spaceship/Right/SysInfo/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349212,
+    "ast_hash": "e1fb9c7e642c21fe0693be20af68c4a9",
+    "semantic_hash": "e1fb9c7e642c21fe0693be20af68c4a9"
+  },
+  "Skins/Spaceship/Top/Alert/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034922,
+    "ast_hash": "fac0ca7a5601b23fdd2b2c95a4b7c253",
+    "semantic_hash": "fac0ca7a5601b23fdd2b2c95a4b7c253"
+  },
+  "Skins/Spaceship/Top/Alert/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349226,
+    "ast_hash": "000ef69f199f29451aea25ab879ad959",
+    "semantic_hash": "000ef69f199f29451aea25ab879ad959"
+  },
+  "Skins/Spaceship/Top/Battery/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349233,
+    "ast_hash": "43c148ed75f134bbff7cf24575d33e3b",
+    "semantic_hash": "43c148ed75f134bbff7cf24575d33e3b"
+  },
+  "Skins/Spaceship/Top/Battery/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349238,
+    "ast_hash": "d8e8aaaf96fb3da14cb52681e23b56ce",
+    "semantic_hash": "d8e8aaaf96fb3da14cb52681e23b56ce"
+  },
+  "Skins/Spaceship/Top/Console/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349243,
+    "ast_hash": "4fb833ef7e3739a6a39321c465a53116",
+    "semantic_hash": "4fb833ef7e3739a6a39321c465a53116"
+  },
+  "Skins/Spaceship/Top/Console/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034925,
+    "ast_hash": "20fe001454a5a1d6e19b84c589ce211a",
+    "semantic_hash": "20fe001454a5a1d6e19b84c589ce211a"
+  },
+  "Skins/Spaceship/Top/GraphA/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034926,
+    "ast_hash": "d983dbfa2988fc9a6227906569a74519",
+    "semantic_hash": "d983dbfa2988fc9a6227906569a74519"
+  },
+  "Skins/Spaceship/Top/GraphA/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349262,
+    "ast_hash": "4a50fc0be0188541c733d9db797f679f",
+    "semantic_hash": "4a50fc0be0188541c733d9db797f679f"
+  },
+  "Skins/Spaceship/Top/GraphB/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034927,
+    "ast_hash": "f94bd5b18ac39c66663a795f3fde52a2",
+    "semantic_hash": "f94bd5b18ac39c66663a795f3fde52a2"
+  },
+  "Skins/Spaceship/Top/GraphB/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349274,
+    "ast_hash": "4a50fc0be0188541c733d9db797f679f",
+    "semantic_hash": "4a50fc0be0188541c733d9db797f679f"
+  },
+  "Skins/Spaceship/Top/GraphCPU/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034928,
+    "ast_hash": "f507d0abc05a9c2d2917eecde74e3148",
+    "semantic_hash": "f507d0abc05a9c2d2917eecde74e3148"
+  },
+  "Skins/Spaceship/Top/GraphCPU/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349286,
+    "ast_hash": "4a50fc0be0188541c733d9db797f679f",
+    "semantic_hash": "4a50fc0be0188541c733d9db797f679f"
+  },
+  "Skins/Spaceship/Top/GraphRAM/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034929,
+    "ast_hash": "ecb3122c2df2c043eec83eb97037ee8d",
+    "semantic_hash": "ecb3122c2df2c043eec83eb97037ee8d"
+  },
+  "Skins/Spaceship/Top/GraphRAM/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349298,
+    "ast_hash": "4a50fc0be0188541c733d9db797f679f",
+    "semantic_hash": "4a50fc0be0188541c733d9db797f679f"
+  },
+  "Skins/Spaceship/Top/Power/Geometry.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349302,
+    "ast_hash": "8509d5df68aecf6bc67b37a4e40862d1",
+    "semantic_hash": "8509d5df68aecf6bc67b37a4e40862d1"
+  },
+  "Skins/Spaceship/Top/Power/Meters.inc": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.034931,
+    "ast_hash": "d8e8aaaf96fb3da14cb52681e23b56ce",
+    "semantic_hash": "d8e8aaaf96fb3da14cb52681e23b56ce"
+  },
+  "layout/layout.json": {
+    "mtime": 1791597475.7361846,
+    "seen": 1791911947.0349314,
+    "ast_hash": "0668757984157270525f6933062eb68b",
+    "semantic_hash": "0668757984157270525f6933062eb68b"
+  },
+  "tools/anim_audit.py": {
+    "mtime": 1791597475.7764418,
+    "seen": 1791911947.0349321,
+    "ast_hash": "081eae27995a7cc3d9ddb9d0b017ff15",
+    "semantic_hash": "081eae27995a7cc3d9ddb9d0b017ff15"
+  },
+  "tools/build.py": {
+    "mtime": 1791597475.776958,
+    "seen": 1791911947.0349329,
+    "ast_hash": "df4958ad86e518b3ae9c8a56ac966256",
+    "semantic_hash": "df4958ad86e518b3ae9c8a56ac966256"
+  },
+  "tools/check_layout.py": {
+    "mtime": 1791597475.776958,
+    "seen": 1791911947.0349333,
+    "ast_hash": "a434dbfe446729678eabcd8b1d57b6ab",
+    "semantic_hash": "a434dbfe446729678eabcd8b1d57b6ab"
+  },
+  "tools/frame_render.py": {
+    "mtime": 1791597475.776958,
+    "seen": 1791911947.034934,
+    "ast_hash": "73ffa08579ede4163fe8a7c8f3a61aa5",
+    "semantic_hash": "73ffa08579ede4163fe8a7c8f3a61aa5"
+  },
+  "tools/image_frame.py": {
+    "mtime": 1791597475.7779765,
+    "seen": 1791911947.0349345,
+    "ast_hash": "20ef986ebf707ad539d178ab7d8a8675",
+    "semantic_hash": "20ef986ebf707ad539d178ab7d8a8675"
+  },
+  "tools/layoutlib.py": {
+    "mtime": 1791597475.7779765,
+    "seen": 1791911947.034935,
+    "ast_hash": "cde04a63a7363ec364475f7b9c0a1c8c",
+    "semantic_hash": "cde04a63a7363ec364475f7b9c0a1c8c"
+  },
+  "tools/package.py": {
+    "mtime": 1791597475.7931328,
+    "seen": 1791911947.0349357,
+    "ast_hash": "f33bb0e62049b7da4e1c8dbd5ff033d2",
+    "semantic_hash": "f33bb0e62049b7da4e1c8dbd5ff033d2"
+  },
+  "tools/ref_layout.py": {
+    "mtime": 1791597475.794157,
+    "seen": 1791911947.0349364,
+    "ast_hash": "a948e57d90845e1fe35299fd336eed95",
+    "semantic_hash": "a948e57d90845e1fe35299fd336eed95"
+  },
+  "tools/rmsim.py": {
+    "mtime": 1791597475.795156,
+    "seen": 1791911947.03494,
+    "ast_hash": "7fb78f93cbb84dde55ae2ab91e2f2da0",
+    "semantic_hash": "7fb78f93cbb84dde55ae2ab91e2f2da0"
+  },
+  "tools/ship_frame.py": {
+    "mtime": 1791597475.795156,
+    "seen": 1791911947.0349407,
+    "ast_hash": "1ec76b308ab54f5ed7f49d4f872c0343",
+    "semantic_hash": "1ec76b308ab54f5ed7f49d4f872c0343"
+  },
+  "CLAUDE.md": {
+    "mtime": 1791909192.4557788,
+    "seen": 1791911947.0349412,
+    "ast_hash": "63eb041344d5bb94b56c2df79cbf5e9a",
+    "semantic_hash": "63eb041344d5bb94b56c2df79cbf5e9a"
+  },
+  "README.md": {
+    "mtime": 1791597475.556107,
+    "seen": 1791911947.034942,
+    "ast_hash": "7336e7f0f3dc7b909a8a6d0c63c07c68",
+    "semantic_hash": "7336e7f0f3dc7b909a8a6d0c63c07c68"
+  },
+  "Skins/Spaceship/@Resources/Docs/SETUP.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349426,
+    "ast_hash": "5117510ba5a4e29583ddc153c1046a0b",
+    "semantic_hash": "5117510ba5a4e29583ddc153c1046a0b"
+  },
+  "Skins/Spaceship/@Resources/Docs/Spaceship-HUD-Guide.md": {
+    "mtime": 1791921106.4656596,
+    "seen": 1791922006.8681326,
+    "ast_hash": "166e045db1f0af1d4f269f3a2cde46c2",
+    "semantic_hash": "166e045db1f0af1d4f269f3a2cde46c2"
+  },
+  "Skins/Spaceship/@Resources/Images/Jarvis/README.txt": {
+    "mtime": 1791708284.572384,
+    "seen": 1791911947.034944,
+    "ast_hash": "9e1a95080c91bbd0376d0ef565076d7a",
+    "semantic_hash": "9e1a95080c91bbd0376d0ef565076d7a"
+  },
+  "Skins/Spaceship/@Resources/Jarvis/about-me-template.md": {
+    "mtime": 1791708284.5379398,
+    "seen": 1791911947.0349445,
+    "ast_hash": "cab5b623f49328212cb0fcfe113a8915",
+    "semantic_hash": "cab5b623f49328212cb0fcfe113a8915"
+  },
+  "Skins/Spaceship/@Resources/Presets/1/README.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791911947.0349452,
+    "ast_hash": "7170ff85bd4a261449212573c19ac1bf",
+    "semantic_hash": "7170ff85bd4a261449212573c19ac1bf"
+  },
+  "Skins/Spaceship/@Resources/Sounds/README.txt": {
+    "mtime": 1791708284.5598445,
+    "seen": 1791911947.0349457,
+    "ast_hash": "dec1def557e83b2fc5e838c4c0f8fb27",
+    "semantic_hash": "dec1def557e83b2fc5e838c4c0f8fb27"
+  },
+  "Skins/Spaceship/UPDATE.txt": {
+    "mtime": 1791665052.9728472,
+    "seen": 1791911947.0349462,
+    "ast_hash": "a26b2971b02d852b6e60a41283293477",
+    "semantic_hash": "a26b2971b02d852b6e60a41283293477"
+  },
+  "Skins/Spaceship/settings-add.txt": {
+    "mtime": 1791665054.2864368,
+    "seen": 1791911947.034947,
+    "ast_hash": "072d7c4ba871f4f16b87fc309d729363",
+    "semantic_hash": "072d7c4ba871f4f16b87fc309d729363"
+  },
+  "docs/PLAN.md": {
+    "mtime": 1791597475.706328,
+    "seen": 1791911947.0349476,
+    "ast_hash": "4aa82d273476c8c7478163b86c57f7b5",
+    "semantic_hash": "4aa82d273476c8c7478163b86c57f7b5"
+  },
+  "Skins/Spaceship/@Resources/Jarvis/check_voice.py": {
+    "mtime": 1791917305.1312823,
+    "seen": 1791922006.8344789,
+    "ast_hash": "f901305e313f5cd8a39d2069d69bed8d",
+    "semantic_hash": "f901305e313f5cd8a39d2069d69bed8d"
+  },
+  "Skins/Spaceship/@Resources/Jarvis/test_jarvis.py": {
+    "mtime": 1791921482.3811767,
+    "seen": 1791922006.8344862,
+    "ast_hash": "73acd3df881d857dea1f543638ae1599",
+    "semantic_hash": "73acd3df881d857dea1f543638ae1599"
+  },
+  "Skins/Spaceship/@Resources/Fonts/OFL-B612Mono.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681383,
+    "ast_hash": "aab923b305717b3ab097b015251281c9",
+    "semantic_hash": "aab923b305717b3ab097b015251281c9"
+  },
+  "Skins/Spaceship/@Resources/Fonts/OFL-Michroma.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681421,
+    "ast_hash": "a1544bc9cf9d315460c8ec824f6e7c73",
+    "semantic_hash": "a1544bc9cf9d315460c8ec824f6e7c73"
+  },
+  "Skins/Spaceship/@Resources/Fonts/OFL-Orbitron.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.868145,
+    "ast_hash": "1140675558ece3d1332e28babf5637b4",
+    "semantic_hash": "1140675558ece3d1332e28babf5637b4"
+  },
+  "Skins/Spaceship/@Resources/Fonts/OFL-Oxanium.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681476,
+    "ast_hash": "c418bb059a2053bbb7d0b92e21af1aba",
+    "semantic_hash": "c418bb059a2053bbb7d0b92e21af1aba"
+  },
+  "Skins/Spaceship/@Resources/Fonts/OFL-Rajdhani.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681502,
+    "ast_hash": "5cd80f7708fef4b16854c4af0bbd3f16",
+    "semantic_hash": "5cd80f7708fef4b16854c4af0bbd3f16"
+  },
+  "Skins/Spaceship/@Resources/Fonts/OFL-ShareTechMono.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.868153,
+    "ast_hash": "9b151b8cd6edd0c385b9ba79c7196265",
+    "semantic_hash": "9b151b8cd6edd0c385b9ba79c7196265"
+  },
+  "Skins/Spaceship/@Resources/Jarvis/requirements.txt": {
+    "mtime": 1791912590.2241418,
+    "seen": 1791922006.8681557,
+    "ast_hash": "fdd681b16ca0b03f4a8473679e3f46b4",
+    "semantic_hash": "fdd681b16ca0b03f4a8473679e3f46b4"
+  },
+  "Skins/Spaceship/@Resources/Presets/2/README.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681586,
+    "ast_hash": "7170ff85bd4a261449212573c19ac1bf",
+    "semantic_hash": "7170ff85bd4a261449212573c19ac1bf"
+  },
+  "Skins/Spaceship/@Resources/Presets/3/README.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681614,
+    "ast_hash": "7170ff85bd4a261449212573c19ac1bf",
+    "semantic_hash": "7170ff85bd4a261449212573c19ac1bf"
+  },
+  "Skins/Spaceship/@Resources/Presets/4/README.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.868164,
+    "ast_hash": "7170ff85bd4a261449212573c19ac1bf",
+    "semantic_hash": "7170ff85bd4a261449212573c19ac1bf"
+  },
+  "Skins/Spaceship/@Resources/Presets/5/README.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681674,
+    "ast_hash": "7170ff85bd4a261449212573c19ac1bf",
+    "semantic_hash": "7170ff85bd4a261449212573c19ac1bf"
+  },
+  "Skins/Spaceship/@Resources/Presets/6/README.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681705,
+    "ast_hash": "7170ff85bd4a261449212573c19ac1bf",
+    "semantic_hash": "7170ff85bd4a261449212573c19ac1bf"
+  },
+  "Skins/Spaceship/@Resources/Presets/_undo/README.txt": {
+    "mtime": 1791591642.0,
+    "seen": 1791922006.8681731,
+    "ast_hash": "7170ff85bd4a261449212573c19ac1bf",
+    "semantic_hash": "7170ff85bd4a261449212573c19ac1bf"
+  }
+}
