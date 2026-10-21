@@ -5,7 +5,7 @@ namespace ShipCore.Core;
 public sealed record SetResult(bool Ok, string? Error = null);
 
 /// <summary>Reads and writes single Key=Value lines of the skin's Settings.inc / State.inc / Offsets.inc. Only keys in the schema, only valid values, atomic replace, everything else in the file kept byte for byte.</summary>
-public sealed class ConfigStore
+public sealed class ConfigStore : IConfigStore
 {
     private readonly string _dir;
     private readonly ConfigSchema _schema;

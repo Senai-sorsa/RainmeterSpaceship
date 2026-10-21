@@ -95,13 +95,19 @@ sealed class Overlay : Form
 
         var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
         var resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
-        if (schemaPath is not null && resources is not null)
+        if (schemaPath is not null)
         {
             var schema = ConfigSchema.Parse(File.ReadAllText(schemaPath));
+            var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship");
+            var settingsPath = Path.Combine(appData, "settings.json");
+            var settings = new SettingsStore(settingsPath, schema);
+            // One-time import from the skin, only on the first run; a dry run is SkinImport.Build alone.
+            if (!File.Exists(settingsPath) && resources is not null)
+                settings.Import(SkinImport.Build(new ConfigStore(resources, schema), schema).Values);
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
-            var state = new HostState(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship", "ui-state.json"));
-            _router = new MessageRouter(schema, new ConfigStore(resources, schema), new ActionGate(unwired, unwired), ConfirmAsync, state);
+            var state = new HostState(Path.Combine(appData, "ui-state.json"));
+            _router = new MessageRouter(schema, settings, new ActionGate(unwired, unwired), ConfirmAsync, state);
         }
         var examPath = FindUp(Path.Combine("contract", "exam-browsers.json"));
         _policy = new VisibilityPolicy(examPath is null ? Array.Empty<string>() : ExamBrowserList.ProcessNames(File.ReadAllText(examPath)));

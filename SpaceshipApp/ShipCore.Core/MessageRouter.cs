@@ -8,14 +8,14 @@ public sealed record Routed(string? Reply, string? Problem);
 public sealed class MessageRouter
 {
     private readonly ConfigSchema _schema;
-    private readonly ConfigStore _store;
+    private readonly IConfigStore _store;
     private readonly ActionGate _gate;
     private readonly Func<string, Task<bool>> _confirm;
     private readonly HostState _state;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
     /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
-    public MessageRouter(ConfigSchema schema, ConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null)
+    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null)
     {
         _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null);
     }
