@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "gen": "python3 -I ../../tools/export_ui_assets.py",
+    "gen": "py -3 -I ../../tools/export_ui_assets.py",
     "build": "npm run gen && vite build",
-    "test": "python3 -I ../../tools/export_ui_assets.py --check && vitest run",
+    "test": "py -3 -I ../../tools/export_ui_assets.py --check && vitest run",
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run test:e2e",
     "dev": "vite"
