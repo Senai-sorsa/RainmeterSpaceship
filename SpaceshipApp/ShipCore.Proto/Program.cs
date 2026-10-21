@@ -46,7 +46,7 @@ sealed class Overlay : Form
         Bounds = Screen.PrimaryScreen!.Bounds;
         TopMost = false; // never above other apps (exam browsers, games)
 
-        _life = new Lifecycle(Teardown, () => _cc?.CoreWebView2.Reload(), () => Process.Start(new ProcessStartInfo("Rainmeter.exe") { UseShellExecute = true }));
+        _life = new Lifecycle(Teardown, () => _cc?.CoreWebView2.Reload());
         var menu = new ContextMenuStrip();
         foreach (var (id, label) in Lifecycle.TrayMenu) menu.Items.Add(label, null, (_, _) => { if (_life.Handle(id)) Application.Exit(); });
         _tray.Icon = SystemIcons.Application; _tray.Text = "Spaceship P-D prototype"; _tray.ContextMenuStrip = menu; _tray.Visible = true;

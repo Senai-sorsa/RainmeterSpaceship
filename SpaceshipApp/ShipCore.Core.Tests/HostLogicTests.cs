@@ -51,24 +51,20 @@ public class HostLogicTests
     [Fact]
     public void ShutdownIsNeverBlockedAndTeardownRunsOnce()
     {
-        int down = 0, refresh = 0, rm = 0;
-        var l = new Lifecycle(() => down++, () => refresh++, () => rm++);
+        int down = 0, refresh = 0;
+        var l = new Lifecycle(() => down++, () => refresh++);
         Assert.True(l.OnQueryEndSession());
         l.OnEndSession(false);
         Assert.Equal(0, down);
         l.OnEndSession(true);
         Assert.False(l.Handle(TrayCommand.Refresh));
         Assert.True(l.Handle(TrayCommand.Quit));
-        Assert.Equal(1, down); Assert.Equal(1, refresh); Assert.Equal(0, rm);
+        Assert.Equal(1, down); Assert.Equal(1, refresh);
     }
 
     [Fact]
-    public void SwitchToRainmeterTearsDownThenLaunchesRainmeter()
+    public void TrayMenuHasNoRainmeterEntry()
     {
-        var order = new List<string>();
-        var l = new Lifecycle(() => order.Add("down"), () => { }, () => order.Add("rainmeter"));
-        Assert.True(l.Handle(TrayCommand.SwitchToRainmeter));
-        Assert.Equal(new[] { "down", "rainmeter" }, order);
-        Assert.Equal(new[] { "Refresh", "Switch to Rainmeter", "Quit" }, Lifecycle.TrayMenu.Select(m => m.Label));
+        Assert.Equal(new[] { "Refresh", "Quit" }, Lifecycle.TrayMenu.Select(m => m.Label));
     }
 }

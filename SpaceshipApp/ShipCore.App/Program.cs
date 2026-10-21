@@ -106,7 +106,7 @@ sealed class Overlay : Form
         var examPath = FindUp(Path.Combine("contract", "exam-browsers.json"));
         _policy = new VisibilityPolicy(examPath is null ? Array.Empty<string>() : ExamBrowserList.ProcessNames(File.ReadAllText(examPath)));
         _snapshots = new Win32Snapshots(() => _home);
-        _life = new Lifecycle(Stop, () => Restart(false), () => { }); // Switch to Rainmeter is P-H; the tray menu does not offer it yet
+        _life = new Lifecycle(Stop, () => Restart(false));
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("Start", null, (_, _) => Start());
@@ -152,7 +152,7 @@ sealed class Overlay : Form
         Start();
     }
 
-    // Rainmeter's "On desktop" layer: parent to WorkerW, which sits under the desktop icons and under every normal window.
+    // Desktop layer: parent to WorkerW, which sits under the desktop icons and under every normal window.
     // The taskbar is a separate top-level window above it, so the taskbar draws over this window.
     void AttachToDesktopLayer()
     {
