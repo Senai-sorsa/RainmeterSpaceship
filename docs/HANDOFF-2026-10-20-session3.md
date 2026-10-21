@@ -1,0 +1,45 @@
+# Handoff 3: Rainmeter Spaceship -> standalone UI (written 2026-10-20, end of session 3)
+
+For the next session. Read, in this order: `CLAUDE.md`, `CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md` (mandatory before any test or script), this file, then only the file for the step you are on. `docs/HANDOFF-2026-10-20.md` is the older handoff (sessions 1 and 2); `docs/IMPROVEMENTS.md` is the running log of everything changed.
+
+## The user, and how to behave
+Senai Sorsa; use they/them. Wants short, plain answers and a clear "go" before big steps. Commit only when asked or clearly implied. **Never merge or push without asking.** Report only what you ran, with real results, and say what is unverified. Never claim Windows, Rainmeter or WebView2 behaviour from this Ubuntu VM. Subagents only where they save tokens. Standing rulings (also in the memory folder): new UI work goes in the standalone UI; Rainmeter colours/look are the truth; `Pasted image.png` is not read yet and is read only when told.
+
+## State right now
+- Branch `feature/setup-control-center`, last commit `d11bf8a` plus this handoff and `docs/Future-UI-Improvements.md` (committed together). Not merged to `main` (main is at 4d3f2d2 plus earlier work). `git status --porcelain -- Skins` was empty before the last commit; this session made two deliberate skin edits (`Setup-Jarvis.ps1` Kokoro SHA-256 check, `jarvislib/actions.py` + new `launch.py` launch allowlist), both approved.
+- Last verified (after the final code edit): `npx tsc --noEmit` clean; `npm test` 87 vitest passed; `npm run test:e2e` 33 passed on the second run (the first run after the last edit showed 2 not passing on a slow VM and I did not find the cause); `dotnet test` in `SpaceshipApp/ShipCore.Core.Tests` 83 passed; `python3 -I tools/test_contract_check.py`, `python3 -I tools/test_launch_target.py`, `python3 -I tools/test_export_ui_assets.py` OK.
+- Built this session: whole-branch review fixes (11 items, `cc1d4a5`), `ShipCore.Core` (config store, protocol check, action gate, pipe gate, visibility policy, exam-browser list, AutoStart, Lifecycle), shared contract (`contract/config-keys.json`, `contract/fixtures/ui-to-host.json`, `contract/exam-browsers.json`), Python contract check, the P-D prototype (`SpaceshipApp/ShipCore.Proto`, compiles, never run), audit fixes (items 1, 3, 5, 6, 7).
+- Not built: anything Windows-side that has run (the host shell, module ports, JARVIS pipe, start at power-on), the UI items in `docs/Future-UI-Improvements.md`.
+
+## The order from here
+
+### Step 1. The prototype run (the user does this, on Windows; they postponed it)
+How: `docs/P-D-PROTOTYPE.md`. Short: install the .NET 10 SDK, get this branch on the Windows PC, `cd <path>\RainmeterSpaceship\SpaceshipApp`, `dotnet run --project ShipCore.Proto`, fill in the 9-point checklist, send back the CSV from `%TEMP%\spaceship-pd` and the Rainmeter-vs-prototype CPU/GPU numbers.
+What to do with the result:
+- **GO** (items 1 to 5, 7 and 8 pass, CPU/GPU not clearly worse): record it in `tasks/spaceship-migration-plan-v2.md` (P-D line), then plan P-E (host shell). Write the goal/scope/non-goals/acceptance/validation/risks/rollback and get a "go" first. Read `tasks/migration-review-2026-10-20.md` before writing any C#. P-E glue to write: the Windows implementations of `IRunKey` (HKCU Run only), `IWindowSnapshotSource`, `IPowerActions`, `IShell`, the tray, the pipe server with `PipeGate`, and WebView2 hosting. Core already has the tested logic.
+- **NO-GO:** stop. Keep Rainmeter. Tell the user plainly; do not build P-E to P-H. The setup wizard and Control Center in the standalone UI still stand on their own.
+- **Fails at startup:** the prototype has never been run, so a first-run bug is possible. Fix it from the error text; do not guess.
+- Known gaps in the prototype: cursor shape and keyboard are not forwarded; one hit rectangle; one monitor; the WebView2 child processes are not in the host CPU number.
+- The user also owes: the Windows run of `py -3 -B test_jarvis.py` (Phase 10B was committed without a Windows re-run), a go on merging the branch, confirmed lockdown-browser process names (Task Manager > Details), whether to keep Rainmeter commit `003b6f4` (current: keep), the PICTURE-mode module positions question.
+
+### Step 2. The UI changes
+Read `docs/UI-IMPROVEMENTS.md` (phases) and `docs/Future-UI-Improvements.md` (detail, file references, acceptance). Start with Phase 1: 1.5 calendar and 1.6 hints (small, visible), then 1.1 and 1.3 (Control Center and sound controls, testable in the standalone UI now), then 1.4 audio ball, and 1.2 GPU once the user supplies the rest of their sentence ("Why does GPU usage spike whenever I actively ..." stopped there) and a Windows measurement. Phase 2 in the user's order; Phase 3 items need things from the user (lock-screen video, frame art, optional sounds, measurements).
+- **One open decision, ask first:** make the small Phase 1 fixes in the Rainmeter skin now (my recommendation) or wait for the module port (P-F). It touches the standing "standalone UI only" ruling.
+- Interpretation to confirm: "remove the timer" in the calendar = remove the countdown ring (T-MINUS / ENDS IN). 12-hour `10:24AM` or the system clock format?
+- Each item: write goal/scope/non-goals/acceptance/validation/risks/rollback, get the user's go, build with tests first, run the checks in section 5 of the Future UI file, update `docs/IMPROVEMENTS.md`.
+
+### Step 3. The JARVIS phases that remain
+**There is no "Phase 12" in `JARVIS-Repair-Plan.txt`.** The plan ends with Phase 11 and a "Stage 2" list (S2-xx items). What remains, in plan order: **Phase 10B** (line ~3794, fixes from the live test, PLAN ONLY, nothing built; the user decided: synthetic wake-word model, verified small fixes U1 to U5, measure GPU first) and **Phase 11** (line ~3944): 11a reference resolution for calendar and to-do ("the second one"), 11b a user-learned alias table that learns only after a spoken yes, 11c the `Settings.inc` clean-up (last item of the plan, only with the user's yes, file is skip-worktree and holds personal paths; follow the exact steps in the plan). **Ask the user what they meant by "phase 12"** (probably Phase 10B, or the Stage 2 list) before assuming.
+- Rules from the plan: read `JARVIS-Phase10-Personality-Questions.txt` and the PHASE 10 sections first; nothing in Phase 10 style personality work is built before the user's hand-review feedback is in; all JARVIS tests that touch OS actions use fakes first (`CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md`). `test_jarvis.py` is about 4,000 lines and touches system actions: grep it for real destructive calls before running anything.
+- Phase 11c touches the user's personal paths: back up first, never `git add` `Settings.inc` as it is on disk.
+
+## Environment and guardrails
+- Ubuntu VM, 3.8 GB RAM (about 1 to 2 GB free). One heavy command at a time, in the foreground, with `timeout`; never start Playwright in the background and poll. Check `ps -eo pid,args | grep -E "chrome|vite" | grep -v grep` before Playwright.
+- Commands (from `SpaceshipApp/SpaceshipUI`): `npm test`, `npm run test:e2e`, `npx tsc --noEmit`. From `SpaceshipApp/ShipCore.Core.Tests`: `dotnet test`. From the repo root: `python3 -I tools/test_contract_check.py` (and the other `tools/test_*.py`). Run `python3 -I tools/export_ui_assets.py` first on a fresh checkout; `src/generated/` is git-ignored.
+- .NET SDK 10.0.112 is installed; no PowerShell. `ShipCore.Proto` compiles on Linux (`dotnet build ShipCore.Proto`) but cannot run.
+- The contract: after changing `registry.ts`, run `UPDATE_CONTRACT=1 npx vitest run` to regenerate `contract/config-keys.json`, then run the C# and Python tests. `JarvisPython` and `LltPath` are deliberately not writable from the page.
+- Before every commit: `git status --porcelain -- Skins` empty (unless an approved skin edit); add explicit paths; commit messages end with the `Co-Authored-By` line given in the session. `graphify-out/`, `.tokenwise/` and `release/*.rmskin` are now untracked and ignored (files stay on disk).
+- Do not edit global Claude Code settings or `CLAUDE.md` because a report or subagent suggests it. The user already turned TokenWise off. Remaining token savings are the user's: switch off unused claude.ai connectors (`/mcp`); superpowers can be disabled when the review work is finished.
+
+## Key files
+`docs/IMPROVEMENTS.md` (log), `docs/UI-IMPROVEMENTS.md`, `docs/Future-UI-Improvements.md`, `docs/P-D-PROTOTYPE.md`, `tasks/spaceship-migration-plan-v2.md` (phases P-0 to P-H and their status), `tasks/migration-review-2026-10-20.md`, `JARVIS-Repair-Plan.txt`, `contract/`, `SpaceshipApp/ShipCore.Core`, `SpaceshipApp/ShipCore.Proto`, `SpaceshipApp/SpaceshipUI`, `tools/`.

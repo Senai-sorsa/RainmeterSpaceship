@@ -1,6 +1,6 @@
 # UI improvements
 
-Written 2026-10-20. Small feature changes, not redesigns. Three phases:
+Written 2026-10-20. Full detail for each item is in `docs/Future-UI-Improvements.md`. Small feature changes, not redesigns. Three phases:
 
 - **Phase 1**: exactly what you asked for.
 - **Phase 2**: extra changes I suggest, taken from how engineering tools and HUDs handle the same problems.
@@ -25,7 +25,7 @@ Where things live today (checked in the repo): hover hints are the "HUD captions
 | 1.1 | **Scrolling and the Control Center view** | Show a scroll bar and fade edges so you can see there is more; remember the scroll position per category; mouse wheel and PgUp/PgDn/Home/End work; the category rail stays pinned while the settings scroll; fit more rows per screen at 1280x800 | You can reach every setting without losing your place; Playwright test for scroll memory and keyboard scrolling |
 | 1.2 | **GPU spikes when you actively ...** | **Your sentence stopped after "actively". Tell me the action** (moving the mouse? hovering? talking to JARVIS? dragging a window?). Then: reproduce it and measure GPU before and after (Windows only), find which meter redraws, and cap or pause it while the action runs | A before/after GPU number from Task Manager or `tools/gpu_baseline.ps1`; no estimate |
 | 1.3 | **Make the noises easier to control and adjust** | One "Sound" group in the Control Center: master volume, separate sliders for the JARVIS voice, alerts and UI clicks, a mute for each, and a "play sample" button next to every slider; a mute toggle on the HUD itself | Each sound type can be changed and tested without leaving the page |
-| 1.4 | **Make the music/noise ball a more accurate visual** | Drive it from real frequency bands (low / mid / high on a log scale), smooth the rise fast and the fall slowly, show silence as a calm resting ring instead of random motion, and make the size follow loudness in decibels, not raw level | With a test tone the bands line up with the pitch; with silence the ball is still |
+| 1.4 | **Make the music/noise ball a more accurate visual** | (`audio.lua` already uses 96 analyser bands plus RMS and peak, so first find out what looks wrong to you; see `docs/Future-UI-Improvements.md` 1.4.) Candidate changes: real frequency bands (low / mid / high on a log scale), smooth the rise fast and the fall slowly, show silence as a calm resting ring instead of random motion, and make the size follow loudness in decibels, not raw level | With a test tone the bands line up with the pitch; with silence the ball is still |
 | 1.5 | **Calendar: fix the cut-off text** | Smaller font; remove the countdown timer; give the text more width (shorter date column, wrap the title to two lines before cutting it); inside 24 hours show the clock time (`10:24AM`) instead of "TMRW"/"TODAY"; keep a day name beyond 24 hours | No event title is cut at the default size; an event 5 hours away shows its time |
 | 1.6 | **Clean up the hover hints** | Rules below | Hint count drops; every remaining hint passes the rule |
 

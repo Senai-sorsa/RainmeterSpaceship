@@ -5,6 +5,9 @@ Facts come from git history (`git log`) and from test runs on the Ubuntu VM. Not
 
 ## 1. Progress log
 
+### 2026-10-20 (session 3): handoff
+- `docs/HANDOFF-2026-10-20-session3.md` (state, order: prototype run, UI changes, JARVIS Phase 10B/11; no Phase 12 exists in the plan) and `docs/Future-UI-Improvements.md` (full detail of every UI item).
+
 ### 2026-10-20 (session 3): UI improvement plan
 - `docs/UI-IMPROVEMENTS.md`: Phase 1 (your exact requests: scrolling, GPU spike, sound controls, audio ball, calendar, hint cleanup), Phase 2 (17 extra small changes), Phase 3 (things only you can supply). Nothing built yet.
 
