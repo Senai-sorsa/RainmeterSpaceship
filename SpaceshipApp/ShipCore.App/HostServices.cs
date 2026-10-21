@@ -6,6 +6,11 @@ using ShipCore.Core;
 
 // Windows implementations of the Core interfaces. Core decides; these only read the OS or write the one Run value.
 
+sealed class SystemClock : IClock
+{
+    public DateTimeOffset Now => DateTimeOffset.UtcNow;
+}
+
 // IWindowSnapshotSource: what VisibilityPolicy needs, read fresh on every call.
 sealed class Win32Snapshots(Func<Rectangle> monitor) : IWindowSnapshotSource
 {

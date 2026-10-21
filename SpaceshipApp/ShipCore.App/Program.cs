@@ -82,6 +82,7 @@ sealed class Overlay : Form
     readonly System.Windows.Forms.Timer _visibility = new() { Interval = 3000 };
     readonly AutoStart _autostart = new(new RunKeyStore());
     readonly Lifecycle _life;
+    readonly JarvisPipe _jarvis = new(new SystemClock());
 
     public Overlay(bool hotkeyRegistered)
     {
@@ -134,6 +135,7 @@ sealed class Overlay : Form
         _lastCpu = _self.TotalProcessorTime;
         _perf.Tick += (_, _) => Sample();
         _perf.Start();
+        _jarvis.Start();
     }
 
     protected override CreateParams CreateParams
@@ -322,7 +324,7 @@ sealed class Overlay : Form
     void Quit()
     {
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
-        _visibility.Stop(); _perf.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null;
+        _visibility.Stop(); _perf.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
         Application.Exit();
     }
 

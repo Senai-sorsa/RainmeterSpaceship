@@ -8,6 +8,8 @@ import threading
 import time
 from datetime import datetime
 
+from jarvislib.host_pipe import host_live
+
 
 # without argv: @Resources is two folders above jarvislib (this was ".." while it lived in jarvis.py)
 RES = (sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")).strip().strip('"')
@@ -195,7 +197,8 @@ def single_instance():
 
 
 def rainmeter_running():
-    return ctypes.windll.user32.FindWindowW("DummyRainWClass", None) != 0
+    # the standalone host replaces Rainmeter, so its pipe counts as the same signal (BUG-01)
+    return ctypes.windll.user32.FindWindowW("DummyRainWClass", None) != 0 or host_live()
 
 
 # ------------------------------------------------------------------ HUD context for the model
