@@ -5,6 +5,9 @@ Facts come from git history (`git log`) and from test runs on the Ubuntu VM. Not
 
 ## 1. Progress log
 
+### 2026-10-20 (session 3): UI improvement plan
+- `docs/UI-IMPROVEMENTS.md`: Phase 1 (your exact requests: scrolling, GPU spike, sound controls, audio ball, calendar, hint cleanup), Phase 2 (17 extra small changes), Phase 3 (things only you can supply). Nothing built yet.
+
 ### 2026-10-20 (session 3): audit follow-ups
 - Audit item 4 done: `tools/contract_check.py` (Python version of the message check) + `tools/test_contract_check.py`; `python3 -I tools/test_contract_check.py` passes and agrees with all 47 shared fixtures. It checks message shape only; JARVIS does not import it yet, and no pipe round trip exists.
 - Audit item 6 (part): the e2e failure-injection option (`?host=mock&fail=Key`) is now a real `MockHost` option, not a poke into a private field in `main.tsx`. vitest 86, tsc clean, Playwright 33 passed afterwards.
