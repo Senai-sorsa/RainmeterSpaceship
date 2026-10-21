@@ -97,8 +97,6 @@ Use available development tools selectively.
 
 \- Use Ponytail to encourage minimal changes and review diffs.
 
-\- Use Tokenwise only after reviewing its model-routing and configuration changes.
-
 
 
 Keep Claude Opus responsible for the overall audit, architectural decisions, and final review. Any delegated work must respect the same scope and safety requirements.

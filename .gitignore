@@ -44,8 +44,6 @@ Skins/Spaceship/@Resources/testkoroko.py
 
 # tool output and local backups
 
-CLAUDE.md.tokenwise-backup-*
-
 # editor config and external code reviews (local only)
 .continue/
 
@@ -55,5 +53,4 @@ SpaceshipApp/SpaceshipUI/node_modules/
 
 # local tool output and build artefacts (kept on disk, never committed)
 graphify-out/
-.tokenwise/
 release/*.rmskin
