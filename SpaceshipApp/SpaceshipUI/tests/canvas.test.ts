@@ -10,7 +10,8 @@ const ACCENT: RGBA = [0, 210, 255, 255], DIM: RGBA = [0, 110, 150, 255], WARN: R
 function style(over: Partial<Style> = {}): Style {
   return {
     s: 1, tier: 0, glowA: 46, glowW: 3.2, coreWhite: 0, hudA: 255, edit: false,
-    white: [255, 255, 255, 255], dim: DIM, panel: [0, 30, 45, 90], accent: ACCENT, warn: WARN, alert: ALERT,
+    textGlow: 4, textGlowA: 150, textSmall: 1.85, textLarge: 1.45, fontText: 'Oxanium',
+    white: [255, 255, 255, 255], dim: DIM, panel: [0, 30, 45, 90], accent: ACCENT, warn: WARN, alert: ALERT, text: [200, 240, 255, 255],
     ...over,
   };
 }
@@ -168,6 +169,71 @@ describe('icons (lib.lua Canvas:icon)', () => {
       c.icon(name, 50, 50, 40, ACCENT, 1.2);
       expect(c.flush().length, name).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('text (lib.lua H.text)', () => {
+  it('places text in zone units, scaled to device units, with the default font and weight', () => {
+    const c = new Canvas({ x: 100, y: 200, w: 50, h: 50 }, style({ s: 2, tier: 2 }));
+    c.text(10, 20, 'HUD');
+    const [op] = c.flush();
+    expect(op.shape).toMatchObject({ kind: 'text', x: 220, y: 440, text: 'HUD', align: 'LeftTop', weight: 600, font: 'Oxanium', blur: 0 });
+    expect((op.shape as { size: number }).size).toBeCloseTo(11 * 1.45 * 2); // 11 is not under 9.5, so it takes the large scale
+  });
+
+  it('scales sizes under 9.5 by the small scale instead', () => {
+    const c = new Canvas(zone, style({ tier: 2 }));
+    c.text(0, 0, 'a', { size: 9 });
+    c.text(0, 0, 'b', { size: 9.5 });
+    const [small, large] = c.flush().map((o) => (o.shape as { size: number }).size);
+    expect(small).toBeCloseTo(9 * 1.85);
+    expect(large).toBeCloseTo(9.5 * 1.45);
+  });
+
+  it('FULL and LITE add a zero-offset shadow in the text colour, before the text', () => {
+    const c = new Canvas(zone, style({ tier: 0 }));
+    c.text(0, 0, 'x', { alpha: 255 });
+    const [shadow, text] = c.flush();
+    expect((shadow.shape as { blur: number }).blur).toBe(4); // TextGlow 4 at scale 1
+    expect(shadow.fill).toEqual([200, 240, 255, 150]); // TextGlowAlpha 150
+    expect((text.shape as { blur: number }).blur).toBe(0);
+    expect(text.fill).toEqual([200, 240, 255, 255]);
+  });
+
+  it('LOW and STEALTH draw no shadow, and glow:false turns it off per call', () => {
+    const low = new Canvas(zone, style({ tier: 2 }));
+    low.text(0, 0, 'x');
+    expect(low.flush().length).toBe(1);
+    const off = new Canvas(zone, style({ tier: 0 }));
+    off.text(0, 0, 'x', { glow: false });
+    expect(off.flush().length).toBe(1);
+  });
+
+  it('CoreWhite blends the text colour toward white by half the setting', () => {
+    const c = new Canvas(zone, style({ tier: 2, coreWhite: 0.5 }));
+    c.text(0, 0, 'x', { color: ACCENT });
+    expect(c.flush()[0].fill).toEqual([63, 221, 255, 255]); // 0.25 of the way from accent to white
+  });
+
+  it('HudAlpha scales the text colour once', () => {
+    const c = new Canvas(zone, style({ tier: 2, hudA: 128 }));
+    c.text(0, 0, 'x');
+    expect(c.flush()[0].fill?.[3]).toBe(128);
+  });
+
+  it('clip gives the clip width in device units only when set', () => {
+    const c = new Canvas(zone, style({ s: 2, tier: 2 }));
+    c.text(0, 0, 'a', { clip: 330 });
+    c.text(0, 0, 'b');
+    const [clipped, plain] = c.flush().map((o) => o.shape as { clipW?: number });
+    expect(clipped.clipW).toBe(660);
+    expect(plain.clipW).toBeUndefined();
+  });
+
+  it('empty text draws nothing', () => {
+    const c = new Canvas(zone, style());
+    c.text(0, 0, '');
+    expect(c.flush()).toEqual([]);
   });
 });
 

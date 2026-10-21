@@ -13,15 +13,19 @@ export type Stroke = { color: RGBA; width: number; dash?: [number, number] };
 export type Shape =
   | { kind: 'poly'; pts: Pt[]; closed: boolean }
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
-  | { kind: 'rect'; x: number; y: number; w: number; h: number; r: number };
+  | { kind: 'rect'; x: number; y: number; w: number; h: number; r: number }
+  // blur is the shadow radius for a glow-layer copy of the text; 0 for the text itself. clipW is set only when clipped.
+  | { kind: 'text'; x: number; y: number; text: string; size: number; align: string; weight: number; font: string; clipW?: number; blur: number };
 export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke };
 
-/** Settings the skin reads from H.init (PerfTier, GlowAlpha, GlowWidth, CoreWhite, HudAlpha, Scale, EditMode) and its colours. */
+/** Settings the skin reads from H.init (PerfTier, GlowAlpha, GlowWidth, CoreWhite, HudAlpha, Scale, EditMode, text settings) and its colours. */
 export type Style = {
   s: number; tier: number; glowA: number; glowW: number; coreWhite: number; hudA: number; edit: boolean;
-  white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA;
+  textGlow: number; textGlowA: number; textSmall: number; textLarge: number; fontText: string;
+  white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA;
 };
 export type Zone = { x: number; y: number; w: number; h: number };
+export type TextOpts = { size?: number; color?: RGBA; alpha?: number; align?: string; weight?: number; font?: string; glow?: boolean; clip?: number };
 
 /** Per-channel floor blend (lib.lua H.mix); alpha is always 255. */
 export function mix(c1: RGBA, c2: RGBA, t: number): RGBA {
@@ -58,6 +62,7 @@ export class Canvas {
       case 'poly': return { ...shape, pts: shape.pts.map(([px, py]) => [(x + px) * s, (y + py) * s] as Pt) };
       case 'ellipse': return { kind: 'ellipse', cx: (x + shape.cx) * s, cy: (y + shape.cy) * s, rx: shape.rx * s, ry: shape.ry * s };
       case 'rect': return { kind: 'rect', x: (x + shape.x) * s, y: (y + shape.y) * s, w: shape.w * s, h: shape.h * s, r: shape.r * s };
+      case 'text': return { ...shape, x: (x + shape.x) * s, y: (y + shape.y) * s, size: shape.size * s, clipW: shape.clipW && shape.clipW * s, blur: shape.blur * s };
     }
   }
 
@@ -188,6 +193,22 @@ export class Canvas {
     this.poly([[x + w - len, y], [x + w, y], [x + w, y + len]], col, lw, alpha);
     this.poly([[x + w, y + h - len], [x + w, y + h], [x + w - len, y + h]], col, lw, alpha);
     this.poly([[x + len, y + h], [x, y + h], [x, y + h - len]], col, lw, alpha);
+  }
+
+  /** Text at x, y in zone units, as H.text: sizes under 9.5 scale up, a zero-offset glow shadow on FULL and LITE, optional clip width. Empty text draws nothing. */
+  text(x: number, y: number, txt: string, opts: TextOpts = {}) {
+    if (!txt) return;
+    const st = this.st, base = opts.size ?? 11;
+    const tc = opts.color ?? st.text;
+    const fill = st.coreWhite > 0 ? mix(tc, st.white, st.coreWhite * 0.5) : tc;
+    const shape = {
+      kind: 'text' as const, x, y, text: txt, size: base * (base < 9.5 ? st.textSmall : st.textLarge), align: opts.align ?? 'LeftTop',
+      weight: opts.weight ?? 600, font: opts.font ?? st.fontText, clipW: opts.clip, blur: 0,
+    };
+    if (st.tier < 2 && st.textGlow > 0 && opts.glow !== false) {
+      this.push('top', { ...shape, blur: st.textGlow }, this.tint(tc, Math.floor((st.textGlowA * (opts.alpha ?? 255)) / 255)));
+    }
+    this.push('top', shape, this.tint(fill, opts.alpha ?? fill[3]));
   }
 
   /** Icon from icons.json, authored in a 100x100 box and fitted to sz, centred on cx, cy. Unknown names draw the gear, as lib.lua does. */
