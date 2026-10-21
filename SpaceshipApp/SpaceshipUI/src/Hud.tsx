@@ -6,6 +6,9 @@ import { num } from './lib/theme';
 import { store } from './settings/instance';
 import { frameStyleOf } from './settings/frameStyle';
 import { FrameLayers } from './ui/FrameLayers';
+import { Caption } from './ui/Caption';
+import { MissionClock } from './modules/MissionClock';
+import { fakeCalendar } from './modules/calendarSource';
 
 const v = (settings as { variables: Record<string, string> }).variables;
 // Skin glow model (lib.lua Canvas:neon, tier 0): outer halo w*GlowWidth*2.1 at GlowAlpha*0.38, glow w*GlowWidth at GlowAlpha, core w.
@@ -16,6 +19,9 @@ const ICONS = ['rocket', 'starship', 'camera', 'book'] as const;
 const iconSet = icons.icons as unknown as Record<string, Prim[]>;
 // ?debug=1 only: the skin draws no zone outlines (only edit mode: Canvas:flush, fill 255,200,0,18 / stroke 255,200,0,200 / width 2).
 const debug = new URLSearchParams(location.search).get('debug') === '1';
+// Modules are off until proven (architecture plan rule 4): ?module=clock turns the mission clock on for checks.
+const clockOn = new URLSearchParams(location.search).get('module') === 'clock';
+const clockZone = layout.zones.find((z) => z.id === 'L_location');
 
 function Neon({ d }: { d: string }) {
   const p = { d, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
@@ -63,7 +69,9 @@ export function Hud() {
           <Neon d={iconPath(iconSet[name] ?? [])} />
         </g>
       ))}
+      {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
+    <Caption />
     </>
   );
 }
