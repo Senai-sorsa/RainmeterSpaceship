@@ -63,10 +63,10 @@ Live check script (already written, not run): `C:\Users\Senai\.claude\jobs\bd352
 ## Migration plan status (`tasks/spaceship-migration-plan-v2.md` section 6)
 - P-0 DONE. P-A DONE (feature branch). P-B DONE on `feature/setup-control-center`, not merged to main. P-C mostly done.
 - **P-D** gate: prototype fixed; checklist items 1-9 NOT run. Needs the live run. Decision rules are in `docs/P-D-PROTOTYPE.md`. The plan's FAIL note is stale until the rerun.
-- **P-E** host shell: window, tray, hotkey, kill are in the new app. Missing: ConfigStore wiring, HKCU Run glue (AutoStart in Core), exam-process visibility with real window snapshots (`IWindowSnapshotSource`), named pipes, ProcessFailed handling.
-- **P-F** module ports (35 skins, parity diff each). NOT started in the host. Largest phase.
-- **P-G** JARVIS integration: BUG-01 change, pipe client, contract tests. NOT started.
-- **P-H** opt-in cutover: HKCU Run, 6-hour soak, rollback drill, explicit user approval to deploy. Cannot be finished before a live test.
+- **P-E** host shell: code done in `57b71bd` (router, config, visibility, lifecycle, autostart, ProcessFailed handling). Not verified live.
+- **P-F** module ports (35 skins, parity diff each). NOT started in the host. Largest phase. Needs per-batch sign-off and live rendering for parity.
+- **P-G** JARVIS side (commit `f74c86e`): `JarvisPipe.cs` serves one client on a per-run pipe, with the session file in `%TEMP%\spaceship-app\host-session.json`; `jarvislib/host_pipe.py` does the hello/ready handshake and the pipe-alive check; BUG-01 is in `base.py` `rainmeter_running()`. Tests: C# 99 pass (`HostPipeWireTests` reads `contract/fixtures/host-pipe.json`), Python `test_host_pipe.py` 5 pass (fake streams only). NOT done: a real pipe round trip, and any host-to-JARVIS message (the host reads and discards data after `ready`).
+- **P-H** cutover script: `tools/windows/Switch-HudHost.ps1`. Default is a dry run. `-Apply` records the active Rainmeter skin files, deactivates them and asks the host to close; `-Rollback` reverses it. NOT run with `-Apply`. Not done: HKCU Run enablement, the 6-hour soak, the rollback drill, and deployment (needs the user's explicit approval).
 
 ## Next steps (in order)
 1. User decides: merge `feature/setup-control-center`? (not without asking). Commit the new files and the prototype change? (ask).
@@ -78,6 +78,7 @@ Live check script (already written, not run): `C:\Users\Senai\.claude\jobs\bd352
 7. P-H only after explicit approval.
 
 ## Rollback
+- HUD switch: `powershell -ExecutionPolicy Bypass -File tools\windows\Switch-HudHost.ps1 -Rollback` closes the host and reactivates the skins recorded by the last `-Apply` (in `%LOCALAPPDATA%\Spaceship\cutover-state.json`). `-Rollback` acts without `-Apply`; the bare run is the dry run.
 - Standalone app: delete `SpaceshipApp/ShipCore.App/`, `ShipCore.Core/KillSwitch.cs`, `ShipCore.Core/HostRules.cs`, and the two new test files.
 - Prototype: `git checkout -- SpaceshipApp/ShipCore.Proto/Program.cs`.
 - Jarvis: set `JarvisAutoStart=1` in `Skins/Spaceship/@Resources/Settings.inc` (user's call).
