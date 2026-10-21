@@ -41,13 +41,15 @@ export function systemMetricsFrom(m: unknown): SystemMetrics | null {
   };
 }
 
-/** The skin measures the host supplies (mCPU, mBattPct, netDown, netUp). Unavailable values are left out, so the sources see them as missing. */
+/** The skin measures the host supplies (mCPU, mBattPct, mAC, netDown, netUp, and HW_X as mHwX). Unavailable values are left out, so the sources see them as missing. */
 export function readingsFrom(m: SystemMetrics): Readings {
   const r: Readings = {};
   if (m.cpuPercent !== null) r.mCPU = m.cpuPercent;
   if (m.batteryPercent !== null) r.mBattPct = m.batteryPercent;
+  if (m.onAc !== null) r.mAC = m.onAc ? 1 : 0;
   if (m.netDown !== null) r.netDown = m.netDown;
   if (m.netUp !== null) r.netUp = m.netUp;
+  for (const [k, v] of Object.entries(m.hw)) if (k.startsWith('HW_') && v !== null) r[`mHw${k.slice(3)}`] = v;
   return r;
 }
 
