@@ -4,11 +4,11 @@ local st = { hybrid = '', power = '', refresh = '', battery = '', dgpu = '', llt
 local armed, armedAt = nil, 0
 local tick, msg, msgAt = 0, '', 0
 local hudHidden = false
-local TABS = { { id = 'ECO', key = 'LltHybridECO', tip = 'Integrated GPU only (RTX 5070 powered off)' },
-               { id = 'HYBRID', key = 'LltHybridHYBRID', tip = 'Both GPUs - the RTX wakes when an app needs it' },
-               { id = 'AUTO', key = 'LltHybridAUTO', tip = 'Hybrid on AC, integrated only on battery' },
-               { id = 'dGPU', key = 'LltHybridDGPU', tip = 'Discrete only (MUX) - needs a reboot' },
-               { id = 'OFF', tip = 'Hide / show every HUD module (the console stays)' } }
+local TABS = { { id = 'ECO', key = 'LltHybridECO', tip = 'Integrated only, RTX 5070 off' },
+               { id = 'HYBRID', key = 'LltHybridHYBRID', tip = 'Both GPUs, RTX wakes on demand' },
+               { id = 'AUTO', key = 'LltHybridAUTO', tip = 'Hybrid on AC, integrated on battery' },
+               { id = 'dGPU', key = 'LltHybridDGPU', tip = 'Discrete only (MUX), reboot needed' },
+               { id = 'OFF' } }
 local TIERS = { [-1] = 'AUTO', [0] = 'FULL', [1] = 'LITE', [2] = 'LOW', [3] = 'STEALTH' }
 
 local function split(s, sep)
@@ -79,14 +79,14 @@ local function buttons()
   local hz = st.refresh ~= '' and (string.match(st.refresh, '%d+') or st.refresh) .. 'HZ' or '--HZ'
   local cons = st.battery ~= '' and (string.find(st.battery, string.lower(H.str('LltBatteryConserve', 'conservation')), 1, true) and 'ON' or 'OFF') or '--'
   return {
-    { label = pw, tip = 'Power mode: ' .. table.concat(modes, ' / ') },
-    { label = hz, tip = 'Refresh rate: ' .. table.concat(rates, ' / ') .. ' Hz' },
-    { label = H.num('ChargeLimit', 80) .. '%', on = cons == 'ON', tip = 'Battery conservation (hold at ' .. H.num('ChargeLimit', 80) .. '%)' },
+    { label = pw, tip = 'Modes: ' .. table.concat(modes, ' / ') },
+    { label = hz, tip = 'Rates: ' .. table.concat(rates, ' / ') .. ' Hz' },
+    { label = H.num('ChargeLimit', 80) .. '%', on = cons == 'ON' },
     { label = (tierOv < 0 and string.sub(TIERS[H.num('PerfTier', 0)] or 'FULL', 1, 4) or string.sub(TIERS[tierOv], 1, 4)),
-      tip = 'Graphics tier: ' .. (TIERS[tierOv] or 'AUTO') .. ' (now ' .. (TIERS[H.num('PerfTier', 0)] or '?') .. ')' },
+      tip = tierOv >= 0 and ('Auto picks ' .. (TIERS[H.num('PerfTier', 0)] or '?')) or nil },
     { label = 'dGPU', light = st.dgpu, tip = 'RTX 5070: ' .. (st.dgpu == 'on' and 'present / powered' or (st.dgpu == 'off' and 'off (ECO mode)' or 'unknown')) },
-    { label = 'CARGO', tip = 'All apps (drop-down drawer)' },
-    { label = 'MASTER', on = tierOv == 3, tip = 'Kill switch: drop the whole HUD to STEALTH / restore' },
+    { label = 'CARGO' },
+    { label = 'MASTER', on = tierOv == 3, tip = 'Kill switch: STEALTH / restore' },
     { label = 'CFG', tip = 'Control Center: modules, layout, theme, apps, sensors, presets' },
   }
 end
@@ -121,7 +121,7 @@ function Update()
     H.hit(1, i, x - 34, y - 12, 68, 24, t.tip)
   end
   -- reference RADR IFCS pair -> CARGO, CFG
-  local boxes = { { 'CARGO', 11, 'All apps (drop-down drawer)' }, { 'CFG', 13, 'Control Center' } }
+  local boxes = { { 'CARGO', 11 }, { 'CFG', 13, 'Control Center' } }
   for i, b in ipairs(boxes) do
     local x0, x1 = RX(BOX[i][1]), RX(BOX[i][2])
     local y0, y1 = RY(46), RY(55)

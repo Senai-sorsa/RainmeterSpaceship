@@ -205,13 +205,11 @@ function Update()
     H.hideText(1, 3)
   end
   if frame % 20 == 1 then
-    local tip
+    local tip -- CPU is the only target figure not drawn on screen
     if todo then
-      tip = string.format('Next: %s%s   %d open', todo.text,
+      tip = string.format('%s%s   %d open', todo.text,
         todo.due and ('   due ' .. os.date(todo.timed and '%a %d %b %H:%M' or '%a %d %b', todo.due)) or '', #todos)
-    else
-      tip = string.format('Target %d: %s  %.0f%% CPU  %.0f MB', rank, name, cpu, ram / 1048576)
-    end
+    else tip = string.format('%.0f%% CPU', cpu) end
     H.hit(1, 1, cx - EXT_L, cy - EXT_U, EXT_L + EXT_R, EXT_U + EXT_D, tip)
   end
   c:flush()

@@ -124,15 +124,9 @@ function Update()
     -- stepped underline (reference weapon rows)
     c:poly({ { MX(0.005), Y(0.98) }, { MX(0.327), Y(0.935) }, { MX(0.362), Y(0.84) }, { MX(0.96), Y(0.83) } }, A1, 1.4)
     for k = 1, 7 do H.hideHit(1, k) end
-    local tip
-    if isCat then
-      tip = #list == 0 and (entry.cat.name .. ' - none of its apps are installed')
-        or ''
-    elseif app and app.missing then
-      tip = app.name .. ' is not installed or was moved'
-    else
-      tip = app and app.name or 'Unassigned slot - set Slot' .. slot .. '= in Apps.ini'
-    end
+    local tip -- groups and filled slots show no hint: their name is already on screen
+    if app and app.missing then tip = app.name .. ' not installed or moved'
+    elseif not app and not isCat then tip = 'Slot ' .. slot .. ' unassigned' end
     H.hit(1, 8, 0, 0, w, h, tip)
 
   elseif style == 'card' then
