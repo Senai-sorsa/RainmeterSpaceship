@@ -35,7 +35,7 @@ Owner decision: the user asked for the host to be its own app, not part of the s
 
 ## Guardrails (each must hold before the next phase)
 1. **Off by default.** No autostart. The HKCU Run entry is an opt-in toggle, off until the soak passes and the user approves.
-2. **Three ways out:** tray Quit, tray Stop, kill switch Ctrl+Alt+1 (already in `KillSwitch.cs`). Sign-out also stops it (`Lifecycle`).
+2. **Three ways out:** tray Quit, tray Stop, kill switch Ctrl+Alt+Shift+1 (`KillChord.cs`, `KillSwitch.cs`). Sign-out also stops it (`Lifecycle`).
 3. **Watchdog:** the web view is restarted at most 3 times, then the host stops and logs `GIVING_UP` (`Program.cs` ProcessFailed handling). Extend the same limit to the pipe and to module errors.
 4. **Modules off until proven:** each module has an enable flag in config, default off. A module turns on only after its unit tests and its rmsim parity pass. Real-desktop enablement waits for the user's live go.
 5. **No OS actions from the model or the UI:** `UnwiredHost` throws for power and flows. A new action needs its own plan, confirmation and a fake-first test.

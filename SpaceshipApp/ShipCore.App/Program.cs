@@ -4,7 +4,7 @@ using Microsoft.Web.WebView2.Core;
 using ShipCore.Core;
 
 // Standalone Spaceship app: one transparent window over the desktop, sized to the work area (it stops at the top of the taskbar),
-// hosting a composition-mode WebView2 through DirectComposition. Ctrl+Alt+1 stops the app and everything it started.
+// hosting a composition-mode WebView2 through DirectComposition. Ctrl+Alt+Shift+1 stops the app and everything it started.
 // Never topmost, no hooks, no injection. Tray menu: Start, Stop, Quit.
 static class Program
 {
@@ -12,16 +12,20 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        var kill = new KillSwitch(() => Process.GetCurrentProcess().Kill(entireProcessTree: true));
+        var marker = new RunMarker(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship", "running.marker"));
+        var lastRunUnclean = marker.LastRunEndedUncleanly();
+        marker.MarkRunning(DateTimeOffset.Now);
+        // The kill chord is a deliberate stop, so it clears the marker before the process goes.
+        var kill = new KillSwitch(() => { marker.MarkCleanExit(); Process.GetCurrentProcess().Kill(entireProcessTree: true); });
         var hotkey = new HotkeyThread(() => kill.Fire());
-        Application.Run(new Overlay(hotkey.Registered));
+        Application.Run(new Overlay(hotkey.Registered, marker, lastRunUnclean));
     }
 }
 
-// Ctrl+Alt+1 on its own thread, so it still works when the window is frozen.
+// The kill chord on its own thread, so it still works when the window is frozen.
 sealed class HotkeyThread
 {
-    const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_NOREPEAT = 0x4000, VK_1 = 0x31, WM_HOTKEY = 0x0312;
+    const uint MOD_NOREPEAT = 0x4000, WM_HOTKEY = 0x0312;
     const int ID = 1;
     readonly Action _onPress;
     readonly ManualResetEventSlim _ready = new();
@@ -37,7 +41,7 @@ sealed class HotkeyThread
 
     void Run()
     {
-        Registered = RegisterHotKey(IntPtr.Zero, ID, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_1);
+        Registered = RegisterHotKey(IntPtr.Zero, ID, KillChord.Modifiers | MOD_NOREPEAT, KillChord.Key);
         _ready.Set();
         while (GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
             if (msg.message == WM_HOTKEY) _onPress();
@@ -82,10 +86,12 @@ sealed class Overlay : Form
     readonly System.Windows.Forms.Timer _visibility = new() { Interval = 3000 };
     readonly AutoStart _autostart = new(new RunKeyStore());
     readonly Lifecycle _life;
+    readonly RunMarker _marker;
     readonly JarvisPipe _jarvis = new(new SystemClock());
 
-    public Overlay(bool hotkeyRegistered)
+    public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean)
     {
+        _marker = marker;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
@@ -129,7 +135,8 @@ sealed class Overlay : Form
         menu.Items.Add(auto);
         menu.Items.Add("Quit", null, (_, _) => Quit());
         _tray.Icon = SystemIcons.Application; _tray.Text = "Spaceship"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
-        if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", "Ctrl+Alt+1 is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
+        if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", $"{KillChord.Label} is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
+        if (lastRunUnclean) _tray.ShowBalloonTip(5000, "Spaceship", "The last run did not exit cleanly. Its log is in the temp folder under spaceship-app.", ToolTipIcon.Warning);
         _visibility.Tick += (_, _) => ApplyVisibility();
         _visibility.Start();
 
@@ -345,6 +352,7 @@ sealed class Overlay : Form
     void Quit()
     {
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
+        _marker.MarkCleanExit();
         _visibility.Stop(); _perf.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
         Application.Exit();
     }
