@@ -87,3 +87,31 @@ test('a failed write (host failKeys via ?fail=Scale) shows an inline error and r
   await expect(slider).toHaveValue('0.67');
   expect(await sent(page)).toContainEqual(expect.objectContaining({ key: 'Scale', value: '1.5' }));
 });
+
+test('each category remembers its scroll position and the pane scrolls with the keyboard', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(cc);
+  const pane = page.getByRole('region', { name: 'Settings' });
+  const rail = page.getByRole('navigation', { name: 'Settings categories' });
+  const top = () => pane.evaluate((el) => el.scrollTop);
+  const tall = () => pane.evaluate((el) => el.scrollHeight - el.clientHeight);
+  const first = CATEGORIES.find((c) => c.id === 'display')!;
+  await rail.getByRole('button', { name: first.label, exact: true }).click();
+  await page.getByRole('switch', { name: 'Advanced settings' }).click(); // more rows, so the pane scrolls
+  expect(await tall()).toBeGreaterThan(200);
+  await expect(pane).toHaveAttribute('data-bottom', '1');
+  await expect(pane).toHaveAttribute('data-top', '0');
+  await pane.focus();
+  await page.keyboard.press('End');
+  await expect.poll(top).toBeGreaterThan(100);
+  await expect(pane).toHaveAttribute('data-bottom', '0');
+  await expect(pane).toHaveAttribute('data-top', '1');
+  const was = await top();
+  await rail.getByRole('button', { name: 'System', exact: true }).click();
+  await expect.poll(top).toBe(0);
+  await rail.getByRole('button', { name: first.label, exact: true }).click();
+  await expect.poll(top).toBe(was);
+  await pane.focus();
+  await page.keyboard.press('Home');
+  await expect.poll(top).toBe(0);
+});

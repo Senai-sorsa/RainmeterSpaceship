@@ -5,6 +5,13 @@ Facts come from git history (`git log`) and from test runs on the Ubuntu VM. Not
 
 ## 1. Progress log
 
+### 2026-10-20 (session 3, evening): Phase 1 started, everything pushed
+- Merged `feature/setup-control-center` and `feature/ui-phase1` into `main` and pushed. `docs/PAUSED-2026-10-20.md` says where work stopped.
+- Phase 1.5 calendar (Rainmeter): ring kept, smaller, moved left; text 5.4; title area widened from about 70 to about 97 layout units; events under 24 h show `10:24AM`; no more TMRW. Verified in the simulator only (render before/after).
+- Phase 1.6 hints (Rainmeter): 21 files; usage text and repeats removed, informational hints kept. Not hover-tested in Rainmeter.
+- Phase 1.1 Control Center scrolling (standalone UI): scroll position remembered per category, the pane is a keyboard-scrollable region, edge fades, thin scrollbar, single-line reset strip, tighter rows. New e2e test; Playwright 34 passed.
+- Added `docs/WINDOWS-SESSION-START.md`, `tools/windows/preflight.ps1`, `tools/windows/collect-pd-results.ps1` (PowerShell, written here, never run).
+
 ### 2026-10-20 (session 3): handoff
 - `docs/HANDOFF-2026-10-20-session3.md` (state, order: prototype run, UI changes, JARVIS Phase 10B/11; no Phase 12 exists in the plan) and `docs/Future-UI-Improvements.md` (full detail of every UI item).
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { HostBridge } from '../host/HostBridge';
 import { CATEGORIES } from '../settings/registry';
 import type { SettingsStore } from '../settings/store';
@@ -14,10 +14,24 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
   const [cat, setCat] = useState<CategoryId>(CATEGORIES[0].id);
   const [jump, setJump] = useState<string | null>(null);
   const [help, setHelp] = useState<string | null>(null);
+  const pane = useRef<HTMLDivElement>(null);
+  const scrolls = useRef<Record<string, number>>({}); // scroll position per category, for this session
   const q = store.query.value;
   const adv = store.level.value === 'advanced';
   const results = q.trim() ? store.search(q).filter((d) => adv || d.level !== 'advanced').slice(0, 30) : [];
   const groups = [...new Set(defs.filter((d) => d.category === cat && (adv || d.level !== 'advanced')).map((d) => d.group))];
+
+  const go = (id: CategoryId) => { if (pane.current) scrolls.current[cat] = pane.current.scrollTop; setCat(id); };
+  /** Edge fades show only on the side that has more content. */
+  const edges = () => {
+    const el = pane.current;
+    if (!el) return;
+    el.dataset.top = el.scrollTop > 0 ? '1' : '0';
+    el.dataset.bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1 ? '1' : '0';
+  };
+  // Back to this category's saved position (top the first time). A search jump scrolls afterwards and wins.
+  useLayoutEffect(() => { if (pane.current) pane.current.scrollTop = scrolls.current[cat] ?? 0; edges(); }, [cat, q.trim() === '']);
+  useLayoutEffect(edges);
 
   // After the panel re-renders for a clicked result: open its group, then scroll to and focus its primary control.
   useEffect(() => {
@@ -42,7 +56,7 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
     return () => window.removeEventListener('keydown', onKey);
   }, [store, onClose, help]);
 
-  const pick = (d: SettingDef) => { setCat(d.category); store.query.value = ''; setJump(d.key); };
+  const pick = (d: SettingDef) => { go(d.category); store.query.value = ''; setJump(d.key); };
   const label = (id: string) => CATEGORIES.find((c) => c.id === id)?.label ?? id;
 
   return (
@@ -60,8 +74,8 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
         <button type="button" class="ctl-action cc-btn" aria-label="Close Control Center" onClick={onClose}>Close</button>
       </header>
       <div class="cc-body">
-        <CategoryRail active={cat} onSelect={(id) => { setCat(id); store.query.value = ''; }} />
-        <div class="cc-pane">
+        <CategoryRail active={cat} onSelect={(id) => { go(id); store.query.value = ''; }} />
+        <div class="cc-pane" ref={pane} tabIndex={0} role="region" aria-label="Settings" onScroll={edges} onClick={() => setTimeout(edges, 0)}>
           {q.trim() ? (
             <ul class="cc-results" aria-label="Search results">
               {results.map((d) => (

@@ -2,6 +2,8 @@
 
 For the next session. Read, in this order: `CLAUDE.md`, `CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md` (mandatory before any test or script), this file, then only the file for the step you are on. `docs/HANDOFF-2026-10-20.md` is the older handoff (sessions 1 and 2); `docs/IMPROVEMENTS.md` is the running log of everything changed.
 
+**UPDATE (end of session 3, later):** `main` now contains everything and was pushed to origin. Also read `docs/PAUSED-2026-10-20.md` (where work stopped) and, on the Windows PC, `docs/WINDOWS-SESSION-START.md` first. Since this handoff was first written: the branch was merged to `main`; the Phase 1 skin changes (calendar: ring kept but smaller and to the left, 12-hour times inside 24 h; hover-hint cleanup in 21 files) and the Control Center scroll work (1.1: per-category scroll memory, keyboard scrolling, edge fades; 34 Playwright tests pass) are on `main`. Not started: 1.3 sound controls, 1.4 audio ball, standalone versions of the calendar and hints (wait for the module port), Phase 2 and 3. The GPU spike is ignored for now (user's word).
+
 ## The user, and how to behave
 Senai Sorsa; use they/them. Wants short, plain answers and a clear "go" before big steps. Commit only when asked or clearly implied. **Never merge or push without asking.** Report only what you ran, with real results, and say what is unverified. Never claim Windows, Rainmeter or WebView2 behaviour from this Ubuntu VM. Subagents only where they save tokens. Standing rulings (also in the memory folder): new UI work goes in the standalone UI; Rainmeter colours/look are the truth; `Pasted image.png` is not read yet and is read only when told.
 
