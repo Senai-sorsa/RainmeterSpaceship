@@ -7,6 +7,10 @@ Slot1=chrome
 Slot2=dev
 Slot3=comms
 Slot4=creative
+Slot5=code
+Slot6=mail
+Slot7=paint
+Slot8=dev
 HideMissing=1
 [App.chrome]
 Name=Chrome

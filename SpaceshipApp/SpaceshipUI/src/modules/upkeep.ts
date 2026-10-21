@@ -11,7 +11,8 @@ export type UpkeepInput = {
   mailWhy?: string; // why mail is missing (ERR text or 'off'), set when mail is undefined
 };
 
-const count = (v: number | undefined) => (v === undefined || v < 0 ? '--' : String(v));
+/** A count for the block, or -- when unknown or negative. */
+export const count = (v: number | undefined) => (v === undefined || v < 0 ? '--' : String(v));
 
 export function upkeepFrame(input: UpkeepInput, zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st);
