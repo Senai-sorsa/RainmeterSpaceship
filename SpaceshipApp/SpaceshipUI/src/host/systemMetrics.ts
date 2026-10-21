@@ -44,6 +44,7 @@ export function systemMetricsFrom(m: unknown): SystemMetrics | null {
 /** The skin measures the host supplies (mCPU, mBattPct, mAC, netDown, netUp, and HW_X as mHwX). Unavailable values are left out, so the sources see them as missing. */
 export function readingsFrom(m: SystemMetrics): Readings {
   const r: Readings = {};
+  r.mRamPct = m.memoryPercent;
   if (m.cpuPercent !== null) r.mCPU = m.cpuPercent;
   if (m.batteryPercent !== null) r.mBattPct = m.batteryPercent;
   if (m.onAc !== null) r.mAC = m.onAc ? 1 : 0;

@@ -43,11 +43,16 @@ describe('system metrics signal', () => {
 
   it('maps the reading to the skin measures, leaving out what is unavailable', () => {
     const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":4,"cpuPercent":12.5,"memoryPercent":41,"uptimeMs":10,"onAc":true,"batteryPercent":null,"netDown":1000,"netUp":null,"spectrum":null,"processes":{},"hw":{}}'));
-    expect(m && readingsFrom(m)).toEqual({ mCPU: 12.5, mAC: 1, netDown: 1000 });
+    expect(m && readingsFrom(m)).toEqual({ mRamPct: 41, mCPU: 12.5, mAC: 1, netDown: 1000 });
   });
 
   it('maps the HW_ sensors to the skin hw measures and the AC flag to mAC', () => {
     const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":5,"cpuPercent":null,"memoryPercent":41,"uptimeMs":10,"onAc":false,"batteryPercent":null,"netDown":null,"netUp":null,"spectrum":null,"processes":{},"hw":{"HW_CpuTemp":48.5,"HW_GpuTemp":null}}'));
-    expect(m && readingsFrom(m)).toEqual({ mAC: 0, mHwCpuTemp: 48.5 });
+    expect(m && readingsFrom(m)).toEqual({ mRamPct: 41, mAC: 0, mHwCpuTemp: 48.5 });
+  });
+
+  it('maps the HW power sensors the power and battery modules read', () => {
+    const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":6,"cpuPercent":null,"memoryPercent":40,"uptimeMs":10,"onAc":null,"batteryPercent":null,"netDown":null,"netUp":null,"spectrum":null,"processes":{},"hw":{"HW_CpuPower":42,"HW_GpuPower":88,"HW_ChargeRate":-12.5}}'));
+    expect(m && readingsFrom(m)).toEqual({ mRamPct: 40, mHwCpuPower: 42, mHwGpuPower: 88, mHwChargeRate: -12.5 });
   });
 });

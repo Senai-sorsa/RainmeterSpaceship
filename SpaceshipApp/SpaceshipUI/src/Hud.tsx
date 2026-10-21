@@ -72,7 +72,7 @@ export function Hud() {
           <Neon d={iconPath(iconSet[name] ?? [])} />
         </g>
       ))}
-      {topOn && <TopModule style={styleFrom(values)} />}
+      {topOn && <TopModule style={styleFrom(values)} values={values} />}
       {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
