@@ -91,12 +91,20 @@ if (Ask 'Install the natural Kokoro voice (~400 MB download, runs on the NVIDIA 
     New-Item -ItemType Directory -Force -Path $vdir | Out-Null
     $base = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0'
     # int8 = the CPU voice; the full model is only used on the GPU (int8 runs 3x slower there)
+    # SHA-256 of the files in the model-files-v1.0 release, taken 2026-10-20; a file that does not match is deleted, never loaded
+    $sha = @{ 'kokoro-v1.0.int8.onnx' = '6E742170D309016E5891A994E1CE1559C702A2CCD0075E67EF7157974F6406CB'
+              'kokoro-v1.0.onnx'      = '7D5DF8ECF7D4B1878015A32686053FD0EEBE2BC377234608764CC0EF3636A6C5'
+              'voices-v1.0.bin'       = 'BCA610B8308E8D99F32E6FE4197E7EC01679264EFED0CAC9140FE9C29F1FBF7D' }
     foreach ($f in 'kokoro-v1.0.int8.onnx', 'kokoro-v1.0.onnx', 'voices-v1.0.bin') {
       $out = Join-Path $vdir $f
       if (-not (Test-Path $out) -or (Get-Item $out).Length -lt 1MB) {
         Write-Host "Downloading $f ..."
         try { Invoke-WebRequest -Uri "$base/$f" -OutFile $out -UseBasicParsing }
         catch { Write-Host "Download failed: $($_.Exception.Message)" -ForegroundColor Yellow }
+      }
+      if ((Test-Path $out) -and (Get-FileHash $out -Algorithm SHA256).Hash -ne $sha[$f]) {
+        Write-Host "$f does not match the expected file - deleted. Run setup again; if it keeps happening, the release changed." -ForegroundColor Yellow
+        Remove-Item $out -Force
       }
     }
     $model = Join-Path $vdir 'kokoro-v1.0.int8.onnx'
