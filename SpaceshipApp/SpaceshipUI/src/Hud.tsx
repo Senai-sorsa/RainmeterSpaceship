@@ -16,6 +16,7 @@ import { CenterModule } from './modules/CenterModule';
 import { RightModule } from './modules/RightModule';
 import { DrawerModule } from './modules/DrawerModule';
 import { BootModule } from './modules/BootModule';
+import { JarvisModule, JarvisLogModule } from './modules/JarvisModule';
 import { styleFrom } from './modules/style';
 
 const v = (settings as { variables: Record<string, string> }).variables;
@@ -36,6 +37,8 @@ const rightOn = new URLSearchParams(location.search).get('module') === 'right';
 const centerOn = new URLSearchParams(location.search).get('module') === 'center';
 const drawerOn = new URLSearchParams(location.search).get('module') === 'drawer';
 const bootOn = new URLSearchParams(location.search).get('module') === 'boot';
+const jarvisOn = new URLSearchParams(location.search).get('module') === 'jarvis';
+const jarvisLogOn = new URLSearchParams(location.search).get('module') === 'jarvislog';
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 
 function Neon({ d }: { d: string }) {
@@ -91,6 +94,8 @@ export function Hud() {
       {centerOn && <CenterModule style={styleFrom(values)} />}
       {drawerOn && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
+      {jarvisOn && <JarvisModule style={styleFrom(values)} />}
+      {jarvisLogOn && <JarvisLogModule style={styleFrom(values)} />}
       {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
