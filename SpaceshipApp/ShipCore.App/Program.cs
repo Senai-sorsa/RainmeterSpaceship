@@ -81,6 +81,11 @@ sealed class Overlay : Form
 
     // Core logic. Null router = no skin folder or contract found: the page gets no settings and nothing is written.
     readonly MessageRouter? _router;
+    SettingsStore? _settings;
+    IReadOnlyList<string> _hwKeys = Array.Empty<string>();
+    readonly SystemSampler _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry());
+    readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
+    long _metricsSeq;
     readonly VisibilityPolicy _policy;
     readonly Win32Snapshots _snapshots;
     readonly System.Windows.Forms.Timer _visibility = new() { Interval = 3000 };
@@ -106,14 +111,15 @@ sealed class Overlay : Form
             var schema = ConfigSchema.Parse(File.ReadAllText(schemaPath));
             var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship");
             var settingsPath = Path.Combine(appData, "settings.json");
-            var settings = new SettingsStore(settingsPath, schema);
+            _settings = new SettingsStore(settingsPath, schema);
+            _hwKeys = schema.Keys.Keys.Where(k => k.StartsWith("HW_", StringComparison.Ordinal)).ToList();
             // One-time import from the skin, only on the first run; a dry run is SkinImport.Build alone.
             if (!File.Exists(settingsPath) && resources is not null)
-                settings.Import(SkinImport.Build(new ConfigStore(resources, schema), schema).Values);
+                _settings.Import(SkinImport.Build(new ConfigStore(resources, schema), schema).Values);
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
-            _router = new MessageRouter(schema, settings, new ActionGate(unwired, unwired), ConfirmAsync, state);
+            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state);
         }
         var examPath = FindUp(Path.Combine("contract", "exam-browsers.json"));
         _policy = new VisibilityPolicy(examPath is null ? Array.Empty<string>() : ExamBrowserList.ProcessNames(File.ReadAllText(examPath)));
@@ -149,6 +155,8 @@ sealed class Overlay : Form
         _lastCpu = _self.TotalProcessorTime;
         _perf.Tick += (_, _) => Sample();
         _perf.Start();
+        _metricsTimer.Tick += (_, _) => PushMetrics();
+        _metricsTimer.Start();
         _jarvis.Start();
     }
 
@@ -314,6 +322,18 @@ sealed class Overlay : Form
         else if (Visible) Hide();
     }
 
+    // One system.metrics frame per second, only while the window is shown; a failed read is logged and skipped.
+    void PushMetrics()
+    {
+        if (_cc?.CoreWebView2 is null || !Visible) return;
+        try
+        {
+            var settings = _settings?.Get(_hwKeys) ?? new Dictionary<string, string>();
+            _cc.CoreWebView2.PostWebMessageAsJson(SystemSampler.ToJson(_sampler.Sample(settings, ++_metricsSeq)));
+        }
+        catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name}"); }
+    }
+
     // Power and flow actions need a person to say yes; the schema lists none of them, so this is only reached through the gate.
     Task<bool> ConfirmAsync(string id) =>
         Task.FromResult(MessageBox.Show(this, $"Allow the {id} action?", "Spaceship", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
@@ -353,7 +373,7 @@ sealed class Overlay : Form
     {
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
-        _visibility.Stop(); _perf.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
         Application.Exit();
     }
 

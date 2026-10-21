@@ -1,0 +1,60 @@
+[
+ {
+  "name": "full frame",
+  "valid": true,
+  "msg": {
+   "type": "system.metrics",
+   "seq": 12,
+   "cpuPercent": 37.5,
+   "memoryPercent": 61.2,
+   "uptimeMs": 123456789,
+   "onAc": true,
+   "batteryPercent": 80,
+   "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
+  }
+ },
+ {
+  "name": "first frame: no CPU sample yet, no battery, nothing mapped",
+  "valid": true,
+  "msg": {
+   "type": "system.metrics",
+   "seq": 1,
+   "cpuPercent": null,
+   "memoryPercent": 40,
+   "uptimeMs": 0,
+   "onAc": null,
+   "batteryPercent": null,
+   "hw": {}
+  }
+ },
+ {
+  "name": "wrong type",
+  "valid": false,
+  "msg": { "type": "telemetry", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": {} }
+ },
+ {
+  "name": "cpu as text",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": "37", "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": {} }
+ },
+ {
+  "name": "negative uptime",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": -5, "onAc": null, "batteryPercent": null, "hw": {} }
+ },
+ {
+  "name": "hw is a list",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": [] }
+ },
+ {
+  "name": "hw value is text",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": { "HW_CpuTemp": "48" } }
+ },
+ {
+  "name": "battery over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": 140, "hw": {} }
+ }
+]
