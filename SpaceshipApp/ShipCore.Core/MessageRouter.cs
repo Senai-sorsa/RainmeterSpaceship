@@ -11,11 +11,13 @@ public sealed class MessageRouter
     private readonly ConfigStore _store;
     private readonly ActionGate _gate;
     private readonly Func<string, Task<bool>> _confirm;
+    private readonly HostState _state;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
-    public MessageRouter(ConfigSchema schema, ConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm)
+    /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
+    public MessageRouter(ConfigSchema schema, ConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null)
     {
-        _schema = schema; _store = store; _gate = gate; _confirm = confirm;
+        _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null);
     }
 
     public async Task<Routed> HandleAsync(string json)
@@ -29,16 +31,28 @@ public sealed class MessageRouter
             case "config.get":
             {
                 var keys = m.GetProperty("keys").EnumerateArray().Select(k => k.GetString()!).ToList();
-                return Reply(new { type = "config", values = _store.Get(keys) });
+                return Reply(new { type = "config.values", values = _store.Get(keys) });
             }
             case "config.set":
             {
-                var r = _store.Set(m.GetProperty("key").GetString()!, m.GetProperty("value").GetString()!);
-                return Reply(new { type = "config.result", id = m.GetProperty("id").GetInt64(), ok = r.Ok, error = r.Error });
+                var key = m.GetProperty("key").GetString()!;
+                var r = _store.Set(key, m.GetProperty("value").GetString()!);
+                return Reply(new { type = "config.ack", id = m.GetProperty("id").GetInt64(), key, ok = r.Ok, error = r.Error });
             }
+            case "setup.get": return Reply(new { type = "setup.state", done = _state.SetupDone });
+            case "setup.finish":
+                _state.SetSetupDone(true);
+                return Reply(new { type = "setup.state", done = true });
+            case "aboutme.get": return Reply(new { type = "aboutme.value", text = _state.AboutMe });
+            case "aboutme.set":
+                _state.SetAboutMe(m.GetProperty("text").GetString()!);
+                return Reply(new { type = "aboutme.value", text = _state.AboutMe });
             case "action":
             {
                 var id = m.GetProperty("id").GetString()!;
+                // Setup actions mirror the mock host: reset clears the flag for the next start, rerun reopens the wizard now.
+                if (id == "setup.reset") { _state.SetSetupDone(false); return new(null, null); }
+                if (id == "setup.rerun") return Reply(new { type = "setup.state", done = false });
                 // Only power ids reach the gate; the other schema actions are not implemented in the host yet.
                 if (id is not ("shutdown" or "restart" or "sleep" or "lock")) return new(null, null);
                 var g = await _gate.PowerAsync(id, _confirm);
@@ -50,7 +64,7 @@ public sealed class MessageRouter
                 var g = _gate.Flow(flow);
                 return Reply(new { type = "flow.result", flow, ran = g.Ran, reason = g.Reason });
             }
-            default: return new(null, null); // setup.* and aboutme.* are accepted but not handled in the host yet
+            default: return new(null, null);
         }
     }
 

@@ -87,11 +87,30 @@ export class MockHost implements HostBridge {
   }
 }
 
-export class WebView2Host implements HostBridge {
-  send(_m: Msg): void { throw new Error('not implemented (P-E)'); }
-  onMessage(_cb: (m: Msg) => void): void | (() => void) { throw new Error('not implemented (P-E)'); }
-  telemetry(): Float32Array { throw new Error('not implemented (P-E)'); }
+/** The part of window.chrome.webview this bridge uses. The host sends replies as JSON objects and reads whatever string the page posts. */
+export interface WebViewApi {
+  postMessage(text: string): void;
+  addEventListener(type: 'message', cb: (e: { data: unknown }) => void): void;
+  removeEventListener(type: 'message', cb: (e: { data: unknown }) => void): void;
 }
+
+export class WebView2Host implements HostBridge {
+  constructor(private api: WebViewApi) {}
+  send(m: Msg): void { this.api.postMessage(JSON.stringify(m)); }
+  onMessage(cb: (m: Msg) => void): () => void {
+    const listener = (e: { data: unknown }) => {
+      let msg: unknown;
+      try { msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+      if (isObj(msg) && typeof msg.type === 'string') cb(msg as Msg);
+    };
+    this.api.addEventListener('message', listener);
+    return () => this.api.removeEventListener('message', listener);
+  }
+  /** The host does not send telemetry yet, so the page gets silence rather than made-up motion. */
+  telemetry(): Float32Array { return new Float32Array(8); }
+}
+
+function isObj(m: unknown): m is Record<string, unknown> { return typeof m === 'object' && m !== null && !Array.isArray(m); }
 
 function safeLocalStorage(): Storage | null {
   try { return globalThis.localStorage ?? null; } catch { return null; }
@@ -100,8 +119,8 @@ function safeLocalStorage(): Storage | null {
 export function chooseHost(): HostBridge {
   const q = new URLSearchParams(globalThis.location?.search ?? '');
   const forced = q.get('host') === 'mock';
-  const w = (globalThis as { chrome?: { webview?: unknown } }).chrome;
-  if (!forced && w?.webview) return new WebView2Host();
+  const w = (globalThis as { chrome?: { webview?: WebViewApi } }).chrome;
+  if (!forced && w?.webview) return new WebView2Host(w.webview);
   const storage = safeLocalStorage();
   if (q.get('fresh') === '1') { try { storage?.removeItem(STORE_KEY); } catch { /* ignore */ } }
   const allowed = allowedKeys(modules);

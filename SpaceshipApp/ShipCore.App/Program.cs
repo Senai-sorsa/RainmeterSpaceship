@@ -100,7 +100,8 @@ sealed class Overlay : Form
             var schema = ConfigSchema.Parse(File.ReadAllText(schemaPath));
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
-            _router = new MessageRouter(schema, new ConfigStore(resources, schema), new ActionGate(unwired, unwired), ConfirmAsync);
+            var state = new HostState(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship", "ui-state.json"));
+            _router = new MessageRouter(schema, new ConfigStore(resources, schema), new ActionGate(unwired, unwired), ConfirmAsync, state);
         }
         var examPath = FindUp(Path.Combine("contract", "exam-browsers.json"));
         _policy = new VisibilityPolicy(examPath is null ? Array.Empty<string>() : ExamBrowserList.ProcessNames(File.ReadAllText(examPath)));
@@ -235,11 +236,25 @@ sealed class Overlay : Form
         _cc.CoreWebView2.WebMessageReceived += (_, a) => OnWebMessage(a);
         _cc.CoreWebView2.ProcessFailed += (_, a) => OnProcessFailed(a);
         // The page is the only thing this view may show: no links, no redirects, no popups.
-        _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank";
+        _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
         _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; };
-        _cc.CoreWebView2.NavigateToString(PageHtml());
+        var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
+        if (ui is null)
+        {
+            _log?.WriteLine($"{DateTime.UtcNow:O},UI_MISSING,placeholder page");
+            _cc.CoreWebView2.NavigateToString(PageHtml());
+        }
+        else
+        {
+            // The built UI, served from its folder under a fixed name; only that origin may load.
+            _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(UiHost, ui, CoreWebView2HostResourceAccessKind.DenyCors);
+            _cc.CoreWebView2.Navigate(UiOrigin + "index.html");
+        }
     }
+
+    const string UiHost = "spaceship.local";
+    const string UiOrigin = "https://spaceship.local/";
 
     // A number is the page's frame rate; anything else is a message for MessageRouter (which checks it first).
     async void OnWebMessage(CoreWebView2WebMessageReceivedEventArgs a)

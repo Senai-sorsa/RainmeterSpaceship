@@ -23,7 +23,7 @@ describe('contract', () => {
   it('config-keys.json matches the registry (UPDATE_CONTRACT=1 regenerates it)', () => {
     const want = JSON.stringify(derive(), null, 2) + '\n';
     if (process.env.UPDATE_CONTRACT === '1') writeFileSync(GOLDEN, want);
-    expect(readFileSync(GOLDEN, 'utf8')).toBe(want);
+    expect(readFileSync(GOLDEN, 'utf8').replace(/\r\n/g, '\n')).toBe(want); // Windows checkouts write CRLF
   });
   it('every UI-to-host fixture gets the verdict it declares', () => {
     const fx = JSON.parse(readFileSync(FIXTURES, 'utf8')) as { name: string; valid: boolean; msg: unknown }[];

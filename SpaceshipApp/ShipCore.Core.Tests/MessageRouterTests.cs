@@ -26,7 +26,8 @@ public sealed class MessageRouterTests : IDisposable
         var r = await _router.HandleAsync("{\"type\":\"config.set\",\"key\":\"Scale\",\"value\":\"0.8\",\"id\":7}");
         Assert.Null(r.Problem);
         var reply = Json(r.Reply!);
-        Assert.Equal("config.result", reply.GetProperty("type").GetString());
+        Assert.Equal("config.ack", reply.GetProperty("type").GetString());
+        Assert.Equal("Scale", reply.GetProperty("key").GetString());
         Assert.Equal(7, reply.GetProperty("id").GetInt64());
         Assert.True(reply.GetProperty("ok").GetBoolean());
         Assert.Contains("Scale=0.8", File.ReadAllText(Path.Combine(_dir, "Settings.inc")));
@@ -55,6 +56,34 @@ public sealed class MessageRouterTests : IDisposable
         var values = Json(r.Reply!).GetProperty("values");
         Assert.Equal("0.67", values.GetProperty("Scale").GetString());
         Assert.False(values.TryGetProperty("NoSuchKey", out _));
+    }
+
+    [Fact]
+    public async Task SetupFinishIsRememberedAcrossARestart()
+    {
+        var path = Path.Combine(_dir, "ui-state.json");
+        var schema = Repo.Schema();
+        var first = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), new HostState(path));
+        Assert.False(Json((await first.HandleAsync("{\"type\":\"setup.get\"}")).Reply!).GetProperty("done").GetBoolean());
+        Assert.True(Json((await first.HandleAsync("{\"type\":\"setup.finish\",\"mode\":\"defaults\"}")).Reply!).GetProperty("done").GetBoolean());
+
+        var second = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), new HostState(path));
+        Assert.True(Json((await second.HandleAsync("{\"type\":\"setup.get\"}")).Reply!).GetProperty("done").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetupRerunReopensTheWizardWithoutClearingTheFlag()
+    {
+        var r = await _router.HandleAsync("{\"type\":\"action\",\"id\":\"setup.rerun\"}");
+        Assert.False(Json(r.Reply!).GetProperty("done").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AboutMeIsSavedAndEchoed()
+    {
+        var r = await _router.HandleAsync("{\"type\":\"aboutme.set\",\"text\":\"I like tea\"}");
+        Assert.Equal("I like tea", Json(r.Reply!).GetProperty("text").GetString());
+        Assert.Equal("I like tea", Json((await _router.HandleAsync("{\"type\":\"aboutme.get\"}")).Reply!).GetProperty("text").GetString());
     }
 
     [Theory]
