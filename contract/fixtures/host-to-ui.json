@@ -12,6 +12,8 @@
    "batteryPercent": 80,
    "netDown": 1200000,
    "netUp": 35000,
+   "spectrum": [0.1, 0.4, 0.9, 0.7, 0.3, 0.2, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+   "processes": { "Spotify": true, "obs64": false },
    "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
   }
  },
@@ -28,6 +30,8 @@
    "batteryPercent": null,
    "netDown": null,
    "netUp": null,
+   "spectrum": null,
+   "processes": {},
    "hw": {}
   }
  },

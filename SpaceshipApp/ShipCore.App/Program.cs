@@ -83,7 +83,9 @@ sealed class Overlay : Form
     readonly MessageRouter? _router;
     SettingsStore? _settings;
     IReadOnlyList<string> _hwKeys = Array.Empty<string>();
-    readonly SystemSampler _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork());
+    // The loopback stays stopped until a setting starts it (F3 Audio), so the spectrum is null and no audio device is opened.
+    readonly WasapiLoopback _loopback = new();
+    readonly SystemSampler _sampler;
     readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
     long _metricsSeq;
     readonly VisibilityPolicy _policy;
@@ -97,6 +99,7 @@ sealed class Overlay : Form
     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean)
     {
         _marker = marker;
+        _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames());
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
@@ -375,7 +378,7 @@ sealed class Overlay : Form
     {
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
         Application.Exit();
     }
 

@@ -4,7 +4,7 @@ using ShipCore.Core;
 // WASAPI loopback capture of the default speaker output, for the audio spectrum. Read-only: it never changes a device.
 // Compiled but not run on hardware yet: a live capture needs the user's go (see the standalone plan, section 6).
 // Only 32-bit float mix formats are read; anything else reports unavailable and the spectrum stays null.
-sealed class WasapiLoopback : IDisposable
+sealed class WasapiLoopback : ISpectrumSource, IDisposable
 {
     const int Bands = 16, Block = 1024;
     const uint AUDCLNT_SHAREMODE_SHARED = 0, AUDCLNT_STREAMFLAGS_LOOPBACK = 0x00020000, AUDCLNT_BUFFERFLAGS_SILENT = 0x2;

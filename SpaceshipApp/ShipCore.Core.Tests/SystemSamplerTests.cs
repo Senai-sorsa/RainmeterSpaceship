@@ -36,6 +36,39 @@ public sealed class SystemSamplerTests
         Assert.Equal((1000.0, 250.0), s.Sample(new Dictionary<string, string>(), 2, 2.0).Net);
     }
 
+    private sealed class FakeProcesses(params string[] running) : IProcessNames
+    {
+        public bool IsRunning(string name) => running.Contains(name, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class FakeSpectrum(double[]? bands) : ISpectrumSource
+    {
+        public double[]? Latest => bands;
+    }
+
+    [Fact]
+    public void WatchedProcessesAreTrimmedCheckedAndBadNamesDropped()
+    {
+        var m = new FakeMetrics();
+        m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var s = new SystemSampler(m, new FakeRegistry(new()), null, new FakeSpectrum([0.5, 0.25]), new FakeProcesses("Spotify"));
+        var f = s.Sample(new Dictionary<string, string> { ["WatchProcesses"] = " Spotify.exe , bad name!, obs64 " }, 1);
+        Assert.Equal(2, f.Processes!.Count);
+        Assert.True(f.Processes["Spotify"]);
+        Assert.False(f.Processes["obs64"]);
+        Assert.Equal(new[] { 0.5, 0.25 }, f.Spectrum);
+    }
+
+    [Fact]
+    public void WithoutSourcesTheFrameHasNoSpectrumAndNoProcesses()
+    {
+        var m = new FakeMetrics();
+        m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var f = new SystemSampler(m, new FakeRegistry(new())).Sample(new Dictionary<string, string> { ["WatchProcesses"] = "Spotify" }, 1);
+        Assert.Null(f.Spectrum);
+        Assert.Null(f.Processes);
+    }
+
     [Fact]
     public void TheFirstFrameHasNoCpuFigureAndTheSecondDoes()
     {
