@@ -18,6 +18,24 @@ public sealed class SystemSamplerTests
         public string? ReadValueRaw(int index) => values.GetValueOrDefault(index);
     }
 
+    private sealed class FakeNetwork : INetworkCounters
+    {
+        public Queue<NetCounters> Counters { get; } = new();
+        public NetCounters Read() => Counters.Dequeue();
+    }
+
+    [Fact]
+    public void NetworkRatesNeedTwoSamplesAndUseTheElapsedTime()
+    {
+        var m = new FakeMetrics();
+        m.Cpu.Enqueue(new CpuTimes(0, 0, 0)); m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var net = new FakeNetwork();
+        net.Counters.Enqueue(new NetCounters(1000, 100)); net.Counters.Enqueue(new NetCounters(3000, 600));
+        var s = new SystemSampler(m, new FakeRegistry(new()), net);
+        Assert.Null(s.Sample(new Dictionary<string, string>(), 1).Net);
+        Assert.Equal((1000.0, 250.0), s.Sample(new Dictionary<string, string>(), 2, 2.0).Net);
+    }
+
     [Fact]
     public void TheFirstFrameHasNoCpuFigureAndTheSecondDoes()
     {

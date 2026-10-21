@@ -83,7 +83,7 @@ sealed class Overlay : Form
     readonly MessageRouter? _router;
     SettingsStore? _settings;
     IReadOnlyList<string> _hwKeys = Array.Empty<string>();
-    readonly SystemSampler _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry());
+    readonly SystemSampler _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork());
     readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
     long _metricsSeq;
     readonly VisibilityPolicy _policy;

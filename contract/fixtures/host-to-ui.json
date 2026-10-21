@@ -10,6 +10,8 @@
    "uptimeMs": 123456789,
    "onAc": true,
    "batteryPercent": 80,
+   "netDown": 1200000,
+   "netUp": 35000,
    "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
   }
  },
@@ -24,6 +26,8 @@
    "uptimeMs": 0,
    "onAc": null,
    "batteryPercent": null,
+   "netDown": null,
+   "netUp": null,
    "hw": {}
   }
  },
