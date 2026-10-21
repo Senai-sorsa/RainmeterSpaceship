@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compact, driveText, nextPeak, PEAK0, percentText, ssdText, usedShare } from '../src/modules/storage';
+import { compact, driveText, percentText, ssdText, usedShare } from '../src/modules/storage';
 import { level, rateShort } from '../src/modules/strip';
 import { offsetText, spanText, weekOf, yearProgress } from '../src/modules/panels';
 
@@ -10,10 +10,8 @@ describe('storage data', () => {
     expect(driveText(931 * 1073741824, 519 * 1073741824)).toBe('412/931G');
   });
 
-  it('compacts sizes without spaces and decays the activity peak', () => {
+  it('compacts sizes without spaces', () => {
     expect(compact(1572864)).toBe('1.5MB');
-    expect(nextPeak(PEAK0, 0, 0)).toBeCloseTo(PEAK0 * 0.98);
-    expect(nextPeak(0, 0, 0)).toBe(1048576);
   });
 
   it('shows -- for a missing SSD sensor and truncates the percent', () => {

@@ -50,6 +50,13 @@ export function readingsFrom(m: SystemMetrics): Readings {
   if (m.onAc !== null) r.mAC = m.onAc ? 1 : 0;
   if (m.netDown !== null) r.netDown = m.netDown;
   if (m.netUp !== null) r.netUp = m.netUp;
+  r.mUptime = m.uptimeMs / 1000;
+  if (m.spectrum !== null && m.spectrum.length > 0) {
+    m.spectrum.forEach((v, i) => { r[`mBand${i}`] = v; });
+    // shortcut: RMS and peak are derived from the bands (mean and max), not measured by the host, upgrade if the audio module needs the real values
+    r.mRMS = m.spectrum.reduce((a, b) => a + b, 0) / m.spectrum.length;
+    r.mPeak = Math.max(...m.spectrum);
+  }
   for (const [k, v] of Object.entries(m.hw)) if (k.startsWith('HW_') && v !== null) r[`mHw${k.slice(3)}`] = v;
   return r;
 }

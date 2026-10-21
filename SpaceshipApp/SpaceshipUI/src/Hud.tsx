@@ -10,6 +10,7 @@ import { Caption } from './ui/Caption';
 import { MissionClock } from './modules/MissionClock';
 import { fakeCalendar } from './modules/calendarSource';
 import { TopModule } from './modules/TopModule';
+import { BottomModule } from './modules/BottomModule';
 import { styleFrom } from './modules/style';
 
 const v = (settings as { variables: Record<string, string> }).variables;
@@ -24,6 +25,7 @@ const debug = new URLSearchParams(location.search).get('debug') === '1';
 // Modules are off until proven (architecture plan rule 4): ?module=clock turns the mission clock on for checks.
 const clockOn = new URLSearchParams(location.search).get('module') === 'clock';
 const topOn = new URLSearchParams(location.search).get('module') === 'top';
+const bottomOn = new URLSearchParams(location.search).get('module') === 'bottom';
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 
 function Neon({ d }: { d: string }) {
@@ -73,6 +75,7 @@ export function Hud() {
         </g>
       ))}
       {topOn && <TopModule style={styleFrom(values)} values={values} />}
+      {bottomOn && <BottomModule style={styleFrom(values)} />}
       {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />

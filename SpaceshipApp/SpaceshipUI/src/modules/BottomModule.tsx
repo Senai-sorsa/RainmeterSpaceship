@@ -1,0 +1,58 @@
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import layout from '../generated/layout.json';
+import type { Op, Style } from '../draw/canvas';
+import { OpsView } from '../draw/ops';
+import { readingsFrom, systemMetrics } from '../host/systemMetrics';
+import { audioFrame, audioState, type AudioState } from './audio';
+import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
+import { type Readings } from './readings';
+import { stripLeftFrame, stripRightFrame } from './strip';
+import { storageFrame } from './storage';
+
+const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
+/** Zones of the bottom dash, read once. Each is drawn in its own skewed matrix. */
+const Z = {
+  storage: zoneOf('B_storage'), audio: zoneOf('B_audio'), panelL: zoneOf('B_panelL'), panelR: zoneOf('B_panelR'),
+  stripL: zoneOf('B_stripL'), stripR: zoneOf('B_stripR'),
+};
+
+/** Bottom dash: storage, audio dial, the two panels and the two strips. Behind ?module=bottom. Clicks are not wired yet. */
+export function BottomModule({ style }: { style: Style }) {
+  const m = systemMetrics.value;
+  const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  // the audio followers step once per host reading, so they live outside the render and are not in the deps of the other frames
+  const audio = useRef<AudioState>(audioState());
+  // style is not in the deps: a settings change shows on the next host reading
+  const ops = useMemo(() => ({
+    st: Z.storage && storageFrame(r, Z.storage, style).ops,
+    sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
+    sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
+    au: Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
+  }), [r]);
+  // the panels read the clock, so they redraw every second
+  const panels = useMemo(() => ({
+    pl: Z.panelL && panelLeftFrame(leftRows(now, r.mUptime), Z.panelL, style),
+    pr: Z.panelR && panelRightFrame(rightRows(r.mUptime, style), Z.panelR, style),
+  }), [r, now]);
+  const place = (zone: typeof Z.storage, list: Op[] | undefined, name: string, mod: string) =>
+    zone && list && (
+      <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
+        <OpsView ops={list} name={name} />
+      </g>
+    );
+  return (
+    <>
+      {place(Z.storage, ops.st, 'st', 'storage')}
+      {place(Z.audio, ops.au, 'au', 'audio')}
+      {place(Z.panelL, panels.pl, 'pl', 'panel-left')}
+      {place(Z.panelR, panels.pr, 'pr', 'panel-right')}
+      {place(Z.stripL, ops.sl, 'sl', 'strip-left')}
+      {place(Z.stripR, ops.sr, 'sr', 'strip-right')}
+    </>
+  );
+}

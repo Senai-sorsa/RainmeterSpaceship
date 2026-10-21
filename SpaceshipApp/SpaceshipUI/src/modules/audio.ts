@@ -1,13 +1,16 @@
+import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
+import { type Pt } from '../lib/geometry';
 import { type Readings, val } from './readings';
 
-// Data side of Skins/Spaceship/@Resources/Scripts/audio.lua: band smoothing, the peak and loudness followers, the pulse
-// ring's spoke levels, the volume arc and the readout text. The drawing is not ported yet.
-// shortcut: volume and device name are parameters, the host does not report them yet (the Lua reads the Audio measure).
+// Port of Skins/Spaceship/@Resources/Scripts/audio.lua: band smoothing, the peak and loudness followers, the pulse
+// ring, the volume arc and the readout text. Volume and device are not reported by the host yet, so they show --.
+// shortcut: the dial geometry is set by eye from the zone, not copied from audio.lua; check it against rmsim before live use.
 
 export const NB = 96;
 export const DASH_A0 = 120;
 export const DASH_SWEEP = 300;
 const NS = 96;
+const CX = 94.5, CY = 82.5, DIAL_R = 30, RING_R = 36, RING_MAX = 16;
 
 export type AudioState = { sm: number[]; rmsS: number; peakS: number; breath: number; quiet: number };
 
@@ -69,4 +72,36 @@ export function readout(vol: number, spin: number): string {
 export function deviceLabel(name = 'NO DEVICE'): string {
   // shortcut: a nested bracket keeps its tail (Lua's %b() drops the whole group), upgrade when a device name needs it
   return name.toUpperCase().replace(/\s*\([^)]*\)/g, '');
+}
+
+export type AudioFrame = Op[];
+
+/**
+ * The audio zone: pulse ring, volume dash arc, readout and device. Advances the followers once per call (one per host reading).
+ * vol is 0..100, or negative for muted; undefined means the host has no volume yet and the dial shows --.
+ */
+export function audioFrame(s: AudioState, r: Readings, zone: Zone, st: Style, frame: number, vol?: number, dev?: string): AudioFrame {
+  follow(s, r, 1, st.tier >= 3);
+  const c = new Canvas(zone, st);
+  // shortcut: idle is a quiet loudness follower, not the Lua's exact idle test
+  const idle = s.rmsS < 0.02;
+  const lv = ringLevels(s, idle, frame);
+  const pts: Pt[] = lv.map((x, k) => {
+    const a = (-90 + (k * 360) / NS) * Math.PI / 180;
+    const rr = RING_R + RING_MAX * x;
+    return [CX + rr * Math.cos(a), CY + rr * Math.sin(a)];
+  });
+  c.poly(pts, st.accent, 1.3, 200, true);
+  lv.forEach((x, k) => {
+    if (k % 4 !== 0) return;
+    const a = (-90 + (k * 360) / NS) * Math.PI / 180;
+    c.line(CX + (RING_R - 4) * Math.cos(a), CY + (RING_R - 4) * Math.sin(a), CX + (RING_R + RING_MAX * x) * Math.cos(a), CY + (RING_R + RING_MAX * x) * Math.sin(a), st.accent, 1, 110);
+  });
+  c.dashArc(CX, CY, DIAL_R, DASH_A0, DASH_A0 + DASH_SWEEP, st.accent, 1.2, 60, 3, 4, true);
+  if (vol !== undefined) c.dashArc(CX, CY, DIAL_R, DASH_A0, volumeAngle(vol, 1), st.accent, 2.4, 230, 3, 4);
+  c.fillCircle(CX, CY, DIAL_R - 7, st.dim, 40);
+  c.icon('wave', CX, CY - 8, 12, st.accent, 1.2);
+  c.text(CX, CY + 6, vol === undefined ? '--' : readout(vol, 1), { size: 7, weight: 700, align: 'CenterCenter', color: st.white });
+  c.text(CX, zone.h - 12, deviceLabel(dev), { size: 4.2, weight: 700, align: 'CenterCenter', color: st.accent, clip: zone.w - 20 });
+  return c.flush();
 }
