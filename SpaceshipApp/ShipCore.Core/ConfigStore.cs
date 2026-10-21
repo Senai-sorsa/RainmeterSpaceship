@@ -43,7 +43,7 @@ public sealed class ConfigStore : IConfigStore
             {
                 var path = PathOf(s);
                 var text = ReadFile(s);
-                // Lines keep their own "\r"; new lines copy the file's style. Matching ignores indent and case, like Rainmeter.
+                // Lines keep their own "\r"; new lines copy the file's style. Matching ignores indent and case.
                 var cr = text.Contains("\r\n") ? "\r" : "";
                 var lines = text.Length == 0 ? new List<string>() : text.Split('\n').ToList();
                 var prefix = key + "=";

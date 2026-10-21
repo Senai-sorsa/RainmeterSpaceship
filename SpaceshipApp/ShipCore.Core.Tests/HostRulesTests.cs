@@ -10,6 +10,17 @@ public class HostRulesTests
         Assert.Equal(-1, HostRules.PickHomeDisplay(displays, (3840, 2160)));
     }
 
+    [Theory]
+    [InlineData("2560x1600", 2560, 1600)]
+    [InlineData("", 2560, 1600)]
+    [InlineData("2560", 2560, 1600)]
+    [InlineData("0x1600", 2560, 1600)]
+    [InlineData("abcx12", 2560, 1600)]
+    public void ParseSizeFallsBackUnlessTheTextIsWxH(string text, int w, int h)
+    {
+        Assert.Equal((w, h), HostRules.ParseSize(text, (2560, 1600)));
+    }
+
     [Fact]
     public void OnlyLogsOlderThanTheKeepWindowAreExpired()
     {

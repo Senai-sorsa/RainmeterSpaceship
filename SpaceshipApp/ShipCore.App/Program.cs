@@ -100,8 +100,6 @@ sealed class Overlay : Form
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
-        _home = HomeScreen().Bounds; // the full display, taskbar included: the desktop layer lets the taskbar draw over it
-        Bounds = _home;
         TopMost = false; // never above other apps (exam browsers, games)
 
         var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
@@ -121,6 +119,9 @@ sealed class Overlay : Form
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
             _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state);
         }
+        // The full display, taskbar included: the desktop layer lets the taskbar draw over it.
+        _home = HomeScreen(_settings).Bounds;
+        Bounds = _home;
         var examPath = FindUp(Path.Combine("contract", "exam-browsers.json"));
         _policy = new VisibilityPolicy(examPath is null ? Array.Empty<string>() : ExamBrowserList.ProcessNames(File.ReadAllText(examPath)));
         _snapshots = new Win32Snapshots(() => _home);
@@ -204,11 +205,12 @@ sealed class Overlay : Form
         return worker;
     }
 
-    // The display whose size matches HomeSize in Settings.inc (2560x1600); the primary display if none does.
-    static Screen HomeScreen()
+    // The display whose size matches HomeSize in settings.json (2560x1600 by default); the primary display if none does.
+    static Screen HomeScreen(SettingsStore? settings)
     {
         var screens = Screen.AllScreens;
-        var index = HostRules.PickHomeDisplay(screens.Select(s => (s.Bounds.Width, s.Bounds.Height)).ToList(), (2560, 1600));
+        var text = settings?.Get(new[] { "HomeSize" }).GetValueOrDefault("HomeSize") ?? "";
+        var index = HostRules.PickHomeDisplay(screens.Select(s => (s.Bounds.Width, s.Bounds.Height)).ToList(), HostRules.ParseSize(text, (2560, 1600)));
         return index >= 0 ? screens[index] : Screen.PrimaryScreen!;
     }
 
