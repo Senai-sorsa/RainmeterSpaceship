@@ -16,8 +16,6 @@ for (const [k, val] of Object.entries(themeVars((settings as { variables: Record
 
 host.onMessage(() => {});
 const q = new URLSearchParams(location.search);
-// ?host=mock&fail=<Key> makes the mock host reject writes to that key (e2e failure injection).
-if (q.get('host') === 'mock' && q.get('fail')) (host as unknown as { o: { failKeys?: Set<string> } }).o.failKeys = new Set([q.get('fail')!]);
 const panel = q.get('panel'); // dev routes for the shared components
 if (q.get('level') === 'advanced') store.level.value = 'advanced';
 /** Shows the wizard while the host says setup is not done; blank until the host answers, wizard if it never does. */

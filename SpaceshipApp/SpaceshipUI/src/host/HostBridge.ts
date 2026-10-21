@@ -106,7 +106,9 @@ export function chooseHost(): HostBridge {
   const seed: Record<string, string> = {};
   for (const d of REGISTRY) if (!d.virtual) seed[d.key] = d.default;
   Object.assign(seed, (settings as { variables: Record<string, string> }).variables);
-  const host = new MockHost({ seed, allow: (k) => allowed.has(k), storage });
+  // ?host=mock&fail=<Key> makes the mock reject writes to that key (e2e failure injection)
+  const fail = forced ? q.get('fail') : null;
+  const host = new MockHost({ seed, allow: (k) => allowed.has(k), storage, ...(fail ? { failKeys: new Set([fail]) } : {}) });
   if (forced) (globalThis as { __host?: MockHost }).__host = host; // Playwright reads __host.sent
   return host;
 }

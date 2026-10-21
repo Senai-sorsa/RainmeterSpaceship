@@ -5,6 +5,11 @@ Facts come from git history (`git log`) and from test runs on the Ubuntu VM. Not
 
 ## 1. Progress log
 
+### 2026-10-20 (session 3): audit follow-ups
+- Audit item 4 done: `tools/contract_check.py` (Python version of the message check) + `tools/test_contract_check.py`; `python3 -I tools/test_contract_check.py` passes and agrees with all 47 shared fixtures. It checks message shape only; JARVIS does not import it yet, and no pipe round trip exists.
+- Audit item 6 (part): the e2e failure-injection option (`?host=mock&fail=Key`) is now a real `MockHost` option, not a poke into a private field in `main.tsx`. vitest 86, tsc clean, Playwright 33 passed afterwards.
+- Left alone on purpose, because they change the Rainmeter skin (standing ruling: skin untouched) or need your call: item 1 (hash-check the Kokoro downloads in `Setup-Jarvis.ps1`), 2 (build proof for `ShipCore.exe`), 3 (restrict launch targets), 5 (untrack tool output), 7 (untrack the .rmskin). Store teardown needs a host `offMessage` API and waits for the real host.
+
 ### 2026-10-20 (session 3): audit of the risky existing code (report only, no code changed)
 Read: `jarvislib/actions.py`, `confirm.py`, the action table in `routing.py`, `Setup-Jarvis.ps1`, requirements, tracked-file sizes, `ShipCore.cs` entry points. Not read: most of the 116k lines (Lua meters, the rest of `jarvis.py`, tools). Findings and their status are in the chat report; fixes are listed under "Audit follow-ups" below once done.
 
