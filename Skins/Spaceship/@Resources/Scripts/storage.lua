@@ -53,7 +53,7 @@ function Update()
   end
   H.text(1, 11, X(458), Y(596), string.format('%d', used * 100), { size = 4.6, weight = 700, align = 'RightCenter', color = W })
   H.text(1, 12, X(458), Y(604), t2 > 0 and string.format('%d', used2 * 100) or '', { size = 4.6, weight = 700, align = 'RightCenter', color = D })
-  H.hit(1, 1, 0, 0, X(450), Y(638), 'Open ' .. H.str('Drive1', 'C:') .. '  (right-click: WinDirStat)')
+  H.hit(1, 1, 0, 0, X(450), Y(638), '')
   H.hit(1, 2, X(456), 0, X(488) - X(456), Y(638), 'Drive fill: ' .. H.str('Drive1', 'C:') .. ' ' .. math.floor(used * 100) .. '%' .. (t2 > 0 and ('   ' .. H.str('Drive2', 'D:') .. ' ' .. math.floor(used2 * 100) .. '%') or ''))
   c:flush()
   return used

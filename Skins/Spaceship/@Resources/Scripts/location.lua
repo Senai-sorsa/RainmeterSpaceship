@@ -1,6 +1,7 @@
 -- Mission clock (left side, where LAT / LON / ALT used to be): the next events from the calendars you
 -- switched on in Control Center > DATA > CALENDARS. ShipCore fetches them (Data\calendar.txt).
--- Ring: countdown to the next event, filling as it gets close (last 24 h). Rows: when + title for the next three.
+-- Ring (small, left): countdown to the next event, filling as it gets close (last 24 h). Rows: when + title for the next three;
+-- inside 24 h the 'when' is the clock time (10:24AM), after that the weekday, then the date.
 -- Colours: in progress = good, under 60 min = warn, under 15 min = alert, otherwise the theme colour.
 local H
 local SXR, SYR = 2560 / 1260, 1600 / 709
@@ -37,13 +38,20 @@ local function countdown(sec)
   return string.format('%dD', math.floor(sec / 86400))
 end
 
+-- 12-hour clock without a leading zero: 10:24AM, 9:05PM (built by hand so the system language cannot change AM/PM)
+local function clock12(ts)
+  local t = os.date('*t', ts)
+  return string.format('%d:%02d%s', t.hour % 12 == 0 and 12 or t.hour % 12, t.min, t.hour < 12 and 'AM' or 'PM')
+end
+
 local function when(e, now)
   local today = os.date('*t', now)
   local t = os.date('*t', e.s)
   local days = math.floor((os.time({ year = t.year, month = t.month, day = t.day, hour = 12 }) -
     os.time({ year = today.year, month = today.month, day = today.day, hour = 12 })) / 86400 + 0.5)
-  if e.allday then return days == 0 and 'TODAY' or (days == 1 and 'TMRW' or string.upper(os.date('%a', e.s))) end
-  if days == 0 then return os.date('%H:%M', e.s) end
+  if e.allday then
+    if days == 0 then return 'TODAY' end
+  elseif e.s - now < 86400 then return clock12(e.s) end        -- under 24 h away: the time it is at
   if days < 7 then return string.upper(os.date('%a', e.s)) end
   return os.date('%m/%d', e.s)
 end
@@ -64,7 +72,7 @@ function Update()
   local up = {}
   for _, e in ipairs(cal.ev) do if e.e > now then up[#up + 1] = e end end
   local first = up[1]
-  local gx, gy, R = X(92), Y(256), 34
+  local gx, gy, R = X(76), Y(256), 24
   local col, big, small = A1, '--', 'NO EVENTS'
   local frac = 0
   if first then
@@ -82,12 +90,12 @@ function Update()
   c:circle(gx, gy, R, D, 1, 120)
   for i = 0, 23 do
     local a = math.rad(i * 15 - 90)
-    local r0 = i % 6 == 0 and R - 7 or R - 4
+    local r0 = i % 6 == 0 and R - 5 or R - 3
     c:hair(gx + r0 * math.cos(a), gy + r0 * math.sin(a), gx + R * math.cos(a), gy + R * math.sin(a), A1, 1, i % 6 == 0 and 170 or 90)
   end
-  if frac > 0.003 then c:arc(gx, gy, R + 5, -90, -90 + 360 * frac, col, 2.4, 240) end
-  H.text(1, 7, gx, gy - 3, big, { size = string.len(big) > 4 and 8 or 9.5, weight = 700, align = 'CenterCenter', color = col, font = H.fontNum })
-  H.text(1, 8, gx, gy + 13, small, { size = 3.6, weight = 700, align = 'CenterCenter', color = D, glow = false })
+  if frac > 0.003 then c:arc(gx, gy, R + 4, -90, -90 + 360 * frac, col, 2, 240) end
+  H.text(1, 7, gx, gy - 2, big, { size = string.len(big) > 4 and 5.6 or 6.8, weight = 700, align = 'CenterCenter', color = col, font = H.fontNum })
+  H.text(1, 8, gx, gy + 9, small, { size = 2.9, weight = 700, align = 'CenterCenter', color = D, glow = false })
   -- rows: when (right-aligned) + title
   for i = 1, 3 do
     local y = Y(({ 242, 253, 264 })[i])
@@ -103,8 +111,8 @@ function Update()
       lab, title, lc, tc = cal.ok and 'CLEAR' or 'SETUP', cal.ok and (cal.n == 0 and 'NO CALENDARS ON' or 'NO EVENTS IN 3 WEEKS') or 'CONTROL CENTER > DATA', A1, D
     end
     if lab then
-      H.text(1, i * 2 - 1, X(152), y, lab, { size = 6.4, weight = 700, align = 'RightCenter', color = lc, font = H.fontNum })
-      H.text(1, i * 2, X(158), y, title, { size = 6.4, weight = 700, align = 'LeftCenter', color = tc, clip = X(228) - X(158) })
+      H.text(1, i * 2 - 1, X(127), y, lab, { size = 5.4, weight = 700, align = 'RightCenter', color = lc, font = H.fontNum })
+      H.text(1, i * 2, X(131), y, title, { size = 5.4, weight = 700, align = 'LeftCenter', color = tc, clip = X(228) - X(131) })
     else H.hideText(1, i * 2 - 1); H.hideText(1, i * 2) end
   end
   local function ly(rx, base) return base - (10 / 196 - 4 / 187) * (rx - 34) * SYR end

@@ -7,7 +7,7 @@ local hudHidden = false
 local TABS = { { id = 'ECO', key = 'LltHybridECO', tip = 'Integrated GPU only (RTX 5070 powered off)' },
                { id = 'HYBRID', key = 'LltHybridHYBRID', tip = 'Both GPUs - the RTX wakes when an app needs it' },
                { id = 'AUTO', key = 'LltHybridAUTO', tip = 'Hybrid on AC, integrated only on battery' },
-               { id = 'dGPU', key = 'LltHybridDGPU', tip = 'Discrete only (MUX) - needs a reboot, click twice' },
+               { id = 'dGPU', key = 'LltHybridDGPU', tip = 'Discrete only (MUX) - needs a reboot' },
                { id = 'OFF', tip = 'Hide / show every HUD module (the console stays)' } }
 local TIERS = { [-1] = 'AUTO', [0] = 'FULL', [1] = 'LITE', [2] = 'LOW', [3] = 'STEALTH' }
 
@@ -79,12 +79,12 @@ local function buttons()
   local hz = st.refresh ~= '' and (string.match(st.refresh, '%d+') or st.refresh) .. 'HZ' or '--HZ'
   local cons = st.battery ~= '' and (string.find(st.battery, string.lower(H.str('LltBatteryConserve', 'conservation')), 1, true) and 'ON' or 'OFF') or '--'
   return {
-    { label = pw, tip = 'Power mode - click to cycle ' .. table.concat(modes, ' / ') },
-    { label = hz, tip = 'Refresh rate - click to toggle ' .. table.concat(rates, ' / ') .. ' Hz' },
+    { label = pw, tip = 'Power mode: ' .. table.concat(modes, ' / ') },
+    { label = hz, tip = 'Refresh rate: ' .. table.concat(rates, ' / ') .. ' Hz' },
     { label = H.num('ChargeLimit', 80) .. '%', on = cons == 'ON', tip = 'Battery conservation (hold at ' .. H.num('ChargeLimit', 80) .. '%)' },
     { label = (tierOv < 0 and string.sub(TIERS[H.num('PerfTier', 0)] or 'FULL', 1, 4) or string.sub(TIERS[tierOv], 1, 4)),
-      tip = 'Graphics tier: ' .. (TIERS[tierOv] or 'AUTO') .. ' (now ' .. (TIERS[H.num('PerfTier', 0)] or '?') .. ') - click to cycle' },
-    { label = 'dGPU', light = st.dgpu, tip = 'RTX 5070: ' .. (st.dgpu == 'on' and 'present / powered' or (st.dgpu == 'off' and 'off (ECO mode)' or 'unknown')) .. ' - click to refresh' },
+      tip = 'Graphics tier: ' .. (TIERS[tierOv] or 'AUTO') .. ' (now ' .. (TIERS[H.num('PerfTier', 0)] or '?') .. ')' },
+    { label = 'dGPU', light = st.dgpu, tip = 'RTX 5070: ' .. (st.dgpu == 'on' and 'present / powered' or (st.dgpu == 'off' and 'off (ECO mode)' or 'unknown')) },
     { label = 'CARGO', tip = 'All apps (drop-down drawer)' },
     { label = 'MASTER', on = tierOv == 3, tip = 'Kill switch: drop the whole HUD to STEALTH / restore' },
     { label = 'CFG', tip = 'Control Center: modules, layout, theme, apps, sensors, presets' },
@@ -144,7 +144,7 @@ function Update()
   if os.time() - msgAt < 6 and msg ~= '' then
     H.text(1, 14, RX(630), RY(49), msg, { size = 6.5, weight = 700, align = 'CenterCenter', color = H.C.warn, clip = 150 })
   else H.hideText(1, 14) end
-  H.hit(1, 14, RX(612), RY(50), RX(648) - RX(612), RY(58) - RY(50), 'dGPU: ' .. (st.dgpu ~= '' and st.dgpu or 'unknown') .. ' - click to refresh status')
+  H.hit(1, 14, RX(612), RY(50), RX(648) - RX(612), RY(58) - RY(50), 'dGPU: ' .. (st.dgpu ~= '' and st.dgpu or 'unknown'))
   c:flush()
   return 0
 end

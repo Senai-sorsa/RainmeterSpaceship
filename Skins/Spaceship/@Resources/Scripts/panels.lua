@@ -89,10 +89,10 @@ function Update()
   c2:chamfer(bx, by, bw, bh, bh * 0.35, H.C.accent, 1.2, 230, 90)
   H.text(2, 15, bx + bw / 2, by + bh / 2, '>_ TERMINAL', { size = 3.6, weight = 700, align = 'CenterCenter', color = H.C.white, font = H.fontNum })
   c2:flush()
-  H.hit(2, 2, bx, by, bw, bh, 'Click: Windows Terminal   right-click: PowerShell')
-  H.hit(1, 1, 0, 0, H.zones[1].w, H.zones[1].h, 'Pilot, date and time, week, year, time zone, boot, uptime and idle time - click: Calendar')
+  H.hit(2, 2, bx, by, bw, bh, '')
+  H.hit(1, 1, 0, 0, H.zones[1].w, H.zones[1].h, 'Pilot, date and time, week, year, time zone, boot, uptime and idle time')
   H.hit(2, 1, 0, 0, H.zones[2].w, H.zones[2].h * 0.78, H.str('DeviceModel', '') .. '   ' .. H.str('CpuName', '') .. ' ' .. H.str('CpuCores', '') .. 'C/' .. H.str('CpuThreads', '') .. 'T   ' ..
-    H.str('DGpuName', '') .. ' + ' .. H.str('IGpuName', '') .. '   click: About')
+    H.str('DGpuName', '') .. ' + ' .. H.str('IGpuName', ''))
   return 0
 end
 

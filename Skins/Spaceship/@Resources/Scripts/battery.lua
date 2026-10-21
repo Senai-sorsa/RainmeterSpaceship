@@ -54,7 +54,7 @@ function Update()
   -- readout above the start of the rail, clear of the bar's far end and the limit tick
   H.text(1, 2, x0, 0, string.format('%d%%  %s', pct, status), { size = 4.8, weight = 700, align = 'LeftTop', color = H.C.white, alpha = 210, clip = (x1 - x0) * 0.7 })
   H.hideText(1, 3)
-  H.hit(1, 1, 0, 0, z.w, z.h, string.format('Battery %d%% - %s', pct, status))
+  H.hit(1, 1, 0, 0, z.w, z.h, '')   -- the percentage and status are already printed
   c:flush()
   return pct
 end

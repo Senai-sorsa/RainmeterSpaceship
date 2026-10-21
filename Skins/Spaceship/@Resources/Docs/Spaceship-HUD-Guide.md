@@ -140,7 +140,7 @@ Laptop hardware control through **Lenovo Legion Toolkit**.
 - Default category: `Top1=` in Apps.ini.
 
 #### Mission clock
-- Countdown ring to your **next calendar event**, plus the next three events with their times.
+- A small countdown ring (left) to your **next calendar event**, plus the next three events. An event less than 24 hours away shows the time it starts (for example `10:24AM`); later ones show the weekday, then the date.
 - Colors:
   - green: an event is in progress
   - orange: under 60 minutes away

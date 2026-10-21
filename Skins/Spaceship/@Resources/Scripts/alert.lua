@@ -34,7 +34,7 @@ function Update()
   local cx, cy = s * 0.55 + 4, z.h / 2
   c:poly({ { cx + s * 0.5, cy }, { cx - s * 0.35, cy - s * 0.5 }, { cx - s * 0.35, cy + s * 0.5 } }, H.C.hi, 2, a, true)
   H.text(1, 1, z.w, cy, tostring(n), { size = 9, weight = 700, align = 'RightCenter', color = H.C.hi, alpha = a })
-  H.hit(1, 1, 0, 0, z.w, z.h, n > 0 and table.concat(list, '  |  ') or 'All systems nominal')
+  H.hit(1, 1, 0, 0, z.w, z.h, n > 0 and table.concat(list, '  |  ') or '')
   c:flush()
   return n
 end

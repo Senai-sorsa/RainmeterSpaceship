@@ -68,7 +68,7 @@ function Update()
   if isMail then
     if tick % 5 == 1 then readMail() end
     r1[2] = r1[2] .. '   winget upgrades ' .. n(vals[2])
-    if mail.n then r2 = { tostring(mail.n), mail.n == 1 and '1 unread Gmail message - click: open Gmail' or (mail.n .. ' unread Gmail messages - click: open Gmail') }
+    if mail.n then r2 = { tostring(mail.n), '' }   -- the count is already printed
     elseif mail.why == 'off' then r2 = { '-', 'Gmail not set up - Control Center > DATA > GMAIL' }
     else r2 = { '!', 'Gmail: ' .. (mail.why or '?') .. '   (Control Center > DATA > GMAIL)' } end
   end

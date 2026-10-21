@@ -107,7 +107,7 @@ function Update()
   for t = 11, 24 do H.hideText(1, t) end
   if frame < 3 or frame % 100 == 0 then
     H.hit(1, 1, X(600), Y(290), X(660) - X(600), Y(332) - Y(290), 'GPU (right ladder), CPU load (pointer)')
-    H.hit(1, 2, X(486), Y(258), X(540) - X(486), Y(395) - Y(258), pct and string.format('S&P 500  %s  %+.2f%% today  (previous close %s)   %s   click: chart',
+    H.hit(1, 2, X(486), Y(258), X(540) - X(486), Y(395) - Y(258), pct and string.format('S&P 500  %s  %+.2f%% today  (previous close %s)   %s',
       string.format('%.1f', spx.price), pct, string.format('%.1f', spx.prev), spx.open and 'market open' or 'market closed') or 'S&P 500 - waiting for data')
   end
   c:flush()

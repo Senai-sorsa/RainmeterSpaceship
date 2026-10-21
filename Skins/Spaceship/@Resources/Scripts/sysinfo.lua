@@ -106,10 +106,10 @@ function Update()
   c:line(X(35), ly(35, z.h - 2.5), X(222), ly(222, z.h - 2.5), A1, 1, 160)
   if tick < 3 or tick % 5 == 0 then
     local masked = H.num('IpMask', 0) == 1
-    H.hit(1, 1, 0, 0, z.w, z.h, string.format('Network   ping %s   down %s   up %s', lost and 'lost' or (ping .. ' ms'), H.mbps(down), H.mbps(up)))
-    H.hit(1, 2, X(224), Y(248), X(140) - X(224), Y(266) - Y(248), masked and 'Show IP addresses' or 'Hide IP addresses')
+    H.hit(1, 1, 0, 0, z.w, z.h, '')   -- ping, down and up are already printed
+    H.hit(1, 2, X(224), Y(248), X(140) - X(224), Y(266) - Y(248), '')
     local st = testing and 'Speed test running...' or (speed.state == 'error' and ('Speed test failed: ' .. (speed.err or '?')) or
-      (link > 0 and string.format('Last speed test %d / %d Mbps  %s   click: test again', link, H.num('LinkUpMbps', 0), H.str('LastSpeedTest', '')) or 'Click: run a speed test'))
+      (link > 0 and string.format('Last speed test %d / %d Mbps  %s', link, H.num('LinkUpMbps', 0), H.str('LastSpeedTest', '')) or ''))
     H.hit(1, 3, gx - 42, gy - 42, 116, 84, st)
   end
   c:flush()

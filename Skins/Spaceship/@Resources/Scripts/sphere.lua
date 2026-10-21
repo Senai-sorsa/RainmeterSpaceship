@@ -129,11 +129,11 @@ function Update()
   if use > 0.002 then c:line(bx0, by, bx0 + (bx1 - bx0) * math.max(use, 0.03), by, use > 0.8 and O or A1, 2.4) end
   if frame < 3 or frame % 20 == 0 then
     H.hit(1, 2, bx0, Y(526), bx1 - bx0, Y(544) - Y(526), testing and 'Speed test running...' or
-      (link > 0 and string.format('Internet %d down / %d up Mbps (tested %s)   using now %s / %s   click: test again',
-        link, H.num('LinkUpMbps', 0), H.str('LastSpeedTest', '?'), H.mbps(down), H.mbps(up)) or 'Click: run a speed test'))
+      (link > 0 and string.format('Internet %d down / %d up Mbps (tested %s)   using now %s / %s',
+        link, H.num('LinkUpMbps', 0), H.str('LastSpeedTest', '?'), H.mbps(down), H.mbps(up)) or ''))
   end
   for k = ti, 8 do H.hideText(1, k) end
-  if frame < 3 then H.hit(1, 1, CX - R, CY - R, 2 * R, 2 * R, 'Radar: busiest processes, ISS and your position - click: Task Manager') end
+  if frame < 3 then H.hit(1, 1, CX - R, CY - R, 2 * R, 2 * R, 'Radar: busiest processes, ISS and your position') end
   c:flush()
   return 0
 end

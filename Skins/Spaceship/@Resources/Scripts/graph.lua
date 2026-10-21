@@ -71,7 +71,7 @@ function Update()
     c:poly({ { 8, z.h - 9 }, { 12, z.h - 6 }, { 8, z.h - 3 } }, H.C.accent, 1.1, 200)
     c:poly({ { 14, z.h - 9 }, { 18, z.h - 6 }, { 14, z.h - 3 } }, H.C.accent, 1.1, 200)
   end
-  H.hit(1, 1, 0, 0, z.w, z.h, def.label .. '  ' .. (txt or '') .. (mode == 'select' and '  - click: next source, right-click: previous' or ''))
+  H.hit(1, 1, 0, 0, z.w, z.h, '')   -- label and value are already printed
   c:flush()
   return v or 0
 end

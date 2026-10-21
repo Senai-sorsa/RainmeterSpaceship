@@ -376,9 +376,9 @@ function Update()
   if frame < 6 or frame % 30 == 0 then
     local tip, NM = nil, H.assistant()
     if H.num('JarvisEnabled', 1) ~= 1 then tip = NM .. ' is off (JarvisEnabled=0 in Settings.inc)'
-    elseif st == 'offline' then tip = NM .. ' service not running   click: start it   right-click: conversation log'
-    elseif st == 'idle' then tip = NM .. ' running   click: talk to ' .. NM .. '   right-click: conversation log'
-    else tip = NM .. ' ' .. string.lower(LABEL[st] or '') .. '   click: stop' end
+    elseif st == 'offline' then tip = NM .. ' service not running'
+    elseif st == 'idle' then tip = NM .. ' running'
+    else tip = NM .. ' ' .. string.lower(LABEL[st] or '') end
     local RR = 206
     H.hit(1, 1, CX - RR, CY - RR, RR * 2, RR * 2, tip)
     H.set('H1_1', 'Shape', string.format('Ellipse %.2f,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', RR * H.S, RR * H.S, RR * H.S))

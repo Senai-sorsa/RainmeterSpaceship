@@ -789,7 +789,7 @@ function Update()
   H.text(1, 2, z.w - 66, 30, 'SPACESHIP HUD  /  ' .. H.str('DeviceName', ''), { size = 10, align = 'RightCenter', color = D, clip = z.w - 560 })
   c:line(22, 62, z.w - 22, 62, D, 1, 200)
   c:line(z.w - 44, 18, z.w - 24, 38, A1, 1.8); c:line(z.w - 24, 18, z.w - 44, 38, A1, 1.8)
-  H.hit(1, 1, z.w - 52, 10, 36, 36, 'Close')
+  H.hit(1, 1, z.w - 52, 10, 36, 36, '')
   actions[1] = function() SKIN:Bang('!DeactivateConfig'); flush() end   -- leave the group first, then reload it
   -- tabs
   for i, name in ipairs(TABS) do
@@ -877,7 +877,7 @@ function Update()
     c:line(z.w - 16, top, z.w - 16, bot, D, 1, 120)
     c:line(z.w - 16, top + pos, z.w - 16, top + pos + barH, A1, 3, 230)
     local sh = (bot - top) / NSLICE
-    for i = 1, NSLICE do H.hit(1, BARHIT + i - 1, z.w - 28, top + (i - 1) * sh, 24, sh, 'Scroll') end     -- click or drag the track to jump there
+    for i = 1, NSLICE do H.hit(1, BARHIT + i - 1, z.w - 28, top + (i - 1) * sh, 24, sh, '') end     -- click or drag the track to jump there
   else
     for i = 0, NSLICE - 1 do H.hideHit(1, BARHIT + i) end
   end

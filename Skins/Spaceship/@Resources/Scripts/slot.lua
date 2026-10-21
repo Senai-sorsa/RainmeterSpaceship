@@ -126,12 +126,12 @@ function Update()
     for k = 1, 7 do H.hideHit(1, k) end
     local tip
     if isCat then
-      tip = #list == 0 and (entry.cat.name .. ' - none of its apps are installed (edit Apps.ini, or install one and click to rescan)')
-        or (entry.cat.name .. ' - click: choose an app   right-click: launch ' .. (app and app.name or '') .. '   scroll: change it')
+      tip = #list == 0 and (entry.cat.name .. ' - none of its apps are installed')
+        or ''
     elseif app and app.missing then
-      tip = app.name .. ' is not installed or was moved - click to rescan the Start menu, or set its Target= in Apps.ini'
+      tip = app.name .. ' is not installed or was moved'
     else
-      tip = app and ('Launch ' .. app.name) or 'Unassigned slot - set Slot' .. slot .. '= in Apps.ini'
+      tip = app and app.name or 'Unassigned slot - set Slot' .. slot .. '= in Apps.ini'
     end
     H.hit(1, 8, 0, 0, w, h, tip)
 
@@ -163,7 +163,7 @@ function Update()
     c:line(X(0.04), Y(0.82), X(0.085), Y(0.82), W, 2.2)
     c:poly({ { X(0.61), Y(0.83) }, { X(0.65), Y(0.94) }, { X(0.96), Y(0.94) } }, A1, 1.4)
     H.text(1, 12, X(0.965), Y(0.84), tostring(slot - 4), { size = 7.5, weight = 700, align = 'CenterCenter', color = W })
-    H.hit(1, 8, X(0.60), 0, X(0.40), Y(0.80), app and ('Launch ' .. app.name) or 'Unassigned slot')
+    H.hit(1, 8, X(0.60), 0, X(0.40), Y(0.80), app and app.name or 'Unassigned slot')
 
   else
     -- compact / rcompact / ship: icon blocks with a selector for categories
@@ -196,9 +196,9 @@ function Update()
     H.text(1, 8, lx, ly, label, { size = 6, weight = 700, align = style == 'ship' and 'CenterCenter' or 'LeftCenter', color = scol, clip = X(0.62) })
     hideAll(1, 5); H.hideText(1, 9); H.hideText(1, 10); H.hideText(1, 11)
     if isCat and #list > 1 then
-      H.hit(1, 6, 0, 0, X(0.15), h, 'Previous app'); H.hit(1, 7, X(0.85), 0, X(0.15), Y(0.6), 'Next app')
+      H.hit(1, 6, 0, 0, X(0.15), h, ''); H.hit(1, 7, X(0.85), 0, X(0.15), Y(0.6), '')
     end
-    H.hit(1, 8, ix - isz / 2, iy - isz / 2, isz, isz, app and ('Launch ' .. app.name .. (isCat and '  (scroll to switch)' or '')) or 'Unassigned slot')
+    H.hit(1, 8, ix - isz / 2, iy - isz / 2, isz, isz, app and app.name or 'Unassigned slot')
   end
   c:flush()
   return 0

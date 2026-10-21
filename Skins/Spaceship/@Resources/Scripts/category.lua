@@ -92,7 +92,7 @@ local function drawTabs()
     else H.hideText(1, t); H.hideHit(1, t) end
   end
   if n > MAXTABS then
-    H.hit(1, 7, 0, 0, 12, z.h, 'Previous app'); H.hit(1, 8, z.w - 12, 0, 12, z.h, 'Next app')
+    H.hit(1, 7, 0, 0, 12, z.h, ''); H.hit(1, 8, z.w - 12, 0, 12, z.h, '')
   else H.hideHit(1, 7); H.hideHit(1, 8) end
   c:flush()
 end
@@ -149,8 +149,7 @@ local function drawSchematic(app)
     -- instead of an empty panel (the page dots still switch to another category)
     c:icon(cat and cat.icon or 'box', cx, cy - sz * 0.06, sz * 0.62, D, 1.4, 170)
     H.text(2, 1, cx, cy + sz * 0.36, 'NONE INSTALLED', { size = 7.5, weight = 700, align = 'CenterCenter', color = H.C.warn })
-    H.hit(2, 1, cx - sz / 2, cy - sz / 2, sz, sz, (cat and cat.name or 'This category') ..
-      ': none of its apps are installed. Install one (it appears after the next Start menu scan, or RESCAN in Control Center), add others in Apps.ini, or pick another category with the page dots.')
+    H.hit(2, 1, cx - sz / 2, cy - sz / 2, sz, sz, '')   -- NONE INSTALLED is already on screen
   end
   c:flush()
 end
@@ -166,7 +165,7 @@ local function drawPager()
     local x = step * (i - 0.5)
     local dy = z.h * 0.21
     if i == idx then c:dot(x, dy, 4, A1) else c:dot(x, dy, 3, D, 150) end
-    H.hit(3, i, x - step / 2, 0, step, z.h, A.cats[A.catOrder[i]].name)
+    H.hit(3, i, x - step / 2, 0, step, z.h, '')   -- category (group) name: not shown
   end
   c:flush()
 end

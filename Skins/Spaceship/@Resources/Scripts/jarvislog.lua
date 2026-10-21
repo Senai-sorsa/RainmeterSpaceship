@@ -100,8 +100,8 @@ function Update()
     c:line(z.w - 30, TOP + pos, z.w - 30, TOP + pos + barH, A1, 3, 230)
   end
   for i = k, 44 do H.hideText(1, i) end
-  H.hit(1, 1, 0, 0, z.w, z.h, 'Scroll: read back   right-click: open the log file')
-  H.hit(1, 2, z.w - 44, 8, 32, 32, 'Close')
+  H.hit(1, 1, 0, 0, z.w, z.h, '')
+  H.hit(1, 2, z.w - 44, 8, 32, 32, '')
   H.hit(1, 3, z.w - 330, 8, 90, 32, 'Type to ' .. H.assistant() .. ' (works with the speakers muted)')
   c:flush()
   return n

@@ -63,12 +63,12 @@ local function placeHits(dev)
   H.set('H1_1', 'Shape', string.format('Ellipse %.2f,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', RR * H.S, RR * H.S, RR * H.S))
   H.set('H1_1', 'TransformationMatrix', '1;0;0;1;0;0')
   H.set('H1_1', 'Hidden', '0')
-  H.tips['1_1'] = { tip = 'Scroll: volume   right-click: sound settings', x0 = (z.x + CX - RR) * H.S, y0 = (z.y + CY - RR) * H.S,
+  H.tips['1_1'] = { tip = '', x0 = (z.x + CX - RR) * H.S, y0 = (z.y + CY - RR) * H.S,
     x1 = (z.x + CX + RR) * H.S, y1 = (z.y + CY + RR) * H.S }
-  H.hit(1, 2, CX - 22, CY - 22, 44, 44, 'Mute / unmute')
-  H.hit(1, 3, CX - 46, CY + 64, 92, 26, 'Output: ' .. dev .. '   click: next device')
+  H.hit(1, 2, CX - 22, CY - 22, 44, 44, '')
+  H.hit(1, 3, CX - 46, CY + 64, 92, 26, '')   -- the device name is already printed in the gap
   local ys = { -18, 0, 18 }
-  local tips = { 'Previous', 'Play / pause', 'Next' }
+  local tips = { '', '', '' }                 -- icons say it
   for i = 1, 3 do
     local p = P(R_TICK - 6, ys[i])
     H.hit(1, 3 + i, p[1] - 9, p[2] - 9, 18, 18, tips[i])

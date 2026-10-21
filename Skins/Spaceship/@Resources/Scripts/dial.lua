@@ -284,6 +284,6 @@ function PlaceRing()
   H.set('H1_10', 'Y', string.format('%.2f', (z.y + CY - RR) * H.S))
   H.set('H1_10', 'Shape', string.format('Ellipse %.2f,%.2f,%.2f | Fill Color 0,0,0,1 | StrokeWidth 0', RR * H.S, RR * H.S, RR * H.S))
   H.set('H1_10', 'Hidden', '0')
-  H.tips['1_10'] = { tip = 'Scroll: change   click the ring: jump to a value   right-click: Windows settings',
+  H.tips['1_10'] = { tip = '',
     x0 = (z.x + CX - RR) * H.S, y0 = (z.y + CY - RR) * H.S, x1 = (z.x + CX + RR) * H.S, y1 = (z.y + CY + RR) * H.S }
 end

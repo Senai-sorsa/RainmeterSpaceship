@@ -23,7 +23,7 @@ function Update()
   if v > 0 then c:line(x0, y, x0 + (x1 - x0) * v, y, H.C.hi, 2.6) end
   c:line(x0 + (x1 - x0) * v, y - 6, x0 + (x1 - x0) * v, y + 2, H.C.white, 1.3)
   H.text(1, 2, z.w, y, watts and string.format('%.0fW', watts) or 'W', { size = 8.5, weight = 700, align = 'RightCenter', color = H.C.white })
-  H.hit(1, 1, 0, 0, z.w, z.h, watts and string.format('Power draw %.0f W  (CPU %s, GPU %s)', watts, cpu and string.format('%.0f', cpu) or '--', gpu and string.format('%.0f', gpu) or '--')
+  H.hit(1, 1, 0, 0, z.w, z.h, watts and string.format('CPU %s W, GPU %s W', cpu and string.format('%.0f', cpu) or '--', gpu and string.format('%.0f', gpu) or '--')
     or 'Power draw needs HWiNFO: Control Center > SENSORS > DETECT')
   c:flush()
   return watts or 0
