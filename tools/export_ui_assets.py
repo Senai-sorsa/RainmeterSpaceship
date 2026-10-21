@@ -157,8 +157,14 @@ def gen_frameparts(root):
     return d, sum(len(v) for v in d.values()), srcs
 
 
+NO_APPS = {"App.rainmeter"}  # the standalone app has no Rainmeter launcher entry (the skin keeps its own)
+
+
 def gen_apps(root):
-    d = parse_ini(rd(root, RES / "Apps.ini"))
+    d = [[s, k] for s, k in parse_ini(rd(root, RES / "Apps.ini")) if s not in NO_APPS]
+    for _, keys in d:
+        if "Apps" in keys:
+            keys["Apps"] = ", ".join(t for t in (x.strip() for x in keys["Apps"].split(",")) if t and t != "rainmeter")
     return d, len(d), [RES / "Apps.ini"]
 
 
