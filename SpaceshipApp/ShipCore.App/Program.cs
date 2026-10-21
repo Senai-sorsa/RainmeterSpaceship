@@ -70,8 +70,18 @@ sealed class Overlay : Form
     TimeSpan _lastCpu; DateTime _lastWall = DateTime.UtcNow;
     double _fps;
     bool _running, _starting; // _running = the user asked for it; _starting = a web view is being created
+    int _failures; // web view restarts since the last good page load
+    const int MaxRestarts = 3;
     StreamWriter? _log;
     readonly int _uiThread = Environment.CurrentManagedThreadId;
+
+    // Core logic. Null router = no skin folder or contract found: the page gets no settings and nothing is written.
+    readonly MessageRouter? _router;
+    readonly VisibilityPolicy _policy;
+    readonly Win32Snapshots _snapshots;
+    readonly System.Windows.Forms.Timer _visibility = new() { Interval = 3000 };
+    readonly AutoStart _autostart = new(new RunKeyStore());
+    readonly Lifecycle _life;
 
     public Overlay(bool hotkeyRegistered)
     {
@@ -82,12 +92,38 @@ sealed class Overlay : Form
         Bounds = _home;
         TopMost = false; // never above other apps (exam browsers, games)
 
+        var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
+        var resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
+        if (schemaPath is not null && resources is not null)
+        {
+            var schema = ConfigSchema.Parse(File.ReadAllText(schemaPath));
+            // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
+            var unwired = new UnwiredHost();
+            _router = new MessageRouter(schema, new ConfigStore(resources, schema), new ActionGate(unwired, unwired), ConfirmAsync);
+        }
+        var examPath = FindUp(Path.Combine("contract", "exam-browsers.json"));
+        _policy = new VisibilityPolicy(examPath is null ? Array.Empty<string>() : ExamBrowserList.ProcessNames(File.ReadAllText(examPath)));
+        _snapshots = new Win32Snapshots(() => _home);
+        _life = new Lifecycle(Stop, () => Restart(false), () => { }); // Switch to Rainmeter is P-H; the tray menu does not offer it yet
+
         var menu = new ContextMenuStrip();
         menu.Items.Add("Start", null, (_, _) => Start());
         menu.Items.Add("Stop", null, (_, _) => Stop());
+        var auto = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = _autostart.IsEnabled };
+        auto.Click += (_, _) =>
+        {
+            if (!auto.Checked) { _autostart.Disable(); return; }
+            var problem = _autostart.Enable(Environment.ProcessPath ?? "");
+            if (problem is null) return;
+            auto.Checked = false;
+            _tray.ShowBalloonTip(5000, "Spaceship", problem, ToolTipIcon.Warning);
+        };
+        menu.Items.Add(auto);
         menu.Items.Add("Quit", null, (_, _) => Quit());
         _tray.Icon = SystemIcons.Application; _tray.Text = "Spaceship"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
         if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", "Ctrl+Alt+1 is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
+        _visibility.Tick += (_, _) => ApplyVisibility();
+        _visibility.Start();
 
         var dir = Path.Combine(Path.GetTempPath(), "spaceship-app");
         Directory.CreateDirectory(dir);
@@ -194,9 +230,72 @@ sealed class Overlay : Form
         Check(Vcall<Commit>(_dcompDevice, 3)(_dcompDevice), "Commit");
 
         _cc.CursorChanged += (_, _) => Cursor = Cursors.Default; // cursor shape not forwarded yet
-        _cc.CoreWebView2.WebMessageReceived += (_, a) => { if (double.TryParse(a.TryGetWebMessageAsString(), System.Globalization.CultureInfo.InvariantCulture, out var f)) _fps = f; };
-        _cc.CoreWebView2.ProcessFailed += (_, a) => _log?.WriteLine($"{DateTime.UtcNow:O},PROCESS_FAILED,{a.ProcessFailedKind},");
+        _cc.CoreWebView2.WebMessageReceived += (_, a) => OnWebMessage(a);
+        _cc.CoreWebView2.ProcessFailed += (_, a) => OnProcessFailed(a);
+        // The page is the only thing this view may show: no links, no redirects, no popups.
+        _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank";
+        _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; };
         _cc.CoreWebView2.NavigateToString(PageHtml());
+    }
+
+    // A number is the page's frame rate; anything else is a message for MessageRouter (which checks it first).
+    async void OnWebMessage(CoreWebView2WebMessageReceivedEventArgs a)
+    {
+        try
+        {
+            var text = a.TryGetWebMessageAsString();
+            if (double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var f)) { _fps = f; return; }
+            if (_router is null) return;
+            var r = await _router.HandleAsync(text);
+            if (r.Problem is not null) _log?.WriteLine($"{DateTime.UtcNow:O},REFUSED,{r.Problem}");
+            if (r.Reply is not null) _cc?.CoreWebView2.PostWebMessageAsJson(r.Reply);
+        }
+        catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},MESSAGE_ERROR,{e.GetType().Name}"); }
+    }
+
+    // Renderer exit: reload. Browser exit: a fresh environment. Unresponsive: WebView2 may recover, so only log it.
+    void OnProcessFailed(CoreWebView2ProcessFailedEventArgs a)
+    {
+        _log?.WriteLine($"{DateTime.UtcNow:O},PROCESS_FAILED,{a.ProcessFailedKind}");
+        switch (a.ProcessFailedKind)
+        {
+            // Deferred: the web view cannot be closed from inside its own event.
+            case CoreWebView2ProcessFailedKind.RenderProcessExited: BeginInvoke(new Action(() => Restart(false))); break;
+            case CoreWebView2ProcessFailedKind.BrowserProcessExited: BeginInvoke(new Action(() => Restart(true))); break;
+        }
+    }
+
+    void Restart(bool freshEnvironment)
+    {
+        if (!_running) return;
+        if (++_failures > MaxRestarts) { _log?.WriteLine($"{DateTime.UtcNow:O},GIVING_UP,{_failures}"); Stop(); return; }
+        ReleaseWebView();
+        if (freshEnvironment) _env = null;
+        Start();
+    }
+
+    // Shows the window only while the policy allows it; a fullscreen app or an exam browser sends it away.
+    void ApplyVisibility()
+    {
+        if (!_running || _cc is null) return;
+        var decision = _policy.Decide(_snapshots.Take());
+        if (decision.Visibility == Visibility.Show) { if (!Visible) Show(); }
+        else if (Visible) Hide();
+    }
+
+    // Power and flow actions need a person to say yes; the schema lists none of them, so this is only reached through the gate.
+    Task<bool> ConfirmAsync(string id) =>
+        Task.FromResult(MessageBox.Show(this, $"Allow the {id} action?", "Spaceship", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+
+    static string? FindUp(string relative)
+    {
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
+        {
+            var p = Path.Combine(d.FullName, relative);
+            if (File.Exists(p) || Directory.Exists(p)) return p;
+        }
+        return null;
     }
 
     // The page and the hit test share one rectangle, so the two cannot drift apart.
@@ -209,6 +308,11 @@ sealed class Overlay : Form
     {
         _running = false;
         Hide();
+        ReleaseWebView();
+    }
+
+    void ReleaseWebView()
+    {
         try { _cc?.Close(); } catch { /* already closing */ }
         _cc = null;
         foreach (var p in new[] { _dcompVisual, _dcompTarget, _dcompDevice }) if (p != IntPtr.Zero) Marshal.Release(p);
@@ -217,8 +321,8 @@ sealed class Overlay : Form
 
     void Quit()
     {
-        Stop();
-        _perf.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null;
+        _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
+        _visibility.Stop(); _perf.Stop(); _tray.Dispose(); _log?.Dispose(); _log = null;
         Application.Exit();
     }
 
@@ -226,8 +330,8 @@ sealed class Overlay : Form
     {
         switch (m.Msg)
         {
-            case WM_QUERYENDSESSION: m.Result = (IntPtr)1; return; // never block sign-out
-            case WM_ENDSESSION: if (m.WParam != IntPtr.Zero) Quit(); m.Result = IntPtr.Zero; return;
+            case WM_QUERYENDSESSION: m.Result = _life.OnQueryEndSession() ? (IntPtr)1 : IntPtr.Zero; return; // never block sign-out
+            case WM_ENDSESSION: _life.OnEndSession(m.WParam != IntPtr.Zero); if (m.WParam != IntPtr.Zero) Quit(); m.Result = IntPtr.Zero; return;
             case WM_NCHITTEST:
             {
                 var p = PointToClient(new Point((short)(m.LParam.ToInt64() & 0xFFFF), (short)((m.LParam.ToInt64() >> 16) & 0xFFFF)));
