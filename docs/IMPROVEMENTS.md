@@ -5,6 +5,9 @@ Facts come from git history (`git log`) and from test runs on the Ubuntu VM. Not
 
 ## 1. Progress log
 
+### 2026-10-20 (session 3): audit of the risky existing code (report only, no code changed)
+Read: `jarvislib/actions.py`, `confirm.py`, the action table in `routing.py`, `Setup-Jarvis.ps1`, requirements, tracked-file sizes, `ShipCore.cs` entry points. Not read: most of the 116k lines (Lua meters, the rest of `jarvis.py`, tools). Findings and their status are in the chat report; fixes are listed under "Audit follow-ups" below once done.
+
 ### 2026-10-20 (session 3): host logic, exam-browser list, P-D prototype
 - `contract/exam-browsers.json`: Respondus LockDown Browser (the one TAMU's LMS lists, `LockDown.exe` from one third-party file database), Safe Exam Browser, Examplify; Honorlock and Proctorio are Chrome extensions (no process); Zoom deliberately excluded. **Every name is unverified**; confirm in Task Manager on your machine.
 - Core, with tests (83 pass): `ExamBrowserList` (feeds `VisibilityPolicy`), `AutoStart` (HKCU Run only, opt-in, path-validated), `Lifecycle` (tray Refresh / Switch to Rainmeter / Quit, `WM_QUERYENDSESSION` never blocks, teardown once).
