@@ -11,6 +11,7 @@ import { MissionClock } from './modules/MissionClock';
 import { fakeCalendar } from './modules/calendarSource';
 import { TopModule } from './modules/TopModule';
 import { BottomModule } from './modules/BottomModule';
+import { LeftModule } from './modules/LeftModule';
 import { styleFrom } from './modules/style';
 
 const v = (settings as { variables: Record<string, string> }).variables;
@@ -26,6 +27,7 @@ const debug = new URLSearchParams(location.search).get('debug') === '1';
 const clockOn = new URLSearchParams(location.search).get('module') === 'clock';
 const topOn = new URLSearchParams(location.search).get('module') === 'top';
 const bottomOn = new URLSearchParams(location.search).get('module') === 'bottom';
+const leftOn = new URLSearchParams(location.search).get('module') === 'left';
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 
 function Neon({ d }: { d: string }) {
@@ -76,6 +78,7 @@ export function Hud() {
       ))}
       {topOn && <TopModule style={styleFrom(values)} values={values} />}
       {bottomOn && <BottomModule style={styleFrom(values)} />}
+      {leftOn && <LeftModule style={styleFrom(values)} />}
       {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
