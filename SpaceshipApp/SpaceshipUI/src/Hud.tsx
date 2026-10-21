@@ -14,6 +14,8 @@ import { BottomModule } from './modules/BottomModule';
 import { LeftModule } from './modules/LeftModule';
 import { CenterModule } from './modules/CenterModule';
 import { RightModule } from './modules/RightModule';
+import { DrawerModule } from './modules/DrawerModule';
+import { BootModule } from './modules/BootModule';
 import { styleFrom } from './modules/style';
 
 const v = (settings as { variables: Record<string, string> }).variables;
@@ -32,6 +34,8 @@ const bottomOn = new URLSearchParams(location.search).get('module') === 'bottom'
 const leftOn = new URLSearchParams(location.search).get('module') === 'left';
 const rightOn = new URLSearchParams(location.search).get('module') === 'right';
 const centerOn = new URLSearchParams(location.search).get('module') === 'center';
+const drawerOn = new URLSearchParams(location.search).get('module') === 'drawer';
+const bootOn = new URLSearchParams(location.search).get('module') === 'boot';
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 
 function Neon({ d }: { d: string }) {
@@ -85,6 +89,8 @@ export function Hud() {
       {leftOn && <LeftModule style={styleFrom(values)} />}
       {rightOn && <RightModule style={styleFrom(values)} />}
       {centerOn && <CenterModule style={styleFrom(values)} />}
+      {drawerOn && <DrawerModule style={styleFrom(values)} />}
+      {bootOn && <BootModule style={styleFrom(values)} />}
       {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
