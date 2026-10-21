@@ -12,6 +12,7 @@ import { fakeCalendar } from './modules/calendarSource';
 import { TopModule } from './modules/TopModule';
 import { BottomModule } from './modules/BottomModule';
 import { LeftModule } from './modules/LeftModule';
+import { CenterModule } from './modules/CenterModule';
 import { RightModule } from './modules/RightModule';
 import { styleFrom } from './modules/style';
 
@@ -30,6 +31,7 @@ const topOn = new URLSearchParams(location.search).get('module') === 'top';
 const bottomOn = new URLSearchParams(location.search).get('module') === 'bottom';
 const leftOn = new URLSearchParams(location.search).get('module') === 'left';
 const rightOn = new URLSearchParams(location.search).get('module') === 'right';
+const centerOn = new URLSearchParams(location.search).get('module') === 'center';
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 
 function Neon({ d }: { d: string }) {
@@ -82,6 +84,7 @@ export function Hud() {
       {bottomOn && <BottomModule style={styleFrom(values)} />}
       {leftOn && <LeftModule style={styleFrom(values)} />}
       {rightOn && <RightModule style={styleFrom(values)} />}
+      {centerOn && <CenterModule style={styleFrom(values)} />}
       {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
