@@ -81,6 +81,7 @@ I'm taking these defaults unless you say otherwise:
 Each slice: `npm test` (vitest + the Playwright specs), `dotnet test`, and the fake-data tests, with exit codes checked. No claim of smoothness or performance without a Windows measurement. Rollback: each slice is one commit, `git revert` by hash.
 
 ## 8. Not done by this plan (yet)
-- F0 to F7 are not started. This document is the plan.
+- Status 2026-10-21: F1 data sources built, unit-tested with fakes, not yet wired to the UI: `HwinfoSensors` (HWiNFO gadget registry, `ValueRaw<index>`, the skin's index map; null when not mapped or HWiNFO is not running), `SystemMetrics` (CPU %, memory %, power, uptime). Windows readers are in `ShipCore.App/WindowsMetrics.cs`; their runtime values are not verified on this PC yet.
+- F2 to F7 module ports are not built. The skin has 40 Lua scripts (about 10,600 lines) and 36 ini files; the UI draws only the mission clock. The host has no telemetry channel to the UI yet.
 - No live run, no `-Apply`, no HKCU Run change, no deploy.
 - The fetch slice for the calendar is not built.
