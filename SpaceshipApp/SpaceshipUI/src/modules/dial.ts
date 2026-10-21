@@ -16,9 +16,11 @@ const POWER_NAMES: Record<string, string> = { quiet: 'QUIET', balance: 'BALANCED
 export type DialInput = {
   bright?: number; mic?: number; micMuted?: boolean; vol?: number;
   power?: string; refresh?: string; glowAlpha?: number;
+  /** Values just set, shown until a reading replaces them (Lua pending). Same units as the value: index for steps, 0..1 for ranges. */
+  pending?: Partial<Record<string, number>>;
 };
 
-type Ctl = { id: string; label: string; name: string; ang: number; steps?: string[] };
+export type Ctl = { id: string; label: string; name: string; ang: number; steps?: string[] };
 export const CONTROLS: Ctl[] = [
   { id: 'bright', label: 'BRT', name: 'BRIGHTNESS', ang: 205 },
   { id: 'vol', label: 'VOL', name: 'VOLUME', ang: 180 },
@@ -29,7 +31,9 @@ export const CONTROLS: Ctl[] = [
 ];
 
 /** Current value: a range gives 0..1 (undefined = unavailable); a stepped control gives its 1-based index (undefined = unknown). */
-function valueOf(c: Ctl, inp: DialInput): number | undefined {
+export function valueOf(c: Ctl, inp: DialInput): number | undefined {
+  const p = inp.pending?.[c.id];
+  if (p !== undefined) return p;
   if (c.id === 'bright') return inp.bright !== undefined && inp.bright >= 0 ? inp.bright / 100 : undefined;
   if (c.id === 'mic') return inp.mic !== undefined && inp.mic >= 0 ? inp.mic / 100 : undefined;
   if (c.id === 'vol') { const v = inp.vol ?? -1; return v >= 0 ? v / 100 : 0; }
@@ -56,7 +60,7 @@ function labelOf(c: Ctl, v?: number): string {
 }
 
 /** The dial in its zone. sel is the 1-based control the glass wedge points at (DialSel in State.inc). */
-export function dialFrame(inp: DialInput, zone: Zone, st: Style, sel = 1): Op[] {
+export function dialFrame(inp: DialInput, zone: Zone, st: Style, sel = 1, note = ''): Op[] {
   const c = new Canvas(zone, st);
   const A1 = st.accent, W = st.white, D = st.dim;
   const cur = CONTROLS[sel - 1] ?? CONTROLS[0];
@@ -102,8 +106,37 @@ export function dialFrame(inp: DialInput, zone: Zone, st: Style, sel = 1): Op[] 
   c.text(CX, CY - 17, cur.name, { size: 4.2, weight: 700, align: 'CenterCenter', color: A1, glow: false });
   c.text(CX, CY + 2, labelOf(cur, v), { size: cur.steps ? 7 : 10.5, weight: 700, align: 'CenterCenter', color: avail ? W : D });
   let sub = '';
-  if (!avail) sub = cur.id === 'power' || cur.id === 'hz' ? 'NEEDS LEGION TOOLKIT' : cur.id === 'bright' ? 'NO PANEL CONTROL' : 'NO DATA';
+  if (note) sub = note;
+  else if (!avail) sub = cur.id === 'power' || cur.id === 'hz' ? 'NEEDS LEGION TOOLKIT' : cur.id === 'bright' ? 'NO PANEL CONTROL' : 'NO DATA';
   else if (cur.id === 'mic' && inp.micMuted) sub = 'MUTED';
+  else if (inp.pending?.[cur.id] !== undefined) sub = 'SETTING...';
   c.text(CX, CY + 20, sub, { size: 3.4, weight: 700, align: 'CenterCenter', color: st.warn, glow: false });
   return c.flush();
+}
+
+// Hit areas in zone coordinates, the same boxes the skin's H.hit makes: six 30 x 18 label boxes and the ring disc.
+export const DIAL_LABEL_HITS = CONTROLS.map((k, i) => {
+  const ar = (k.ang * Math.PI) / 180;
+  return { i, x: CX + R_LBL * Math.cos(ar) - 15, y: CY + R_LBL * Math.sin(ar) - 9, w: 30, h: 18 };
+});
+export const DIAL_RING = { cx: CX, cy: CY, r: R_TICK + 2 };
+export const DIAL_CENTRE = { cx: CX, cy: CY, r: R_IN - 4 };
+
+/** Scroll on control i (0-based): a stepped control moves one option, a range moves 0.02 (glow 0.05). Returns the value to set. */
+export function stepValue(i: number, inp: DialInput, dir: number): number {
+  const c = CONTROLS[i];
+  const v = valueOf(c, inp);
+  if (c.steps) return Math.max(1, Math.min(c.steps.length, (v ?? 1) + dir));
+  return Math.max(0, Math.min(1, (v ?? 0) + dir * (c.id === 'glow' ? 0.05 : 0.02)));
+}
+
+/** A click on the ring (dx, dy from the dial centre): the value at that point on the sweep, or undefined inside the inner disc. */
+export function ringValue(i: number, dx: number, dy: number): number | undefined {
+  if (Math.hypot(dx, dy) < R_IN - 4) return undefined;
+  let a = (Math.atan2(dy, dx) * 180) / Math.PI;
+  while (a < A0) a += 360;
+  let f = (a - A0) / SWEEP;
+  if (f > 1) f = (f - 1) * SWEEP < (360 - SWEEP) / 2 ? 1 : 0;
+  const c = CONTROLS[i];
+  return c.steps ? Math.floor(f * (c.steps.length - 1) + 0.5) + 1 : f;
 }

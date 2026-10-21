@@ -7,7 +7,11 @@ import { audioFrame, audioState, type AudioState } from './audio';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
 import { type Readings } from './readings';
 import { stripLeftFrame, stripRightFrame } from './strip';
-import { dialFrame } from './dial';
+import { DialModule } from './DialModule';
+import { createDialSetter } from './dialSetter';
+import { store } from '../settings/instance';
+
+const dialSetter = createDialSetter(store);
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the bottom dash, read once. Each is drawn in its own skewed matrix. */
@@ -16,7 +20,7 @@ const Z = {
   stripL: zoneOf('B_stripL'), stripR: zoneOf('B_stripR'),
 };
 
-/** Bottom dash: the systems dial (B_storage), audio dial, the two panels and the two strips. Behind ?module=bottom. Clicks are not wired yet. */
+/** Bottom dash: the systems dial (B_storage), audio dial, the two panels and the two strips. Behind ?module=bottom. The audio dial's clicks are not wired yet. */
 export function BottomModule({ style }: { style: Style }) {
   const m = systemMetrics.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
@@ -29,7 +33,6 @@ export function BottomModule({ style }: { style: Style }) {
   const audio = useRef<AudioState>(audioState());
   // style is not in the deps: a settings change shows on the next host reading
   const ops = useMemo(() => ({
-    dl: Z.storage && dialFrame({ glowAlpha: style.glowA }, Z.storage, style),
     sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
     sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
     au: Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
@@ -47,7 +50,7 @@ export function BottomModule({ style }: { style: Style }) {
     );
   return (
     <>
-      {place(Z.storage, ops.dl, 'dl', 'dial')}
+      {Z.storage && <DialModule zone={Z.storage} style={style} setter={dialSetter} />}
       {place(Z.audio, ops.au, 'au', 'audio')}
       {place(Z.panelL, panels.pl, 'pl', 'panel-left')}
       {place(Z.panelR, panels.pr, 'pr', 'panel-right')}
