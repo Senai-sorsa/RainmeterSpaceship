@@ -11,7 +11,7 @@ function style(over: Partial<Style> = {}): Style {
   return {
     s: 1, tier: 0, glowA: 46, glowW: 3.2, coreWhite: 0, hudA: 255, edit: false,
     textGlow: 4, textGlowA: 150, textSmall: 1.85, textLarge: 1.45, fontText: 'Oxanium',
-    white: [255, 255, 255, 255], dim: DIM, panel: [0, 30, 45, 90], accent: ACCENT, warn: WARN, alert: ALERT, text: [200, 240, 255, 255],
+    white: [255, 255, 255, 255], dim: DIM, panel: [0, 30, 45, 90], accent: ACCENT, warn: WARN, alert: ALERT, text: [200, 240, 255, 255], hi: [255, 105, 135, 255],
     ...over,
   };
 }

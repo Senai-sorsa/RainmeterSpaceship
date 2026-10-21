@@ -22,7 +22,7 @@ export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke };
 export type Style = {
   s: number; tier: number; glowA: number; glowW: number; coreWhite: number; hudA: number; edit: boolean;
   textGlow: number; textGlowA: number; textSmall: number; textLarge: number; fontText: string;
-  white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA;
+  white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA; hi: RGBA;
 };
 export type Zone = { x: number; y: number; w: number; h: number };
 export type TextOpts = { size?: number; color?: RGBA; alpha?: number; align?: string; weight?: number; font?: string; glow?: boolean; clip?: number };
