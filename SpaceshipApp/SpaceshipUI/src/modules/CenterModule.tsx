@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
+import { scheduler } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
@@ -26,11 +27,10 @@ export function CenterModule({ style }: { style: Style }) {
   const tgt = useRef<TargetState | null>(Z.target ? targetState(Z.target) : null);
   const [, setTick] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => {
+    return scheduler.every(FRAME_MS, () => {
       if (Z.target && tgt.current) targetMove(tgt.current, Z.target, { cpu: r.mCPU }, 1, Math.random);
       setTick((n) => n + 1);
-    }, FRAME_MS);
-    return () => clearInterval(t);
+    });
   }, []);
   // the HUD steps once per host reading, so it lives outside the animation tick
   const hudOps = useMemo(() => Z.hud && hudFrame(hud.current, {

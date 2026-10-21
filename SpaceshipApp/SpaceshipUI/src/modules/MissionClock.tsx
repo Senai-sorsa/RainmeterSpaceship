@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { emptyText, firstLevel, rowTip, rows } from './calendar';
 import type { CalendarSource } from './calendarSource';
+import { scheduler } from '../host/scheduler';
 
 type Zone = { x: number; y: number; w: number; h: number; matrix: number[] };
 
@@ -11,8 +12,7 @@ const TICK_MS = 30000; // the rows change by the minute at most; 30 s keeps NOW 
 export function MissionClock({ zone, source, captions }: { zone: Zone; source: CalendarSource; captions: boolean }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(t);
+    return scheduler.every(TICK_MS, () => setNow(Date.now()));
   }, []);
   const state = source.read(now);
   const { x, y, w, h } = zone;

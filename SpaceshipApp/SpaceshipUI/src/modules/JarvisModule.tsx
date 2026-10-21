@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
+import { scheduler } from '../host/scheduler';
 import { transformBox, type Matrix } from '../lib/geometry';
 import { feedFrom, jarvisFrame, jarvisLogFrame, type Feed } from './jarvis';
 
@@ -16,8 +17,7 @@ const offline = feedFrom(undefined, 0);
 export function JarvisModule({ style, feed = offline }: { style: Style; feed?: Feed }) {
   const [f, setF] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setF((n) => n + 1), FRAME_MS);
-    return () => clearInterval(t);
+    return scheduler.every(FRAME_MS, () => setF((n) => n + 1));
   }, []);
   if (!sphere) return null;
   const q = transformBox(sphere.matrix as Matrix, sphere.x, sphere.y, sphere.w, sphere.h);

@@ -3,6 +3,7 @@ import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
+import { scheduler } from '../host/scheduler';
 import { bootFrame, bootRows, bootTimeline, FRAME_MS } from './boot';
 
 const tl = bootTimeline();
@@ -15,12 +16,12 @@ export function BootModule({ style }: { style: Style }) {
   const [f, setF] = useState(0);
   useEffect(() => {
     let n = 0;
-    const t = setInterval(() => {
+    const stop = scheduler.every(FRAME_MS, () => {
       n += 1;
       setF(n);
-      if (n >= tl.done) clearInterval(t);
-    }, FRAME_MS);
-    return () => clearInterval(t);
+      if (n >= tl.done) stop();
+    });
+    return stop;
   }, []);
   const checking = f >= tl.c0;
   const rows = useMemo(() => {

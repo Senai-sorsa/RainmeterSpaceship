@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
+import { scheduler } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { audioFrame, audioState, type AudioState } from './audio';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
@@ -27,8 +28,7 @@ export function BottomModule({ style }: { style: Style }) {
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    return scheduler.every(1000, () => setNow(new Date()));
   }, []);
   // the audio followers step once per host reading, so they live outside the render and are not in the deps of the other frames
   const audio = useRef<AudioState>(audioState());
