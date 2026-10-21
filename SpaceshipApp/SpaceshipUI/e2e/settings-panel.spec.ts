@@ -50,6 +50,8 @@ test('group collapsed state survives reload; with localStorage blocked the page 
   await expect(theme).toHaveJSProperty('open', true);
   await theme.locator('summary').click();
   await expect(theme).toHaveJSProperty('open', false);
+  // The toggle event that saves the state fires after the click returns; wait for it before reloading.
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('ui.groups.v1'))).toContain('"display/Theme":false');
   await page.reload();
   await expect(page.locator('details[data-group="display/Theme"]')).toHaveJSProperty('open', false);
   await expect(page.locator('details[data-group="display/Startup"]')).toHaveJSProperty('open', true);
