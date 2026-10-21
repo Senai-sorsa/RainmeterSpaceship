@@ -5,6 +5,9 @@ const KEY = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 const CTRL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/; // tab and newline stay legal in free text, never in a setting value
 const ACTIONS = new Set<string>(keys.actions);
 const FLOWS = new Set(['gmail', 'calendars', 'obsidian']);
+const DIAL_CONTROLS = new Set(['brightness', 'volume', 'mic', 'power', 'refresh']);
+const POWER_MODES = new Set(['quiet', 'balance', 'performance']);
+const REFRESH_RATES = new Set(['60', '165']);
 const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/; // a lone surrogate is not text the host can read
 const isObj = (m: unknown): m is Record<string, unknown> => typeof m === 'object' && m !== null && !Array.isArray(m);
 
@@ -22,6 +25,19 @@ export function messageProblem(m: unknown): string | null {
     case 'aboutme.set': return typeof m.text === 'string' && m.text.length <= 4000 && !CTRL.test(m.text) && !LONE.test(m.text) ? null : 'bad text';
     case 'action': return typeof m.id === 'string' && ACTIONS.has(m.id) ? null : 'action not allowed';
     case 'flow.open': return typeof m.flow === 'string' && FLOWS.has(m.flow) ? null : 'bad flow';
+    case 'dial.set': return dialSetProblem(m);
     default: return 'unknown type';
+  }
+}
+
+// Shape only, as the C# side: a percent is a whole number 0..100, a mode and a rate are names. The host checks them again.
+function dialSetProblem(m: Record<string, unknown>): string | null {
+  if (typeof m.control !== 'string' || !DIAL_CONTROLS.has(m.control)) return 'bad control';
+  if (!Number.isSafeInteger(m.id) || (m.id as number) < 0) return 'bad id';
+  const v = m.value;
+  switch (m.control) {
+    case 'power': return typeof v === 'string' && POWER_MODES.has(v) ? null : 'bad value';
+    case 'refresh': return typeof v === 'string' && REFRESH_RATES.has(v) ? null : 'bad value';
+    default: return Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= 100 ? null : 'bad value';
   }
 }

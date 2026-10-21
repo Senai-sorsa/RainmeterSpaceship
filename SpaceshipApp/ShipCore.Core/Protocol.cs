@@ -41,8 +41,26 @@ public static class Protocol
                 return Str(m, "text", out var t) && t.Length <= 4000 && !t.Any(c => (c < ' ' && c is not ('\t' or '\n' or '\r')) || c == '\x7f') ? null : "bad text";
             case "action": return Str(m, "id", out var a) && schema.Actions.Contains(a) ? null : "action not allowed";
             case "flow.open": return Str(m, "flow", out var f) && Flows.Contains(f) ? null : "bad flow";
+            case "dial.set": return DialSetProblem(m);
             default: return "unknown type";
         }
+    }
+
+    private static readonly HashSet<string> DialControls = new() { "brightness", "volume", "mic", "power", "refresh" };
+
+    // Shape only: a percent is a whole number 0..100, a power mode and a refresh rate are names from DialGate. DialGate checks them again.
+    private static string? DialSetProblem(JsonElement m)
+    {
+        if (!Str(m, "control", out var c) || !DialControls.Contains(c)) return "bad control";
+        if (!m.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.Number || !id.TryGetInt64(out var n) || n < 0
+            || id.GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) >= 0) return "bad id";
+        if (!m.TryGetProperty("value", out var v)) return "bad value";
+        return c switch
+        {
+            "power" => v.ValueKind == JsonValueKind.String && Array.IndexOf(DialGate.Modes, v.GetString()) >= 0 ? null : "bad value",
+            "refresh" => v.ValueKind == JsonValueKind.String && Array.IndexOf(DialGate.Rates, v.GetString()) >= 0 ? null : "bad value",
+            _ => v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var p) && p >= 0 && p <= 100 ? null : "bad value",
+        };
     }
 
     private static bool Str(JsonElement o, string name, out string value)

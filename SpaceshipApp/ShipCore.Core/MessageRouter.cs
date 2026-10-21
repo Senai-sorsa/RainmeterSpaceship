@@ -12,12 +12,14 @@ public sealed class MessageRouter
     private readonly ActionGate _gate;
     private readonly Func<string, Task<bool>> _confirm;
     private readonly HostState _state;
+    private readonly DialGate? _dial;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
     /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
-    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null)
+    /// <param name="dial">The systems dial's writes. Null means the dial is not wired and every dial.set is refused.</param>
+    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null)
     {
-        _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null);
+        _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial;
     }
 
     public async Task<Routed> HandleAsync(string json)
@@ -63,6 +65,14 @@ public sealed class MessageRouter
                 var flow = m.GetProperty("flow").GetString()!;
                 var g = _gate.Flow(flow);
                 return Reply(new { type = "flow.result", flow, ran = g.Ran, reason = g.Reason });
+            }
+            case "dial.set":
+            {
+                var control = m.GetProperty("control").GetString()!;
+                var id = m.GetProperty("id").GetInt64();
+                if (_dial is null) return Reply(new { type = "dial.result", id, ran = false, reason = "not wired" });
+                var g = await _dial.SetAsync(control, m.GetProperty("value"));
+                return Reply(new { type = "dial.result", id, control, ran = g.Ran, reason = g.Reason });
             }
             default: return new(null, null);
         }

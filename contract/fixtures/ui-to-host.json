@@ -896,5 +896,85 @@
    "type": "aboutme.set",
    "text": "a\u000bb"
   }
+ },
+ {
+  "name": "dial.set brightness 40",
+  "valid": true,
+  "msg": {
+   "type": "dial.set",
+   "id": 4,
+   "control": "brightness",
+   "value": 40
+  }
+ },
+ {
+  "name": "dial.set power quiet",
+  "valid": true,
+  "msg": {
+   "type": "dial.set",
+   "id": 5,
+   "control": "power",
+   "value": "quiet"
+  }
+ },
+ {
+  "name": "dial.set refresh 165",
+  "valid": true,
+  "msg": {
+   "type": "dial.set",
+   "id": 6,
+   "control": "refresh",
+   "value": "165"
+  }
+ },
+ {
+  "name": "dial.set volume 101",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 7,
+   "control": "volume",
+   "value": 101
+  }
+ },
+ {
+  "name": "dial.set power godmode",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 8,
+   "control": "power",
+   "value": "godmode"
+  }
+ },
+ {
+  "name": "dial.set refresh as a number",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 9,
+   "control": "refresh",
+   "value": 165
+  }
+ },
+ {
+  "name": "dial.set negative id",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": -1,
+   "control": "mic",
+   "value": 10
+  }
+ },
+ {
+  "name": "dial.set unknown control",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 10,
+   "control": "shutdown",
+   "value": 10
+  }
  }
 ]

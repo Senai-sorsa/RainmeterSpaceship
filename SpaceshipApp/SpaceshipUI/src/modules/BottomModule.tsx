@@ -8,10 +8,11 @@ import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
 import { type Readings } from './readings';
 import { stripLeftFrame, stripRightFrame } from './strip';
 import { DialModule } from './DialModule';
-import { createDialSetter } from './dialSetter';
-import { store } from '../settings/instance';
+import { createDialSetter, DIAL_DEFS, hostDialRunner } from './dialSetter';
+import { ActionGate } from '../actions/gate';
+import { host, store } from '../settings/instance';
 
-const dialSetter = createDialSetter(store);
+const dialSetter = createDialSetter(store, new ActionGate(DIAL_DEFS, hostDialRunner(host)));
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the bottom dash, read once. Each is drawn in its own skewed matrix. */

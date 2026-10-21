@@ -72,6 +72,7 @@ sealed class Overlay : Form
     readonly System.Windows.Forms.Timer _perf = new() { Interval = 5000 };
     readonly Process _self = Process.GetCurrentProcess();
     TimeSpan _lastCpu; DateTime _lastWall = DateTime.UtcNow;
+    readonly Dictionary<int, TimeSpan> _webCpu = new(); // last CPU time per msedgewebview2 pid, for the delta
     double _fps;
     bool _running, _starting; // _running = the user asked for it; _starting = a web view is being created
     int _failures; // web view restarts since the last good page load
@@ -120,7 +121,7 @@ sealed class Overlay : Form
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
-            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state);
+            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync));
         }
         // The full display, taskbar included: the desktop layer lets the taskbar draw over it.
         _home = HomeScreen(_settings).Bounds;
@@ -155,7 +156,7 @@ sealed class Overlay : Form
         var old = new DirectoryInfo(dir).GetFiles("perf-*.csv").Select(f => (f.FullName, f.LastWriteTime));
         foreach (var path in HostRules.ExpiredLogs(old, DateTime.Now, TimeSpan.FromDays(7))) File.Delete(path);
         _log = new StreamWriter(Path.Combine(dir, $"perf-{DateTime.Now:yyyyMMdd-HHmmss}.csv")) { AutoFlush = true };
-        _log.WriteLine("utc,cpu_percent_of_one_core,working_set_mb,js_fps");
+        _log.WriteLine("utc,cpu_percent_of_one_core,working_set_mb,js_fps,web_cpu_percent_of_one_core,web_working_set_mb,web_private_mb,web_processes");
         _lastCpu = _self.TotalProcessorTime;
         _perf.Tick += (_, _) => Sample();
         _perf.Start();
@@ -421,10 +422,33 @@ sealed class Overlay : Form
     {
         _self.Refresh();
         var now = DateTime.UtcNow; var cpu = _self.TotalProcessorTime;
-        var pct = (cpu - _lastCpu).TotalMilliseconds / (now - _lastWall).TotalMilliseconds * 100;
+        var wallMs = (now - _lastWall).TotalMilliseconds;
+        var pct = (cpu - _lastCpu).TotalMilliseconds / wallMs * 100;
         _lastCpu = cpu; _lastWall = now;
-        // Host process only; WebView2's own processes (msedgewebview2.exe) are not included.
-        _log?.WriteLine($"{now:O},{pct:F1},{_self.WorkingSet64 / 1048576.0:F0},{_fps:F0}");
+        // Host process first, then every msedgewebview2.exe child summed.
+        _log?.WriteLine($"{now:O},{pct:F1},{_self.WorkingSet64 / 1048576.0:F0},{_fps:F0},{SampleWebView(wallMs)}");
+    }
+
+    // shortcut: a process that starts between two samples is counted from its next sample, so its first interval is missed.
+    string SampleWebView(double wallMs)
+    {
+        double cpuMs = 0, wsMb = 0, privMb = 0; int count = 0;
+        var seen = new HashSet<int>();
+        foreach (var p in Process.GetProcessesByName("msedgewebview2"))
+        {
+            try
+            {
+                var t = p.TotalProcessorTime;
+                if (_webCpu.TryGetValue(p.Id, out var prev)) cpuMs += (t - prev).TotalMilliseconds;
+                _webCpu[p.Id] = t; seen.Add(p.Id);
+                wsMb += p.WorkingSet64 / 1048576.0; privMb += p.PrivateMemorySize64 / 1048576.0; count++;
+            }
+            // a process that exited between listing and reading has no CPU time left to read
+            catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+            finally { p.Dispose(); }
+        }
+        foreach (var gone in _webCpu.Keys.Except(seen).ToList()) _webCpu.Remove(gone);
+        return $"{cpuMs / wallMs * 100:F1},{wsMb:F0},{privMb:F0},{count}";
     }
 
     // --- minimal DirectComposition COM calls by vtable slot (IDCompositionDevice: 3 Commit, 6 CreateTargetForHwnd, 7 CreateVisual; target: 3 SetRoot) ---

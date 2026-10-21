@@ -4,6 +4,8 @@ namespace ShipCore.Core;
 public interface IClock { DateTimeOffset Now { get; } }
 public interface IPowerActions { void Shutdown(); void Restart(); void Sleep(); void Lock(); }
 public interface IShell { void OpenFlow(string flow); }
+// The dial's writes. Each one throws when Windows refuses, and DialGate turns that into a refusal.
+public interface IDialActions { void Brightness(int percent); void Volume(int percent); void Mic(int percent); void PowerMode(string mode); void Refresh(int hz); }
 public interface IWindowSnapshotSource { WindowSnapshot Take(); }
 
 public readonly record struct Rect(int Left, int Top, int Right, int Bottom)
