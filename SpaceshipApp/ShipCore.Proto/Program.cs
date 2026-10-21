@@ -36,6 +36,7 @@ sealed class Overlay : Form
     TimeSpan _lastCpu; DateTime _lastWall = DateTime.UtcNow;
     double _fps;
     StreamWriter? _log;
+    readonly int _uiThread = Environment.CurrentManagedThreadId;
 
     public Overlay(bool autostart)
     {
@@ -70,13 +71,23 @@ sealed class Overlay : Form
         base.OnHandleCreated(e);
         SetWindowPos(Handle, (IntPtr)1 /*HWND_BOTTOM*/, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // SWP_NOSIZE|NOMOVE|NOACTIVATE
         try { await InitWebViewAsync(); }
-        catch (Exception ex) { MessageBox.Show("P-D FAIL (record this): " + ex.Message); Application.Exit(); }
+        catch (Exception ex) { Fail(ex); }
     }
+
+    void Fail(Exception ex) { MessageBox.Show($"P-D FAIL (record this): {ex.Message}\nthread {Environment.CurrentManagedThreadId}, ui {_uiThread}\n{ex}"); Application.Exit(); }
 
     async Task InitWebViewAsync()
     {
         _env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(Path.GetTempPath(), "spaceship-pd", "wv2"));
-        _cc = await _env.CreateCoreWebView2CompositionControllerAsync(Handle);
+        var cc = await _env.CreateCoreWebView2CompositionControllerAsync(Handle);
+        // WebView2 members may only be touched on the UI thread; an await can resume on a pool thread.
+        if (InvokeRequired) BeginInvoke(new Action(() => { try { AttachOnUi(cc); } catch (Exception ex) { Fail(ex); } }));
+        else AttachOnUi(cc);
+    }
+
+    void AttachOnUi(CoreWebView2CompositionController cc)
+    {
+        _cc = cc;
         _cc.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
         _cc.DefaultBackgroundColor = Color.Transparent;
         _cc.IsVisible = true;
@@ -86,7 +97,7 @@ sealed class Overlay : Form
         Check(Vcall<CreateTargetForHwnd>(_dcompDevice, 6)(_dcompDevice, Handle, true, out _dcompTarget), "CreateTargetForHwnd");
         Check(Vcall<CreateVisual>(_dcompDevice, 7)(_dcompDevice, out _dcompVisual), "CreateVisual");
         Check(Vcall<SetRoot>(_dcompTarget, 3)(_dcompTarget, _dcompVisual), "SetRoot");
-        _cc.RootVisualTarget = _dcompVisual;
+        _cc.RootVisualTarget = Marshal.GetObjectForIUnknown(_dcompVisual); // the wrapper needs a COM object, not a raw pointer
         Check(Vcall<Commit>(_dcompDevice, 3)(_dcompDevice), "Commit");
 
         _cc.CursorChanged += (_, _) => Cursor = Cursors.Default; // prototype: cursor shape not forwarded yet
