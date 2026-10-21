@@ -10,7 +10,7 @@ function Check([string]$name, [bool]$ok, [string]$detail, [switch]$Advice) {
 
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $repo
-$exe = Join-Path $repo 'SpaceshipApp\ShipCore.App\bin\Debug\net10.0-windows\ShipCore.App.exe'
+$exe = Join-Path $repo 'SpaceshipApp\ShipCore.App\bin\Debug\net10.0-windows\CSpace.exe'
 $settings = Join-Path $env:LOCALAPPDATA 'Spaceship\settings.json'
 $marker = Join-Path $env:LOCALAPPDATA 'Spaceship\running.marker'
 $schema = Join-Path $repo 'contract\config-keys.json'
@@ -25,7 +25,7 @@ $wv = @('HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-
         'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}') |
   ForEach-Object { (Get-ItemProperty $_ -ErrorAction SilentlyContinue).pv } | Where-Object { $_ } | Select-Object -First 1
 Check 'WebView2 runtime' ([bool]$wv) $(if ($wv) { "version $wv" } else { 'not found: install the Evergreen runtime' })
-$running = @(Get-Process ShipCore.App -ErrorAction SilentlyContinue)
+$running = @(Get-Process CSpace -ErrorAction SilentlyContinue)
 Check 'app not already running' ($running.Count -eq 0) $(if ($running.Count -eq 0) { 'none' } else { "$($running.Count) running: close it first" })
 Check 'leftover run marker' (-not (Test-Path $marker)) $(if (Test-Path $marker) { "$marker exists: the last run did not exit cleanly" } else { 'none' }) -Advice
 Check 'settings file' (Test-Path $settings) $(if (Test-Path $settings) { $settings } else { 'absent: first run will import from the skin' }) -Advice

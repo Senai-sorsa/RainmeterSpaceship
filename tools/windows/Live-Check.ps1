@@ -6,7 +6,7 @@
 param([switch]$Run, [int]$SampleSeconds = 60, [int]$KillWaitSeconds = 120)
 $ErrorActionPreference = 'Stop'
 
-$exe = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'SpaceshipApp\ShipCore.App\bin\Debug\net10.0-windows\ShipCore.App.exe'
+$exe = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'SpaceshipApp\ShipCore.App\bin\Debug\net10.0-windows\CSpace.exe'
 $mode = if ($Run) { 'RUN' } else { 'dry run' }
 Write-Host "Live check ($mode) of $exe"
 if (-not (Test-Path $exe)) { throw "missing build output: run dotnet build SpaceshipApp\ShipCore.App first" }

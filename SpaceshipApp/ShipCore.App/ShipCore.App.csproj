@@ -9,6 +9,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>CSpace</AssemblyName>
+    <Product>CSpace</Product>
+    <ApplicationIcon>Assets\cspace.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

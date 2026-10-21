@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $ini = Join-Path $env:APPDATA 'Rainmeter\Rainmeter.ini'
 $rainmeter = Join-Path $env:ProgramFiles 'Rainmeter\Rainmeter.exe'
 $state = Join-Path $env:LOCALAPPDATA 'Spaceship\cutover-state.json'
-$hostProcess = 'ShipCore.App'
+$hostProcess = 'CSpace'
 $mode = if ($Rollback) { 'rollback' } elseif ($Apply) { 'apply' } else { 'dry run' }
 
 function Get-ActiveSkins {

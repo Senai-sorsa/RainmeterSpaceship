@@ -12,6 +12,9 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
+        // A second copy would fight the first for the desktop layer and the kill chord, so it exits quietly.
+        using var single = new Mutex(true, @"Local\CSpace.SingleInstance", out var first);
+        if (!first) return;
         var marker = new RunMarker(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship", "running.marker"));
         var lastRunUnclean = marker.LastRunEndedUncleanly();
         marker.MarkRunning(DateTimeOffset.Now);
@@ -104,6 +107,7 @@ sealed class Overlay : Form
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
+        Text = "CSpace";
         TopMost = false; // never above other apps (exam browsers, games)
 
         var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
@@ -145,7 +149,7 @@ sealed class Overlay : Form
         };
         menu.Items.Add(auto);
         menu.Items.Add("Quit", null, (_, _) => Quit());
-        _tray.Icon = SystemIcons.Application; _tray.Text = "Spaceship"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
+        _tray.Icon = AppIcon(); _tray.Text = "CSpace"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
         if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", $"{KillChord.Label} is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
         if (lastRunUnclean) _tray.ShowBalloonTip(5000, "Spaceship", "The last run did not exit cleanly. Its log is in the temp folder under spaceship-app.", ToolTipIcon.Warning);
         _visibility.Tick += (_, _) => ApplyVisibility();
@@ -216,6 +220,13 @@ sealed class Overlay : Form
         var text = settings?.Get(new[] { "HomeSize" }).GetValueOrDefault("HomeSize") ?? "";
         var index = HostRules.PickHomeDisplay(screens.Select(s => (s.Bounds.Width, s.Bounds.Height)).ToList(), HostRules.ParseSize(text, (2560, 1600)));
         return index >= 0 ? screens[index] : Screen.PrimaryScreen!;
+    }
+
+    // The icon baked into the exe (Assets/cspace.ico); the generic one if it cannot be read.
+    static Icon AppIcon()
+    {
+        try { return Environment.ProcessPath is { } p && Icon.ExtractAssociatedIcon(p) is { } i ? i : SystemIcons.Application; }
+        catch { return SystemIcons.Application; }
     }
 
     void Fail(Exception ex) { MessageBox.Show($"Spaceship error: {ex.Message}\nthread {Environment.CurrentManagedThreadId}, ui {_uiThread}\n{ex}"); Quit(); }
