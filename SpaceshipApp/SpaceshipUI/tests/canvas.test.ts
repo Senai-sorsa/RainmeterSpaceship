@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { arcPts, Canvas, mix, ramp, type Op, type Style } from '../src/draw/canvas';
+import type { Pt } from '../src/lib/geometry';
 import type { RGBA } from '../src/lib/theme';
+import icons from '../src/generated/icons.json';
 
 // Expected values are worked out by hand from Skins/Spaceship/@Resources/Scripts/lib.lua, not read back from the port.
 const ACCENT: RGBA = [0, 210, 255, 255], DIM: RGBA = [0, 110, 150, 255], WARN: RGBA = [255, 130, 40, 255], ALERT: RGBA = [255, 60, 70, 255];
@@ -140,6 +142,32 @@ describe('shapes', () => {
     const c = new Canvas(zone, style());
     c.chamfer(0, 0, 10, 10, 2, ACCENT, 1, 255, 200);
     expect(c.flush()[0].fill).toEqual([0, 30, 45, 200]);
+  });
+});
+
+describe('icons (lib.lua Canvas:icon)', () => {
+  it('fits the 100 box to size and centres it on cx, cy', () => {
+    const c = new Canvas(zone, style({ tier: 2 }));
+    c.icon('gear', 10, 10, 50, ACCENT, 1);
+    const [hub, body] = c.flush();
+    expect(hub.shape).toEqual({ kind: 'ellipse', cx: 10, cy: 10, rx: 7, ry: 7 }); // gear hub 50,50 r14 at half size
+    expect(body.shape).toMatchObject({ kind: 'poly', closed: true });
+    expect((body.shape as { pts: Pt[] }).pts[0]).toEqual([7, -11]); // 44,8 in the box
+  });
+
+  it('an unknown name draws the gear', () => {
+    const a = new Canvas(zone, style({ tier: 2 })), b = new Canvas(zone, style({ tier: 2 }));
+    a.icon('no-such-icon', 50, 50, 100, ACCENT);
+    b.icon('gear', 50, 50, 100, ACCENT);
+    expect(a.flush()).toEqual(b.flush());
+  });
+
+  it('every icon in icons.json draws something', () => {
+    for (const name of Object.keys(icons.icons)) {
+      const c = new Canvas(zone, style());
+      c.icon(name, 50, 50, 40, ACCENT, 1.2);
+      expect(c.flush().length, name).toBeGreaterThan(0);
+    }
   });
 });
 

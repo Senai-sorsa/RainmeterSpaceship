@@ -1,8 +1,12 @@
+import icons from '../generated/icons.json';
 import type { RGBA } from '../lib/theme';
 import type { Pt } from '../lib/geometry';
 
 // Port of the drawing layer in Skins/Spaceship/@Resources/Scripts/lib.lua (Canvas). Records draw ops in zone units; the
 // output is device units, so it can be drawn as SVG without the Rainmeter meter strings. Glow tiers and colour rules match lib.lua.
+
+/** icons.json holds the lib.lua op layout: [op, numbers...]. */
+const ICONS = icons.icons as unknown as Record<string, [string, ...number[]][]>;
 
 export type Layer = 'base' | 'glow' | 'core' | 'top';
 export type Stroke = { color: RGBA; width: number; dash?: [number, number] };
@@ -184,6 +188,27 @@ export class Canvas {
     this.poly([[x + w - len, y], [x + w, y], [x + w, y + len]], col, lw, alpha);
     this.poly([[x + w, y + h - len], [x + w, y + h], [x + w - len, y + h]], col, lw, alpha);
     this.poly([[x + len, y + h], [x, y + h], [x, y + h - len]], col, lw, alpha);
+  }
+
+  /** Icon from icons.json, authored in a 100x100 box and fitted to sz, centred on cx, cy. Unknown names draw the gear, as lib.lua does. */
+  icon(name: string, cx: number, cy: number, sz: number, col: RGBA, lw?: number, alpha?: number) {
+    const k = sz / 100;
+    const P = (x: number, y: number): Pt => [cx + (x - 50) * k, cy + (y - 50) * k];
+    for (const [t, ...v] of ICONS[name] ?? ICONS.gear) {
+      if (t === 'l' || t === 'p') {
+        const pts: Pt[] = [];
+        for (let i = 0; i + 1 < v.length; i += 2) pts.push(P(v[i], v[i + 1]));
+        this.poly(pts, col, lw, alpha, t === 'p');
+      } else if (t === 'c') {
+        this.circle(cx + (v[0] - 50) * k, cy + (v[1] - 50) * k, v[2] * k, col, lw, alpha);
+      } else if (t === 'a') {
+        const [x, y, r, a0, a1, ry = r] = v;
+        this.poly(arcPts(cx + (x - 50) * k, cy + (y - 50) * k, r * k, ry * k, a0, a1), col, lw, alpha);
+      } else if (t === 'e') {
+        const [x, y, rx, ry] = v;
+        this.poly(arcPts(cx + (x - 50) * k, cy + (y - 50) * k, rx * k, ry * k, 0, 360, 36), col, lw, alpha);
+      }
+    }
   }
 
   /** Panel outline with chamfered corners, optionally filled with the panel colour. */
