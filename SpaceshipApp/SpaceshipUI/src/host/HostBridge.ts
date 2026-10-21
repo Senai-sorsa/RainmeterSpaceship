@@ -6,7 +6,8 @@ import { REGISTRY, allowedKeys } from '../settings/registry';
 export type Msg = { type: string; [k: string]: unknown };
 export interface HostBridge {
   send(msg: Msg): void;
-  onMessage(cb: (msg: Msg) => void): void;
+  /** Returns a function that removes the listener (hosts that cannot may return nothing). */
+  onMessage(cb: (msg: Msg) => void): void | (() => void);
   telemetry(): Float32Array;
 }
 
@@ -76,6 +77,7 @@ export class MockHost implements HostBridge {
   onMessage(cb: (m: Msg) => void) {
     this.cbs.push(cb);
     cb({ type: 'state.init', version: 1, mock: true });
+    return () => { this.cbs = this.cbs.filter((f) => f !== cb); };
   }
   tick() { this.t++; }
   telemetry(): Float32Array {
@@ -87,7 +89,7 @@ export class MockHost implements HostBridge {
 
 export class WebView2Host implements HostBridge {
   send(_m: Msg): void { throw new Error('not implemented (P-E)'); }
-  onMessage(_cb: (m: Msg) => void): void { throw new Error('not implemented (P-E)'); }
+  onMessage(_cb: (m: Msg) => void): void | (() => void) { throw new Error('not implemented (P-E)'); }
   telemetry(): Float32Array { throw new Error('not implemented (P-E)'); }
 }
 

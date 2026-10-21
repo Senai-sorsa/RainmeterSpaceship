@@ -484,3 +484,13 @@ describe('settings store', () => {
     expect(store.error.value).toBeNull();
   });
 });
+
+describe('store teardown', () => {
+  it('dispose stops the store listening to the host', () => {
+    const host = new MockHost({ storage: null });
+    const store = createSettingsStore(host, DEFS, { schedule: clock().schedule, virtuals: VIRT });
+    store.dispose();
+    (host as unknown as { reply(m: Msg): void }).reply({ type: 'config.values', values: { mode: 'b' } });
+    expect(store.values.value.mode).toBe('a');
+  });
+});

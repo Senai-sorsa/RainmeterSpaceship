@@ -6,6 +6,7 @@ import subprocess
 import time
 import winreg
 from .audio import mic_volume, speakers
+from .launch import launch_target
 from .base import BT_FILE, DATA, NO_WINDOW, RES, log, read_kv, setting
 from .mood import SAID
 
@@ -376,7 +377,7 @@ def open_windows():
 
 # action handlers: (description for the confirmation, function). Only these can ever run.
 def act_open(app):
-    target = app[1] if os.path.isabs(app[1]) else "shell:AppsFolder\\" + app[1]
+    target = launch_target(app[1])
     exe = os.path.basename(app[1]).lower() if app[1].lower().endswith(".exe") else running_window(app[0])
     core = os.path.join(RES, "Bin", "ShipCore.exe")
     if exe and exe in open_windows() and os.path.exists(core):  # 7-A8: already open: bring that window forward, no second copy

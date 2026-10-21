@@ -20,8 +20,9 @@ export type Outcome = { ok: boolean; failed?: string[]; error?: string };
 /** Resolves with the host's saved "setup done" state; true (hide the wizard) is never guessed, so no reply means show it. */
 export function shouldShow(host: HostBridge, timeoutMs = 2000): Promise<boolean> {
   return new Promise((res) => {
-    const t = setTimeout(() => res(true), timeoutMs);
-    host.onMessage((m: Msg) => { if (m.type === 'setup.state') { clearTimeout(t); res(m.done !== true); } });
+    let off: void | (() => void);
+    const t = setTimeout(() => { if (typeof off === 'function') off(); res(true); }, timeoutMs);
+    off = host.onMessage((m: Msg) => { if (m.type === 'setup.state') { clearTimeout(t); if (typeof off === 'function') off(); res(m.done !== true); } });
     host.send({ type: 'setup.get' });
   });
 }
