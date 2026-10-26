@@ -27,12 +27,12 @@ describe('ops to svg', () => {
 });
 
 describe('text as Rainmeter draws it', () => {
-  it('draws FontSize points as 4/3 px with a doubled shadow radius', () => {
+  it('draws FontSize points as 4/3 px and the glow copy as a blur only', () => {
     const op: Op = { shape: { kind: 'text', x: 0, y: 0, text: 'A', size: 12, align: 'LeftTop', weight: 700, font: 'Oxanium', blur: 4 }, fill: [1, 2, 3, 255] };
     const g = OpsView({ ops: [op], name: 't' }).props.children[0];
     const el = g.type(g.props);
     expect(el.props['font-size']).toBe(16);
-    expect(el.props.style.filter).toContain('8px');
+    expect(el.props.style.filter).toBe('blur(4px)'); // the halo alone; drop-shadow would paint the letters a second time
   });
 
   it('the mission clock draws the empty state in the number font, like location.lua', () => {
