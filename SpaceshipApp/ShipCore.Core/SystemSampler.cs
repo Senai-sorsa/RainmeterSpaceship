@@ -4,7 +4,7 @@ namespace ShipCore.Core;
 
 /// <summary>One reading for the page. Null means not available right now: the first CPU figure has no earlier sample, and a HWiNFO value needs the sensor mapped and HWiNFO running.</summary>
 public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPercent, ulong UptimeMs, bool? OnAc, int? BatteryPercent, IReadOnlyDictionary<string, double?> Hw, (double Down, double Up)? Net = null, double[]? Spectrum = null, IReadOnlyDictionary<string, bool>? Processes = null, double? GpuPercent = null, ulong MemoryTotal = 0, ulong MemoryUsed = 0, ulong? IdleMs = null,
-    (ulong Total, ulong Free)? Drive = null, double? DiskIo = null, int? RefreshHz = null, AudioLevel? Speaker = null, AudioLevel? Mic = null, uint? BatteryLifeSec = null);
+    (ulong Total, ulong Free)? Drive = null, double? DiskIo = null, int? RefreshHz = null, AudioLevel? Speaker = null, AudioLevel? Mic = null, uint? BatteryLifeSec = null, int? Wifi = null);
 
 /// <summary>Builds one frame per call. Keeps the previous CPU and network samples, which the rates need.</summary>
 public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null)
@@ -21,6 +21,7 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
     private long _slowAt = -30;
     private AudioLevel? _speaker, _mic;
     private double? _disk;
+    private int? _wifi;
     private static readonly System.Text.RegularExpressions.Regex ProcessName = new(@"^[A-Za-z0-9_.-]{1,64}$");
 
     /// <summary>The WatchProcesses setting: comma-separated executable names. Names with other characters are dropped, and a trailing .exe is removed.</summary>
@@ -63,13 +64,14 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
             if (gpu is not null) _gpu = GpuLoad.Busiest(gpu.Read());
             _speaker = metrics.ReadAudio(false); _mic = metrics.ReadAudio(true);
             _disk = metrics.DiskBytesPerSec();
+            _wifi = metrics.WifiQuality();
         }
         if (seq - _slowAt >= 30) { _slowAt = seq; _drive = metrics.ReadDrive(); _hz = metrics.RefreshHz(); }
 
         var running = processes is null ? null : WatchedNames(settings).ToDictionary(name => name, processes.IsRunning);
 
         return new SystemFrame(seq, cpuPercent, SystemMetrics.MemoryPercent(total, available), metrics.UptimeMs(), power.OnAc, power.BatteryPercent, hw, rate, spectrum?.Latest, running, _gpu,
-            total, total - Math.Min(available, total), metrics.IdleMs(), _drive, _disk, _hz, _speaker, _mic, power.OnAc == false ? metrics.BatteryLifeSec() : null);
+            total, total - Math.Min(available, total), metrics.IdleMs(), _drive, _disk, _hz, _speaker, _mic, power.OnAc == false ? metrics.BatteryLifeSec() : null, _wifi);
     }
 
     /// <summary>The message the page receives: type system.metrics, one field per reading, nulls where a reading is missing.</summary>
@@ -100,6 +102,7 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         mic = f.Mic?.Percent,
         micMuted = f.Mic?.Muted,
         batteryLife = f.BatteryLifeSec,
+        wifi = f.Wifi,
         hw = f.Hw,
     });
 }

@@ -21,7 +21,7 @@ export function startPreviewFeed(): void {
       onAc: false, batteryPercent: 44, netDown: 40_000 * w(2), netUp: 9_000 * w(5), spectrum: null, processes: {},
       gpuPercent: 10 + 25 * w(4), memoryTotal: 33_285_996_544, memoryUsed: 20_615_843_840, idleMs: 0,
       driveTotal: 1_000_000_000_000, driveFree: 460_000_000_000, diskIo: 5_100_000, refreshHz: 240,
-      volume: 0, volumeMuted: true, audioDevice: 'Speakers', mic: 50, micMuted: false, batteryLife: 3480, hw: {},
+      volume: 0, volumeMuted: true, audioDevice: 'Speakers', mic: 50, micMuted: false, batteryLife: 3480, wifi: 85, hw: {},
     });
   };
   tick();

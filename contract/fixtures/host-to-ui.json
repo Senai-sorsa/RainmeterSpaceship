@@ -28,8 +28,14 @@
    "mic": 80,
    "micMuted": true,
    "batteryLife": null,
+   "wifi": 72,
    "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
   }
+ },
+ {
+  "name": "a Wi-Fi quality over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": false, "batteryPercent": 50, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "wifi": 140, "hw": {} }
  },
  {
   "name": "a negative battery time left",

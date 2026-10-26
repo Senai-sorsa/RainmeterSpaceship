@@ -145,6 +145,8 @@ public sealed class SystemSamplerTests
         public (ulong Total, ulong Free)? ReadDrive() { DriveReads++; return (1000, 250); }
         public AudioLevel? ReadAudio(bool capture) { AudioReads++; return capture ? null : new AudioLevel(35, false, "Speakers"); }
         public uint? BatteryLifeSec() => 3480;
+        public int WifiReads;
+        public int? WifiQuality() { WifiReads++; return 85; }
     }
 
     private sealed class AcMetrics : ISystemMetrics
@@ -164,6 +166,20 @@ public sealed class SystemSamplerTests
         using var doc = JsonDocument.Parse(SystemSampler.ToJson(onBatt));
         Assert.Equal(3480, doc.RootElement.GetProperty("batteryLife").GetInt32());
         Assert.Null(new SystemSampler(new AcMetrics(), new FakeRegistry(new())).Sample(new Dictionary<string, string>(), 1).BatteryLifeSec);
+    }
+
+    [Fact]
+    public void WifiQualityIsReadEveryTwoSamplesAndSent()
+    {
+        var m = new SlowMetrics();
+        var s = new SystemSampler(m, new FakeRegistry(new()));
+        SystemFrame f = null!;
+        for (var seq = 1; seq <= 4; seq++) f = s.Sample(new Dictionary<string, string>(), seq);
+        Assert.Equal(2, m.WifiReads);
+        Assert.Equal(85, f.Wifi);
+        using var doc = JsonDocument.Parse(SystemSampler.ToJson(f));
+        Assert.Equal(85, doc.RootElement.GetProperty("wifi").GetInt32());
+        Assert.Null(new SystemSampler(new AcMetrics(), new FakeRegistry(new())).Sample(new Dictionary<string, string>(), 1).Wifi);
     }
 
     [Fact]

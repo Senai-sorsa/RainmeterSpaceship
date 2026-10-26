@@ -102,6 +102,38 @@ sealed class WindowsMetrics : ISystemMetrics
 
     public AudioLevel? ReadAudio(bool capture) => WindowsDial.Level(capture);
 
+    // WLAN API, read-only. The client handle stays open for the process lifetime; buffers from the API are freed with WlanFreeMemory.
+    [DllImport("wlanapi.dll")] static extern uint WlanOpenHandle(uint clientVersion, IntPtr reserved, out uint negotiated, out IntPtr handle);
+    [DllImport("wlanapi.dll")] static extern uint WlanEnumInterfaces(IntPtr handle, IntPtr reserved, out IntPtr list);
+    [DllImport("wlanapi.dll")] static extern uint WlanQueryInterface(IntPtr handle, ref Guid iface, int opcode, IntPtr reserved, out uint size, out IntPtr data, IntPtr valueType);
+    [DllImport("wlanapi.dll")] static extern void WlanFreeMemory(IntPtr memory);
+    IntPtr _wlan;
+    bool _wlanTried;
+
+    public int? WifiQuality()
+    {
+        if (!_wlanTried) { _wlanTried = true; if (WlanOpenHandle(2, IntPtr.Zero, out _, out _wlan) != 0) _wlan = IntPtr.Zero; }
+        if (_wlan == IntPtr.Zero || WlanEnumInterfaces(_wlan, IntPtr.Zero, out var list) != 0) return null;
+        try
+        {
+            // WLAN_INTERFACE_INFO_LIST: count, index, then 532-byte entries (GUID, 256-WCHAR description, state)
+            var n = Marshal.ReadInt32(list);
+            for (var i = 0; i < n; i++)
+            {
+                var entry = list + 8 + i * 532;
+                if (Marshal.ReadInt32(entry + 528) != 1 /* wlan_interface_state_connected */) continue;
+                var guid = Marshal.PtrToStructure<Guid>(entry);
+                if (WlanQueryInterface(_wlan, ref guid, 7 /* wlan_intf_opcode_current_connection */, IntPtr.Zero, out var size, out var conn, IntPtr.Zero) != 0) continue;
+                // WLAN_CONNECTION_ATTRIBUTES: wlanAssociationAttributes.wlanSignalQuality sits at byte 576
+                var q = size >= 580 ? Marshal.ReadInt32(conn + 576) : -1;
+                WlanFreeMemory(conn);
+                if (q is >= 0 and <= 100) return q;
+            }
+            return null;
+        }
+        finally { WlanFreeMemory(list); }
+    }
+
     /// <summary>The primary screen's current mode, as the panel's DISP row shows it: 2560x1600 @240. Null if Windows does not say.</summary>
     public static string? Display()
     {

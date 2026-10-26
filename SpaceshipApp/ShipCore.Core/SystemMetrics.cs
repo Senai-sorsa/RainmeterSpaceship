@@ -25,6 +25,8 @@ public interface ISystemMetrics
     AudioLevel? ReadAudio(bool capture) => null;
     /// <summary>Battery time left in seconds as Windows estimates it; null on AC, while it is still estimating, or with no battery.</summary>
     uint? BatteryLifeSec() => null;
+    /// <summary>The connected Wi-Fi link's signal quality, 0 to 100, as Rainmeter's WiFiStatus QUALITY; null with no Wi-Fi connection.</summary>
+    int? WifiQuality() => null;
 }
 
 /// <summary>An audio endpoint's master level, 0 to 100, its mute flag and its Windows name (null when Windows does not say).</summary>
