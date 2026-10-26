@@ -21,6 +21,19 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void CachedReadsStillSeeEveryWrite()
+    {
+        var s = new SettingsStore(Path_, _schema);
+        Assert.True(s.Set("AutoFit", "1").Ok);
+        Assert.Equal("1", s.Get(["AutoFit"])["AutoFit"]);
+        Assert.True(s.Set("AutoFit", "0").Ok);
+        Assert.Equal("0", s.Get(["AutoFit"])["AutoFit"]);
+        File.WriteAllText(Path_, "{\"version\":1,\"values\":{\"AutoFit\":\"1\"}}"); // an edit from outside
+        File.SetLastWriteTimeUtc(Path_, DateTime.UtcNow.AddMinutes(1));
+        Assert.Equal("1", s.Get(["AutoFit"])["AutoFit"]);
+    }
+
+    [Fact]
     public void InvalidValueAndUnknownKeyWriteNothing()
     {
         var s = new SettingsStore(Path_, _schema);

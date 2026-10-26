@@ -11,6 +11,9 @@ public sealed class SettingsStore : IConfigStore
     private readonly ConfigSchema _schema;
     private readonly object _lock = new();
 
+    private Dictionary<string, string>? _cache;
+    private (DateTime, long) _cacheStamp;
+
     public SettingsStore(string path, ConfigSchema schema) { _path = path; _schema = schema; }
 
     public Dictionary<string, string> Get(IEnumerable<string> keys)
@@ -57,13 +60,18 @@ public sealed class SettingsStore : IConfigStore
     {
         error = null;
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!File.Exists(_path)) return values;
+        var info = new FileInfo(_path);
+        if (!info.Exists) return values;
+        // The HUD reads settings every second; parse only when the file changed. A copy, since Set and Import edit it.
+        var stamp = (info.LastWriteTimeUtc, info.Length);
+        if (_cache is not null && _cacheStamp == stamp) return new(_cache, StringComparer.Ordinal);
         try
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(_path, Encoding.UTF8));
             if (doc.RootElement.GetProperty("version").GetInt32() != Version) throw new FormatException("version");
             foreach (var p in doc.RootElement.GetProperty("values").EnumerateObject())
                 values[p.Name] = p.Value.GetString() ?? throw new FormatException("value");
+            (_cache, _cacheStamp) = (new(values, StringComparer.Ordinal), stamp);
         }
         catch (Exception e) when (e is JsonException or KeyNotFoundException or FormatException or InvalidOperationException or IOException)
         {
