@@ -31,6 +31,11 @@ gap list in tasks/cspace-gap-analysis.md), JARVIS-Repair-Plan.txt (CURRENT STATE
 - 96315a4 S11b offline JARVIS orb at 10 fps.
 - 20f7162 S11c perf tiers: GPU load via PDH (busiest engine, every 2 s), controller.lua tier logic in the page (memory only),
   reticle 20/10/parked fps, Stealth hides sphere + bottom audio. Fixed the skin's inverted down margin (it flipped tiers).
+- 3803f32 S11d Release publish profile (framework-dependent win-x64, publish/CSpace, 2.2 MB). No installer yet.
+- f241070 dial writes off the UI thread, one at a time, child process capped at 15 s.
+- 24b7279 S11e audio: the loopback was never started; now runs only while shown and Off_BottomAudio is not 1, retries 30 s.
+- 3f58441 host ignores web messages not from https://spaceship.local/; confirm box owned by a topmost form, No default.
+- de4f8b0 S11f Off_<module> toggles hide their zones (were only offered in settings); hidden zones are not drawn.
 - Every slice now ends with an efficiency pass, noted in its commit (user, 2026-10-25).
 
 ## Queue (app)
