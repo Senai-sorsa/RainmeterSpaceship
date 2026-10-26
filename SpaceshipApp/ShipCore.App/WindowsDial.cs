@@ -66,12 +66,16 @@ sealed class WindowsDial : IDialActions
         Run("powercfg.exe", "/setactive " + guid);
     }
 
-    // Starts a fixed tool and throws on a non-zero exit, so a failed write is never reported as done.
+    // Starts a fixed tool and throws on a non-zero exit or after 15 s, so a failed or hung write is never reported as done.
     static void Run(string file, string args)
     {
         using var p = Process.Start(new ProcessStartInfo(file, args) { UseShellExecute = false, CreateNoWindow = true })
             ?? throw new InvalidOperationException($"{file} did not start");
-        p.WaitForExit();
+        if (!p.WaitForExit(15000))
+        {
+            try { p.Kill(); } catch (InvalidOperationException) { } // only the child started above; it may have just exited
+            throw new TimeoutException($"{file} did not finish in 15 s");
+        }
         if (p.ExitCode != 0) throw new InvalidOperationException($"{file} exited {p.ExitCode}");
     }
 
