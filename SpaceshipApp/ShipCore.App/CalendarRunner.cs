@@ -91,7 +91,7 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
     [DllImport("crypt32.dll", SetLastError = true)] static extern bool CryptUnprotectData(ref Blob input, IntPtr desc, ref Blob entropy, IntPtr reserved, IntPtr prompt, int flags, out Blob output);
     [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr p);
 
-    static string? Unprotect(string path)
+    internal static string? Unprotect(string path)
     {
         byte[] enc;
         try { if (!File.Exists(path)) return null; enc = File.ReadAllBytes(path); }

@@ -7,6 +7,14 @@ describe('acceptStatusUpdate', () => {
     acceptStatusUpdate({ type: 'status.update', kind: 'upkeep', updates: 3, upgrades: 12, av: 'WINDOWS DEFENDER', avOn: true });
     expect(upkeepStatus.value).toEqual({ mailWhy: 'no host data', updates: 3 });
   });
+  it('takes the mail count or its reason, and keeps the update count', () => {
+    acceptStatusUpdate({ type: 'status.update', kind: 'mail', unread: 19, why: '' });
+    expect(upkeepStatus.value).toEqual({ updates: 3, mail: 19, mailWhy: undefined });
+    acceptStatusUpdate({ type: 'status.update', kind: 'mail', unread: null, why: 'off' });
+    expect(upkeepStatus.value).toEqual({ updates: 3, mail: undefined, mailWhy: 'off' });
+    acceptStatusUpdate({ type: 'status.update', kind: 'mail', unread: -2, why: '<b>x</b>' });
+    expect(upkeepStatus.value.mailWhy).toBe('bad reply');
+  });
   it('takes dev; bad counts become unknown', () => {
     acceptStatusUpdate({ type: 'status.update', kind: 'dev', wsl: 2, llm: '1', tailscale: 'RUNNING', docker: -1 });
     expect(devStatus.value).toEqual({ wsl: 2, llm: undefined });

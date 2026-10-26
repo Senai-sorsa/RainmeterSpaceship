@@ -16,8 +16,12 @@ export function acceptStatusUpdate(m: unknown): void {
   if (typeof m !== 'object' || m === null) return;
   const o = m as Record<string, unknown>;
   if (o.type !== 'status.update') return;
-  // mail stays unknown: Gmail needs the DPAPI slice
-  if (o.kind === 'upkeep') upkeepStatus.value = { ...upkeepStatus.value, updates: count(o.updates) };
+  if (o.kind === 'mail') {
+    // the host's IMAP check (MailRunner): a count, or a short reason the block shows as '!' ('off' shows '-')
+    const n = Number.isInteger(o.unread) && (o.unread as number) >= 0 ? (o.unread as number) : undefined;
+    const why = typeof o.why === 'string' && /^[A-Za-z0-9 .,'_-]{0,80}$/.test(o.why) ? o.why : 'bad reply';
+    upkeepStatus.value = { ...upkeepStatus.value, mail: n, mailWhy: n === undefined ? why || 'no data' : undefined };
+  } else if (o.kind === 'upkeep') upkeepStatus.value = { ...upkeepStatus.value, updates: count(o.updates) };
   else if (o.kind === 'dev') devStatus.value = { wsl: count(o.wsl), llm: count(o.llm) };
   else if (o.kind === 'llt') consoleStatus.value = { hybrid: word(o.hybrid), power: word(o.power), refresh: word(o.refresh), battery: word(o.battery), dgpu: word(o.dgpu) };
 }

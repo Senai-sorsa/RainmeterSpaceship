@@ -177,6 +177,7 @@ sealed class Overlay : Form
     readonly NetRunner _net;
     readonly TodoRunner _todo;
     readonly CalendarRunner? _calendar;
+    readonly MailRunner? _mail;
 
     RegisteredWaitHandle? _openWait;
     readonly string? _resources;
@@ -195,6 +196,7 @@ sealed class Overlay : Form
         var resources = _resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
         if (resources is not null) _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
         if (resources is not null) _calendar = new CalendarRunner(Path.Combine(resources, "Data"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
+        if (resources is not null) _mail = new MailRunner(Path.Combine(resources, "Data"), () => Visible, Post);
         if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
         _net = new NetRunner(() => _settings?.Get(["PingHost"]).GetValueOrDefault("PingHost"), () => Visible, () => _settings?.Get(["IpMask"]).GetValueOrDefault("IpMask") == "0", Post);
         _todo = new TodoRunner(() =>
@@ -287,6 +289,7 @@ sealed class Overlay : Form
         _net.Start();
         _todo.Start();
         _calendar?.Start();
+        _mail?.Start();
     }
 
     protected override CreateParams CreateParams
@@ -430,7 +433,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -752,7 +755,7 @@ sealed class Overlay : Form
         _openWait?.Unregister(null);
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _mail?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

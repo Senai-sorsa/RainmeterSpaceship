@@ -73,4 +73,18 @@ public class StatusScriptsTests
         Assert.Equal(-1, m.GetProperty("llm").GetInt32());
         Assert.Equal(JsonValueKind.Null, m.GetProperty("tailscale").ValueKind);
     }
+
+    [Theory]
+    [InlineData("T 1\nUNREAD 19\n", 19, "")]
+    [InlineData("T 1\r\nOFF\r\n", null, "off")]
+    [InlineData("T 1\nERR login refused - check <the> address\n", null, "login refused - check the address")]
+    [InlineData(null, null, "helper not running")]
+    [InlineData("T 1\nUNREAD -3\n", null, "no data")]
+    public void MailReadsTheSkinsMailFile(string? text, int? unread, string why)
+    {
+        var m = JsonDocument.Parse(StatusScripts.Mail(text)).RootElement;
+        Assert.Equal("mail", m.GetProperty("kind").GetString());
+        Assert.Equal(unread, m.GetProperty("unread").ValueKind == JsonValueKind.Null ? null : m.GetProperty("unread").GetInt32());
+        Assert.Equal(why, m.GetProperty("why").GetString());
+    }
 }

@@ -49,4 +49,22 @@ public static class StatusScripts
         string V(string k) => kv.TryGetValue(k, out var v) && Value.IsMatch(v) ? v : "";
         return JsonSerializer.Serialize(new { type = "status.update", kind = "llt", hybrid = V("hybrid"), power = V("power"), refresh = V("refresh"), battery = V("battery"), dgpu = V("dgpu") });
     }
+
+    static readonly Regex Why = new(@"[^A-Za-z0-9 .,'_-]");
+
+    /// <summary>status.update for Data\mail.txt (status_block.lua readMail): UNREAD n, ERR reason or OFF. unread is null when unknown, why says why.</summary>
+    public static string Mail(string? text)
+    {
+        int? n = null; string why = text is null ? "helper not running" : "no data";
+        foreach (var line in (text ?? "").Split('\n'))
+        {
+            var m = Regex.Match(line.TrimEnd('\r'), @"^([A-Z]+) ?(.*)$");
+            if (!m.Success) continue;
+            var v = m.Groups[2].Value;
+            if (m.Groups[1].Value == "UNREAD" && int.TryParse(v, out var u) && u >= 0) { n = u; why = ""; }
+            else if (m.Groups[1].Value == "ERR") { var w = Why.Replace(v, ""); why = w.Length > 80 ? w[..80] : w; }
+            else if (m.Groups[1].Value == "OFF") why = "off";
+        }
+        return JsonSerializer.Serialize(new { type = "status.update", kind = "mail", unread = n, why });
+    }
 }
