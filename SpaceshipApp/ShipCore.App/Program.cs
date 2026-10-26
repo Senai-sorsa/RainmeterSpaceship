@@ -287,7 +287,7 @@ sealed class Overlay : Form
         {
             // The built UI, served from its folder under a fixed name; only that origin may load.
             _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(UiHost, ui, CoreWebView2HostResourceAccessKind.DenyCors);
-            _cc.CoreWebView2.Navigate(UiOrigin + "index.html");
+            _cc.CoreWebView2.Navigate(UiOrigin + "index.html?module=all"); // the full HUD; the page still accepts one name or a list
         }
     }
 

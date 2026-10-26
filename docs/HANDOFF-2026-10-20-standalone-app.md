@@ -12,7 +12,7 @@ Read this first, then `CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md`, then `tasks/spac
 
 ## What the user asked for (latest)
 1. A standalone app, not Rainmeter: own Start / Stop / Quit like Rainmeter, a reliable tray.
-2. Ctrl+Alt+1 immediately stops everything this app started (kill switch), so testing cannot lock the user out.
+2. Ctrl+Alt+Shift+1 immediately stops everything this app started (kill switch), so testing cannot lock the user out.
 3. The window covers the whole screen, under the taskbar (Rainmeter "On desktop" behaviour).
 4. Fix all audit issues, then finish the remaining migration phases before the live test.
 5. The user approved the design (with the full-screen change). The live test has not run.
@@ -20,7 +20,7 @@ Read this first, then `CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md`, then `tasks/spac
 ## State on disk (all UNCOMMITTED, HEAD is `215e500`)
 | Path | Status | Purpose |
 |---|---|---|
-| `SpaceshipApp/ShipCore.App/Program.cs` | new | Standalone host: transparent window, WebView2 via DirectComposition, tray Start/Stop/Quit, Ctrl+Alt+1 hotkey thread, kill-tree switch, WorkerW attach, home-display pick, log cleanup, perf CSV |
+| `SpaceshipApp/ShipCore.App/Program.cs` | new | Standalone host: transparent window, WebView2 via DirectComposition, tray Start/Stop/Quit, Ctrl+Alt+Shift+1 hotkey thread, kill-tree switch, WorkerW attach, home-display pick, log cleanup, perf CSV |
 | `SpaceshipApp/ShipCore.App/ShipCore.App.csproj` | new | net10.0-windows WinForms, WebView2 1.0.3179.45, refs ShipCore.Core |
 | `SpaceshipApp/ShipCore.Core/KillSwitch.cs` | new | Runs the kill once per process |
 | `SpaceshipApp/ShipCore.Core/HostRules.cs` | new | `PickHomeDisplay`, `ExpiredLogs` (no Windows types) |
@@ -43,18 +43,18 @@ Verified (by build or test only):
 NOT verified (needs the live run, user watching):
 - Window appears; WorkerW attach puts it under desktop icons and the taskbar draws over it.
 - Click-through outside the 360x220 panel; the button counts clicks.
-- Ctrl+Alt+1 kills the app and its WebView2 children (`msedgewebview2` with the app as ancestor); no leftover processes.
+- Ctrl+Alt+Shift+1 kills the app and its WebView2 children (`msedgewebview2` with the app as ancestor); no leftover processes.
 - Tray Start / Stop / Quit; Stop releases the web view; sign-out not blocked.
 - `js_fps` near refresh rate; CPU/GPU compared with Rainmeter on the same run.
-- Whether Ctrl+Alt+1 is free on the user's machine.
+- Whether Ctrl+Alt+Shift+1 is free on the user's machine.
 
-Live check script (already written, not run): `C:\Users\Senai\.claude\jobs\bd35207b\tmp\live-check.ps1`. It launches the app, lists its tree, reads the perf CSV, presses Ctrl+Alt+1 via SendKeys, and checks what is left. A 90 s watchdog stops only its PID. Its launch and keypress were denied by the permission system in the last session, so the user may need to run it with `!` or approve it.
+Live check script (already written, not run): `C:\Users\Senai\.claude\jobs\bd35207b\tmp\live-check.ps1`. It launches the app, lists its tree, reads the perf CSV, presses Ctrl+Alt+Shift+1 via SendKeys, and checks what is left. A 90 s watchdog stops only its PID. Its launch and keypress were denied by the permission system in the last session, so the user may need to run it with `!` or approve it.
 
 ## Known issues / decisions still open
 - **Auto-hide taskbar:** WorkingArea is not used any more, so the window sits behind the taskbar. Behaviour with auto-hide is unverified.
 - **Multi-monitor:** the home display is chosen by size 2560x1600 (hard-coded in `Program.cs`, should come from `HomeSize` in Settings.inc). Falls back to primary.
 - **Orphaned WebView2 processes:** the tree kill only reaches children still linked to the app. Unverified.
-- **Hotkey conflict:** if Ctrl+Alt+1 is taken, one balloon tip and no retry.
+- **Hotkey conflict:** if Ctrl+Alt+Shift+1 is taken, one balloon tip and no retry.
 - **Ghost tray icon:** the kill switch ends the process without tray cleanup; Windows usually clears it on hover.
 - **Sign-out:** `WM_QUERYENDSESSION` returns 1, `WM_ENDSESSION` quits. Unverified.
 - Rainmeter ZPos -2 / WorkerW reference: docs https://docs.rainmeter.net/manual/settings/skin-sections/ and forum https://forum.rainmeter.net/viewtopic.php?p=206049. The WorkerW mechanism is from general knowledge, not a primary source.
@@ -92,18 +92,18 @@ Live check script (already written, not run): `C:\Users\Senai\.claude\jobs\bd352
    - window sits under desktop icons and normal windows, and the taskbar draws over it
    - clicks outside the 360x220 panel reach the desktop
    - the panel button counts clicks
-   - Ctrl+Alt+1 stops the app and every `msedgewebview2` child that has it as an ancestor
+   - Ctrl+Alt+Shift+1 stops the app and every `msedgewebview2` child that has it as an ancestor
    - tray Start / Stop / Quit each do what they say; Stop releases the web view
    - sign-out and restart are not blocked
    - `js_fps` in the perf CSV near the monitor refresh rate
    - CPU and GPU compared with Rainmeter on the same idle desktop, 5 minutes each (`tools/gpu_baseline.ps1`)
-   - Ctrl+Alt+1 is free on this machine (balloon tip absent)
+   - Ctrl+Alt+Shift+1 is free on this machine (balloon tip absent)
 2. **Live-check script not run.** `C:\Users\Senai\.claude\jobs\bd35207b\tmp\live-check.ps1`. Its launch and SendKeys step was denied by the permission system. Either the user runs it with `!`, or the user approves it.
 3. **P-D checklist items 1-9** (`docs/P-D-PROTOTYPE.md`). Not run. Items 6 (lockdown browser) and 9 (baselines) need the user. The plan's "P-D FAIL" note in `tasks/spaceship-migration-plan-v2.md` line 80 is stale until a rerun is recorded.
 4. **Taskbar auto-hide case.** Unverified. With auto-hide on, the window may cover the taskbar edge.
 5. **Multi-monitor.** The home display is hard-coded to 2560x1600 in `Program.cs`. It should read `HomeSize` and `HomeMonitor` from `Settings.inc`.
 6. **Orphaned WebView2 processes.** The tree kill may miss any child that got detached. Needs a check after the live run.
-7. **Hotkey conflict path.** Not tested: what happens when Ctrl+Alt+1 is taken. There is no retry.
+7. **Hotkey conflict path.** Not tested: what happens when Ctrl+Alt+Shift+1 is taken. There is no retry.
 8. **Ghost tray icon** after the kill switch. Expected, but unverified.
 9. **WorkerW attach fallback.** If WorkerW is not found, the code falls back to HWND_BOTTOM, which is not verified to stay under the taskbar.
 10. **Stuck PowerShell processes** from the earlier gpu_baseline run (PIDs 53856, 16452). Gone at the last check. Confirm before the live run.
