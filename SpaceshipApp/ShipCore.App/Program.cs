@@ -102,7 +102,7 @@ sealed class Overlay : Form
     IReadOnlyList<string> _hwKeys = Array.Empty<string>();
     // The loopback runs while the HUD is shown and Off_BottomAudio is not 1 (AudioCapture); otherwise no audio device is opened.
     readonly WasapiLoopback _loopback = new();
-    long _audioRetryAt;
+    long _audioRetryAt, _audioCheckAt;
     readonly WindowsGpuCounters _gpu = new();
     readonly SystemSampler _sampler;
     readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
@@ -431,12 +431,14 @@ sealed class Overlay : Form
 
     // The loopback runs only while the HUD is shown (OnVisibleChanged stops it) and the bottom audio is on.
     // A device that refuses, or a capture that ended on a lost device, is tried again after 30 s.
-    // shortcut: a new default speaker is picked up only when the old one fails or the HUD is hidden and shown, upgrade with IMMNotificationClient if it matters
+    // shortcut: a new default speaker is noticed by a 5 s poll, upgrade with IMMNotificationClient if 5 s is too slow
     void AudioCapture(bool want)
     {
         if (!want) { _loopback.Stop(); return; }
-        if (Environment.TickCount64 < _audioRetryAt) return;
-        if (!_loopback.Start()) _audioRetryAt = Environment.TickCount64 + 30_000;
+        var now = Environment.TickCount64;
+        if (now >= _audioCheckAt) { _audioCheckAt = now + 5_000; if (_loopback.DefaultChanged()) _loopback.Stop(); }
+        if (now < _audioRetryAt) return;
+        if (!_loopback.Start()) _audioRetryAt = now + 30_000;
     }
 
     // Sends jarvis.update when it changes (a state, the level, or going stale). The file is opened so JARVIS can still replace it.

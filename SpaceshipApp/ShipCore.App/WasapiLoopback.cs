@@ -24,6 +24,8 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
     interface IMMDevice
     {
         [PreserveSig] int Activate(ref Guid iid, int clsctx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+        void OpenPropertyStore(); // vtable slot only, never called
+        [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
     }
 
     [ComImport, Guid("1CB9AD4C-DBFA-4C32-B178-C2F568A703B2"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -54,6 +56,8 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
     [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
     class MMDeviceEnumeratorComObject { }
 
+    private IMMDeviceEnumerator? _enumerator;
+    private string? _deviceId; // the speaker being captured, to notice when the user switches output
     private IAudioClient? _client;
     private IAudioCaptureClient? _capture;
     private Thread? _thread;
@@ -70,8 +74,9 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
         Stop(); // a pump that ended on a lost device leaves its client behind
         try
         {
-            var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
-            if (enumerator.GetDefaultAudioEndpoint(eRender, eConsole, out var device) != 0) return false;
+            _enumerator ??= (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+            if (_enumerator.GetDefaultAudioEndpoint(eRender, eConsole, out var device) != 0) return false;
+            if (device.GetId(out _deviceId) != 0) _deviceId = null;
             var iid = AudioClientIid;
             if (device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out var obj) != 0) return false;
             _client = (IAudioClient)obj;
@@ -104,6 +109,14 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
         _capture = null;
         _client = null;
         Volatile.Write(ref _latest, null);
+    }
+
+    /// <summary>True while capturing when the default speaker is no longer the captured one (the old one can stay valid, so the pump sees no error).</summary>
+    public bool DefaultChanged()
+    {
+        if (!_running || _enumerator is null) return false;
+        try { return _enumerator.GetDefaultAudioEndpoint(eRender, eConsole, out var d) == 0 && d.GetId(out var id) == 0 && id != _deviceId; }
+        catch (COMException) { return false; }
     }
 
     public void Dispose() => Stop();
