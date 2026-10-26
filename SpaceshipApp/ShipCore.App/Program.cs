@@ -373,6 +373,7 @@ sealed class Overlay : Form
     {
         try
         {
+            if (!a.Source.StartsWith(UiOrigin, StringComparison.Ordinal)) return; // only the app's own page may talk to the host
             var text = a.TryGetWebMessageAsString();
             if (double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var f)) { _fps = f; return; }
             if (_router is null) return;
@@ -464,8 +465,12 @@ sealed class Overlay : Form
     void Post(string json) => _cc?.CoreWebView2?.PostWebMessageAsJson(json);
 
     // Power and flow actions need a person to say yes; the schema lists none of them, so this is only reached through the gate.
-    Task<bool> ConfirmAsync(string id) =>
-        Task.FromResult(MessageBox.Show(this, $"Allow the {id} action?", "Spaceship", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+    // Owned by a hidden topmost form, not the HUD: the HUD is held at the bottom of the z-order, so its dialog could open behind other windows.
+    Task<bool> ConfirmAsync(string id)
+    {
+        using var top = new Form { TopMost = true, ShowInTaskbar = false };
+        return Task.FromResult(MessageBox.Show(top, $"Allow the {id} action?", "CSpace", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes);
+    }
 
     static string? FindUp(string relative)
     {
