@@ -175,6 +175,7 @@ sealed class Overlay : Form
     readonly TodoRunner _todo;
 
     RegisteredWaitHandle? _openWait;
+    readonly string? _resources;
 
     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean, EventWaitHandle openControl)
     {
@@ -187,7 +188,7 @@ sealed class Overlay : Form
         TopMost = false; // never above other apps (exam browsers, games)
 
         var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
-        var resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
+        var resources = _resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
         if (resources is not null) _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
         if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
         _net = new NetRunner(() => _settings?.Get(["PingHost"]).GetValueOrDefault("PingHost"), () => Visible, () => _settings?.Get(["IpMask"]).GetValueOrDefault("IpMask") == "0", Post);
@@ -203,8 +204,9 @@ sealed class Overlay : Form
             var settingsPath = Path.Combine(appData, "settings.json");
             _settings = new SettingsStore(settingsPath, schema);
             _hwKeys = schema.Keys.Keys.Where(k => k.StartsWith("HW_", StringComparison.Ordinal)).Append("Off_BottomAudio").ToList();
-            // One-time import from the skin, only on the first run; a dry run is SkinImport.Build alone.
-            if (!File.Exists(settingsPath) && resources is not null)
+            // The skin's values (Settings.inc, State.inc, Offsets.inc) fill every key the app has no value for yet, on each start,
+            // so keys added later (State.inc's Off_ flags) arrive too; a value already in settings.json always wins. Dry run: SkinImport.Build.
+            if (resources is not null)
                 _settings.Import(SkinImport.Build(new ConfigStore(resources, schema), schema).Values);
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
@@ -229,7 +231,7 @@ sealed class Overlay : Form
         menu.Items.Add("Start", null, (_, _) => Start());
         menu.Items.Add("Stop", null, (_, _) => Stop());
         // Rainmeter's Refresh: a fresh page with the restart budget reset
-        menu.Items.Add("Reload HUD", null, (_, _) => { _failures = 0; ReleaseWebView(); Start(); });
+        menu.Items.Add("Reload HUD", null, (_, _) => { _failures = 0; _appsJson = null; ReleaseWebView(); Start(); });
         // Autostart is deferred by the user: the menu can only remove a Run entry an earlier build wrote, never add one.
         if (_autostart.IsEnabled)
         {
@@ -422,7 +424,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -578,6 +580,22 @@ sealed class Overlay : Form
     }
 
     void Post(string json) => _cc?.CoreWebView2?.PostWebMessageAsJson(json);
+
+    // Data a new page gets once: the app catalog (Apps.ini, the Start-menu list, which file targets exist). Read on the
+    // first page load and kept; Reload HUD reads it again, like Rainmeter's Refresh.
+    string? _appsJson;
+    void PostOnce()
+    {
+        if (_resources is null) return;
+        try
+        {
+            _appsJson ??= AppsFeed.ToJson(File.ReadAllText(Path.Combine(_resources, "Apps.ini")),
+                File.Exists(Path.Combine(_resources, "Data", "StartApps.txt")) ? File.ReadAllText(Path.Combine(_resources, "Data", "StartApps.txt")) : "",
+                File.Exists, Environment.ExpandEnvironmentVariables);
+            Post(_appsJson);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},APPS_UNREADABLE,{e.GetType().Name}"); }
+    }
 
     // Power and flow actions need a person to say yes; the schema lists none of them, so this is only reached through the gate.
     // Owned by a hidden topmost form, not the HUD: the HUD is held at the bottom of the z-order, so its dialog could open behind other windows.

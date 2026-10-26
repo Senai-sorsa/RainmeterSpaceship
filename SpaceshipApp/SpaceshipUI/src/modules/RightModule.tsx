@@ -5,7 +5,7 @@ import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { devStatus, netRows, netStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
-import { fakeCatalog } from './appsSource';
+import { catalogFeed } from './appsSource';
 import { dotsFrame, schematicFrame, tabsFrame } from './category';
 import { devFrame } from './dev';
 import { type Readings } from './readings';
@@ -25,13 +25,14 @@ const ZONES = {
  * Behind ?module=right. The catalog is the labelled fixture (see appsSource.ts). Feeds that the host does not supply yet
  * (ping, LAN, WAN, WSL, Ollama, speed test) show --. Clicks are not wired.
  */
-export function RightModule({ style, hide = '', catalog = fakeCatalog, mask = true }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean }) {
+export function RightModule({ style, hide = '', catalog = catalogFeed.value, mask = true }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean }) {
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const dev = devStatus.value;
   const net = netStatus.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
-  const [ci, setCi] = useState(0);
+  // the page shown: Apps.ini Layout Top2 (apps.lua)
+  const ci = Math.max(0, catalog.catOrder.indexOf(catalog.layout.Top2 ?? ''));
   const [ai, setAi] = useState(0);
   const catId = catalog.catOrder[ci];
   const cat = catId ? catalog.cats[catId] : undefined;

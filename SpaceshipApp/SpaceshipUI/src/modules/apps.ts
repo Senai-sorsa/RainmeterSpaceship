@@ -2,7 +2,7 @@
 // installed-app list (Start menu entries that are not junk) and what each slot shows. Launching is not ported: it is
 // an OS action and goes through the action gate. The file check and the Start-menu list are passed in (the host
 // does not supply them yet).
-// shortcut: %ENV% expansion in targets is not done, so a target with a variable is always missing.
+// %ENV% in file targets is expanded by the host (AppsFeed.cs), which sends back the target text of each one that exists.
 
 export type Target = { kind: 'start'; value: string; label: string } | { kind: 'file' | 'cmd'; value: string };
 export type App = {

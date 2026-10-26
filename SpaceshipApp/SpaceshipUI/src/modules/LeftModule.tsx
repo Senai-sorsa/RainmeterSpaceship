@@ -5,7 +5,7 @@ import { OpsView } from '../draw/ops';
 import { systemMetrics } from '../host/systemMetrics';
 import { upkeepStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
-import { fakeCatalog } from './appsSource';
+import { catalogFeed } from './appsSource';
 import { dotsFrame, scanFrame, schematicFrame, tabsFrame } from './category';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
@@ -23,11 +23,12 @@ const ZONES = {
  * Behind ?module=left. The catalog is the labelled fixture until the host supplies Apps.ini; the RUNNING state is real
  * (from the host's process list). Panel selection is local state; clicks are not wired yet.
  */
-export function LeftModule({ style, hide = '', catalog = fakeCatalog }: { style: Style; hide?: string; catalog?: Catalog }) {
+export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { style: Style; hide?: string; catalog?: Catalog }) {
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const up = upkeepStatus.value;
-  const [ci, setCi] = useState(0); // index into catalog.catOrder, the page shown
+  // index into catalog.catOrder, the page shown: Apps.ini Layout Top1 (apps.lua)
+  const ci = Math.max(0, catalog.catOrder.indexOf(catalog.layout.Top1 ?? ''));
   const [ai, setAi] = useState(0); // index into the category's apps, the app shown
   const catId = catalog.catOrder[ci];
   const cat = catId ? catalog.cats[catId] : undefined;
