@@ -22,10 +22,13 @@ public sealed class VisibilityPolicy
     {
         var hit = s.RunningProcesses.FirstOrDefault(p => _exam.Contains(Norm(p)));
         if (hit is not null) return new(Visibility.Suspend, "exam process running: " + Norm(hit));
-        if (s.Notification is NotificationState.Busy or NotificationState.RunningD3DFullScreen or NotificationState.PresentationMode)
-            return new(Visibility.Hide, "windows reports a fullscreen or presentation app");
+        if (s.Notification is NotificationState.PresentationMode) return new(Visibility.Hide, "windows is in presentation mode");
         var f = s.Foreground;
-        if (f is null || f.IsOurs || Shell.Contains(f.ClassName)) return new(Visibility.Show, "desktop or shell in front");
+        // Before the busy check: our own window covers the monitor, so Windows reports it as a fullscreen app (hide/show loop).
+        if (f is not null && (f.IsOurs || Shell.Contains(f.ClassName))) return new(Visibility.Show, "desktop or shell in front");
+        if (s.Notification is NotificationState.Busy or NotificationState.RunningD3DFullScreen)
+            return new(Visibility.Hide, "windows reports a fullscreen app");
+        if (f is null) return new(Visibility.Show, "nothing in front");
         // 1 px of slack: frames are rounded; a maximised window with a taskbar does not cover the monitor, so it stays visible.
         return f.Bounds.Contains(s.Monitor, 1) ? new(Visibility.Hide, "foreground window covers the monitor") : new(Visibility.Show, "no fullscreen window");
     }

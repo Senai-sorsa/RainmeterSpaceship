@@ -31,6 +31,17 @@ public class VisibilityPolicyTests
     [InlineData(NotificationState.Busy)] [InlineData(NotificationState.RunningD3DFullScreen)] [InlineData(NotificationState.PresentationMode)]
     public void WindowsFullscreenStatesHide(NotificationState n) => Assert.Equal(Visibility.Hide, _p.Decide(Snap(null, n)).Visibility);
 
+    [Theory] [InlineData(NotificationState.Busy)] [InlineData(NotificationState.RunningD3DFullScreen)]
+    public void OurFullscreenWindowInFrontIgnoresBusy(NotificationState n)
+    {
+        Assert.Equal(Visibility.Show, _p.Decide(Snap(W("Ship", Screen, ours: true), n)).Visibility);
+        Assert.Equal(Visibility.Show, _p.Decide(Snap(W("Progman", Screen), n)).Visibility);
+        Assert.Equal(Visibility.Hide, _p.Decide(Snap(W("UnrealWindow", new Rect(0, 0, 800, 600)), n)).Visibility);
+    }
+
+    [Fact] public void PresentationModeHidesEvenWithOurWindowInFront() =>
+        Assert.Equal(Visibility.Hide, _p.Decide(Snap(W("Ship", Screen, ours: true), NotificationState.PresentationMode)).Visibility);
+
     [Theory]
     [InlineData("LockDownBrowser.exe")] [InlineData("lockdownbrowser")] [InlineData("EXAMAPP.EXE")]
     public void AnExamProcessSuspendsEvenWhenItIsNotInFront(string proc)
