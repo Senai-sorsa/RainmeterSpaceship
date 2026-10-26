@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Style } from '../src/draw/canvas';
-import { consoleActions, consoleFrame, isTabUnderline, consoleIntent, type ConsoleConfig, type ConsoleState, type ConsoleView } from '../src/modules/console';
+import { consoleActions, consoleFrame, isTabUnderline, consoleIntent, withHybridMode, type ConsoleConfig, type ConsoleState, type ConsoleView } from '../src/modules/console';
 
 // Fake status and config only. Expected values are worked out from console.lua. Zone 580 x 104.
 const st: Style = {
@@ -16,6 +16,14 @@ const cfg: ConsoleConfig = {
 };
 const noStatus: ConsoleState = { hybrid: '', power: '', refresh: '', battery: '', dgpu: '' };
 const view: ConsoleView = { armed: null, hudHidden: false, msg: '', msgAt: 0 };
+
+describe('withHybridMode (console.lua hybridIndex)', () => {
+  it('maps the raw Legion Toolkit value through the LltHybrid settings, defaults when unset', () => {
+    expect(withHybridMode({ ...noStatus, hybrid: 'on-igpu-only' }, {}).hybrid).toBe('eco');
+    expect(withHybridMode({ ...noStatus, hybrid: 'x1' }, { LltHybridAUTO: 'X1' }).hybrid).toBe('auto');
+    expect(withHybridMode({ ...noStatus, hybrid: 'weird', dgpu: 'on' }, {})).toEqual({ ...noStatus, dgpu: 'on' });
+  });
+});
 
 describe('console drawing (console.lua)', () => {
   it('quick settings show -- until the status arrives', () => {

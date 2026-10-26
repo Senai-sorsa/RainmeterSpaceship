@@ -1,12 +1,16 @@
 import { signal } from '@preact/signals';
 import type { UpkeepInput } from '../modules/upkeep';
 import type { DevInput } from '../modules/dev';
+import type { ConsoleState } from '../modules/console';
 
 // The host's status.update messages (Scripts\upkeep.ps1 and dev.ps1 output). -1 = unknown, which the blocks show as --.
 const count = (v: unknown) => (Number.isInteger(v) && (v as number) >= -1 ? (v as number) : undefined);
 
 export const upkeepStatus = signal<UpkeepInput>({ mailWhy: 'no host data' });
 export const devStatus = signal<DevInput>({});
+/** status.ps1 (Legion Toolkit and the NVIDIA device), lower-cased by the host. '' = unknown. */
+export const consoleStatus = signal<ConsoleState>({ hybrid: '', power: '', refresh: '', battery: '', dgpu: '' });
+const word = (v: unknown) => (typeof v === 'string' && /^[a-z0-9 ._-]{0,40}$/.test(v) ? v : '');
 
 export function acceptStatusUpdate(m: unknown): void {
   if (typeof m !== 'object' || m === null) return;
@@ -15,6 +19,7 @@ export function acceptStatusUpdate(m: unknown): void {
   // mail stays unknown: Gmail needs the DPAPI slice
   if (o.kind === 'upkeep') upkeepStatus.value = { ...upkeepStatus.value, updates: count(o.updates) };
   else if (o.kind === 'dev') devStatus.value = { wsl: count(o.wsl), llm: count(o.llm) };
+  else if (o.kind === 'llt') consoleStatus.value = { hybrid: word(o.hybrid), power: word(o.power), refresh: word(o.refresh), battery: word(o.battery), dgpu: word(o.dgpu) };
 }
 
 /** The host's net.update: ping in ms (0 = lost), LAN and WAN ('' = none / lookup failed). null = not read yet. */

@@ -36,7 +36,29 @@ public class StatusScriptsTests
         Assert.Equal(-1, m.GetProperty("docker").GetInt32());
     }
 
+    [Fact]
+    public void LltReadsTheKeyValueLinesLowerCased()
+    {
+        var m = Parse("llt", "dgpu=on\r\nllt=found\r\nlltpath=C:\\x\\llt.exe\r\nhybrid=On-IGPU-Only\r\npower=Performance\r\nrefresh=165\r\nbattery=<b>bad</b>\r\n");
+        Assert.Equal("llt", m.GetProperty("kind").GetString());
+        Assert.Equal("on", m.GetProperty("dgpu").GetString());
+        Assert.Equal("on-igpu-only", m.GetProperty("hybrid").GetString());
+        Assert.Equal("performance", m.GetProperty("power").GetString());
+        Assert.Equal("165", m.GetProperty("refresh").GetString());
+        Assert.Equal("", m.GetProperty("battery").GetString());
+        Assert.False(m.TryGetProperty("lltpath", out _));
+    }
+
+    [Fact]
+    public void LltWithoutLegionToolkitStillSendsTheDgpuLight()
+    {
+        var m = Parse("llt", "dgpu=off\nllt=missing\n");
+        Assert.Equal("off", m.GetProperty("dgpu").GetString());
+        Assert.Equal("", m.GetProperty("power").GetString());
+    }
+
     [Theory]
+    [InlineData("llt", "llt=missing")]
     [InlineData("dev", "")]
     [InlineData("dev", "1|2|3")]
     [InlineData("upkeep", "1|2")]

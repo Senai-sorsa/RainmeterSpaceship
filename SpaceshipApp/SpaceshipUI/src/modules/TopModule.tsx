@@ -4,9 +4,10 @@ import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { num } from '../lib/theme';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
+import { consoleStatus } from '../host/statusFeed';
 import { alertFrame, type AlertState } from './alert';
 import { batteryFrame, type BatteryState } from './battery';
-import { consoleFrame, type ConsoleConfig, type ConsoleState, type ConsoleView } from './console';
+import { consoleFrame, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
 import { graphFrame, graphState, selectSource, type GraphState } from './graph';
 import { type Readings } from './readings';
 import { powerFrame } from './power';
@@ -19,8 +20,6 @@ const ZONES = {
   battery: zoneOf('T_battery'), alert: zoneOf('T_alert'), settings: zoneOf('T_settings'),
 };
 
-// The console has no host status yet (the Legion Toolkit runner is not built): it shows the unknown state, as console.lua does with no status.
-const NO_STATUS: ConsoleState = { hybrid: '', power: '', refresh: '', battery: '', dgpu: '' };
 const NO_VIEW: ConsoleView = { armed: null, hudHidden: false, msg: '', msgAt: 0 };
 
 type TopState = { cpu: GraphState; ram: GraphState; a: GraphState; b: GraphState; battery: BatteryState; alert: AlertState };
@@ -29,6 +28,7 @@ type TopState = { cpu: GraphState; ram: GraphState; a: GraphState; b: GraphState
 export function TopModule({ style, values, hide = '' }: { style: Style; values: Record<string, string>; hide?: string }) {
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
+  const cs = consoleStatus.value;
   const [st, setSt] = useState<TopState>(() => ({
     cpu: graphState('cpu'), ram: graphState('ram'), a: graphState(values.GraphA_Source ?? 'gpu'),
     b: graphState(values.GraphB_Source ?? 'netdown'), battery: { samples: [] }, alert: { blink: 0 },
@@ -53,10 +53,10 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       power: Z.power && powerFrame({ cpu: r.mHwCpuPower, gpu: r.mHwGpuPower, chargeRate: r.mHwChargeRate }, Z.power, style).ops,
       battery: Z.battery && batteryFrame(r, Z.battery, style, st.battery, now).ops,
       alert: Z.alert && alertFrame(r, Z.alert, style, st.alert).ops,
-      settings: Z.settings && consoleFrame(NO_STATUS, cfg, NO_VIEW, Z.settings, style, now).ops,
+      settings: Z.settings && consoleFrame(withHybridMode(cs, values), cfg, NO_VIEW, Z.settings, style, now).ops,
     };
     // cfg is not in the deps: a console setting change shows on the next host reading
-  }, [m, st, Z, styleKey]);
+  }, [m, st, Z, styleKey, cs]);
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
   const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string) =>

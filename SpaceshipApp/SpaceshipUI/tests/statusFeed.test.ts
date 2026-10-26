@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
+import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, consoleStatus, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
 
 describe('acceptStatusUpdate', () => {
   // shapes StatusScripts.ToJson sends (ShipCore.Core.Tests/StatusScriptsTests)
@@ -10,6 +10,10 @@ describe('acceptStatusUpdate', () => {
   it('takes dev; bad counts become unknown', () => {
     acceptStatusUpdate({ type: 'status.update', kind: 'dev', wsl: 2, llm: '1', tailscale: 'RUNNING', docker: -1 });
     expect(devStatus.value).toEqual({ wsl: 2, llm: undefined });
+  });
+  it('takes llt; an odd value becomes unknown', () => {
+    acceptStatusUpdate({ type: 'status.update', kind: 'llt', hybrid: 'on-auto', power: 'Performance', refresh: '165', battery: 7, dgpu: 'on' });
+    expect(consoleStatus.value).toEqual({ hybrid: 'on-auto', power: '', refresh: '165', battery: '', dgpu: 'on' });
   });
   it('ignores other messages', () => {
     acceptStatusUpdate({ type: 'status.update', kind: 'other', wsl: 9 });

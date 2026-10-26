@@ -51,6 +51,13 @@ export const isTabUnderline = (o: Op) => o.shape.kind === 'poly' && o.stroke?.wi
 /** 1-based tab that matches the status, or 0 when none does. */
 const hybridIndex = (st: ConsoleState) => (st.hybrid === '' ? 0 : TABS.findIndex((t) => t.mode.toLowerCase() === st.hybrid) + 1);
 
+const HYBRID_DEFAULTS: Record<HybridMode, string> = { ECO: 'on-igpu-only', HYBRID: 'on', AUTO: 'on-auto', DGPU: 'off' };
+/** console.lua hybridIndex: the raw Legion Toolkit value matches a tab through its LltHybrid<MODE> setting; consoleFrame takes the mode name. */
+export function withHybridMode(st: ConsoleState, values: Record<string, string>): ConsoleState {
+  const t = st.hybrid === '' ? undefined : TABS.find((t) => (values[`LltHybrid${t.mode}`] ?? HYBRID_DEFAULTS[t.mode]).toLowerCase() === st.hybrid);
+  return { ...st, hybrid: t?.mode.toLowerCase() ?? '' };
+}
+
 function quickButtons(st: ConsoleState, cfg: ConsoleConfig) {
   const tierOv = cfg.perfOverride;
   const tierName = TIERS[cfg.perfTier] ?? 'FULL';
