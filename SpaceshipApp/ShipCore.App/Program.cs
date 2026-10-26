@@ -237,6 +237,21 @@ sealed class Overlay : Form
     }
     protected override bool ShowWithoutActivation => true;
 
+    // Hidden (fullscreen app, exam browser, lock): the page stops rendering and its timers sleep; WebView2 wakes it when shown.
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (_cc is null || !_running) return;
+        _cc.IsVisible = Visible;
+        if (!Visible) Suspend(_cc);
+    }
+
+    static async void Suspend(CoreWebView2CompositionController cc)
+    {
+        try { await cc.CoreWebView2.TrySuspendAsync(); }
+        catch (Exception e) when (e is COMException or InvalidOperationException or ObjectDisposedException) { /* best effort, like a sleeping tab */ }
+    }
+
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
