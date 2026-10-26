@@ -34,7 +34,7 @@ export function slotRowFrame(input: SlotInput, zone: Zone, st: Style): Op[] {
     c.line(ix - s2 - 5, iy - s2 * 0.5, ix - s2 - 5, iy + s2 * 0.5, st.accent, 1.2, 160);
     c.line(ix + s2 + 5, iy - s2 * 0.5, ix + s2 + 5, iy + s2 * 0.5, st.accent, 1.2, 160);
     c.icon(cat.icon || 'folder', ix, iy, s2 * 1.05, st.accent, 1.6);
-  } else if (app) {
+  } else if (app && !c.appIcon(app.id, ix, iy, h * 0.66)) {
     c.icon(app.icon, ix, iy, h * 0.6, icol, 1.7);
   }
   const LA = mirror ? 'RightCenter' : 'LeftCenter', RA = mirror ? 'LeftCenter' : 'RightCenter';

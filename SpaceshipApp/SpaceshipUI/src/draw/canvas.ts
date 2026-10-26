@@ -1,6 +1,7 @@
 import icons from '../generated/icons.json';
 import type { RGBA } from '../lib/theme';
 import type { Pt } from '../lib/geometry';
+import { appIconUrls } from './appIcons';
 
 // Port of the drawing layer in Skins/Spaceship/@Resources/Scripts/lib.lua (Canvas). Records draw ops in zone units; the
 // output is device units, so it can be drawn as SVG without the Rainmeter meter strings. Glow tiers and colour rules match lib.lua.
@@ -15,7 +16,9 @@ export type Shape =
   | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
   | { kind: 'rect'; x: number; y: number; w: number; h: number; r: number }
   // blur is the shadow radius for a glow-layer copy of the text; 0 for the text itself. clipW is set only when clipped.
-  | { kind: 'text'; x: number; y: number; text: string; size: number; align: string; weight: number; font: string; clipW?: number; blur: number };
+  | { kind: 'text'; x: number; y: number; text: string; size: number; align: string; weight: number; font: string; clipW?: number; blur: number }
+  // matrix is an SVG feColorMatrix (20 numbers), the stand-in for Rainmeter's ColorMatrix / ImageTint / ImageAlpha
+  | { kind: 'image'; x: number; y: number; w: number; h: number; href: string; matrix: number[] };
 export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke };
 
 /** Settings the skin reads from H.init (PerfTier, GlowAlpha, GlowWidth, CoreWhite, HudAlpha, Scale, EditMode, text settings) and its colours. */
@@ -63,6 +66,7 @@ export class Canvas {
       case 'ellipse': return { kind: 'ellipse', cx: (x + shape.cx) * s, cy: (y + shape.cy) * s, rx: shape.rx * s, ry: shape.ry * s };
       case 'rect': return { kind: 'rect', x: (x + shape.x) * s, y: (y + shape.y) * s, w: shape.w * s, h: shape.h * s, r: shape.r * s };
       case 'text': return { ...shape, x: (x + shape.x) * s, y: (y + shape.y) * s, size: shape.size * s, clipW: shape.clipW && shape.clipW * s, blur: shape.blur * s };
+      case 'image': return { ...shape, x: (x + shape.x) * s, y: (y + shape.y) * s, w: shape.w * s, h: shape.h * s };
     }
   }
 
@@ -230,6 +234,22 @@ export class Canvas {
         this.poly(arcPts(cx + (x - 50) * k, cy + (y - 50) * k, rx * k, ry * k, 0, 360, 36), col, lw, alpha);
       }
     }
+  }
+
+  /** The app's own icon (lib.lua H.image): greyscale recoloured from the accent (dark) to white (bright), over its glow
+   *  tinted in the accent at 0.8 alpha and 1.25x size, the glow off on LOW and STEALTH. False when there is no icon file,
+   *  so the caller draws its line icon instead. */
+  appIcon(id: string, cx: number, cy: number, size: number, alpha = 255): boolean {
+    const urls = appIconUrls(id);
+    if (!urls) return false;
+    const st = this.st, a = Math.floor((alpha * st.hudA) / 255) / 255;
+    const [r, g, b] = st.accent.map((v) => v / 255);
+    const box = (s: number) => ({ x: cx - s / 2, y: cy - s / 2, w: s, h: s });
+    if (urls.glow && st.tier < 2) {
+      this.push('glow', { kind: 'image', ...box(size * 1.25), href: urls.glow, matrix: [r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, Math.floor(a * 255 * 0.8) / 255, 0] });
+    }
+    this.push('core', { kind: 'image', ...box(size), href: urls.icon, matrix: [1 - r, 0, 0, 0, r, 1 - g, 0, 0, 0, g, 1 - b, 0, 0, 0, b, 0, 0, 0, a, 0] });
+    return true;
   }
 
   /** Panel outline with chamfered corners, optionally filled with the panel colour. */

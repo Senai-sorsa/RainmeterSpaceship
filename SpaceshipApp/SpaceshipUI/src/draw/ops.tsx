@@ -58,5 +58,13 @@ function OpEl({ op, id }: { op: Op; id: string }) {
         </g>
       );
     }
+    case 'image':
+      // sRGB: Rainmeter's colour matrix works on the stored values, not linear light
+      return (
+        <>
+          <filter id={`cm-${id}`} color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values={sh.matrix.join(' ')} /></filter>
+          <image href={sh.href} x={sh.x} y={sh.y} width={sh.w} height={sh.h} preserveAspectRatio="none" filter={`url(#cm-${id})`} />
+        </>
+      );
   }
 }

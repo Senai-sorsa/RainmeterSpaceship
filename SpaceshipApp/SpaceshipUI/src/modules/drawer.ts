@@ -62,7 +62,7 @@ export function drawerFrame(cat: Catalog, st: DrawerState, zone: Zone, style: St
       c.text(w - 50, y + 4, `${row.cat.apps.length} APPS`, { size: 9, align: 'RightTop', color: D });
     } else {
       const app = row.app;
-      c.icon(app.icon, 68, y + RH / 2 - 1, 16, app.missing ? D : A1, 1.1);
+      if (app.missing || !c.appIcon(app.id, 68, y + RH / 2 - 1, 24)) c.icon(app.icon, 68, y + RH / 2 - 1, 16, app.missing ? D : A1, 1.1);
       c.text(86, y + 4, app.name, { size: 10, color: app.missing ? D : T, clip: 280 });
       c.text(w - 50, y + 5, app.missing ? 'NOT FOUND' : app.short, { size: 8.5, align: 'RightTop', color: app.missing ? style.warn : D });
       c.hair(60, y + RH - 2, w - 40, y + RH - 2, D, 1, 50);
