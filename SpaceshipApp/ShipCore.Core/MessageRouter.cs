@@ -19,7 +19,7 @@ public sealed class MessageRouter
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
     /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
     /// <param name="launch">Runs an Apps.ini app by id (AppLaunch). Null means app.launch is accepted and ignored.</param>
-    /// <param name="open">The reticle's target.open: "taskmgr" or "todo" (checked by Protocol). Null means it is ignored.</param>
+    /// <param name="open">target.open: Task Manager, the to-do note, a settings page or a media key, from a fixed list (checked by Protocol). Null means it is ignored.</param>
     /// <param name="dial">The systems dial's writes. Null means the dial is not wired and every dial.set is refused.</param>
     /// <param name="hits">Where the page takes the mouse. Null means hit.regions is accepted and ignored.</param>
     public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null)

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
+import type { JSX } from 'preact';
 import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { sysInfo } from '../host/sysInfo';
 import { netStatus } from '../host/statusFeed';
-import { audioFrame, audioState, type AudioState } from './audio';
+import { AUDIO_HITS, audioFrame, audioState, type AudioState } from './audio';
+import { HitRect } from './hit';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
 import { type Readings } from './readings';
 import { stripLeftFrame, stripRightFrame } from './strip';
@@ -28,7 +30,7 @@ const ZONES = {
   stripL: zoneOf('B_stripL'), stripR: zoneOf('B_stripR'),
 };
 
-/** Bottom dash: the systems dial (B_storage), audio dial, the two panels and the two strips. Behind ?module=bottom. The audio dial's clicks are not wired yet. */
+/** Bottom dash: the systems dial (B_storage), audio dial, the two panels and the two strips. Behind ?module=bottom. */
 /** hide (the Off_ settings) leaves those zones empty; for Off_BottomAudio the host also stops its capture. */
 export function BottomModule({ style, hide = '' }: { style: Style; hide?: string }) {
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
@@ -55,16 +57,34 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
     pl: Z.panelL && panelLeftFrame(leftRows(now, r, info, style.hi), Z.panelL, style),
     pr: Z.panelR && panelRightFrame(rightRows(r, style, info), Z.panelR, style),
   }), [r, now, Z, info, style]);
-  const place = (zone: typeof ZONES.storage, list: Op[] | undefined, name: string, mod: string) =>
+  const place = (zone: typeof ZONES.storage, list: Op[] | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={list} name={name} />
+        {hit}
       </g>
     );
+  const open = (what: string) => () => host.send({ type: 'target.open', what });
+  // audio.lua OnScroll: ChangeVolume -2 per notch down; through the dial's gate, like the VOL control
+  const volStep = (d: number) => { const v = vol === undefined ? undefined : Math.max(0, Math.min(100, (vol < 0 ? 0 : vol) - 2 * d)); if (v !== undefined) void dialSetter.set('vol', v / 100); };
+  const audioHits = Z.audio && (() => {
+    const z = Z.audio, s = style.s, menu = open('sound');
+    return (
+      <>
+        <HitRect zone={z} s={s} box={AUDIO_HITS.disc} label="Volume" on={{ menu, wheel: volStep }} />
+        <HitRect zone={z} s={s} box={AUDIO_HITS.core} label="Mute" on={{ click: open('mute'), menu, wheel: volStep }} />
+        {/* shortcut: ToggleNext (next output device) needs an undocumented Windows interface; the click opens sound settings instead */}
+        <HitRect zone={z} s={s} box={AUDIO_HITS.readout} label="Sound output" on={{ click: menu, menu, wheel: volStep }} />
+        {(['prev', 'playpause', 'next'] as const).map((k, i) => (
+          <HitRect zone={z} s={s} box={AUDIO_HITS.keys[i]} label={k} on={{ click: open(k), menu, wheel: volStep }} />
+        ))}
+      </>
+    );
+  })();
   return (
     <>
       {Z.storage && <DialModule zone={Z.storage} style={style} setter={dialSetter} sel0={DIAL_SEL} />}
-      {place(Z.audio, ops.au, 'au', 'audio')}
+      {place(Z.audio, ops.au, 'au', 'audio', audioHits)}
       {place(Z.panelL, panels.pl, 'pl', 'panel-left')}
       {place(Z.panelR, panels.pr, 'pr', 'panel-right')}
       {place(Z.stripL, ops.sl, 'sl', 'strip-left')}

@@ -157,3 +157,15 @@ function glyph(c: Canvas, kind: 'prev' | 'play' | 'next', x: number, y: number, 
     c.line(x + s * 0.9, y - s, x + s * 0.9, y + s, col, 1.3);
   } else c.poly([[x - s * 0.5, y - s * 1.1], [x + s * 0.8, y], [x - s * 0.5, y + s * 1.1]], col, 1.4, 255, true);
 }
+
+/** audio.lua placeHits, in zone units: the disc (scroll = volume), the core (mute), the readout (device) and the three media keys. */
+export const AUDIO_HITS = (() => {
+  const RR = R_TICK + 2;
+  const keys = [-18, 0, 18].map((a) => { const [x, y] = P(R_TICK - 6, a); return { x: x - 9, y: y - 9, w: 18, h: 18 }; });
+  return {
+    disc: { x: CX - RR, y: CY - RR, w: 2 * RR, h: 2 * RR }, // shortcut: a square, not the skin's ellipse; the corners also scroll
+    core: { x: CX - 22, y: CY - 22, w: 44, h: 44 },
+    readout: { x: CX - 46, y: CY + 64, w: 92, h: 26 },
+    keys,
+  };
+})();

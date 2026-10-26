@@ -44,7 +44,7 @@ public static class Protocol
             case "dial.set": return DialSetProblem(m);
             case "hit.regions": return HitRegionsProblem(m);
             case "app.launch": return Str(m, "id", out var app) && AppLaunch.Id.IsMatch(app) ? null : "bad app id";
-            case "target.open": return Str(m, "what", out var w) && w is "taskmgr" or "todo" ? null : "bad target";
+            case "target.open": return Str(m, "what", out var w) && w is "taskmgr" or "todo" or "sound" or "display" or "power" or "mute" or "prev" or "playpause" or "next" ? null : "bad target";
             default: return "unknown type";
         }
     }

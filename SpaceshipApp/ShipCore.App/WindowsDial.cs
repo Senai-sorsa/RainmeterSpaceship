@@ -125,7 +125,10 @@ sealed class WindowsDial : IDialActions
             Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(flow, eConsole, out device));
             var iid = VolumeIid;
             Marshal.ThrowExceptionForHR(device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out obj));
-            Marshal.ThrowExceptionForHR(((IAudioEndpointVolume)obj).SetMasterVolumeLevelScalar(percent / 100f, IntPtr.Zero));
+            var vol = (IAudioEndpointVolume)obj;
+            Marshal.ThrowExceptionForHR(vol.SetMasterVolumeLevelScalar(percent / 100f, IntPtr.Zero));
+            // raising the level unmutes, as the Windows slider does; otherwise the ring keeps reading MUTED
+            if (percent > 0) Marshal.ThrowExceptionForHR(vol.SetMute(false, IntPtr.Zero));
         }
         finally
         {

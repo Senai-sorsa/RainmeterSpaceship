@@ -137,15 +137,17 @@ public sealed class MessageRouterTests : IDisposable
     }
 
     [Fact]
-    public async Task TargetOpenPassesOnlyTheTwoFixedTargets()
+    public async Task TargetOpenPassesOnlyTheFixedTargets()
     {
         var schema = Repo.Schema();
         var opened = new List<string>();
         var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), open: opened.Add);
         Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"taskmgr\"}")).Problem);
         Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"todo\"}")).Problem);
+        Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"mute\"}")).Problem);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"cmd.exe\"}")).Problem);
-        Assert.Equal(["taskmgr", "todo"], opened);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"ms-settings:sound\"}")).Problem);
+        Assert.Equal(["taskmgr", "todo", "mute"], opened);
     }
 
     [Fact]

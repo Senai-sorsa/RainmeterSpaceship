@@ -614,10 +614,16 @@ sealed class Overlay : Form
 
     // target.open (target.lua OnRightClick / OnClick): Task Manager, or the ObsidianTodo note in Obsidian. Both targets are
     // fixed here; the note is the same rooted, existing .md the to-do reader takes, and its path is never logged
+    [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, int flags, int extra);
+    static readonly Dictionary<string, byte> MediaKeys = new() { ["mute"] = 0xAD, ["prev"] = 0xB1, ["playpause"] = 0xB3, ["next"] = 0xB0 };
     void OpenTarget(string what)
     {
+        // media.ps1's keys (audio.lua's core = mute, wedge = prev / play / next): a key press, as the keyboard's own keys do
+        if (MediaKeys.TryGetValue(what, out var vk)) { keybd_event(vk, 0, 1, 0); keybd_event(vk, 0, 3, 0); return; }
         string target;
         if (what == "taskmgr") target = "taskmgr.exe";
+        else if (what is "sound" or "display") target = "ms-settings:" + what; // the dial's and audio ring's right-click pages
+        else if (what == "power") target = "ms-settings:powersleep";
         else
         {
             var path = _settings?.Get(["ObsidianTodo"]).GetValueOrDefault("ObsidianTodo")?.Trim().Trim('"');

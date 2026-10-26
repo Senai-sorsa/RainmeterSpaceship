@@ -8,6 +8,7 @@ const FLOWS = new Set(['gmail', 'calendars', 'obsidian']);
 const DIAL_CONTROLS = new Set(['brightness', 'volume', 'mic', 'power', 'refresh']);
 const POWER_MODES = new Set(['quiet', 'balance', 'performance']);
 const REFRESH_RATES = new Set(['60', '165']);
+const TARGETS = ['taskmgr', 'todo', 'sound', 'display', 'power', 'mute', 'prev', 'playpause', 'next']; // the host's fixed target.open list
 const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/; // a lone surrogate is not text the host can read
 const isObj = (m: unknown): m is Record<string, unknown> => typeof m === 'object' && m !== null && !Array.isArray(m);
 
@@ -28,7 +29,7 @@ export function messageProblem(m: unknown): string | null {
     case 'dial.set': return dialSetProblem(m);
     case 'hit.regions': return hitRegionsProblem(m);
     case 'app.launch': return typeof m.id === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(m.id) ? null : 'bad app id';
-    case 'target.open': return m.what === 'taskmgr' || m.what === 'todo' ? null : 'bad target';
+    case 'target.open': return typeof m.what === 'string' && TARGETS.includes(m.what) ? null : 'bad target';
     default: return 'unknown type';
   }
 }
