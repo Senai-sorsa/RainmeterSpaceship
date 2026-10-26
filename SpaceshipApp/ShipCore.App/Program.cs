@@ -118,7 +118,8 @@ sealed class Overlay : Form
     // JARVIS state reaches the page from Data\jarvis.txt, read-only, as the skin reads it; the pipe carries nothing yet.
     readonly System.Windows.Forms.Timer _jarvisTimer = new() { Interval = 200 };
     string? _jarvisFile;
-    string? _jarvisSent;
+    string? _jarvisSent, _jarvisText;
+    DateTime _jarvisWrite;
     readonly StatusRunner? _status;
     readonly NetRunner _net;
 
@@ -388,15 +389,20 @@ sealed class Overlay : Form
     void PushJarvis()
     {
         if (_cc?.CoreWebView2 is null || !Visible || _jarvisFile is null) return;
-        string? text = null;
-        try
+        // Re-read only when the file changed; a missing file reads as 1601 without throwing.
+        var w = File.GetLastWriteTimeUtc(_jarvisFile);
+        if (w != _jarvisWrite)
         {
-            using var f = new FileStream(_jarvisFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            if (f.Length <= 16384) text = new StreamReader(f).ReadToEnd();
+            _jarvisWrite = w; _jarvisText = null;
+            if (w.Year > 1601) try
+            {
+                using var f = new FileStream(_jarvisFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                if (f.Length <= 16384) _jarvisText = new StreamReader(f).ReadToEnd();
+            }
+            catch (IOException) { _jarvisWrite = default; } // missing, or mid-replace: retry next tick
+            catch (UnauthorizedAccessException) { _jarvisWrite = default; }
         }
-        catch (IOException) { } // missing, or mid-replace: offline until the next read
-        catch (UnauthorizedAccessException) { }
-        var json = JarvisStatus.ToJson(text, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var json = JarvisStatus.ToJson(_jarvisText, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         if (json == _jarvisSent) return;
         _jarvisSent = json;
         _cc.CoreWebView2.PostWebMessageAsJson(json);
