@@ -86,7 +86,8 @@ public sealed class ConfigStore : IConfigStore
 
     private string ReadFile(KeySpec s) => File.Exists(PathOf(s)) ? File.ReadAllText(PathOf(s), new UTF8Encoding(false)) : "";
 
-    private static Dictionary<string, string> Parse(string text)
+    /// <summary>The Key=Value lines of an .inc file (sections ignored), as Rainmeter reads them.</summary>
+    public static Dictionary<string, string> Parse(string text)
     {
         var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var raw in text.Split('\n'))

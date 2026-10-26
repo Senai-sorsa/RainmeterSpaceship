@@ -1,9 +1,11 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import { type RGBA } from '../lib/theme';
+import type { SysInfo } from '../host/sysInfo';
+import type { Readings } from './readings';
 
 // Port of Skins/Spaceship/@Resources/Scripts/panels.lua: the two tilted screens at the bottom of the dash.
 // Left: pilot, date, time, week, year, time zone, boot, uptime, idle. Right: the condensed ship card and the TERMINAL button.
-// Fields the host does not report yet (pilot, idle, host, OS, CPU and GPU names, RAM total) show --. Clicks are not ported.
+// The names come from the host's sys.info, idle and RAM total from system.metrics; a missing one shows --. Clicks are not ported.
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -54,11 +56,12 @@ export function bootText(now: Date, uptimeSec?: number): string {
   return (uptimeSec < 86400 ? hm : `${DAYS[t.getDay()]} ${hm}`).toUpperCase();
 }
 
-/** The rows of the left screen, from the clock and the uptime (seconds). */
-export function leftRows(now: Date, uptimeSec?: number): Row[] {
+/** The rows of the left screen, from the clock, the readings (mUptime, mIdle, in seconds) and the user name. */
+export function leftRows(now: Date, r: Readings = {}, info: SysInfo = {}): Row[] {
   const { week, yday } = weekOf(now);
+  const uptimeSec = r.mUptime;
   return [
-    { label: 'PILOT', value: '--' },
+    { label: 'PILOT', value: info.user?.toUpperCase() ?? '--' },
     { label: 'DATE', value: dateText(now) },
     { label: 'TIME', value: `${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}` },
     { label: 'WEEK', value: `W${p2(week)}  D${String(yday).padStart(3, '0')}` },
@@ -66,22 +69,23 @@ export function leftRows(now: Date, uptimeSec?: number): Row[] {
     { label: 'ZONE', value: offsetText(-now.getTimezoneOffset()) },
     { label: 'BOOT', value: bootText(now, uptimeSec) },
     { label: 'UP', value: uptimeSec !== undefined && uptimeSec > 0 ? spanText(uptimeSec) : '--' },
-    { label: 'IDLE', value: '--' },
+    { label: 'IDLE', value: r.mIdle !== undefined ? spanText(r.mIdle) : '--' },
   ];
 }
 
 // the skin tints the uptime row between accent and white (H.mix 0.4)
 const mixAccent = (st: Style): RGBA => [0, 1, 2].map((i) => Math.floor(st.accent[i] + (st.white[i] - st.accent[i]) * 0.4)).concat(255) as RGBA;
 
-/** The rows of the right screen (the card). Only uptime comes from the host today. */
-export function rightRows(uptimeSec: number | undefined, st: Style): Row[] {
+/** The rows of the right screen (the card): the machine's names, RAM total (mRamTotal bytes), screen and uptime. */
+export function rightRows(r: Readings, st: Style, info: SysInfo = {}): Row[] {
+  const uptimeSec = r.mUptime, ram = r.mRamTotal ?? 0;
   return [
-    { label: 'HOST', value: '--' },
-    { label: 'OS', value: '--' },
-    { label: 'CPU', value: '--' },
-    { label: 'GPU', value: '--' },
-    { label: 'RAM', value: '--' },
-    { label: 'DISP', value: '--' },
+    { label: 'HOST', value: info.host?.toUpperCase() ?? '--' },
+    { label: 'OS', value: (info.os ?? 'WINDOWS').toUpperCase() },
+    { label: 'CPU', value: info.cpu ?? '--' },
+    { label: 'GPU', value: info.gpu ?? '--' },
+    { label: 'RAM', value: ram > 0 ? `${(ram / 1073741824).toFixed(0)} GB` : '--' },
+    { label: 'DISP', value: info.display ?? '--' },
     { label: 'UP', value: uptimeSec !== undefined && uptimeSec > 0 ? spanText(uptimeSec) : '--', color: mixAccent(st) },
   ];
 }

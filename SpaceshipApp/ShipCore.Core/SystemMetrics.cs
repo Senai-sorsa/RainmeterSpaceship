@@ -13,6 +13,8 @@ public interface ISystemMetrics
     /// <summary>SYSTEM_POWER_STATUS raw bytes: ACLineStatus (0 offline, 1 online, 255 unknown) and BatteryLifePercent (255 unknown).</summary>
     (byte AcLine, byte BatteryPercent) ReadPower();
     ulong UptimeMs();
+    /// <summary>Time since the last keyboard or mouse input; null where it cannot be read.</summary>
+    ulong? IdleMs() => null;
 }
 
 /// <summary>Pure arithmetic over the counters, so the numbers the modules show are tested without the OS.</summary>

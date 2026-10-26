@@ -158,9 +158,25 @@ public sealed class SystemSamplerTests
         Assert.Equal(JsonValueKind.Null, root.GetProperty("cpuPercent").ValueKind);
         Assert.False(root.GetProperty("onAc").GetBoolean());
         Assert.Equal(80, root.GetProperty("batteryPercent").GetInt32());
+        Assert.Equal(100, root.GetProperty("memoryTotal").GetInt64());
+        Assert.Equal(60, root.GetProperty("memoryUsed").GetInt64());
+        Assert.Equal(JsonValueKind.Null, root.GetProperty("idleMs").ValueKind); // the fake keeps the interface default
 
         var fixture = JsonDocument.Parse(File.ReadAllText(Path.Combine(Repo.Root, "contract", "fixtures", "host-to-ui.json")));
         var declared = fixture.RootElement.EnumerateArray().First(e => e.GetProperty("name").GetString() == "full frame").GetProperty("msg");
         Assert.Equal(declared.EnumerateObject().Select(p => p.Name).OrderBy(n => n), root.EnumerateObject().Select(p => p.Name).OrderBy(n => n));
+    }
+
+    [Fact]
+    public void SysInfoTakesTheNamesFromHardwareIncAndLeavesOutBlankOnes()
+    {
+        var json = SysInfo.ToJson("senai", "SHIP", "[Variables]\r\nCpuName=RYZEN AI 9 465\r\n;OsName=X\r\nDGpuName=  \r\n", "2560x1600 @240");
+        using var doc = JsonDocument.Parse(json);
+        var r = doc.RootElement;
+        Assert.Equal("sys.info", r.GetProperty("type").GetString());
+        Assert.Equal("RYZEN AI 9 465", r.GetProperty("cpu").GetString());
+        Assert.Equal(JsonValueKind.Null, r.GetProperty("os").ValueKind);
+        Assert.Equal(JsonValueKind.Null, r.GetProperty("gpu").ValueKind);
+        Assert.Equal("2560x1600 @240", r.GetProperty("display").GetString());
     }
 }

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { WebView2Host, type WebViewApi } from '../src/host/HostBridge';
 import { acceptSystemMetrics, readingsFrom, systemMetrics, systemMetricsFrom } from '../src/host/systemMetrics';
+import { acceptSysInfo, sysInfo } from '../src/host/sysInfo';
 
 const FIXTURES = new URL('../../../contract/fixtures/host-to-ui.json', import.meta.url);
 
@@ -44,6 +45,18 @@ describe('system metrics signal', () => {
   it('maps the reading to the skin measures, leaving out what is unavailable', () => {
     const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":4,"cpuPercent":12.5,"memoryPercent":41,"uptimeMs":10,"onAc":true,"batteryPercent":null,"netDown":1000,"netUp":null,"spectrum":null,"processes":{},"hw":{}}'));
     expect(m && readingsFrom(m)).toEqual({ mRamPct: 41, mCPU: 12.5, mAC: 1, netDown: 1000, mUptime: 0.01 });
+  });
+
+  it('maps the memory bytes and the idle time to mRamUsed, mRamTotal and mIdle', () => {
+    const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":8,"cpuPercent":null,"memoryPercent":50,"uptimeMs":10,"onAc":null,"batteryPercent":null,"netDown":null,"netUp":null,"spectrum":null,"processes":{},"memoryTotal":2000,"memoryUsed":1000,"idleMs":4200,"hw":{}}'));
+    expect(m && readingsFrom(m)).toEqual({ mRamPct: 50, mUptime: 0.01, mRamTotal: 2000, mRamUsed: 1000, mIdle: 4.2 });
+  });
+
+  it('keeps the short names of sys.info and ignores other messages', () => {
+    acceptSysInfo({ type: 'sys.info', user: 'senai', host: 'SHIP', os: null, cpu: 'x'.repeat(81), display: '2560x1600 @240' });
+    expect(sysInfo.value).toEqual({ user: 'senai', host: 'SHIP', display: '2560x1600 @240' });
+    acceptSysInfo({ type: 'other', user: 'nope' });
+    expect(sysInfo.value.user).toBe('senai');
   });
 
   it('maps the spectrum to the band measures with a derived mean and peak', () => {

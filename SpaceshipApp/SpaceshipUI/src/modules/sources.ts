@@ -36,7 +36,7 @@ export const SOURCES: Record<string, Source> = {
   cpu: { label: 'CPU LOAD', frac: lin(0, 100), get: (r) => { const v = val(r, 'mCPU'); return { value: v, text: `${v.toFixed(0)}%` }; } },
   ram: {
     label: 'MEMORY USED', frac: lin(0, 100), get: (r) => {
-      // shortcut: the host sends the percent only; byte counts come when the host reports them (mRamUsed / mRamTotal)
+      // an older host sends the percent only
       if (r.mRamTotal === undefined && r.mRamPct !== undefined) return { value: r.mRamPct, text: `${r.mRamPct.toFixed(0)}%` };
       const u = val(r, 'mRamUsed'), t = Math.max(1, val(r, 'mRamTotal', 1));
       return { value: (u / t) * 100, text: `${(u / GIB).toFixed(1)} / ${(t / GIB).toFixed(0)} GB` };

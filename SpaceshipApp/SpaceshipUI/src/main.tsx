@@ -6,6 +6,7 @@ import { themeVars } from './lib/theme';
 import { DEFS, host, store } from './settings/instance';
 import { acceptSystemMetrics, systemMetrics } from './host/systemMetrics';
 import { acceptJarvisUpdate } from './host/jarvisFeed';
+import { acceptSysInfo } from './host/sysInfo';
 import { acceptAppsCatalog } from './modules/appsSource';
 import { acceptCalendarUpdate } from './modules/calendarSource';
 import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate } from './host/statusFeed';
@@ -25,6 +26,7 @@ for (const [k, val] of Object.entries(themeVars((settings as { variables: Record
 
 host.onMessage(acceptSystemMetrics);
 host.onMessage(acceptJarvisUpdate);
+host.onMessage(acceptSysInfo);
 host.onMessage(acceptAppsCatalog);
 host.onMessage(acceptCalendarUpdate);
 host.onMessage(acceptStatusUpdate);

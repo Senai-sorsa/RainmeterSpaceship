@@ -4,6 +4,7 @@ import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
+import { sysInfo } from '../host/sysInfo';
 import { audioFrame, audioState, type AudioState } from './audio';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
 import { type Readings } from './readings';
@@ -29,6 +30,7 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
+  const info = sysInfo.value;
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     return scheduler.every(1000, () => setNow(new Date()));
@@ -43,9 +45,9 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   }), [r, Z]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({
-    pl: Z.panelL && panelLeftFrame(leftRows(now, r.mUptime), Z.panelL, style),
-    pr: Z.panelR && panelRightFrame(rightRows(r.mUptime, style), Z.panelR, style),
-  }), [r, now, Z]);
+    pl: Z.panelL && panelLeftFrame(leftRows(now, r, info), Z.panelL, style),
+    pr: Z.panelR && panelRightFrame(rightRows(r, style, info), Z.panelR, style),
+  }), [r, now, Z, info]);
   const place = (zone: typeof ZONES.storage, list: Op[] | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>

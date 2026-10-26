@@ -233,7 +233,7 @@ sealed class Overlay : Form
         menu.Items.Add("Start", null, (_, _) => Start());
         menu.Items.Add("Stop", null, (_, _) => Stop());
         // Rainmeter's Refresh: a fresh page with the restart budget reset
-        menu.Items.Add("Reload HUD", null, (_, _) => { _failures = 0; _appsJson = null; ReleaseWebView(); Start(); });
+        menu.Items.Add("Reload HUD", null, (_, _) => { _failures = 0; _appsJson = _sysJson = null; ReleaseWebView(); Start(); });
         // Autostart is deferred by the user: the menu can only remove a Run entry an earlier build wrote, never add one.
         if (_autostart.IsEnabled)
         {
@@ -584,12 +584,19 @@ sealed class Overlay : Form
 
     void Post(string json) => _cc?.CoreWebView2?.PostWebMessageAsJson(json);
 
-    // Data a new page gets once: the app catalog (Apps.ini, the Start-menu list, which file targets exist). Read on the
+    // Data a new page gets once: the machine names (sys.info) and the app catalog (Apps.ini, the Start-menu list, which file targets exist). Read on the
     // first page load and kept; Reload HUD reads it again, like Rainmeter's Refresh.
-    string? _appsJson;
+    string? _appsJson, _sysJson;
     void PostOnce()
     {
         if (_resources is null) return;
+        try
+        {
+            var hwInc = Path.Combine(_resources, "Hardware.inc");
+            _sysJson ??= SysInfo.ToJson(Environment.UserName, Environment.MachineName, File.Exists(hwInc) ? File.ReadAllText(hwInc) : "", WindowsMetrics.Display());
+            Post(_sysJson);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},HARDWARE_UNREADABLE,{e.GetType().Name}"); }
         try
         {
             _appsJson ??= AppsFeed.ToJson(File.ReadAllText(Path.Combine(_resources, "Apps.ini")),

@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace ShipCore.Core;
 
 /// <summary>One reading for the page. Null means not available right now: the first CPU figure has no earlier sample, and a HWiNFO value needs the sensor mapped and HWiNFO running.</summary>
-public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPercent, ulong UptimeMs, bool? OnAc, int? BatteryPercent, IReadOnlyDictionary<string, double?> Hw, (double Down, double Up)? Net = null, double[]? Spectrum = null, IReadOnlyDictionary<string, bool>? Processes = null, double? GpuPercent = null);
+public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPercent, ulong UptimeMs, bool? OnAc, int? BatteryPercent, IReadOnlyDictionary<string, double?> Hw, (double Down, double Up)? Net = null, double[]? Spectrum = null, IReadOnlyDictionary<string, bool>? Processes = null, double? GpuPercent = null, ulong MemoryTotal = 0, ulong MemoryUsed = 0, ulong? IdleMs = null);
 
 /// <summary>Builds one frame per call. Keeps the previous CPU and network samples, which the rates need.</summary>
 public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null)
@@ -54,7 +54,8 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
 
         var running = processes is null ? null : WatchedNames(settings).ToDictionary(name => name, processes.IsRunning);
 
-        return new SystemFrame(seq, cpuPercent, SystemMetrics.MemoryPercent(total, available), metrics.UptimeMs(), power.OnAc, power.BatteryPercent, hw, rate, spectrum?.Latest, running, _gpu);
+        return new SystemFrame(seq, cpuPercent, SystemMetrics.MemoryPercent(total, available), metrics.UptimeMs(), power.OnAc, power.BatteryPercent, hw, rate, spectrum?.Latest, running, _gpu,
+            total, total - Math.Min(available, total), metrics.IdleMs());
     }
 
     /// <summary>The message the page receives: type system.metrics, one field per reading, nulls where a reading is missing.</summary>
@@ -72,6 +73,9 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         spectrum = f.Spectrum,
         processes = f.Processes,
         gpuPercent = f.GpuPercent,
+        memoryTotal = f.MemoryTotal,
+        memoryUsed = f.MemoryUsed,
+        idleMs = f.IdleMs,
         hw = f.Hw,
     });
 }

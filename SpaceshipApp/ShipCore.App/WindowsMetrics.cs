@@ -18,6 +18,23 @@ sealed class WindowsMetrics : ISystemMetrics
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool GetSystemPowerStatus(out PowerStatus status);
     [DllImport("kernel32.dll")] static extern ulong GetTickCount64();
 
+    [StructLayout(LayoutKind.Sequential)] struct LastInputInfo { public uint Size, Time; }
+    [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LastInputInfo info);
+
+    // DEVMODEW, 220 bytes; only the size, resolution and refresh fields are read
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct DevMode
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
+        public short SpecVersion, DriverVersion, Size, DriverExtra;
+        public int Fields, PositionX, PositionY, Orientation, FixedOutput;
+        public short Color, Duplex, YResolution, TTOption, Collate;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string FormName;
+        public short LogPixels;
+        public int BitsPerPel, PelsWidth, PelsHeight, DisplayFlags, DisplayFrequency, IcmMethod, IcmIntent, MediaType, DitherType, Reserved1, Reserved2, PanningWidth, PanningHeight;
+    }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string? device, int mode, ref DevMode dm);
+
     public CpuTimes ReadCpuTimes()
     {
         if (!GetSystemTimes(out var idle, out var kernel, out var user)) throw new System.ComponentModel.Win32Exception();
@@ -38,6 +55,21 @@ sealed class WindowsMetrics : ISystemMetrics
     }
 
     public ulong UptimeMs() => GetTickCount64();
+
+    // the input time is a 32-bit tick count, so the difference is taken in 32 bits (it wraps every 49 days)
+    public ulong? IdleMs()
+    {
+        var i = new LastInputInfo { Size = (uint)Marshal.SizeOf<LastInputInfo>() };
+        return GetLastInputInfo(ref i) ? unchecked((uint)GetTickCount64() - i.Time) : null;
+    }
+
+    /// <summary>The primary screen's current mode, as the panel's DISP row shows it: 2560x1600 @240. Null if Windows does not say.</summary>
+    public static string? Display()
+    {
+        var dm = new DevMode { Size = (short)Marshal.SizeOf<DevMode>() };
+        if (!EnumDisplaySettings(null, -1 /* ENUM_CURRENT_SETTINGS */, ref dm) || dm.PelsWidth <= 0) return null;
+        return dm.DisplayFrequency > 1 ? $"{dm.PelsWidth}x{dm.PelsHeight} @{dm.DisplayFrequency}" : $"{dm.PelsWidth}x{dm.PelsHeight}";
+    }
 }
 
 // Reads one value per sensor from HWiNFO's gadget keys. Missing key or HWiNFO not running gives null, never an error.
