@@ -83,3 +83,17 @@ f56c8cf c3a508b d379580 895c34b 7000bf3 229cfc4 1ba284e d3b3f84 49db154 1f8715f 
   uses File.Exists like the skin), orb OFFLINE vs idle, net graph colour (fake sine data), agenda/upkeep content.
   C.L.O.V.E.R in the screenshot was the pre-reload name: Settings.inc was saved as JarvisName=Jarvis a minute before it.
 - Unverified until a live run: the host reads (COM audio, PDH, WLAN, EnumWindows). Host unit tests are blocked by SAC.
+
+## 2026-10-26 - live run: the user's second screenshot (clicks, fonts, speed, targeter, bottom band)
+Commits: 426a0bd c58b300 8cc2cda eccd3c2 f438003 238bcc1 4e6f42c.
+- Clicks: hit shapes moved onto the dials; tabs, pages, slots and the targeter are clickable (426a0bd, eccd3c2).
+- Speed: frame timers halved to the skin's real rate (c58b300). Weight 400 for text; boot text in the number font (8cc2cda).
+- "Bold" text: the glow copy was drop-shadow, which drew the letters twice; it is now a blur of the halo only (238bcc1).
+- Panel glass sat off its text: the frame now draws at the skin's Scale (f438003).
+- Live bug: METRICS_FAILED (InvalidCastException) on every other tick, because two ComImport classes fought over the
+  singleton MMDeviceEnumerator. Fixed by creating it by CLSID once (4e6f42c). That also unblocks the targeter's procs.top.
+- STATUS_FAILED llt: status.ps1 carried the downloaded-zip Zone.Identifier, so RemoteSigned refused it. It was reviewed
+  as query-only and `Unblock-File`d (an NTFS stream, not in git). llt.ps1 still has the mark and is not run by the app.
+- SAC no longer blocks the new unsigned exe (launched 2026-10-26).
+- Open: the to-do targeting needs ObsidianTodo set (Control Center > DATA; empty now). JARVIS-offline brightness was not
+  reproduced. The calendar countdown ring is missing. Clicks were not verified by mouse.
