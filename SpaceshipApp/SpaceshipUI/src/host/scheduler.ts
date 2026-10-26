@@ -20,7 +20,7 @@ export function createScheduler(frame: Frame, clock: () => number): Scheduler {
     for (const j of [...jobs]) {
       if (!jobs.has(j)) continue; // stopped by an earlier job in this frame
       if (t - j.last >= j.ms) {
-        j.last = t;
+        j.last = t - ((t - j.last) % j.ms); // keep the part past the period, or the rate drops to fit frame edges
         j.fn();
       }
     }

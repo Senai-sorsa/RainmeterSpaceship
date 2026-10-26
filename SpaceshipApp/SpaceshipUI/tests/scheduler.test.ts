@@ -48,6 +48,18 @@ describe('scheduler', () => {
     expect(second).toBe(0);
   });
 
+  it.each([60, 144, 165])('keeps each job at its own rate on a %i Hz screen', (hz) => {
+    const f = fakeFrames();
+    const s = createScheduler(f.frame, () => 0);
+    const counts = new Map<number, number>();
+    for (const ms of [16, 33, 50]) s.every(ms, () => counts.set(ms, (counts.get(ms) ?? 0) + 1));
+    for (let i = 1; i <= hz * 10; i++) f.step((i * 1000) / hz);
+    for (const ms of [16, 33, 50]) {
+      const want = Math.min(1000 / ms, hz); // a job can run at most once per frame
+      expect(Math.abs(counts.get(ms)! / 10 - want) / want).toBeLessThan(0.03);
+    }
+  });
+
   it('a gap with no frames fires the job once, not once per missed period', () => {
     const f = fakeFrames();
     let now = 0;
