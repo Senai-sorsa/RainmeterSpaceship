@@ -75,6 +75,18 @@ export function catalogFrom(m: unknown): Catalog | null {
   return loadCatalog(o.ini, start, (p) => have.has(p));
 }
 
+/**
+ * Browser preview only (screenshot checks against the skin): the user's Apps.ini from the gitignored generated/apps.json,
+ * every target taken as found. A lazy chunk, so the app never loads it.
+ */
+export async function previewCatalog(): Promise<Catalog> {
+  const { default: d } = await import('../generated/apps.json');
+  const ini = (d as unknown as [string, Record<string, string>][])
+    .map(([s, kv]) => `[${s}]\n${Object.entries(kv).map(([k, v]) => `${k}=${v}`).join('\n')}`).join('\n');
+  const start = [...ini.matchAll(/start:([^|\n]+)/g)].map((m) => ({ name: m[1].trim(), id: m[1].trim() }));
+  return loadCatalog(ini, start, () => true);
+}
+
 /** The sample until the host sends the real catalog (a browser without the host keeps the sample). */
 export const catalogFeed = signal<Catalog>(fakeCatalog);
 

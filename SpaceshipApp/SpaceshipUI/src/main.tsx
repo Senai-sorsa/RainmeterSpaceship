@@ -7,7 +7,7 @@ import { DEFS, host, store } from './settings/instance';
 import { acceptSystemMetrics, systemMetrics } from './host/systemMetrics';
 import { acceptJarvisUpdate } from './host/jarvisFeed';
 import { acceptSysInfo } from './host/sysInfo';
-import { acceptAppsCatalog } from './modules/appsSource';
+import { acceptAppsCatalog, catalogFeed, previewCatalog } from './modules/appsSource';
 import { acceptCalendarUpdate } from './modules/calendarSource';
 import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate } from './host/statusFeed';
 import { WebView2Host } from './host/HostBridge';
@@ -49,9 +49,9 @@ if (q.get('level') === 'advanced') store.level.value = 'advanced';
 function Root() {
   const [wiz, setWiz] = useState<boolean | null>(null);
   useEffect(() => {
-    // ?preview=1 in a plain browser (no WebView2 host) goes straight to the HUD, for screenshot checks
+    // ?preview=1 in a plain browser (no WebView2 host) goes straight to the HUD with the skin's own apps, for screenshot checks
     const preview = q.get('preview') === '1' && !(globalThis as { chrome?: { webview?: unknown } }).chrome?.webview;
-    if (preview) setWiz(false); else shouldShow(host).then(setWiz);
+    if (preview) { setWiz(false); previewCatalog().then((c) => { catalogFeed.value = c; }); } else shouldShow(host).then(setWiz);
     host.onMessage((m) => { if (m.type === 'setup.state') setWiz(m.done !== true); });
   }, []);
   if (wiz === null) return null;

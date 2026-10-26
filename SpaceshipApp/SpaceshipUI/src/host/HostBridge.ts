@@ -126,7 +126,7 @@ export function chooseHost(): HostBridge {
   const allowed = allowedKeys(modules);
   const seed: Record<string, string> = {};
   for (const d of REGISTRY) if (!d.virtual) seed[d.key] = d.default;
-  Object.assign(seed, (settings as { variables: Record<string, string> }).variables);
+  Object.assign(seed, (settings as { variables: Record<string, string> }).variables, (settings as { state?: Record<string, string> }).state);
   // ?host=mock&fail=<Key> makes the mock reject writes to that key (e2e failure injection)
   const fail = forced ? q.get('fail') : null;
   const host = new MockHost({ seed, allow: (k) => allowed.has(k), storage, ...(fail ? { failKeys: new Set([fail]) } : {}) });
