@@ -27,4 +27,8 @@ Need the user: W2 (training off-PC), T4 (measure live), G1 (measure), U5 wording
 
 ## Decisions made (PM)
 - Full HUD by default in the host (handoff 1c).
+- Desktop layer = Rainmeter's "On Desktop" model (top-level, HWND_BOTTOM, held there on WM_WINDOWPOSCHANGING), not a
+  WorkerW child. Why: a WorkerW child sits under the icon view (no clicks), and 24H2+ (this PC is 26300) changed the tree
+  (0x052C needs 0xD/1, WorkerW is a Progman child). Sources: rainmeter/Library/System.cpp + Skin.cpp (ChangeZPos),
+  kirie PR #11, VibingWrapper PR #7. Follow-up queued: Show Desktop (Win+D) lift like Rainmeter's CheckDesktopState.
 - Dial stays live (volume/brightness direct, power/refresh confirm) - same as the skin; announce before first live run.

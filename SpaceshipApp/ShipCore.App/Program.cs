@@ -62,7 +62,10 @@ sealed class Overlay : Form
     const int WS_EX_NOREDIRECTIONBITMAP = 0x00200000, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
     const int WM_NCHITTEST = 0x84, HTTRANSPARENT = -1, HTCLIENT = 1;
     const int WM_MOUSEMOVE = 0x200, WM_LBUTTONDOWN = 0x201, WM_LBUTTONUP = 0x202, WM_MOUSEWHEEL = 0x20A;
-    const int WM_QUERYENDSESSION = 0x11, WM_ENDSESSION = 0x16;
+    const int WM_QUERYENDSESSION = 0x11, WM_ENDSESSION = 0x16, WM_WINDOWPOSCHANGING = 0x46;
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct WindowPos { public IntPtr hwnd, hwndInsertAfter; public int x, y, cx, cy; public uint flags; }
 
     // The only region that takes the mouse; everything else falls through to the desktop and the apps under it.
     static readonly Rectangle Hit = new(80, 80, 360, 220);
@@ -182,36 +185,14 @@ sealed class Overlay : Form
         Start();
     }
 
-    // Desktop layer: parent to WorkerW, which sits under the desktop icons and under every normal window.
-    // The taskbar is a separate top-level window above it, so the taskbar draws over this window.
-    void AttachToDesktopLayer()
-    {
-        var worker = DesktopWorker();
-        if (worker == IntPtr.Zero)
-        {
-            // fallback: bottom of the z-order (not verified to stay under the taskbar)
-            SetWindowPos(Handle, (IntPtr)1 /*HWND_BOTTOM*/, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010); // SWP_NOSIZE|NOMOVE|NOACTIVATE
-            return;
-        }
-        SetParent(Handle, worker);
-        var at = _home.Location;
-        ScreenToClient(worker, ref at);
-        SetBounds(at.X, at.Y, _home.Width, _home.Height);
-    }
+    // Desktop layer the way Rainmeter's "On Desktop" does it: a top-level window at the bottom of the z-order, above the
+    // shell's desktop (which Windows keeps lowest) and its icons, below every normal window and the taskbar.
+    // Not a WorkerW child: that sits under the icon view, which then takes every click, and 24H2 changed that tree.
+    // shortcut: Show Desktop (Win+D) covers the HUD; Rainmeter lifts its skins under the topmost windows then. Add it if wanted.
+    void AttachToDesktopLayer() => SetWindowPos(Handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
 
-    static IntPtr DesktopWorker()
-    {
-        var progman = FindWindow("Progman", null);
-        SendMessageTimeout(progman, 0x052C, IntPtr.Zero, IntPtr.Zero, 0, 1000, out _); // asks the shell to create WorkerW
-        var worker = IntPtr.Zero;
-        EnumWindows((top, _) =>
-        {
-            if (FindWindowEx(top, IntPtr.Zero, "SHELLDLL_DefView", null) != IntPtr.Zero)
-                worker = FindWindowEx(IntPtr.Zero, top, "WorkerW", null);
-            return true;
-        }, IntPtr.Zero);
-        return worker;
-    }
+    const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010;
+    static readonly IntPtr HWND_BOTTOM = 1;
 
     // The display whose size matches HomeSize in settings.json (2560x1600 by default); the primary display if none does.
     static Screen HomeScreen(SettingsStore? settings)
@@ -400,6 +381,13 @@ sealed class Overlay : Form
         {
             case WM_QUERYENDSESSION: m.Result = _life.OnQueryEndSession() ? (IntPtr)1 : IntPtr.Zero; return; // never block sign-out
             case WM_ENDSESSION: _life.OnEndSession(m.WParam != IntPtr.Zero); if (m.WParam != IntPtr.Zero) Quit(); m.Result = IntPtr.Zero; return;
+            case WM_WINDOWPOSCHANGING:
+            {
+                // Any z-order move (a click, Show) is turned into "stay at the bottom", so the HUD never covers an app.
+                var pos = Marshal.PtrToStructure<WindowPos>(m.LParam);
+                if ((pos.flags & SWP_NOZORDER) == 0) { pos.hwndInsertAfter = HWND_BOTTOM; Marshal.StructureToPtr(pos, m.LParam, false); }
+                break;
+            }
             case WM_NCHITTEST:
             {
                 var p = PointToClient(new Point((short)(m.LParam.ToInt64() & 0xFFFF), (short)((m.LParam.ToInt64() >> 16) & 0xFFFF)));
@@ -466,13 +454,6 @@ sealed class Overlay : Form
     static Guid IID_IDCompositionDevice = new("C37EA93A-E7AA-450D-B16F-9746CB0407F3");
     [DllImport("dcomp.dll")] static extern int DCompositionCreateDevice(IntPtr dxgi, ref Guid iid, out IntPtr device);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string? name);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string? name);
-    [DllImport("user32.dll")] static extern IntPtr SendMessageTimeout(IntPtr h, uint msg, IntPtr w, IntPtr l, uint flags, uint timeout, out IntPtr result);
-    [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc cb, IntPtr lParam);
-    [DllImport("user32.dll")] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
-    [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr h, ref Point p);
-    delegate bool EnumWindowsProc(IntPtr h, IntPtr lParam);
     delegate int Commit(IntPtr self);
     delegate int CreateTargetForHwnd(IntPtr self, IntPtr hwnd, bool topmost, out IntPtr target);
     delegate int CreateVisual(IntPtr self, out IntPtr visual);
