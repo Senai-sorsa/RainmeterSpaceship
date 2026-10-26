@@ -25,6 +25,12 @@ gap list in tasks/cspace-gap-analysis.md), JARVIS-Repair-Plan.txt (CURRENT STATE
 - 0131138 perf: settings.json parsed only when it changed.
 - f3f7ed5 S6d reticle to-do mode from the ObsidianTodo note (read-only, 5 s, parsed on change, .md <= 1 MB).
 - 2fc4fae S6e HWiNFO sensors bind by label in memory (skin's DETECT patterns, once a minute; a set index wins).
+- 3c21dbd S8a HUD hidden while the PC is locked (SessionSwitch).
+- e094dff S8b tray Diagnostics; perf CSV capped at 8 MB; WebView memory counts only this app's own processes.
+- 5a3f488 S11a hidden HUD: WebView2 IsVisible=false + TrySuspendAsync (page sleeps, rAF stops).
+- 96315a4 S11b offline JARVIS orb at 10 fps.
+- 20f7162 S11c perf tiers: GPU load via PDH (busiest engine, every 2 s), controller.lua tier logic in the page (memory only),
+  reticle 20/10/parked fps, Stealth hides sphere + bottom audio. Fixed the skin's inverted down margin (it flipped tiers).
 - Every slice now ends with an efficiency pass, noted in its commit (user, 2026-10-25).
 
 ## Queue (app)
@@ -51,4 +57,5 @@ Need the user: W2 (training off-PC), T4 (measure live), G1 (measure), U5 wording
   on (they change settings / stealth). Pipe line-JSON postponed.
 - Known S1 limits: layered + NOREDIRECTIONBITMAP render unverified (fallback: drop WS_EX_LAYERED); drag leaving a region
   loses moves; cursor shape not forwarded; DPI SystemAware.
+- WatchProcesses has no settings key in contract/config-keys.json, so the watched-process feature is dormant (no UI to set it).
 - Dial stays live (volume/brightness direct, power/refresh confirm) - same as the skin; announce before first live run.
