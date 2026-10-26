@@ -9,7 +9,7 @@ export function Shell({ standalone }: { standalone: boolean }) {
   return (
     <>
       {!standalone && <Hud />}
-      {!open && <button type="button" class="ctl-action cc-open" aria-label="Open Control Center" onClick={() => setOpen(true)}>Settings</button>}
+      {!open && <button type="button" class="ctl-action cc-open" data-hit aria-label="Open Control Center" onClick={() => setOpen(true)}>Settings</button>}
       {open && <ControlCenter store={store} host={host} defs={DEFS} onClose={() => setOpen(false)} />}
     </>
   );

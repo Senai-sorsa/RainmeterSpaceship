@@ -60,16 +60,24 @@ sealed class HotkeyThread
 sealed class Overlay : Form
 {
     const int WS_EX_NOREDIRECTIONBITMAP = 0x00200000, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
+    const int WS_EX_LAYERED = 0x80000, WS_EX_TRANSPARENT = 0x20, LWA_ALPHA = 0x2;
     const int WM_NCHITTEST = 0x84, HTTRANSPARENT = -1, HTCLIENT = 1;
     const int WM_MOUSEMOVE = 0x200, WM_LBUTTONDOWN = 0x201, WM_LBUTTONUP = 0x202, WM_MOUSEWHEEL = 0x20A;
+    const int WM_RBUTTONDOWN = 0x204, WM_RBUTTONUP = 0x205, WM_MBUTTONDOWN = 0x207, WM_MBUTTONUP = 0x208;
     const int WM_QUERYENDSESSION = 0x11, WM_ENDSESSION = 0x16, WM_WINDOWPOSCHANGING = 0x46;
 
     [StructLayout(LayoutKind.Sequential)]
     struct WindowPos { public IntPtr hwnd, hwndInsertAfter; public int x, y, cx, cy; public uint flags; }
 
-    // The only region that takes the mouse; everything else falls through to the desktop and the apps under it.
+    // The placeholder page's one clickable box. The real page sends its own regions (hit.regions).
     static readonly Rectangle Hit = new(80, 80, 360, 220);
     readonly Rectangle _home;
+
+    // Where the page takes the mouse. Outside it the window carries WS_EX_TRANSPARENT, so clicks reach the desktop icons and
+    // apps under it (HTTRANSPARENT alone only passes them to windows of this thread). The cursor is polled, as Rainmeter does.
+    readonly HitRegions _hits = new();
+    readonly System.Windows.Forms.Timer _cursor = new() { Interval = 33 };
+    bool _passThrough = true;
 
     CoreWebView2Environment? _env;
     CoreWebView2CompositionController? _cc;
@@ -128,7 +136,7 @@ sealed class Overlay : Form
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
-            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync));
+            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits);
         }
         // The full display, taskbar included: the desktop layer lets the taskbar draw over it.
         _home = HomeScreen(_settings).Bounds;
@@ -169,20 +177,43 @@ sealed class Overlay : Form
         _perf.Start();
         _metricsTimer.Tick += (_, _) => PushMetrics();
         _metricsTimer.Start();
+        _cursor.Tick += (_, _) => FollowCursor();
+        _cursor.Start();
         _jarvis.Start();
     }
 
     protected override CreateParams CreateParams
     {
-        get { var p = base.CreateParams; p.ExStyle |= WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE; return p; }
+        get
+        {
+            var p = base.CreateParams;
+            p.ExStyle |= WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED;
+            if (_passThrough) p.ExStyle |= WS_EX_TRANSPARENT;
+            return p;
+        }
     }
     protected override bool ShowWithoutActivation => true;
 
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        // Layered only so WS_EX_TRANSPARENT passes clicks to other apps; fully opaque, the page's own alpha still shows the desktop.
+        // shortcut: unverified with WS_EX_NOREDIRECTIONBITMAP; if the first live run shows nothing, drop WS_EX_LAYERED and this call.
+        SetLayeredWindowAttributes(Handle, 0, 255, LWA_ALPHA);
         AttachToDesktopLayer();
         Start();
+    }
+
+    // Takes the mouse only while the cursor is over a region; UpdateStyles re-reads CreateParams without a z-order move.
+    void FollowCursor()
+    {
+        if (!Visible) return;
+        var p = PointToClient(Cursor.Position);
+        var through = !_hits.Contains(p.X, p.Y);
+        if (through == _passThrough) return;
+        _passThrough = through;
+        if (through) _cc?.SendMouseInput(CoreWebView2MouseEventKind.Leave, CoreWebView2MouseEventVirtualKeys.None, 0, Point.Empty); // clear hover
+        UpdateStyles();
     }
 
     // Desktop layer the way Rainmeter's "On Desktop" does it: a top-level window at the bottom of the z-order, above the
@@ -242,6 +273,7 @@ sealed class Overlay : Form
         _cc.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
         _cc.DefaultBackgroundColor = Color.Transparent;
         _cc.IsVisible = true;
+        _cc.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false; // right click belongs to the HUD (Top steps back)
 
         // DirectComposition: a visual tree rooted on this window; WebView2 renders into _dcompVisual.
         Check(DCompositionCreateDevice(IntPtr.Zero, ref IID_IDCompositionDevice, out _dcompDevice), "DCompositionCreateDevice");
@@ -262,6 +294,7 @@ sealed class Overlay : Form
         if (ui is null)
         {
             _log?.WriteLine($"{DateTime.UtcNow:O},UI_MISSING,placeholder page");
+            _hits.Set(new[] { (Hit.X, Hit.Y, Hit.Width, Hit.Height) }, false);
             _cc.CoreWebView2.NavigateToString(PageHtml());
         }
         else
@@ -371,7 +404,7 @@ sealed class Overlay : Form
     {
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
         Application.Exit();
     }
 
@@ -391,10 +424,15 @@ sealed class Overlay : Form
             case WM_NCHITTEST:
             {
                 var p = PointToClient(new Point((short)(m.LParam.ToInt64() & 0xFFFF), (short)((m.LParam.ToInt64() >> 16) & 0xFFFF)));
-                m.Result = (IntPtr)(Hit.Contains(p) ? HTCLIENT : HTTRANSPARENT); // transparent = the click goes to whatever is underneath
+                m.Result = (IntPtr)(_hits.Contains(p.X, p.Y) ? HTCLIENT : HTTRANSPARENT); // between two cursor polls
                 return;
             }
-            case WM_MOUSEMOVE: case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_MOUSEWHEEL:
+            case WM_LBUTTONDOWN:
+                // The page is showing something to type into: take the keyboard (the window never activates by itself).
+                if (_hits.Keyboard && _cc is not null) { SetForegroundWindow(Handle); _cc.MoveFocus(CoreWebView2MoveFocusReason.Programmatic); }
+                ForwardMouse(m); return;
+            case WM_MOUSEMOVE: case WM_LBUTTONUP: case WM_MOUSEWHEEL:
+            case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_MBUTTONDOWN: case WM_MBUTTONUP:
                 ForwardMouse(m); return;
         }
         base.WndProc(ref m);
@@ -411,6 +449,10 @@ sealed class Overlay : Form
             WM_MOUSEMOVE => CoreWebView2MouseEventKind.Move,
             WM_LBUTTONDOWN => CoreWebView2MouseEventKind.LeftButtonDown,
             WM_LBUTTONUP => CoreWebView2MouseEventKind.LeftButtonUp,
+            WM_RBUTTONDOWN => CoreWebView2MouseEventKind.RightButtonDown,
+            WM_RBUTTONUP => CoreWebView2MouseEventKind.RightButtonUp,
+            WM_MBUTTONDOWN => CoreWebView2MouseEventKind.MiddleButtonDown,
+            WM_MBUTTONUP => CoreWebView2MouseEventKind.MiddleButtonUp,
             _ => CoreWebView2MouseEventKind.Wheel,
         };
         var data = m.Msg == WM_MOUSEWHEEL ? (uint)(short)((m.WParam.ToInt64() >> 16) & 0xFFFF) : 0u;
@@ -454,6 +496,8 @@ sealed class Overlay : Form
     static Guid IID_IDCompositionDevice = new("C37EA93A-E7AA-450D-B16F-9746CB0407F3");
     [DllImport("dcomp.dll")] static extern int DCompositionCreateDevice(IntPtr dxgi, ref Guid iid, out IntPtr device);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
     delegate int Commit(IntPtr self);
     delegate int CreateTargetForHwnd(IntPtr self, IntPtr hwnd, bool topmost, out IntPtr target);
     delegate int CreateVisual(IntPtr self, out IntPtr visual);

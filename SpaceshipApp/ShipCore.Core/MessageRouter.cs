@@ -13,13 +13,15 @@ public sealed class MessageRouter
     private readonly Func<string, Task<bool>> _confirm;
     private readonly HostState _state;
     private readonly DialGate? _dial;
+    private readonly HitRegions? _hits;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
     /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
     /// <param name="dial">The systems dial's writes. Null means the dial is not wired and every dial.set is refused.</param>
-    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null)
+    /// <param name="hits">Where the page takes the mouse. Null means hit.regions is accepted and ignored.</param>
+    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null)
     {
-        _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial;
+        _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial; _hits = hits;
     }
 
     public async Task<Routed> HandleAsync(string json)
@@ -74,6 +76,9 @@ public sealed class MessageRouter
                 var g = await _dial.SetAsync(control, m.GetProperty("value"));
                 return Reply(new { type = "dial.result", id, control, ran = g.Ran, reason = g.Reason });
             }
+            case "hit.regions":
+                _hits?.Set(m);
+                return new(null, null);
             default: return new(null, null);
         }
     }

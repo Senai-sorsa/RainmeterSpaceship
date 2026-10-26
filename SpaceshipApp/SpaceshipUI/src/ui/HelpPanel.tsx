@@ -6,7 +6,7 @@ type Section = { id: string; title: string; level: number; text: string };
 export function HelpPanel({ sectionId, onClose }: { sectionId: string; onClose: () => void }) {
   const s = (guide.sections as Section[]).find((x) => x.id === sectionId);
   return (
-    <aside class="help" role="dialog" aria-label="Help" data-section={sectionId}>
+    <aside class="help" data-hit role="dialog" aria-label="Help" data-section={sectionId}>
       <header class="help-head">
         <span class="label help-title">{s?.title ?? 'Help'}</span>
         <button type="button" class="ctl-action cc-btn" aria-label="Close help" onClick={onClose}>Close</button>

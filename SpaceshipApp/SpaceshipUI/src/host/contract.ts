@@ -26,8 +26,20 @@ export function messageProblem(m: unknown): string | null {
     case 'action': return typeof m.id === 'string' && ACTIONS.has(m.id) ? null : 'action not allowed';
     case 'flow.open': return typeof m.flow === 'string' && FLOWS.has(m.flow) ? null : 'bad flow';
     case 'dial.set': return dialSetProblem(m);
+    case 'hit.regions': return hitRegionsProblem(m);
     default: return 'unknown type';
   }
+}
+
+const MAX_RECTS = 64, MAX_COORD = 16384;
+const within = (n: unknown, lo: number) => Number.isInteger(n) && (n as number) >= lo && (n as number) <= MAX_COORD;
+
+// Up to 64 [x, y, w, h] whole numbers in window pixels, as the C# side.
+function hitRegionsProblem(m: Record<string, unknown>): string | null {
+  if (typeof m.keyboard !== 'boolean') return 'bad keyboard';
+  if (!Array.isArray(m.rects) || m.rects.length > MAX_RECTS) return 'bad rects';
+  return m.rects.every((r) => Array.isArray(r) && r.length === 4 && within(r[0], -MAX_COORD) && within(r[1], -MAX_COORD) && within(r[2], 1) && within(r[3], 1))
+    ? null : 'bad rects';
 }
 
 // Shape only, as the C# side: a percent is a whole number 0..100, a mode and a rate are names. The host checks them again.

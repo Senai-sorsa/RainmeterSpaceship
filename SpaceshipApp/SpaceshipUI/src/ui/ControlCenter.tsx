@@ -60,7 +60,7 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
   const label = (id: string) => CATEGORIES.find((c) => c.id === id)?.label ?? id;
 
   return (
-    <div class="cc" role="dialog" aria-label="Control Center">
+    <div class="cc" data-hit="keyboard" role="dialog" aria-label="Control Center">
       <header class="cc-head">
         <span class="label cc-title">Control Center</span>
         <input class="ctl-text cc-search" type="search" placeholder="Search settings ( / )" aria-label="Search settings" value={q}

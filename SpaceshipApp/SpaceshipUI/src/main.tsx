@@ -5,6 +5,9 @@ import settings from './generated/settings.json';
 import { themeVars } from './lib/theme';
 import { DEFS, host, store } from './settings/instance';
 import { acceptSystemMetrics } from './host/systemMetrics';
+import { WebView2Host } from './host/HostBridge';
+import { startHitRegions } from './host/hitRegions';
+import { scheduler } from './host/scheduler';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { Shell } from './ui/Shell';
 import { Wizard } from './ui/Wizard';
@@ -16,6 +19,7 @@ for (const [k, val] of Object.entries(themeVars((settings as { variables: Record
   document.documentElement.style.setProperty(k, val);
 
 host.onMessage(acceptSystemMetrics);
+if (host instanceof WebView2Host) startHitRegions(host, document, scheduler); // the browser and the mock have no click-through
 const q = new URLSearchParams(location.search);
 const panel = q.get('panel'); // dev routes for the shared components
 if (q.get('level') === 'advanced') store.level.value = 'advanced';

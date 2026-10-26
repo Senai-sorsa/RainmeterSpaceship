@@ -15,7 +15,7 @@ export function DrawerModule({ style, catalog = fakeCatalog }: { style: Style; c
   const ops = drawerFrame(catalog, st, { x: 0, y: 0, w: zone.w, h: zone.h }, style);
   const scrollBy = (d: number) => setSt((s) => ({ ...s, scroll: clampScroll(s.scroll + d * 3, drawerRows(catalog, s).length) }));
   return (
-    <g transform={`matrix(${zone.matrix.join(' ')})`} data-module="drawer" onWheel={(e: WheelEvent) => scrollBy(e.deltaY > 0 ? 1 : -1)}>
+    <g transform={`matrix(${zone.matrix.join(' ')})`} data-module="drawer" data-hit onWheel={(e: WheelEvent) => scrollBy(e.deltaY > 0 ? 1 : -1)}>
       <OpsView ops={ops} name="drawer" />
     </g>
   );

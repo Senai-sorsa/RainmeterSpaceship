@@ -976,5 +976,15 @@
    "control": "shutdown",
    "value": 10
   }
- }
+ },
+ { "name": "hit.regions two rects", "valid": true, "msg": { "type": "hit.regions", "rects": [[0, 0, 100, 50], [-20, 300, 40, 40]], "keyboard": false } },
+ { "name": "hit.regions none", "valid": true, "msg": { "type": "hit.regions", "rects": [], "keyboard": true } },
+ { "name": "hit.regions no keyboard", "valid": false, "msg": { "type": "hit.regions", "rects": [] } },
+ { "name": "hit.regions keyboard as string", "valid": false, "msg": { "type": "hit.regions", "rects": [], "keyboard": "true" } },
+ { "name": "hit.regions rects not array", "valid": false, "msg": { "type": "hit.regions", "rects": {}, "keyboard": false } },
+ { "name": "hit.regions rect of three", "valid": false, "msg": { "type": "hit.regions", "rects": [[0, 0, 10]], "keyboard": false } },
+ { "name": "hit.regions fractional", "valid": false, "msg": { "type": "hit.regions", "rects": [[0.5, 0, 10, 10]], "keyboard": false } },
+ { "name": "hit.regions zero width", "valid": false, "msg": { "type": "hit.regions", "rects": [[0, 0, 0, 10]], "keyboard": false } },
+ { "name": "hit.regions too far", "valid": false, "msg": { "type": "hit.regions", "rects": [[16385, 0, 10, 10]], "keyboard": false } },
+ { "name": "hit.regions string number", "valid": false, "msg": { "type": "hit.regions", "rects": [["0", 0, 10, 10]], "keyboard": false } }
 ]

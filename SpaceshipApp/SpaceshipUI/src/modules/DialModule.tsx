@@ -59,7 +59,7 @@ export function DialModule({ zone, style, setter }: { zone: (typeof layout.zones
   };
 
   return (
-    <g transform={`matrix(${zone.matrix.join(' ')})`} data-module="dial">
+    <g transform={`matrix(${zone.matrix.join(' ')})`} data-module="dial" data-hit>
       <OpsView ops={dialFrame(inp, zone, style, sel, note)} name="dl" />
       <circle cx={DIAL_RING.cx} cy={DIAL_RING.cy} r={DIAL_RING.r} fill="transparent" style={{ cursor: 'pointer' }}
         onClick={ringClick} onWheel={(e) => wheel(sel - 1, e)} />

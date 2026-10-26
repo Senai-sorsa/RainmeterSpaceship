@@ -117,6 +117,26 @@ public sealed class MessageRouterTests : IDisposable
     }
 
     [Fact]
+    public async Task HitRegionsUpdateTheRegionsAndSendNoReply()
+    {
+        var schema = Repo.Schema();
+        var hits = new HitRegions();
+        var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), hits: hits);
+        var r = await router.HandleAsync("{\"type\":\"hit.regions\",\"rects\":[[10,20,30,40]],\"keyboard\":true}");
+        Assert.Null(r.Problem);
+        Assert.Null(r.Reply);
+        Assert.True(hits.Contains(10, 20));
+        Assert.True(hits.Contains(39, 59));
+        Assert.False(hits.Contains(40, 20));
+        Assert.False(hits.Contains(10, 60));
+        Assert.True(hits.Keyboard);
+
+        await router.HandleAsync("{\"type\":\"hit.regions\",\"rects\":[],\"keyboard\":false}");
+        Assert.False(hits.Contains(10, 20));
+        Assert.False(hits.Keyboard);
+    }
+
+    [Fact]
     public async Task MalformedJsonIsRefused()
     {
         var r = await _router.HandleAsync("{not json");

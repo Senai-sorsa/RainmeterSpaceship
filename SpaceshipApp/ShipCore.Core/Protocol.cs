@@ -42,8 +42,26 @@ public static class Protocol
             case "action": return Str(m, "id", out var a) && schema.Actions.Contains(a) ? null : "action not allowed";
             case "flow.open": return Str(m, "flow", out var f) && Flows.Contains(f) ? null : "bad flow";
             case "dial.set": return DialSetProblem(m);
+            case "hit.regions": return HitRegionsProblem(m);
             default: return "unknown type";
         }
+    }
+
+    // Up to 64 [x, y, w, h] whole numbers in window pixels; a rect is never empty and stays inside +-16384.
+    private static string? HitRegionsProblem(JsonElement m)
+    {
+        if (!m.TryGetProperty("keyboard", out var k) || k.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return "bad keyboard";
+        if (!m.TryGetProperty("rects", out var rs) || rs.ValueKind != JsonValueKind.Array || rs.GetArrayLength() > HitRegions.MaxRects) return "bad rects";
+        foreach (var r in rs.EnumerateArray())
+        {
+            if (r.ValueKind != JsonValueKind.Array || r.GetArrayLength() != 4) return "bad rects";
+            var n = new int[4];
+            for (var i = 0; i < 4; i++)
+                if (r[i].ValueKind != JsonValueKind.Number || r[i].GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) >= 0 || !r[i].TryGetInt32(out n[i])) return "bad rects";
+            if (n[0] < -HitRegions.MaxCoord || n[1] < -HitRegions.MaxCoord || n[0] > HitRegions.MaxCoord || n[1] > HitRegions.MaxCoord
+                || n[2] < 1 || n[3] < 1 || n[2] > HitRegions.MaxCoord || n[3] > HitRegions.MaxCoord) return "bad rects";
+        }
+        return null;
     }
 
     private static readonly HashSet<string> DialControls = new() { "brightness", "volume", "mic", "power", "refresh" };

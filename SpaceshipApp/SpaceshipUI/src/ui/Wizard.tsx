@@ -64,7 +64,7 @@ export function Wizard({ store, host, defs }: P) {
   };
 
   return (
-    <div class="wiz" role="dialog" aria-label="Setup" onInput={onInput}>
+    <div class="wiz" data-hit="keyboard" role="dialog" aria-label="Setup" onInput={onInput}>
       <header class="wiz-head">
         <span class="label wiz-title">{step.title}</span>
         <ol class="wiz-dots" aria-label="Progress">

@@ -72,11 +72,11 @@ export function TopModule({ style, values }: { style: Style; values: Record<stri
       {place(Z.alert, ops.alert, 'ta', 'alert')}
       {place(Z.settings, ops.settings, 'cs', 'console')}
       {Z.a && (
-        <rect x={Z.a.x} y={Z.a.y} width={Z.a.w} height={Z.a.h} fill="transparent" style={{ cursor: 'pointer' }}
+        <rect x={Z.a.x} y={Z.a.y} width={Z.a.w} height={Z.a.h} fill="transparent" data-hit style={{ cursor: 'pointer' }}
           onClick={() => step('a', 1)} onContextMenu={(e) => { e.preventDefault(); step('a', -1); }} />
       )}
       {Z.b && (
-        <rect x={Z.b.x} y={Z.b.y} width={Z.b.w} height={Z.b.h} fill="transparent" style={{ cursor: 'pointer' }}
+        <rect x={Z.b.x} y={Z.b.y} width={Z.b.w} height={Z.b.h} fill="transparent" data-hit style={{ cursor: 'pointer' }}
           onClick={() => step('b', 1)} onContextMenu={(e) => { e.preventDefault(); step('b', -1); }} />
       )}
     </>
