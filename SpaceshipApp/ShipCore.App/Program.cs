@@ -549,7 +549,7 @@ sealed class Overlay : Form
             PushAppStates();
             if (settings.GetValueOrDefault("Off_CenterTarget") != "1") PushTopProcs();
         }
-        catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name}"); }
+        catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name},{e.TargetSite?.DeclaringType?.Name}.{e.TargetSite?.Name}"); }
     }
 
     // The loopback runs only while the HUD is shown (OnVisibleChanged stops it) and the bottom audio is on.

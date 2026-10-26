@@ -67,8 +67,9 @@ sealed class WindowsDial : IDialActions
         [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
     }
 
-    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-    class MMDeviceEnumeratorComObject { }
+    // The device enumerator is one object per process: `new` on a ComImport class fails its type check when another class
+    // (WasapiLoopback's) already wraps it, so it is made by CLSID and reached through the interface.
+    internal static object NewEnumerator() => Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"))!)!;
 
     public void Brightness(int percent)
     {
@@ -116,7 +117,7 @@ sealed class WindowsDial : IDialActions
 
     static void SetLevel(int flow, int percent)
     {
-        var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+        var enumerator = (IMMDeviceEnumerator)NewEnumerator();
         var device = (IMMDevice?)null;
         object? obj = null;
         try
@@ -143,7 +144,7 @@ sealed class WindowsDial : IDialActions
         object? obj = null;
         try
         {
-            enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+            enumerator = (IMMDeviceEnumerator)NewEnumerator();
             if (enumerator.GetDefaultAudioEndpoint(capture ? eCapture : eRender, eConsole, out device) != 0) return null;
             var iid = VolumeIid;
             if (device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out obj) != 0) return null;

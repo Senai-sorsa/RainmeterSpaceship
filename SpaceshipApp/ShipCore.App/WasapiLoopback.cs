@@ -53,9 +53,6 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
         [PreserveSig] int GetNextPacketSize(out uint frames);
     }
 
-    [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-    class MMDeviceEnumeratorComObject { }
-
     private IMMDeviceEnumerator? _enumerator;
     private string? _deviceId; // the speaker being captured, to notice when the user switches output
     private IAudioClient? _client;
@@ -74,7 +71,7 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
         Stop(); // a pump that ended on a lost device leaves its client behind
         try
         {
-            _enumerator ??= (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+            _enumerator ??= (IMMDeviceEnumerator)WindowsDial.NewEnumerator();
             if (_enumerator.GetDefaultAudioEndpoint(eRender, eConsole, out var device) != 0) return false;
             if (device.GetId(out _deviceId) != 0) _deviceId = null;
             var iid = AudioClientIid;
