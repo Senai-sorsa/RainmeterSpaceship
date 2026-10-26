@@ -115,6 +115,10 @@ sealed class Overlay : Form
     readonly Lifecycle _life;
     readonly RunMarker _marker;
     readonly JarvisPipe _jarvis = new(new SystemClock());
+    // JARVIS state reaches the page from Data\jarvis.txt, read-only, as the skin reads it; the pipe carries nothing yet.
+    readonly System.Windows.Forms.Timer _jarvisTimer = new() { Interval = 200 };
+    string? _jarvisFile;
+    string? _jarvisSent;
 
     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean)
     {
@@ -128,6 +132,7 @@ sealed class Overlay : Form
 
         var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
         var resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
+        if (resources is not null) _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
         if (schemaPath is not null)
         {
             var schema = ConfigSchema.Parse(File.ReadAllText(schemaPath));
@@ -185,6 +190,8 @@ sealed class Overlay : Form
         _cursor.Tick += (_, _) => FollowCursor();
         _cursor.Start();
         _jarvis.Start();
+        _jarvisTimer.Tick += (_, _) => PushJarvis();
+        _jarvisTimer.Start();
     }
 
     protected override CreateParams CreateParams
@@ -294,7 +301,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; };
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; }; // a new page gets the JARVIS state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -371,6 +378,24 @@ sealed class Overlay : Form
         catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name}"); }
     }
 
+    // Sends jarvis.update when it changes (a state, the level, or going stale). The file is opened so JARVIS can still replace it.
+    void PushJarvis()
+    {
+        if (_cc?.CoreWebView2 is null || !Visible || _jarvisFile is null) return;
+        string? text = null;
+        try
+        {
+            using var f = new FileStream(_jarvisFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (f.Length <= 16384) text = new StreamReader(f).ReadToEnd();
+        }
+        catch (IOException) { } // missing, or mid-replace: offline until the next read
+        catch (UnauthorizedAccessException) { }
+        var json = JarvisStatus.ToJson(text, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        if (json == _jarvisSent) return;
+        _jarvisSent = json;
+        _cc.CoreWebView2.PostWebMessageAsJson(json);
+    }
+
     // Power and flow actions need a person to say yes; the schema lists none of them, so this is only reached through the gate.
     Task<bool> ConfirmAsync(string id) =>
         Task.FromResult(MessageBox.Show(this, $"Allow the {id} action?", "Spaceship", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
@@ -420,7 +445,7 @@ sealed class Overlay : Form
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

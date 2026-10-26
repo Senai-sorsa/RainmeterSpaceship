@@ -11,8 +11,8 @@ const sphere = layout.zones.find((z) => z.id === 'C_sphere');
 const offline = feedFrom(undefined, 0);
 
 /**
- * The Jarvis core, behind ?module=jarvis. Centred on the old globe's zone (C_sphere). No feed is wired yet, so it
- * shows OFFLINE until a feed is given. The orb sprite, the voice echo and the clicks are not ported.
+ * The Jarvis core, behind ?module=jarvis. Centred on the old globe's zone (C_sphere). The Hud gives it the host's
+ * jarvis.update feed; with none it shows OFFLINE. The orb sprite, the voice echo and the clicks are not ported.
  */
 export function JarvisModule({ style, feed = offline }: { style: Style; feed?: Feed }) {
   const [f, setF] = useState(0);

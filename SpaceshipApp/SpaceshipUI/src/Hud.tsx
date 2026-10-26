@@ -17,6 +17,7 @@ import { RightModule } from './modules/RightModule';
 import { DrawerModule } from './modules/DrawerModule';
 import { BootModule } from './modules/BootModule';
 import { JarvisModule, JarvisLogModule } from './modules/JarvisModule';
+import { jarvisFeed } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
 import { modulesOn } from './modules/modulesOn';
 
@@ -97,7 +98,7 @@ export function Hud() {
       {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} />}
       {drawerOn && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
-      {jarvisOn && <JarvisModule style={styleFrom(values)} />}
+      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} />}
       {jarvisLogOn && <JarvisLogModule style={styleFrom(values)} />}
       {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
