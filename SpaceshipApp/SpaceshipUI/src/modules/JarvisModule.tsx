@@ -16,9 +16,12 @@ const offline = feedFrom(undefined, 0);
  */
 export function JarvisModule({ style, feed = offline }: { style: Style; feed?: Feed }) {
   const [f, setF] = useState(0);
+  const asleep = feed.state === 'offline';
   useEffect(() => {
-    return scheduler.every(FRAME_MS, () => setF((n) => n + 1));
-  }, []);
+    // offline the orb turns at 0.3x, so 10 fps in 3-frame steps looks the same and draws a third as often
+    const step = asleep ? 3 : 1;
+    return scheduler.every(FRAME_MS * step, () => setF((n) => n + step));
+  }, [asleep]);
   if (!sphere) return null;
   const q = transformBox(sphere.matrix as Matrix, sphere.x, sphere.y, sphere.w, sphere.h);
   const cx = (q[0][0] + q[2][0]) / 2, cy = (q[0][1] + q[2][1]) / 2;
