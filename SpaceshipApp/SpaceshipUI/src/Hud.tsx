@@ -9,7 +9,7 @@ import { frameStyleOf } from './settings/frameStyle';
 import { FrameLayers } from './ui/FrameLayers';
 import { Caption } from './ui/Caption';
 import { MissionClock } from './modules/MissionClock';
-import { fakeCalendar } from './modules/calendarSource';
+import { calendarFeed } from './modules/calendarSource';
 import { TopModule } from './modules/TopModule';
 import { BottomModule } from './modules/BottomModule';
 import { LeftModule } from './modules/LeftModule';
@@ -118,7 +118,7 @@ export function Hud() {
       {bootOn && <BootModule style={styleFrom(values)} />}
       {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} onMenu={() => setLogOpen((o) => !o)} />}
       {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} onClose={() => setLogOpen(false)} />}
-      {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
+      {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
     </>
