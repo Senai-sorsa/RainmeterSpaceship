@@ -94,7 +94,7 @@ export function Hud() {
       {topOn && <TopModule style={styleFrom(values)} values={values} />}
       {bottomOn && <BottomModule style={styleFrom(values)} />}
       {leftOn && <LeftModule style={styleFrom(values)} />}
-      {rightOn && <RightModule style={styleFrom(values)} />}
+      {rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} />}
       {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} />}
       {drawerOn && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}

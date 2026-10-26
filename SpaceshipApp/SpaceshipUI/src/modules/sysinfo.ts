@@ -1,9 +1,9 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of Skins/Spaceship/@Resources/Scripts/sysinfo.lua: the network block (PING, LAN, WAN, live down and up in Mbps)
-// with the Wi-Fi emblem. Only the down and up rates and the Wi-Fi level have a host feed. PING, LAN and WAN show -- until
-// their feeds exist (the ping, the local address and the WAN lookup). The speed-test box shows -- (its test is an action,
-// not ported). Clicks, the IP mask and the speed test are not wired.
+// with the Wi-Fi emblem. PING, LAN and WAN come from the host's net.update
+// (host/statusFeed.ts netRows, which applies the IP mask) and show -- until the first reading. The speed-test box shows --
+// (its test is an action, not ported). Clicks and the speed test are not wired.
 // shortcut: text widths are estimated from the character count, not measured, so right-aligned clips may differ slightly.
 
 const SXR = 2560 / 1260, SYR = 1600 / 709; // the skin's design-to-zone scale (sysinfo.lua)

@@ -6,7 +6,7 @@ import { themeVars } from './lib/theme';
 import { DEFS, host, store } from './settings/instance';
 import { acceptSystemMetrics } from './host/systemMetrics';
 import { acceptJarvisUpdate } from './host/jarvisFeed';
-import { acceptStatusUpdate } from './host/statusFeed';
+import { acceptNetUpdate, acceptStatusUpdate } from './host/statusFeed';
 import { WebView2Host } from './host/HostBridge';
 import { startHitRegions } from './host/hitRegions';
 import { scheduler } from './host/scheduler';
@@ -23,6 +23,7 @@ for (const [k, val] of Object.entries(themeVars((settings as { variables: Record
 host.onMessage(acceptSystemMetrics);
 host.onMessage(acceptJarvisUpdate);
 host.onMessage(acceptStatusUpdate);
+host.onMessage(acceptNetUpdate);
 if (host instanceof WebView2Host) startHitRegions(host, document, scheduler); // the browser and the mock have no click-through
 const q = new URLSearchParams(location.search);
 const panel = q.get('panel'); // dev routes for the shared components

@@ -3,7 +3,7 @@ import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
-import { devStatus } from '../host/statusFeed';
+import { devStatus, netRows, netStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { fakeCatalog } from './appsSource';
 import { dotsFrame, schematicFrame, tabsFrame } from './category';
@@ -24,9 +24,10 @@ const Z = {
  * Behind ?module=right. The catalog is the labelled fixture (see appsSource.ts). Feeds that the host does not supply yet
  * (ping, LAN, WAN, WSL, Ollama, speed test) show --. Clicks are not wired.
  */
-export function RightModule({ style, catalog = fakeCatalog }: { style: Style; catalog?: Catalog }) {
+export function RightModule({ style, catalog = fakeCatalog, mask = true }: { style: Style; catalog?: Catalog; mask?: boolean }) {
   const m = systemMetrics.value;
   const dev = devStatus.value;
+  const net = netStatus.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
   const [ci, setCi] = useState(0);
   const [ai, setAi] = useState(0);
@@ -44,9 +45,9 @@ export function RightModule({ style, catalog = fakeCatalog }: { style: Style; ca
       const hit = e.kind === 'app' ? e.app : undefined;
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: true }, zone, style);
     }),
-    sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp }, Z.sysinfo, style),
+    sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, ...netRows(net, mask) }, Z.sysinfo, style),
     dev: Z.dev && devFrame(dev, Z.dev, style),
-  }), [m, dev, ci, ai, catalog, style]);
+  }), [m, dev, net, mask, ci, ai, catalog, style]);
   const place = (zone: typeof Z.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
