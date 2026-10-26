@@ -18,6 +18,29 @@ public sealed class SystemSamplerTests
         public string? ReadValueRaw(int index) => values.GetValueOrDefault(index);
     }
 
+    private sealed class LabelledRegistry(Dictionary<int, string> values, Dictionary<int, string> labels) : IHwinfoRegistry
+    {
+        public int LabelReads { get; private set; }
+        public string? ReadValueRaw(int index) => values.GetValueOrDefault(index);
+        public IReadOnlyDictionary<int, string> ReadLabels() { LabelReads++; return labels; }
+    }
+
+    [Fact]
+    public void LabelsFillUnmappedSensorsAndASetIndexWins()
+    {
+        var m = new FakeMetrics();
+        for (var i = 0; i < 61; i++) m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var reg = new LabelledRegistry(new() { [1] = "40", [2] = "55", [3] = "60" }, new() { [1] = "Tctl", [2] = "GPU Temperature" });
+        var s = new SystemSampler(m, reg);
+        var f = s.Sample(new Dictionary<string, string> { ["HW_CpuTemp"] = "3", ["HW_GpuTemp"] = "-1" }, 1);
+        Assert.Equal(60.0, f.Hw["HW_CpuTemp"]);
+        Assert.Equal(55.0, f.Hw["HW_GpuTemp"]);
+        for (var i = 2; i <= 60; i++) s.Sample(new Dictionary<string, string>(), i);
+        Assert.Equal(1, reg.LabelReads);
+        s.Sample(new Dictionary<string, string>(), 61);
+        Assert.Equal(2, reg.LabelReads);
+    }
+
     private sealed class FakeNetwork : INetworkCounters
     {
         public Queue<NetCounters> Counters { get; } = new();

@@ -10,6 +10,8 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
 {
     private CpuTimes? _prev;
     private NetCounters? _prevNet;
+    private Dictionary<string, int> _auto = new();
+    private int _autoAge = 59; // the first sample matches at once
     private static readonly System.Text.RegularExpressions.Regex ProcessName = new(@"^[A-Za-z0-9_.-]{1,64}$");
 
     /// <summary>The WatchProcesses setting: comma-separated executable names. Names with other characters are dropped, and a trailing .exe is removed.</summary>
@@ -37,7 +39,11 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         var (ac, batteryRaw) = metrics.ReadPower();
         var power = SystemMetrics.Power(ac, batteryRaw);
 
+        // Labels are matched once a minute, not every frame; a mapped index in settings wins over the match.
+        if (++_autoAge >= 60) { _autoAge = 0; _auto = HwinfoSensors.AutoBind(registry.ReadLabels()); }
         var map = HwinfoSensors.MapFrom(settings);
+        foreach (var (name, index) in _auto)
+            if (!map.TryGetValue(name, out var set) || set < 0) map[name] = index;
         var hwinfo = new HwinfoSensors(registry, map);
         var hw = map.Keys.ToDictionary(name => name, hwinfo.Read);
 

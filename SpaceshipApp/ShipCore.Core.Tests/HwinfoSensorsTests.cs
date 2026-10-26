@@ -9,6 +9,18 @@ public sealed class HwinfoSensorsTests
     }
 
     [Fact]
+    public void AutoBindTakesTheFirstPatternThenTheLowestIndex()
+    {
+        var map = HwinfoSensors.AutoBind(new Dictionary<int, string>
+        {
+            [9] = "CPU Package Temperature", [4] = "Tctl/Tdie", [2] = "GPU Temperature", [3] = "GPU Temperature", [7] = "Something else",
+        });
+        Assert.Equal(4, map["HW_CpuTemp"]);
+        Assert.Equal(2, map["HW_GpuTemp"]);
+        Assert.False(map.ContainsKey("HW_Fan1"));
+    }
+
+    [Fact]
     public void AnUnmappedSensorIsNotReadAtAll()
     {
         var reg = new FakeRegistry(new() { [5] = "47" });

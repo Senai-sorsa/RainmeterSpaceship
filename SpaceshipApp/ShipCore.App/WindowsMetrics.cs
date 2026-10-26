@@ -52,4 +52,17 @@ sealed class WindowsHwinfoRegistry : IHwinfoRegistry
         }
         catch (Exception e) when (e is System.Security.SecurityException or UnauthorizedAccessException or IOException) { return null; }
     }
+
+    public IReadOnlyDictionary<int, string> ReadLabels()
+    {
+        var labels = new Dictionary<int, string>();
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\HWiNFO64\VSB");
+            for (var i = 0; key is not null && i < 200; i++) // hwinfo-scan.ps1 reads the same 200 slots
+                if (key.GetValue("Label" + i) is string l) labels[i] = l;
+        }
+        catch (Exception e) when (e is System.Security.SecurityException or UnauthorizedAccessException or IOException) { }
+        return labels;
+    }
 }
