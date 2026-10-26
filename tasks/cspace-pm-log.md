@@ -18,6 +18,14 @@ gap list in tasks/cspace-gap-analysis.md), JARVIS-Repair-Plan.txt (CURRENT STATE
 - 8489368 tray never writes autostart; WM_DISPLAYCHANGE re-homes; hang restarts the page; idempotent teardown.
 - 3cc9543 S7 foreground WinEvent hides at once for fullscreen apps / exam browsers.
 - 643fa37 S5 JARVIS state into the core: host reads Data\jarvis.txt read-only (share delete), posts jarvis.update.
+- b4a6fde S6a upkeep/dev status from the skin's scripts (every 120 s, the skin's schedule).
+- 56f2514 S6b network block: ping 10 s, LAN 30 s, WAN (api.ipify.org) 300 s; IP mask honoured.
+- a074077 perf: jarvis.txt re-read only when its write time changes (was an IOException 5x/s with JARVIS off).
+- 7ed975d S6c S&P 500 tape (Yahoo ^GSPC, 5 min open / 60 min closed, 64 KB reply cap).
+- 0131138 perf: settings.json parsed only when it changed.
+- f3f7ed5 S6d reticle to-do mode from the ObsidianTodo note (read-only, 5 s, parsed on change, .md <= 1 MB).
+- 2fc4fae S6e HWiNFO sensors bind by label in memory (skin's DETECT patterns, once a minute; a set index wins).
+- Every slice now ends with an efficiency pass, noted in its commit (user, 2026-10-25).
 
 ## Queue (app)
 1. Docs: Ctrl+Alt+1 -> Ctrl+Alt+Shift+1 in docs/HANDOFF-2026-10-20-standalone-app.md; ShipCore.App(.exe) -> CSpace in docs/tools.
