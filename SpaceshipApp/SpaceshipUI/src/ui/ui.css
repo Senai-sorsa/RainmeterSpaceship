@@ -95,7 +95,7 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .help-body { overflow: auto; padding: 8px 16px 16px; }
 .help-body p { margin: 0 0 8px; overflow-wrap: anywhere; }
 /* Motion: short, opacity/transform only, nothing running while idle except the FULL-tier scan sweep; off for reduced motion */
-.scan { animation: scan 6.7s linear infinite; } /* category.lua: 1.5% of the zone per 100 ms frame */
+.scan { animation: scan 7.3s linear infinite; } /* category.lua: 1.5% of the zone per Update=100 frame (~109 ms in Rainmeter) */
 @keyframes scan { to { transform: translateY(var(--scan)); } }
 :is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn, .help-btn, .dot, .group, .group > summary) { transition: color .12s, border-color .12s, box-shadow .12s, background-color .12s; }
 .ctl-switch i { transition: left .15s ease-out, background-color .15s, box-shadow .15s; }

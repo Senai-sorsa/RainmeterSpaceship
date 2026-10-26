@@ -259,6 +259,13 @@ export class Canvas {
     return true;
   }
 
+  /** A tinted image under the shapes (lib.lua H.sprite: a separate meter before the canvas, ImageTint + ImageAlpha). */
+  sprite(cx: number, cy: number, w: number, h: number, href: string, col: RGBA, alpha = 255) {
+    const a = Math.floor((alpha * this.st.hudA) / 255) / 255;
+    const [r, g, b] = col.map((v) => v / 255);
+    this.push('base', { kind: 'image', x: cx - w / 2, y: cy - h / 2, w, h, href, matrix: [r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, a, 0] });
+  }
+
   /** Panel outline with chamfered corners, optionally filled with the panel colour. */
   chamfer(x: number, y: number, w: number, h: number, c: number, col: RGBA, lw?: number, alpha?: number, fillAlpha?: number) {
     const pts: Pt[] = [[x + c, y], [x + w, y], [x + w, y + h - c], [x + w - c, y + h], [x, y + h], [x, y + c]];

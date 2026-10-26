@@ -53,3 +53,6 @@ export const scheduler = createScheduler(
   (cb, wait) => (wait > 16 ? setTimeout(() => requestAnimationFrame(cb), wait - 8) : requestAnimationFrame(cb)),
   () => performance.now(),
 );
+
+/** The period Rainmeter really runs an Update= at: its timer fires on the 15.625 ms Windows tick, so 16 ms is ~31 ms. */
+export const skinMs = (update: number) => Math.ceil(update / 15.625) * 15.625;

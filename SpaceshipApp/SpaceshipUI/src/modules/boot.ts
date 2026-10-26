@@ -1,4 +1,5 @@
 import { Canvas, type Op, type Style } from '../draw/canvas';
+import { skinMs } from '../host/scheduler';
 
 // Port of the timeline, the system check and the drawing of Skins/Spaceship/Overlay/Boot (boot.lua, Boot.ini).
 // The scanner line sweeps the canvas top to bottom, then the system check lists six rows and a verdict, then the
@@ -6,7 +7,7 @@ import { Canvas, type Op, type Style } from '../draw/canvas';
 // boot sound (an OS action), and the Storage / Audio / Network readings (no host feed yet: they show --).
 // shortcut: the panel count is the 29 modules in Data/zones.lua, copied as a constant, upgrade: read it from the layout.
 
-export const FRAME_MS = 16; // the skin's Update rate, about 60 fps
+export const FRAME_MS = skinMs(16); // the skin's Update=16, which Rainmeter runs at ~32 fps
 export const PANELS = 29;
 const SCAN0 = 2, SCANN = 28;
 const P0 = 22, PSTEP = 0.7, PFADE = 12;

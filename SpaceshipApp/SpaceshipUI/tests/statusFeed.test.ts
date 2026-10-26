@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acceptAppsState, appState, appStates, acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, consoleStatus, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
+import { acceptAppsState, acceptTopProcs, topProcs, appState, appStates, acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, consoleStatus, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
 
 describe('acceptStatusUpdate', () => {
   // shapes StatusScripts.ToJson sends (ShipCore.Core.Tests/StatusScriptsTests)
@@ -63,5 +63,14 @@ describe('apps.state', () => {
     expect(appState(appStates.value, 'RASAero II.exe')).toBe(1);
     expect(appState(appStates.value, '')).toBe(0);
     expect(appState(appStates.value, undefined)).toBe(0);
+  });
+});
+
+describe('procs.top', () => {
+  it('keeps up to five well-formed rows', () => {
+    acceptTopProcs({ type: 'procs.top', top: [{ name: 'chrome', cpu: 10, ram: 150 }, { name: 'x', cpu: -1, ram: 1 }, { name: 5 }, null] });
+    expect(topProcs.value).toEqual([{ name: 'chrome', cpu: 10, ram: 150 }]);
+    acceptTopProcs({ type: 'other', top: [] });
+    expect(topProcs.value).toHaveLength(1);
   });
 });

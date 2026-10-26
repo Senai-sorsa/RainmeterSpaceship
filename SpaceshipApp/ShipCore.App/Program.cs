@@ -145,7 +145,10 @@ sealed class Overlay : Form
     // The loopback runs while the HUD is shown and Off_BottomAudio is not 1 (AudioCapture); otherwise no audio device is opened.
     readonly WasapiLoopback _loopback = new();
     long _audioRetryAt, _audioCheckAt;
-    readonly WindowsGpuCounters _gpu = new();
+    readonly PdhCounterArray _gpu = new(PdhCounterArray.Gpu);
+    // the targeter's busiest processes (Target.ini UsageMonitor: CPU and RAM aliases)
+    readonly PdhCounterArray _procCpu = new(@"\Process(*)\% Processor Time", noCap: true), _procRam = new(@"\Process(*)\Working Set - Private");
+    string? _topSent;
     readonly SystemSampler _sampler;
     readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
     long _metricsSeq;
@@ -205,7 +208,7 @@ sealed class Overlay : Form
             var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship");
             var settingsPath = Path.Combine(appData, "settings.json");
             _settings = new SettingsStore(settingsPath, schema);
-            _hwKeys = schema.Keys.Keys.Where(k => k.StartsWith("HW_", StringComparison.Ordinal)).Append("Off_BottomAudio").ToList();
+            _hwKeys = schema.Keys.Keys.Where(k => k.StartsWith("HW_", StringComparison.Ordinal)).Append("Off_BottomAudio").Append("Off_CenterTarget").ToList();
             // The skin's values (Settings.inc, State.inc, Offsets.inc) fill every key the app has no value for yet, on each start,
             // so keys added later (State.inc's Off_ flags) arrive too; a value already in settings.json always wins. Dry run: SkinImport.Build.
             if (resources is not null)
@@ -427,7 +430,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -544,6 +547,7 @@ sealed class Overlay : Form
             AudioCapture(settings.GetValueOrDefault("Off_BottomAudio") != "1");
             _cc.CoreWebView2.PostWebMessageAsJson(SystemSampler.ToJson(_sampler.Sample(settings, ++_metricsSeq)));
             PushAppStates();
+            if (settings.GetValueOrDefault("Off_CenterTarget") != "1") PushTopProcs();
         }
         catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name}"); }
     }
@@ -597,6 +601,18 @@ sealed class Overlay : Form
         var json = AppStates.ToJson(_appProcs, AppWindows.WithWindow(), AppWindows.Running());
         if (json == _appStateSent) return;
         _appStateSent = json;
+        Post(json);
+    }
+    // procs.top every 2 s (the skin: UpdateDivider=20 at Update=50, ~1.25 s), only while the targeter is on; a rate needs
+    // two samples, so the first read after a pause is empty and nothing is sent
+    void PushTopProcs()
+    {
+        if (_metricsSeq % 2 != 0) return;
+        var top = TopProcs.Top(_procCpu.Read(), _procRam.Read(), Environment.ProcessorCount);
+        if (top.Count == 0) return;
+        var json = TopProcs.ToJson(top);
+        if (json == _topSent) return;
+        _topSent = json;
         Post(json);
     }
     void PostOnce()
@@ -679,7 +695,7 @@ sealed class Overlay : Form
         _openWait?.Unregister(null);
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

@@ -2,11 +2,11 @@ import { useEffect, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
-import { scheduler } from '../host/scheduler';
+import { scheduler, skinMs } from '../host/scheduler';
 import { transformBox, type Matrix } from '../lib/geometry';
 import { feedFrom, jarvisFrame, jarvisLogFrame, stateColor, type Feed, type JarvisColors } from './jarvis';
 
-const FRAME_MS = 33; // the Lua orb's 30 fps
+const FRAME_MS = skinMs(33); // the Lua orb's Update=33, ~21 fps in Rainmeter
 const sphere = layout.zones.find((z) => z.id === 'C_sphere');
 const offline = feedFrom(undefined, 0);
 

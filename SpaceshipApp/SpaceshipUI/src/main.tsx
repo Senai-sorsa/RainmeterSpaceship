@@ -9,7 +9,7 @@ import { acceptJarvisUpdate } from './host/jarvisFeed';
 import { acceptSysInfo } from './host/sysInfo';
 import { acceptAppsCatalog, catalogFeed, previewCatalog } from './modules/appsSource';
 import { acceptCalendarUpdate } from './modules/calendarSource';
-import { acceptAppsState, acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate } from './host/statusFeed';
+import { acceptAppsState, acceptNetUpdate, acceptTopProcs, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate } from './host/statusFeed';
 import { WebView2Host } from './host/HostBridge';
 import { startPreviewFeed } from './host/previewFeed';
 import { startHitRegions } from './host/hitRegions';
@@ -35,6 +35,7 @@ host.onMessage(acceptNetUpdate);
 host.onMessage(acceptSpxUpdate);
 host.onMessage(acceptTodoUpdate);
 host.onMessage(acceptAppsState);
+host.onMessage(acceptTopProcs);
 startPerfTier(systemMetrics, store.values);
 if (host instanceof WebView2Host) startHitRegions(host, document, scheduler); // the browser and the mock have no click-through
 // in the app the desktop wallpaper shows through like the skin; tokens.css's black stays as the stand-in in a browser

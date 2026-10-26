@@ -1,13 +1,14 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import type { Pt } from '../lib/geometry';
 import type { TodoItem } from '../host/statusFeed';
+import haze from '../../../../Skins/Spaceship/@Resources/Images/haze.png?url';
 
 // Port of the usage mode of Skins/Spaceship/@Resources/Scripts/target.lua: the target lock reticle that roams the upper
 // windscreen. It glides to a new spot (smoothstep), dwells one second with a lock pulse, then moves on, and every spot
 // is checked so the whole reticle stays on the glass. With open to-dos (host todo.update, ReticleTodo) it locks onto the
-// next one due: count in the box, countdown, label and blips for the next three. Not ported: the sprite haze, the hover
+// next one due: count in the box, countdown, label and blips for the next three. Not ported: the hover
 // text and the clicks (open the note, rank change and taskmgr are actions for later).
-// Without to-dos the readout shows rank 1 and -- for memory until per-process figures are fed.
+// Without to-dos it locks onto the rank-th busiest process (host procs.top): the rank in the box, its memory below.
 
 const SXR = 2560 / 1260, SYR = 1600 / 709;
 const ZX = 412, ZY = 108; // zone origin in reference px (ref_layout C_target) and the windscreen's slanted sides
@@ -19,7 +20,7 @@ export type TargetState = {
   frame: number; pos: Pt; from: Pt; to: Pt | null; t0: number; dur: number; dwellUntil: number;
   rot: number; lockAnim: number; lastName: string;
 };
-export type TargetInput = { name?: string; cpu?: number; ram?: number; todos?: TodoItem[]; todoCount?: number; nowS?: number };
+export type TargetInput = { rank?: number; name?: string; cpu?: number; ram?: number; todos?: TodoItem[]; todoCount?: number; nowS?: number };
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -113,6 +114,8 @@ export function targetFrame(state: TargetState, input: TargetInput, zone: Zone, 
     state.lockAnim -= step;
   }
   const R = 86 * zoom;
+  // haze (pre-blurred sprite, wide and horizontal like the reference)
+  c.sprite(cx, cy, R * 2.4, R * 1.5, haze, RED, st.tier < 2 ? 235 : 140);
   // four outer arcs, gaps on the diagonals, rotating
   for (let q = 0; q < 4; q++) {
     const a0 = rot + q * 90 - 33;
@@ -151,7 +154,7 @@ export function targetFrame(state: TargetState, input: TargetInput, zone: Zone, 
     });
     return c.flush();
   }
-  c.text(bx0 + bw / 2, by0 + bh / 2, '1', { size: 8, weight: 700, align: 'CenterCenter', color: RED });
+  c.text(bx0 + bw / 2, by0 + bh / 2, String(input.rank ?? 1), { size: 8, weight: 700, align: 'CenterCenter', color: RED });
   const ram = input.ram ?? 0;
   c.text(bx0 + bw / 2 - 2, cy + 7 * SYR, ram > 0 ? `${Math.round(ram / 1048576)}m` : '--', { size: 7.5, weight: 700, align: 'CenterCenter', color: RED });
   return c.flush();

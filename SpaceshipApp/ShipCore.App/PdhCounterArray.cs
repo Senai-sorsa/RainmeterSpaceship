@@ -1,10 +1,12 @@
 using System.Runtime.InteropServices;
 using ShipCore.Core;
 
-// IGpuCounters through PDH, the API Task Manager's GPU column reads. Read-only: it opens a query and nothing else.
-sealed class WindowsGpuCounters : IGpuCounters, IDisposable
+// One wildcard PDH counter read as an instance list: the GPU engines (IGpuCounters, Task Manager's GPU column) and the
+// per-process CPU and memory for the targeter. Read-only: it opens a query and nothing else.
+sealed class PdhCounterArray : IGpuCounters, IDisposable
 {
-    const uint PDH_FMT_DOUBLE = 0x200;
+    public const string Gpu = @"\GPU Engine(*)\Utilization Percentage";
+    const uint PDH_FMT_DOUBLE = 0x200, PDH_FMT_NOCAP100 = 0x8000;
     const int PDH_MORE_DATA = unchecked((int)0x800007D2);
     // PDH_FMT_COUNTERVALUE_ITEM_W: a name pointer, then { CStatus, pad, double }; 8-byte aligned on x86 and x64
     const int ItemSize = 24, StatusOffset = 8, ValueOffset = 16;
@@ -17,11 +19,14 @@ sealed class WindowsGpuCounters : IGpuCounters, IDisposable
 
     IntPtr _query, _counter, _buf;
     uint _bufBytes;
+    readonly uint _format;
 
-    public WindowsGpuCounters()
+    /// <param name="noCap">a process's % Processor Time counts every core, so it must not be capped at 100</param>
+    public PdhCounterArray(string path, bool noCap = false)
     {
+        _format = PDH_FMT_DOUBLE | (noCap ? PDH_FMT_NOCAP100 : 0);
         if (PdhOpenQueryW(null, IntPtr.Zero, out _query) != 0) { _query = IntPtr.Zero; return; }
-        if (PdhAddEnglishCounterW(_query, @"\GPU Engine(*)\Utilization Percentage", IntPtr.Zero, out _counter) != 0) Dispose();
+        if (PdhAddEnglishCounterW(_query, path, IntPtr.Zero, out _counter) != 0) Dispose();
     }
 
     /// <returns>Empty when the counter is missing, on the first read (a rate needs two samples) and on any PDH error.</returns>
@@ -29,13 +34,13 @@ sealed class WindowsGpuCounters : IGpuCounters, IDisposable
     {
         if (_query == IntPtr.Zero || PdhCollectQueryData(_query) != 0) return [];
         uint bytes = _bufBytes, count;
-        var rc = PdhGetFormattedCounterArrayW(_counter, PDH_FMT_DOUBLE, ref bytes, out count, _buf);
+        var rc = PdhGetFormattedCounterArrayW(_counter, _format, ref bytes, out count, _buf);
         if (rc == PDH_MORE_DATA)
         {
             // the buffer is kept and only grows, so a steady instance count allocates nothing here
             if (_buf != IntPtr.Zero) Marshal.FreeHGlobal(_buf);
             _buf = Marshal.AllocHGlobal((int)bytes); _bufBytes = bytes;
-            rc = PdhGetFormattedCounterArrayW(_counter, PDH_FMT_DOUBLE, ref bytes, out count, _buf);
+            rc = PdhGetFormattedCounterArrayW(_counter, _format, ref bytes, out count, _buf);
         }
         if (rc != 0) return [];
         var list = new List<(string, double)>((int)count);

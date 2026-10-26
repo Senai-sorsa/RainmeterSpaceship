@@ -74,6 +74,19 @@ export function acceptAppsState(m: unknown): void {
   appStates.value = next;
 }
 
+/** The host's procs.top (TopProcs.cs): the five busiest processes, cpu as a share of the whole machine, ram in bytes. */
+export type TopProc = { name: string; cpu: number; ram: number };
+export const topProcs = signal<TopProc[]>([]);
+const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+
+export function acceptTopProcs(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'procs.top' || !Array.isArray(o.top)) return;
+  topProcs.value = o.top.slice(0, 5).filter((p): p is TopProc => typeof p === 'object' && p !== null
+    && typeof p.name === 'string' && p.name.length <= 64 && num(p.cpu) && num(p.ram));
+}
+
 /** An Apps.ini Proc= value's state, keyed as the host sends it (lower case, with .exe). */
 export function appState(states: Record<string, number>, proc: string | undefined): number {
   if (!proc) return 0;

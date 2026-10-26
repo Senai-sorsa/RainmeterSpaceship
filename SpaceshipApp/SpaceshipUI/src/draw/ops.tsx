@@ -41,8 +41,10 @@ function OpEl({ op, id }: { op: Op; id: string }) {
       const px = sh.size * PT_PX;
       // the skin's Shadow blur is a Direct2D standard deviation; a CSS blur radius is twice that.
       // white-space pre: DirectWrite keeps runs of spaces (the slot's '   LAST  '), SVG would collapse them
+      // the skin asks for FontWeight 600/700, but Rainmeter draws its bundled fonts at the regular weight (checked
+      // against the user's screenshot of 2026-10-26), so the weight is not applied
       const text = (
-        <text x={sh.x} y={sh.y} font-size={px} font-family={sh.font} font-weight={sh.weight} text-anchor={anchor}
+        <text x={sh.x} y={sh.y} font-size={px} font-family={sh.font} font-weight={400} text-anchor={anchor}
           dominant-baseline={base} fill={paint.fill}
           style={sh.blur ? { whiteSpace: 'pre', filter: `drop-shadow(0 0 ${sh.blur * 2}px ${paint.fill})` } : { whiteSpace: 'pre' }}>
           {sh.text}
