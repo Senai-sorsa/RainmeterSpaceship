@@ -8,7 +8,7 @@ using ShipCore.Core;
 sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, Action<string> log) : IDisposable
 {
     static readonly HttpClient Http = CreateHttp();
-    readonly System.Windows.Forms.Timer _tick = new() { Interval = 60000 };
+    readonly System.Windows.Forms.Timer _tick = new() { Interval = 2000 }; // 60 s once the HUD has been shown (it is not yet at Start)
     readonly string _file = Path.Combine(data, "calendar.txt");
     DateTime _fetchDue, _stamp;
     bool _fetching;
@@ -27,12 +27,12 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
     {
         _tick.Tick += (_, _) => Tick();
         _tick.Start();
-        Tick();
     }
 
     async void Tick()
     {
         if (!shown()) return;
+        _tick.Interval = 60000;
         if (DateTime.UtcNow >= _fetchDue && !_fetching && !SkinCoreRunning())
         {
             _fetchDue = DateTime.UtcNow.AddMinutes(10); _fetching = true;
