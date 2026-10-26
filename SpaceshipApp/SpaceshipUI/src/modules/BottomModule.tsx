@@ -37,12 +37,12 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   }, []);
   // the audio followers step once per host reading, so they live outside the render and are not in the deps of the other frames
   const audio = useRef<AudioState>(audioState());
-  // style is not in the deps: a settings change shows on the next host reading
+  // style is in the deps: the first render can come before the saved Scale arrives, and a quiet host would keep that size
   const ops = useMemo(() => ({
     sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
     sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
     au: style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
-  }), [r, Z]);
+  }), [r, Z, style]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({
     pl: Z.panelL && panelLeftFrame(leftRows(now, r, info), Z.panelL, style),
