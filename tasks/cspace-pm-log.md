@@ -97,3 +97,28 @@ Commits: 426a0bd c58b300 8cc2cda eccd3c2 f438003 238bcc1 4e6f42c.
 - SAC no longer blocks the new unsigned exe (launched 2026-10-26).
 - Open: the to-do targeting needs ObsidianTodo set (Control Center > DATA; empty now). JARVIS-offline brightness was not
   reproduced. The calendar countdown ring is missing. Clicks were not verified by mouse.
+
+## 2026-10-26 - live run: the user's third list (volume, cargo, control center, click targets, mail)
+Commits: d145ed8 1f94e55 eed3be2 24a867c (published and relaunched after 24a867c).
+- Volume: raising it unmutes; the ring takes clicks like audio.lua (d145ed8).
+- CARGO drawer, Control Center and the folder clicks open as in the skin (1f94e55).
+- The skin's other click targets (terminal, about, calendar, update/gmail, network, drive, battery, ...) are ported as fixed host targets; the bottom strip cells were lifted off the neon line (eed3be2).
+- Gmail count: MailRunner does the skin's IMAP check every 2 min while shown and writes Data\mail.txt (24a867c). Live: UNREAD 17.
+- Next: picture-frame zoom (#5), condensed hover tips (#7), a per-feature .lua vs .ts diff (#8: console llt/perf/master/hud buttons, ToggleNext, picks not persisted, speedtest, dev right-click, mail/calendar refresh).
+- Finding: CalendarRunner only reads the repo's Data while the skin's ShipCore runs; the live skin's Data is a separate folder.
+
+## 2026-10-26 - OPEN (parked by the user): helper processes spike CPU/GPU
+User report: apps tied to the internet and to File Explorer keep opening and spike the GPU. Parked; fix later.
+Measured (not fixed):
+- CSpace's own page (WebView2 renderer + GPU process) is ~1 core steady; perf log web CPU 55-108% of one core, ~1.2-1.4 GB.
+  Task Manager names it "Microsoft Edge WebView2", which reads as a browser. 5 other apps also run WebView2
+  (SearchHost, OneDrive, GoogleDriveFS, PowerToys Peek, Lenovo Vantage); only the one under CSpace.exe is ours.
+- StatusRunner starts powershell.exe + conhost per script (StatusScripts.Kinds):
+  - upkeep.ps1 (5 s after every CSpace start, then hourly): `winget upgrade` (network, source refresh) and a
+    Microsoft.Update.Session search (Windows Update service) - the "internet" bursts; every relaunch repeats it.
+  - dev.ps1 (every 120 s): wsl.exe, ollama ps, tailscale status --json, docker ps - four CLIs per run.
+  - status.ps1 (every 120 s): llt.exe x2 (Legion Toolkit) + Get-PnpDevice on the NVIDIA device - likely to touch / wake the dGPU.
+- explorer.exe ~1 core steady is NOT CSpace (same with CSpace stopped). CSpace opens Explorer only from clicks
+  (target.open / app.launch, Program.cs:613/653); launches are not logged, so an unclicked open is unverified.
+Fix ideas for later: log every launch; run upkeep's winget/WU search rarely and not on each start; skip dev.ps1 CLIs
+that aren't installed/running; drop Get-PnpDevice/llt polling or lengthen it; profile the page's animation rates.
