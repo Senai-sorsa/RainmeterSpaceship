@@ -5,7 +5,7 @@ using ShipCore.Core;
 
 // Standalone Spaceship app: one transparent window on the desktop layer, sized to the home display (the taskbar draws over it),
 // hosting a composition-mode WebView2 through DirectComposition. Ctrl+Alt+Shift+1 stops the app and everything it started.
-// Never topmost, no input hooks, no injection (one out-of-context foreground WinEvent). Tray menu: Start, Stop, Quit.
+// Never topmost, no input hooks, no injection (one out-of-context foreground WinEvent). Tray menu: Start, Stop, Diagnostics, Quit.
 static class Program
 {
     [STAThread]
@@ -92,6 +92,8 @@ sealed class Overlay : Form
     int _failures; // web view restarts since the last good page load
     const int MaxRestarts = 3;
     StreamWriter? _log;
+    const long MaxLogBytes = 8 << 20; // about a week of 5 s rows (old logs expire after 7 days); the sampler stops past it
+    string _lastSample = "no sample yet", _lastReason = "not decided yet";
     readonly int _uiThread = Environment.CurrentManagedThreadId;
 
     // Core logic. Null router = no skin folder or contract found: the page gets no settings and nothing is written.
@@ -180,6 +182,11 @@ sealed class Overlay : Form
             auto.Click += (_, _) => { _autostart.Disable(); menu.Items.Remove(auto); };
             menu.Items.Add(auto);
         }
+        menu.Items.Add("Diagnostics", null, (_, _) => MessageBox.Show(
+            $"Shown: {Visible}, locked: {_locked}\nLast visibility reason: {_lastReason}\n\n" +
+            $"Last sample (cpu % of one core, MB, js fps, web cpu %, web MB, web private MB, web processes):\n{_lastSample}\n\n" +
+            $"Logs: {Path.Combine(Path.GetTempPath(), "spaceship-app")}",
+            "CSpace diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("Quit", null, (_, _) => Quit());
         _tray.Icon = AppIcon(); _tray.Text = "CSpace"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
         if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", $"{KillChord.Label} is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
@@ -386,6 +393,7 @@ sealed class Overlay : Form
     {
         if (!_running || _cc is null) return;
         var decision = _policy.Decide(_snapshots.Take());
+        _lastReason = decision.Reason;
         if (decision.Visibility == Visibility.Show && !_locked) { if (!Visible) Show(); }
         else if (Visible) Hide();
     }
@@ -551,7 +559,10 @@ sealed class Overlay : Form
         var pct = (cpu - _lastCpu).TotalMilliseconds / wallMs * 100;
         _lastCpu = cpu; _lastWall = now;
         // Host process first, then every msedgewebview2.exe child summed.
-        _log?.WriteLine($"{now:O},{pct:F1},{_self.WorkingSet64 / 1048576.0:F0},{_fps:F0},{SampleWebView(wallMs)}");
+        _lastSample = $"{pct:F1},{_self.WorkingSet64 / 1048576.0:F0},{_fps:F0},{SampleWebView(wallMs)}";
+        if (_log is null) return;
+        if (_log.BaseStream.Length > MaxLogBytes) { _log.WriteLine($"{now:O},LOG_FULL,sampler stopped"); _perf.Stop(); return; }
+        _log.WriteLine($"{now:O},{_lastSample}");
     }
 
     // shortcut: a process that starts between two samples is counted from its next sample, so its first interval is missed.
@@ -559,18 +570,24 @@ sealed class Overlay : Form
     {
         double cpuMs = 0, wsMb = 0, privMb = 0; int count = 0;
         var seen = new HashSet<int>();
-        foreach (var p in Process.GetProcessesByName("msedgewebview2"))
+        // only this app's WebView2 processes (same user data folder), not every msedgewebview2.exe on the PC
+        IReadOnlyList<CoreWebView2ProcessInfo> infos;
+        try { infos = _env?.GetProcessInfos() ?? []; }
+        catch (COMException) { infos = []; } // the browser process is restarting; this sample counts none
+        foreach (var info in infos)
         {
+            Process? p = null;
             try
             {
+                p = Process.GetProcessById(info.ProcessId);
                 var t = p.TotalProcessorTime;
                 if (_webCpu.TryGetValue(p.Id, out var prev)) cpuMs += (t - prev).TotalMilliseconds;
                 _webCpu[p.Id] = t; seen.Add(p.Id);
                 wsMb += p.WorkingSet64 / 1048576.0; privMb += p.PrivateMemorySize64 / 1048576.0; count++;
             }
             // a process that exited between listing and reading has no CPU time left to read
-            catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { }
-            finally { p.Dispose(); }
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+            finally { p?.Dispose(); }
         }
         foreach (var gone in _webCpu.Keys.Except(seen).ToList()) _webCpu.Remove(gone);
         return $"{cpuMs / wallMs * 100:F1},{wsMb:F0},{privMb:F0},{count}";
