@@ -12,7 +12,8 @@ sealed class SystemClock : IClock
 }
 
 // IWindowSnapshotSource: what VisibilityPolicy needs, read fresh on every call.
-sealed class Win32Snapshots(Func<Rectangle> monitor) : IWindowSnapshotSource
+// browserPid: our WebView2 browser process, whose windows count as ours (0 until it starts)
+sealed class Win32Snapshots(Func<Rectangle> monitor, Func<uint> browserPid) : IWindowSnapshotSource
 {
     public WindowSnapshot Take()
     {
@@ -25,7 +26,7 @@ sealed class Win32Snapshots(Func<Rectangle> monitor) : IWindowSnapshotSource
             GetWindowThreadProcessId(fg, out var pid);
             // The extended frame bounds, not GetWindowRect: the invisible resize border would otherwise hide a maximised-looking window.
             var r = DwmGetWindowAttribute(fg, 9, out var rect, Marshal.SizeOf<NativeRect>()) == 0 ? rect : default;
-            info = new WindowInfo(sb.ToString(), ProcessName((int)pid), new ShipCore.Core.Rect(r.Left, r.Top, r.Right, r.Bottom), pid == Environment.ProcessId);
+            info = new WindowInfo(sb.ToString(), ProcessName((int)pid), new ShipCore.Core.Rect(r.Left, r.Top, r.Right, r.Bottom), pid == Environment.ProcessId || (pid != 0 && pid == browserPid()));
         }
         var m = monitor();
         var notice = SHQueryUserNotificationState(out var raw) == 0 && raw >= 1 && raw <= 7 ? (NotificationState)(raw - 1) : NotificationState.NotPresent;

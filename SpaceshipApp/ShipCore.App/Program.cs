@@ -118,6 +118,7 @@ sealed class Overlay : Form
     // Locked (Win+L, the lock screen) hides the HUD, which also pauses every timer that checks Visible.
     readonly Microsoft.Win32.SessionSwitchEventHandler _onSession;
     bool _locked;
+    uint _browserPid;
     readonly AutoStart _autostart = new(new RunKeyStore());
     readonly Lifecycle _life;
     readonly RunMarker _marker;
@@ -171,7 +172,7 @@ sealed class Overlay : Form
         Bounds = _home;
         var examPath = FindUp(Path.Combine("contract", "exam-browsers.json"));
         _policy = new VisibilityPolicy(examPath is null ? Array.Empty<string>() : ExamBrowserList.ProcessNames(File.ReadAllText(examPath)));
-        _snapshots = new Win32Snapshots(() => _home);
+        _snapshots = new Win32Snapshots(() => _home, () => _browserPid);
         _life = new Lifecycle(Stop, () => Restart(false));
 
         var menu = new ContextMenuStrip();
@@ -427,10 +428,36 @@ sealed class Overlay : Form
     void ApplyVisibility()
     {
         if (!_running || _cc is null) return;
-        var decision = _policy.Decide(_snapshots.Take());
+        ClickThroughWebViewShadow();
+        var snap = _snapshots.Take();
+        var decision = _policy.Decide(snap);
         _lastReason = decision.Reason;
-        if (decision.Visibility == Visibility.Show && !_locked) { if (!Visible) Show(); }
+        var show = decision.Visibility == Visibility.Show && !_locked;
+        if (show != Visible) _log?.WriteLine($"{DateTime.UtcNow:O},{(show ? "SHOW" : "HIDE")},{decision.Reason}{(_locked ? " (locked)" : "")} [{snap.Foreground?.ClassName}/{snap.Foreground?.Process}]");
+        if (show) { if (!Visible) Show(); }
         else if (Visible) Hide();
+    }
+
+    // WebView2 bug (WebView2Feedback #5668, open): with visual hosting the browser process keeps an alpha-0 layered top-level
+    // window the size of ours right above it, and it still hit-tests, so it swallows every click meant for the HUD and the
+    // desktop icons. Input reaches the page only through our window (SendMouseInput), so that window is made click-through.
+    // Re-checked on the visibility tick because a restarted browser process makes a new one.
+    void ClickThroughWebViewShadow()
+    {
+        uint browser;
+        try { browser = _cc!.CoreWebView2.BrowserProcessId; }
+        catch (Exception e) when (e is COMException or InvalidOperationException or ObjectDisposedException) { return; }
+        _browserPid = browser; // clicking the HUD can make that window the foreground one; it is ours, not a fullscreen app
+        EnumWindows((h, lp) =>
+        {
+            GetWindowThreadProcessId(h, out var pid);
+            if (pid != browser) return true;
+            var ex = GetWindowLong(h, GWL_EXSTYLE);
+            // only the invisible one: alpha 0 and not yet click-through
+            if ((ex & WS_EX_LAYERED) != 0 && (ex & WS_EX_TRANSPARENT) == 0 && GetLayeredWindowAttributes(h, out _, out var alpha, out var how) && (how & LWA_ALPHA) != 0 && alpha == 0)
+                SetWindowLong(h, GWL_EXSTYLE, ex | WS_EX_TRANSPARENT);
+            return true;
+        }, IntPtr.Zero);
     }
 
     // One system.metrics frame per second, only while the window is shown; a failed read is logged and skipped.
@@ -653,6 +680,13 @@ sealed class Overlay : Form
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEventProc proc, uint pid, uint thread, uint flags);
     [DllImport("user32.dll")] static extern bool UnhookWinEvent(IntPtr hook);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc proc, IntPtr lParam);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int index);
+    [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr h, int index, int value);
+    [DllImport("user32.dll")] static extern bool GetLayeredWindowAttributes(IntPtr h, out uint key, out byte alpha, out uint flags);
+    delegate bool EnumWindowsProc(IntPtr h, IntPtr lParam);
+    const int GWL_EXSTYLE = -20;
     delegate int Commit(IntPtr self);
     delegate int CreateTargetForHwnd(IntPtr self, IntPtr hwnd, bool topmost, out IntPtr target);
     delegate int CreateVisual(IntPtr self, out IntPtr visual);

@@ -29,6 +29,8 @@ host.onMessage(acceptSpxUpdate);
 host.onMessage(acceptTodoUpdate);
 startPerfTier(systemMetrics, store.values);
 if (host instanceof WebView2Host) startHitRegions(host, document, scheduler); // the browser and the mock have no click-through
+// in the app the desktop wallpaper shows through like the skin; tokens.css's black stays as the stand-in in a browser
+if (host instanceof WebView2Host) document.documentElement.style.background = document.body.style.background = 'transparent';
 // the host hides the HUD for fullscreen apps and the lock screen; coming back fades in instead of popping
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !matchMedia('(prefers-reduced-motion: reduce)').matches)

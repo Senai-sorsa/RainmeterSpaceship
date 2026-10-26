@@ -27,16 +27,17 @@ public class VisibilityPolicyTests
     [Fact] public void AWindowOnAnotherMonitorDoesNotHide() =>
         Assert.Equal(Visibility.Show, _p.Decide(Snap(W("G", new Rect(2560, 0, 5120, 1600)))).Visibility);
 
-    [Theory]
-    [InlineData(NotificationState.Busy)] [InlineData(NotificationState.RunningD3DFullScreen)] [InlineData(NotificationState.PresentationMode)]
-    public void WindowsFullscreenStatesHide(NotificationState n) => Assert.Equal(Visibility.Hide, _p.Decide(Snap(null, n)).Visibility);
+    [Fact] public void PresentationModeHides() => Assert.Equal(Visibility.Hide, _p.Decide(Snap(null, NotificationState.PresentationMode)).Visibility);
 
     [Theory] [InlineData(NotificationState.Busy)] [InlineData(NotificationState.RunningD3DFullScreen)]
-    public void OurFullscreenWindowInFrontIgnoresBusy(NotificationState n)
+    public void BusyAloneNeverHides(NotificationState n)
     {
+        Assert.Equal(Visibility.Show, _p.Decide(Snap(null, n)).Visibility);
         Assert.Equal(Visibility.Show, _p.Decide(Snap(W("Ship", Screen, ours: true), n)).Visibility);
         Assert.Equal(Visibility.Show, _p.Decide(Snap(W("Progman", Screen), n)).Visibility);
-        Assert.Equal(Visibility.Hide, _p.Decide(Snap(W("UnrealWindow", new Rect(0, 0, 800, 600)), n)).Visibility);
+        // the Start menu and taskbar flyouts report busy (live run)
+        Assert.Equal(Visibility.Show, _p.Decide(Snap(W("XamlExplorerHostIslandWindow", new Rect(700, 500, 1860, 1500), proc: "explorer.exe"), n)).Visibility);
+        Assert.Equal(Visibility.Hide, _p.Decide(Snap(W("UnrealWindow", Screen), n)).Visibility);
     }
 
     [Fact] public void PresentationModeHidesEvenWithOurWindowInFront() =>

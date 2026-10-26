@@ -22,6 +22,7 @@ import { jarvisFeed } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
 import { modulesOn } from './modules/modulesOn';
 import { hiddenZones } from './modules/hidden';
+import { useEffect, useState } from 'preact/hooks';
 
 const v = (settings as { variables: Record<string, string> }).variables;
 // Skin glow model (lib.lua Canvas:neon, tier 0): outer halo w*GlowWidth*2.1 at GlowAlpha*0.38, glow w*GlowWidth at GlowAlpha, core w.
@@ -58,10 +59,23 @@ function Neon({ d }: { d: string }) {
   );
 }
 
+// svg units per CSS pixel (the viewBox fits the canvas to the window); Rainmeter is DPI-unaware, so the skin's Scale is in
+// logical screen pixels (0.67 fills a 150 % screen) and dividing by the fit draws the same at any display scale or zoom
+const fitOf = () => Math.min(innerWidth / canvas.w, innerHeight / canvas.h) || 1;
+
 export function Hud() {
   const pad = margins.module + margins.animationBleed;
+  const [fit, setFit] = useState(fitOf);
+  // the log is a pop-up in the skin (Overlay\Jarvis): closed until asked for; ?module=jarvislog alone opens it for dev
+  const [logOpen, setLogOpen] = useState(() => new URLSearchParams(location.search).get('module') === 'jarvislog');
+  useEffect(() => {
+    const on = () => setFit(fitOf());
+    addEventListener('resize', on); // a display-scale or zoom change resizes the CSS viewport
+    return () => removeEventListener('resize', on);
+  }, []);
   // the tier the page computes stands in for the skin's saved PerfTier, so every module draws at it
   const values: Record<string, string> = { ...store.values.value, PerfTier: String(perfTier.value) };
+  values.Scale = String(num(values, 'Scale', 1) / fit);
   const hide = hiddenZones(values); // the Off_ settings, as the skin's control.lua deactivates configs
   return (
     <>
@@ -102,8 +116,8 @@ export function Hud() {
       {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} />}
       {drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
-      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} />}
-      {jarvisLogOn && <JarvisLogModule style={styleFrom(values)} />}
+      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} onMenu={() => setLogOpen((o) => !o)} />}
+      {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} onClose={() => setLogOpen(false)} />}
       {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
