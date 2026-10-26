@@ -243,6 +243,8 @@ sealed class Overlay : Form
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
+        // the per-frame timers do nothing while hidden, so they don't wake the CPU then (30 + 5 + 1 wakeups a second)
+        _cursor.Enabled = _jarvisTimer.Enabled = _metricsTimer.Enabled = Visible && _running;
         if (_cc is null || !_running) return;
         _cc.IsVisible = Visible;
         if (!Visible) { Suspend(_cc); _loopback.Stop(); }
