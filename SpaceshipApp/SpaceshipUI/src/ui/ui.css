@@ -1,6 +1,6 @@
 /* Shared settings components. Only the theme variables from tokens.css; DOM, thin lines, chamfered corners. */
 html:has(.panel), body:has(.panel) { overflow: auto; }
-.panel { --cut: 8px; max-width: 640px; margin: 0 auto; padding: 16px; color: var(--text); font: 13px/1.3 ui-monospace, monospace; display: grid; gap: 10px; }
+.panel { --cut: 8px; max-width: 640px; margin: 0 auto; padding: 16px; color: var(--text); font: 600 13px/1.3 Oxanium, sans-serif; display: grid; gap: 10px; }
 .group { background: var(--panel); border: 1px solid var(--dim); clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
 .group[open] { border-color: var(--accent); }
 .group > summary { cursor: pointer; padding: 8px 12px; min-height: 28px; box-sizing: border-box; color: var(--accent); list-style: none; }
@@ -42,9 +42,9 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .empty { color: var(--dim); }
 /* Control Center shell */
 .cc-open { position: fixed; top: 8px; right: 8px; z-index: 10; width: auto; padding: 0 12px; background: var(--panel); }
-.cc { --cut: 10px; position: fixed; inset: 16px; margin: auto; width: min(1000px, calc(100vw - 32px)); height: min(700px, calc(100vh - 32px)); z-index: 20; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); border: 1px solid var(--accent); color: var(--text); font: 13px/1.3 ui-monospace, monospace; clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.cc { --cut: 10px; position: fixed; inset: 16px; margin: auto; width: min(1000px, calc(100vw - 32px)); height: min(700px, calc(100vh - 32px)); z-index: 20; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); border: 1px solid var(--accent); color: var(--text); font: 600 13px/1.3 Oxanium, sans-serif; clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
 .cc-head { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--dim); }
-.cc-title { color: var(--accent); margin-right: auto; }
+.cc-title { color: var(--accent); margin-right: auto; font: 700 16px/1 Michroma, sans-serif; letter-spacing: .08em; }
 .cc-search { width: 220px; }
 .cc-btn { width: auto; padding: 0 10px; cursor: pointer; flex: none; white-space: nowrap; }
 .cc-btn:disabled { color: var(--dim); cursor: default; }
@@ -62,9 +62,9 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .cc-results small { color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
 .badge.adv { border-color: var(--dim); color: var(--dim); }
 /* First-run wizard */
-.wiz { position: fixed; inset: 0; z-index: 30; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--bg); color: var(--text); font: 13px/1.3 ui-monospace, monospace; }
+.wiz { position: fixed; inset: 0; z-index: 30; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--bg); color: var(--text); font: 600 13px/1.3 Oxanium, sans-serif; }
 .wiz-head { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid var(--dim); }
-.wiz-title { color: var(--accent); font-size: 16px; }
+.wiz-title { color: var(--accent); font: 700 16px/1 Michroma, sans-serif; }
 .wiz-dots { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .wiz-dots li { width: 12px; height: 12px; border: 1px solid var(--dim); border-radius: 50%; }
 .wiz-dots li.done { background: var(--dim); }
@@ -111,3 +111,5 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
   .scan, .cc, .cc::after, .wiz, .help, .row-help { animation: none; }
   * { transition: none !important; }
 }
+/* the skin's typed-input boxes (Control.ini mInput / mAsk) use Rajdhani */
+.ctl-text { font: 600 15px/1 Rajdhani, sans-serif; }

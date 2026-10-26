@@ -22,5 +22,11 @@
 @font-face { font-family: 'Oxanium'; font-weight: 500; src: url('../../../Skins/Spaceship/@Resources/Fonts/Oxanium-Medium.ttf'); }
 @font-face { font-family: 'Oxanium'; font-weight: 600; src: url('../../../Skins/Spaceship/@Resources/Fonts/Oxanium-SemiBold.ttf'); }
 @font-face { font-family: 'Oxanium'; font-weight: 700; src: url('../../../Skins/Spaceship/@Resources/Fonts/Oxanium-Bold.ttf'); }
+@font-face { font-family: 'Michroma'; src: url('../../../Skins/Spaceship/@Resources/Fonts/Michroma-Regular.ttf'); }
+@font-face { font-family: 'Rajdhani'; font-weight: 500; src: url('../../../Skins/Spaceship/@Resources/Fonts/Rajdhani-Medium.ttf'); }
+@font-face { font-family: 'Rajdhani'; font-weight: 600; src: url('../../../Skins/Spaceship/@Resources/Fonts/Rajdhani-SemiBold.ttf'); }
+@font-face { font-family: 'Rajdhani'; font-weight: 700; src: url('../../../Skins/Spaceship/@Resources/Fonts/Rajdhani-Bold.ttf'); }
+@font-face { font-family: 'Orbitron'; font-weight: 400 900; src: url('../../../Skins/Spaceship/@Resources/Fonts/Orbitron.ttf'); }
+@font-face { font-family: 'Share Tech Mono'; src: url('../../../Skins/Spaceship/@Resources/Fonts/ShareTechMono-Regular.ttf'); }
 html, body { margin: 0; background: var(--bg); overflow: hidden; }
-.label { font: 11px/1 ui-monospace, monospace; letter-spacing: .3em; text-transform: uppercase; fill: var(--text); }
+.label { font: 700 11px/1 'B612 Mono', monospace; letter-spacing: .3em; text-transform: uppercase; fill: var(--text); }

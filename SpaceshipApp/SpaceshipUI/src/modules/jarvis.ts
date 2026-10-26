@@ -251,7 +251,7 @@ export function jarvisLogFrame(log: string, live: string, muted: boolean, assist
   const lines = logLines(log, live, Math.max(20, Math.floor((w - TX - 90) / cw)));
   c.chamfer(0, 0, w, h, 18, A1, 1.6, 255, 230);
   c.fillRect(0, 0, w, h, [2, 8, 14, 255], 175);
-  c.text(LX, 14, assistant.toUpperCase().split('').join('.'), { size: 13, font: style.fontText, weight: 700, color: A1 });
+  c.text(LX, 14, assistant.toUpperCase().split('').join('.'), { size: 13, font: style.fontTitle, weight: 700, color: A1 });
   c.text(w - 64, 18, muted ? 'SPEAKERS MUTED - TEXT ONLY' : 'CONVERSATION LOG', { size: 7.5, align: 'RightTop', color: muted ? A1 : D });
   c.line(LX - 10, 50, w - 30, 50, D, 1, 200);
   c.line(w - 36, 16, w - 20, 32, A1, 1.6);
@@ -267,7 +267,7 @@ export function jarvisLogFrame(log: string, live: string, muted: boolean, assist
       const tag = L.who === 'U' ? 'YOU' : L.who === 'S' ? 'SYSTEM' : assistant.toUpperCase();
       c.text(LX, y, tag, { size: 7.2, weight: 700, color: L.who === 'U' ? D : L.who === 'S' ? style.warn : A1, glow: false });
     }
-    c.text(TX, y, L.text, { size: 8.6, color: L.who === 'U' ? T : L.who === 'S' ? style.warn : W, font: style.fontText, glow: false });
+    c.text(TX, y, L.text, { size: 8.6, color: L.who === 'U' ? T : L.who === 'S' ? style.warn : W, font: style.fontNum, glow: false });
   });
   return c.flush();
 }

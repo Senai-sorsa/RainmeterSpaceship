@@ -9,7 +9,6 @@ import type { Readings } from './readings';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const FONT_NUM = 'B612 Mono'; // H.fontNum default in lib.lua
 const p2 = (n: number) => String(n).padStart(2, '0');
 
 export type Row = { label: string; value: string; color?: RGBA };
@@ -97,7 +96,7 @@ function rowsInto(c: Canvas, zone: Zone, list: Row[], height: number, st: Style)
     const y = rh * (i + 1 - 0.35);
     if (i < list.length - 1) c.hair(6, y + rh * 0.5, zone.w - 6, y + rh * 0.5, st.accent, 1, 45);
     c.text(6, y, r.label, { size: 3.0, weight: 700, align: 'LeftCenter', color: st.accent, alpha: 220, glow: false });
-    c.text(zone.w - 5, y, r.value, { size: 3.3, weight: 700, align: 'RightCenter', color: r.color ?? st.white, font: FONT_NUM, clip: zone.w * 0.66 });
+    c.text(zone.w - 5, y, r.value, { size: 3.3, weight: 700, align: 'RightCenter', color: r.color ?? st.white, font: st.fontNum, clip: zone.w * 0.66 });
   });
 }
 
@@ -113,6 +112,6 @@ export function panelRightFrame(list: Row[], zone: Zone, st: Style): Op[] {
   rowsInto(c, zone, list, zone.h * 0.76, st);
   const bx = 6, by = zone.h * 0.8, bw = zone.w - 12, bh = zone.h * 0.16;
   c.chamfer(bx, by, bw, bh, bh * 0.35, st.accent, 1.2, 230, 90);
-  c.text(bx + bw / 2, by + bh / 2, '>_ TERMINAL', { size: 3.6, weight: 700, align: 'CenterCenter', color: st.white, font: FONT_NUM });
+  c.text(bx + bw / 2, by + bh / 2, '>_ TERMINAL', { size: 3.6, weight: 700, align: 'CenterCenter', color: st.white, font: st.fontNum });
   return c.flush();
 }

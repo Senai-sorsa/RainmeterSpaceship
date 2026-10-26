@@ -9,6 +9,7 @@ export function styleFrom(v: Record<string, string>): Style {
     coreWhite: num(v, 'CoreWhite', 0.3), hudA: num(v, 'HudAlpha', 255), edit: num(v, 'EditMode', 0) > 0,
     textGlow: num(v, 'TextGlow', 4), textGlowA: num(v, 'TextGlowAlpha', 150), textSmall: num(v, 'TextScaleSmall', 1.85),
     textLarge: num(v, 'TextScaleLarge', 1.45), fontText: v.FontText || 'Oxanium',
+    fontNum: v.FontNum || 'B612 Mono', fontTitle: v.FontTitle || 'Michroma',
     white: c('ColorWhite'), dim: c('ColorDim'), panel: c('ColorPanel'), accent: c('ColorAccent'), warn: c('ColorWarn'),
     alert: c('ColorAlert'), text: c('ColorText'), hi: c('ColorHighlight'), good: c('ColorGood'),
   };

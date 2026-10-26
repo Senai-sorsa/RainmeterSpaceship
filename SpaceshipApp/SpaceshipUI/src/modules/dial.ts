@@ -100,11 +100,11 @@ export function dialFrame(inp: DialInput, zone: Zone, st: Style, sel = 1, note =
   CONTROLS.forEach((k, i) => {
     const ar = (k.ang * Math.PI) / 180;
     const on = i + 1 === sel;
-    c.text(CX + R_LBL * Math.cos(ar), CY + R_LBL * Math.sin(ar), k.label, { size: 5.8, weight: 700, align: 'CenterCenter', color: on ? W : A1, alpha: on ? 255 : 225 });
+    c.text(CX + R_LBL * Math.cos(ar), CY + R_LBL * Math.sin(ar), k.label, { size: 5.8, weight: 700, align: 'CenterCenter', color: on ? W : A1, alpha: on ? 255 : 225, font: st.fontNum });
   });
   // centre readout
   c.text(CX, CY - 17, cur.name, { size: 4.2, weight: 700, align: 'CenterCenter', color: A1, glow: false });
-  c.text(CX, CY + 2, labelOf(cur, v), { size: cur.steps ? 7 : 10.5, weight: 700, align: 'CenterCenter', color: avail ? W : D });
+  c.text(CX, CY + 2, labelOf(cur, v), { size: cur.steps ? 7 : 10.5, weight: 700, align: 'CenterCenter', color: avail ? W : D, font: st.fontNum });
   let sub = '';
   if (note) sub = note;
   else if (!avail) sub = cur.id === 'power' || cur.id === 'hz' ? 'NEEDS LEGION TOOLKIT' : cur.id === 'bright' ? 'NO PANEL CONTROL' : 'NO DATA';

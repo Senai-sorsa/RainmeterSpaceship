@@ -21,7 +21,7 @@ export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke };
 /** Settings the skin reads from H.init (PerfTier, GlowAlpha, GlowWidth, CoreWhite, HudAlpha, Scale, EditMode, text settings) and its colours. */
 export type Style = {
   s: number; tier: number; glowA: number; glowW: number; coreWhite: number; hudA: number; edit: boolean;
-  textGlow: number; textGlowA: number; textSmall: number; textLarge: number; fontText: string;
+  textGlow: number; textGlowA: number; textSmall: number; textLarge: number; fontText: string; fontNum: string; fontTitle: string;
   white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA; hi: RGBA; good: RGBA;
 };
 export type Zone = { x: number; y: number; w: number; h: number };

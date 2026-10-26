@@ -59,7 +59,7 @@ export function sphereFrame(state: SphereState, input: SphereInput, zone: Zone, 
   c.text(bx0, Y(536), 'NET', { size: 5.4, weight: 700, align: 'LeftBottom', color: mix(A1, W, 0.3) });
   const dots = '.'.repeat(Math.floor(state.frame / 10) % 4);
   const val = testing ? `TEST${dots}` : link > 0 ? `${link} Mbps` : 'TEST';
-  c.text(bx1, Y(536), val, { size: 5.2, weight: 700, align: 'RightBottom', color: testing ? O : W, font: 'B612 Mono' });
+  c.text(bx1, Y(536), val, { size: 5.2, weight: 700, align: 'RightBottom', color: testing ? O : W, font: st.fontNum });
   const use = clamp(((input.downBps ?? 0) * 8) / 1000000 / Math.max(1, link > 0 ? link : 200), 0, 1);
   c.hair(bx0, by, bx1, by, W, 1, 120);
   if (use > 0.002) c.line(bx0, by, bx0 + (bx1 - bx0) * Math.max(use, 0.03), by, use > 0.8 ? O : A1, 2.4);

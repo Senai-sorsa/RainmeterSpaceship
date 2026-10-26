@@ -42,7 +42,7 @@ export function drawerFrame(cat: Catalog, st: DrawerState, zone: Zone, style: St
   c.chamfer(0, 0, w, h, 18, A1, 1.6, 255, 230);
   c.fillRect(0, 0, w, h, [2, 8, 14, 255], 170);
   const title = focused ? focused.name.toUpperCase() : 'CARGO HOLD';
-  c.text(20, 12, title, { size: title.length > 14 ? 9.5 : 13, font: style.fontText, weight: 700, color: A1, clip: w - 190 });
+  c.text(20, 12, title, { size: title.length > 14 ? 9.5 : 13, font: style.fontTitle, weight: 700, color: A1, clip: w - 190 });
   const count = focused ? focused.apps.length : cat.cats.all.apps.length;
   c.text(w - 50, 15, focused ? `${count} APPS` : `${count} APPS INSTALLED`, { size: 9, align: 'RightTop', color: D });
   c.line(20, 42, w - 20, 42, D, 1, 200);

@@ -7,7 +7,6 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 // shortcut: text widths are estimated from the character count, not measured, so right-aligned clips may differ slightly.
 
 const SXR = 2560 / 1260, SYR = 1600 / 709; // the skin's design-to-zone scale (sysinfo.lua)
-const FONT_NUM = 'B612 Mono';
 
 export type SysInput = { ping?: number; wifi?: number; down?: number; up?: number; lan?: string; wan?: string };
 
@@ -34,7 +33,7 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   }
   c.dot(gx, gy + 12, 2.6, W);
   c.rect(gx + 30, gy + 12, 40, 22, A1, 1.5);
-  c.text(gx + 50, gy + 23, '--', { size: 6.4, weight: 700, align: 'CenterCenter', color: A1, font: FONT_NUM });
+  c.text(gx + 50, gy + 23, '--', { size: 6.4, weight: 700, align: 'CenterCenter', color: A1, font: st.fontNum });
   // rows: label on the inner side, value on the outer side
   const pingTxt = input.ping === undefined ? '--' : input.ping <= 0 || input.ping >= 2999 ? 'LOST' : `${input.ping} MS`;
   const pcol = input.ping === undefined ? D : pingTxt === 'LOST' ? st.alert : input.ping! >= 150 ? st.warn : W;
@@ -47,7 +46,7 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   rows.forEach(([label, value, col], i) => {
     const y = Y(ys[i]);
     c.text(X(151), y, label, { size: 6.2, weight: 700, align: 'LeftCenter', color: col });
-    c.text(X(157), y, value, { size: 5.6, weight: 700, align: 'RightCenter', color: col, font: FONT_NUM, clip: X(157) - X(224) });
+    c.text(X(157), y, value, { size: 5.6, weight: 700, align: 'RightCenter', color: col, font: st.fontNum, clip: X(157) - X(224) });
   });
   // MBPS row: up and down with arrows
   const y = Y(ys[3]);
@@ -55,11 +54,11 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   const up = input.up === undefined ? '--' : mbps(input.up);
   const down = input.down === undefined ? '--' : mbps(input.down);
   const xu = X(157);
-  c.text(xu, y, up, { size: 5.6, weight: 700, align: 'RightCenter', color: W, font: FONT_NUM });
+  c.text(xu, y, up, { size: 5.6, weight: 700, align: 'RightCenter', color: W, font: st.fontNum });
   const xa = xu - up.length * 5.6 * 0.62 - 5;
   c.fillPoly([[xa - 3.5, y + 2.5], [xa + 3.5, y + 2.5], [xa, y - 3.5]], A1, 235);
   const xd = xa - 9;
-  c.text(xd, y, down, { size: 5.6, weight: 700, align: 'RightCenter', color: W, font: FONT_NUM });
+  c.text(xd, y, down, { size: 5.6, weight: 700, align: 'RightCenter', color: W, font: st.fontNum });
   const xb = xd - down.length * 5.6 * 0.62 - 5;
   c.fillPoly([[xb - 3.5, y - 2.5], [xb + 3.5, y - 2.5], [xb, y + 3.5]], A1, 235);
   // two rails along the bottom

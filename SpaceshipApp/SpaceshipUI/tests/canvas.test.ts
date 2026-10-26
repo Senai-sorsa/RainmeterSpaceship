@@ -10,7 +10,7 @@ const ACCENT: RGBA = [0, 210, 255, 255], DIM: RGBA = [0, 110, 150, 255], WARN: R
 function style(over: Partial<Style> = {}): Style {
   return {
     s: 1, tier: 0, glowA: 46, glowW: 3.2, coreWhite: 0, hudA: 255, edit: false,
-    textGlow: 4, textGlowA: 150, textSmall: 1.85, textLarge: 1.45, fontText: 'Oxanium',
+    textGlow: 4, textGlowA: 150, textSmall: 1.85, textLarge: 1.45, fontText: 'Oxanium', fontNum: 'B612 Mono', fontTitle: 'Michroma',
     white: [255, 255, 255, 255], dim: DIM, panel: [0, 30, 45, 90], accent: ACCENT, warn: WARN, alert: ALERT, text: [200, 240, 255, 255], hi: [255, 105, 135, 255], good: [60, 255, 170, 255],
     ...over,
   };

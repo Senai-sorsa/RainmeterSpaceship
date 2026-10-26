@@ -6,7 +6,6 @@ import { type App, type Cat } from './apps';
 // shortcut: tab label widths are estimated from the character count, not measured, so a tight rail may not match Rainmeter.
 
 const MAXTABS = 4;
-const FONT_NUM = 'B612 Mono'; // H.fontNum default in lib.lua
 
 export type CatState = { first: number; sel: number };
 
@@ -42,7 +41,7 @@ export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st:
   for (let t = 0; t < vis; t++) {
     const i = state.first + t;
     const on = i === state.sel;
-    c.text(x, h / 2, labels[t], { size, weight: 700, align: 'LeftCenter', color: on ? st.accent : [175, 190, 200, 255], alpha: on ? 255 : 210, font: FONT_NUM });
+    c.text(x, h / 2, labels[t], { size, weight: 700, align: 'LeftCenter', color: on ? st.accent : [175, 190, 200, 255], alpha: on ? 255 : 210, font: st.fontNum });
     x += widths[t] + gap;
   }
   return c.flush();

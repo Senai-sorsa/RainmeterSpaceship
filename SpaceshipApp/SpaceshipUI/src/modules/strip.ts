@@ -7,7 +7,6 @@ import { usedShare } from './storage';
 // WarnGpuTemp 85, WarnDiskPct 90, from Settings.inc), not read from settings yet. Click (Task Manager, drive) is not ported.
 
 const STEP = 84, CELLW = 76;
-const FONT_NUM = 'B612 Mono'; // H.fontNum default in lib.lua
 
 export type Cell = { icon: string; text: string; lvl?: 0 | 1 | 2; size?: number };
 
@@ -37,7 +36,7 @@ function cellsFrame(list: Cell[], mirror: boolean, zone: Zone, st: Style): Op[] 
     const lv = cl.lvl ?? 0;
     const col = lv === 2 ? st.alert : lv === 1 ? st.warn : st.white;
     c.icon(cl.icon, x0 + 9, y, 15, lv === 2 ? st.alert : lv === 1 ? st.warn : st.accent, 1.2);
-    c.text(x0 + 20, y, cl.text, { size: cl.size ?? 5, weight: 700, align: 'LeftCenter', color: col, font: FONT_NUM, clip: CELLW - 22 });
+    c.text(x0 + 20, y, cl.text, { size: cl.size ?? 5, weight: 700, align: 'LeftCenter', color: col, font: st.fontNum, clip: CELLW - 22 });
   });
   return c.flush();
 }

@@ -12,7 +12,6 @@ export type GraphFrame = { ops: Op[]; value: number };
 
 const N = 48;
 const GHOST: Style['white'] = [40, 82, 150, 255];
-const FONT_NUM = 'B612 Mono'; // H.fontNum default in lib.lua
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 /** A new graph on a source. An unknown id falls back to cpu, as Initialize does. */
@@ -58,7 +57,7 @@ export function graphFrame(state: GraphState, r: Readings, zone: Zone, st: Style
   c.text(zone.w / 2, zone.h * 0.3, w1, ghost);
   c.text(zone.w / 2, zone.h * 0.62, w2, ghost);
   // live readout bottom-right: white when there is a reading, dim when not
-  c.text(zone.w - 6, zone.h - 6, txt ?? '--', { size: 4.6, weight: 700, align: 'RightBottom', font: FONT_NUM, color: v !== undefined ? st.white : st.dim });
+  c.text(zone.w - 6, zone.h - 6, txt ?? '--', { size: 4.6, weight: 700, align: 'RightBottom', font: st.fontNum, color: v !== undefined ? st.white : st.dim });
   if (mode === 'select') {
     c.poly([[8, zone.h - 9], [12, zone.h - 6], [8, zone.h - 3]], st.accent, 1.1, 200);
     c.poly([[14, zone.h - 9], [18, zone.h - 6], [14, zone.h - 3]], st.accent, 1.1, 200);

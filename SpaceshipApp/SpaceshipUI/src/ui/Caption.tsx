@@ -17,6 +17,6 @@ export function Caption() {
     document.addEventListener('pointerover', onOver);
     return () => { clearTimeout(timer); document.removeEventListener('pointerover', onOver); };
   }, []);
-  const box = { position: 'fixed', left: '50%', bottom: '4vh', transform: 'translateX(-50%)', padding: '6px 14px', background: 'rgba(0,0,0,.6)', color: 'var(--text)', font: '600 14px system-ui, sans-serif', pointerEvents: 'none', whiteSpace: 'pre' } as const;
+  const box = { position: 'fixed', left: '50%', bottom: '4vh', transform: 'translateX(-50%)', padding: '6px 14px', background: 'rgba(0,0,0,.6)', color: 'var(--text)', font: "600 14px 'B612 Mono', monospace", pointerEvents: 'none', whiteSpace: 'pre' } as const;
   return text ? <div id="hud-caption" role="status" style={box}>{text}</div> : null;
 }

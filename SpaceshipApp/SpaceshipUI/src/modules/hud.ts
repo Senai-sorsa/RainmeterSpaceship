@@ -8,7 +8,6 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 // shortcut: text widths are estimated from the character count, not measured.
 
 const SXR = 2560 / 1260, SYR = 1600 / 709;
-const FONT_NUM = 'B612 Mono';
 const X = (rx: number) => (rx - 484) * SXR; // zone centred on the screen axis (x = 630)
 const Y = (ry: number) => (ry - 256) * SYR;
 
@@ -63,7 +62,7 @@ export function hudFrame(state: HudState, input: HudInput, zone: Zone, st: Style
   const pct = input.spxPrice !== undefined && input.spxPrev !== undefined && input.spxPrev > 0
     ? ((input.spxPrice - input.spxPrev) / input.spxPrev) * 100 : undefined;
   state.spx = ease(state.spx, pct ?? 0, k);
-  const spxSz = { big: 6.4, mid: 7.2, font: FONT_NUM };
+  const spxSz = { big: 6.4, mid: 7.2, font: st.fontNum };
   const spxCentre = pct === undefined ? '--' : `${state.spx.toFixed(2).replace(/^(?!-)/, '+')}%`;
   ladder(c, X(527), -1, state.spx, 0.5, 60, sign1, spxCentre, st, spxSz, true);
   ladder(c, X(733), 1, state.gpu, gstep, gppu, gfmt, gfmt(state.gpu), st, { big: 7.6, mid: 12 }, false);

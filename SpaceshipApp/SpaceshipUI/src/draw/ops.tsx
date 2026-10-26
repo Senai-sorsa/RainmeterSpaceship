@@ -6,10 +6,13 @@ import type { Op } from './canvas';
 
 export const pathD = (pts: Pt[], closed: boolean) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('') + (closed ? 'Z' : '');
 
-/** Lua alignment such as 'RightCenter' to SVG text-anchor and dominant-baseline. */
+/** Rainmeter's FontSize is in points; DirectWrite draws it at 96 DPI, so 1 pt is 4/3 px (svg units are skin pixels). */
+export const PT_PX = 4 / 3;
+
+/** Lua alignment such as 'RightCenter' to SVG text-anchor and dominant-baseline. Rainmeter aligns the line box, not the baseline. */
 export function textAlign(align: string): { anchor: string; base: string } {
   const anchor = align.startsWith('Right') ? 'end' : align.startsWith('Center') ? 'middle' : 'start';
-  const base = align.endsWith('Center') ? 'middle' : align.endsWith('Bottom') ? 'alphabetic' : 'hanging';
+  const base = align.endsWith('Center') ? 'central' : align.endsWith('Bottom') ? 'text-after-edge' : 'text-before-edge';
   return { anchor, base };
 }
 
@@ -35,9 +38,11 @@ function OpEl({ op, id }: { op: Op; id: string }) {
       return <rect x={sh.x} y={sh.y} width={sh.w} height={sh.h} rx={sh.r} {...paint} />;
     case 'text': {
       const { anchor, base } = textAlign(sh.align);
+      const px = sh.size * PT_PX;
+      // the skin's Shadow blur is a Direct2D standard deviation; a CSS blur radius is twice that
       const text = (
-        <text x={sh.x} y={sh.y} font-size={sh.size} font-family={sh.font} font-weight={sh.weight} text-anchor={anchor}
-          dominant-baseline={base} fill={paint.fill} style={sh.blur ? { filter: `drop-shadow(0 0 ${sh.blur}px ${paint.fill})` } : undefined}>
+        <text x={sh.x} y={sh.y} font-size={px} font-family={sh.font} font-weight={sh.weight} text-anchor={anchor}
+          dominant-baseline={base} fill={paint.fill} style={sh.blur ? { filter: `drop-shadow(0 0 ${sh.blur * 2}px ${paint.fill})` } : undefined}>
           {sh.text}
         </text>
       );
@@ -46,7 +51,7 @@ function OpEl({ op, id }: { op: Op; id: string }) {
       const left = anchor === 'end' ? sh.x - sh.clipW : anchor === 'middle' ? sh.x - sh.clipW / 2 : sh.x;
       return (
         <g clip-path={`url(#clip-${id})`}>
-          <clipPath id={`clip-${id}`}><rect x={left} y={sh.y - sh.size} width={sh.clipW} height={sh.size * 2} /></clipPath>
+          <clipPath id={`clip-${id}`}><rect x={left} y={sh.y - px} width={sh.clipW} height={px * 2} /></clipPath>
           {text}
         </g>
       );

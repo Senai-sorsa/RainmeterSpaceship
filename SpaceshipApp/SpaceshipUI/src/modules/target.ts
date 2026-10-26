@@ -20,7 +20,6 @@ export type TargetState = {
   rot: number; lockAnim: number; lastName: string;
 };
 export type TargetInput = { name?: string; cpu?: number; ram?: number; todos?: TodoItem[]; todoCount?: number; nowS?: number };
-const FONT_NUM = 'B612 Mono';
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -140,7 +139,7 @@ export function targetFrame(state: TargetState, input: TargetInput, zone: Zone, 
     const nowS = input.nowS ?? Date.now() / 1000;
     c.text(bx0 + bw / 2, by0 + bh / 2, String(input.todoCount ?? todos.length), { size: 8, weight: 700, align: 'CenterCenter', color: RED });
     c.text(bx0 + bw / 2 - 2, cy + 7 * SYR, todo.due === null ? 'NO DUE' : countdown(todo.due - nowS), { size: 7.5, weight: 700, align: 'CenterCenter', color: RED });
-    c.text(cx, cy + R + 12, todoLabel(todo), { size: 6.2, weight: 700, align: 'CenterCenter', color: RED, font: FONT_NUM });
+    c.text(cx, cy + R + 12, todoLabel(todo), { size: 6.2, weight: 700, align: 'CenterCenter', color: RED, font: st.fontNum });
     // the next items: blips on the ring, closer to the centre the sooner they're due (within a week)
     todos.slice(1, 4).forEach((it, i) => {
       if (it.due === null) return;
