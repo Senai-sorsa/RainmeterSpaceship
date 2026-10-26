@@ -1,7 +1,7 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of the 'upkeep' rows of Skins/Spaceship/@Resources/Scripts/status_block.lua: the pending Windows update count
-// (diamond) and the Gmail unread count (envelope). Unknown values show as '--', never as zero. The caller passes
+// (diamond) and the Gmail unread count (envelope). Unknown values show as '-', never as zero. The caller passes
 // them: the update count from the host's Scripts\upkeep.ps1 run (host/statusFeed.ts); mail has no host channel yet. The winget count and the antivirus line sit in the Lua hover text, not ported.
 // Clicks are not wired (they open Windows Update, Gmail and Windows Security through the action gate later).
 
@@ -11,8 +11,8 @@ export type UpkeepInput = {
   mailWhy?: string; // why mail is missing (ERR text or 'off'), set when mail is undefined
 };
 
-/** A count for the block, or -- when unknown or negative. */
-export const count = (v: number | undefined) => (v === undefined || v < 0 ? '--' : String(v));
+/** A count for the block, or - when unknown or negative (status_block.lua n2). */
+export const count = (v: number | undefined) => (v === undefined || v < 0 ? '-' : String(v));
 
 export function upkeepFrame(input: UpkeepInput, zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st);

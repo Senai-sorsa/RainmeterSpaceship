@@ -43,5 +43,7 @@ describe('left column frames', () => {
     const ops = upkeepFrame({ mailWhy: 'no host data' }, zone, st);
     expect(ops.length).toBeGreaterThan(0);
     expect(upkeepFrame({ updates: 0, mail: 3 }, zone, st).length).toBeGreaterThan(0);
+    // status_block.lua n2: an unknown count is a single dash
+    expect(JSON.stringify(upkeepFrame({ mailWhy: 'off' }, zone, st))).toContain('"text":"-"');
   });
 });
