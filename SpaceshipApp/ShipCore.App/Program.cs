@@ -122,6 +122,7 @@ sealed class Overlay : Form
     DateTime _jarvisWrite;
     readonly StatusRunner? _status;
     readonly NetRunner _net;
+    readonly TodoRunner _todo;
 
     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean)
     {
@@ -138,6 +139,11 @@ sealed class Overlay : Form
         if (resources is not null) _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
         if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
         _net = new NetRunner(() => _settings?.Get(["PingHost"]).GetValueOrDefault("PingHost"), () => Visible, Post);
+        _todo = new TodoRunner(() =>
+        {
+            var v = _settings?.Get(["ObsidianTodo", "ReticleTodo"]);
+            return (v?.GetValueOrDefault("ObsidianTodo"), v?.GetValueOrDefault("ReticleTodo") != "0");
+        }, () => Visible, Post);
         if (schemaPath is not null)
         {
             var schema = ConfigSchema.Parse(File.ReadAllText(schemaPath));
@@ -199,6 +205,7 @@ sealed class Overlay : Form
         _jarvisTimer.Start();
         _status?.Start();
         _net.Start();
+        _todo.Start();
     }
 
     protected override CreateParams CreateParams
@@ -308,7 +315,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -459,7 +466,7 @@ sealed class Overlay : Form
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

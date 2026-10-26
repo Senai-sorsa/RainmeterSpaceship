@@ -4,7 +4,7 @@ import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
-import { spxStatus } from '../host/statusFeed';
+import { spxStatus, todoStatus } from '../host/statusFeed';
 import { hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
 import { sphereFrame, sphereState, type SphereState } from './sphere';
@@ -23,6 +23,7 @@ const FRAME_MS = 50; // 20 fps, the full tier of target.lua
 export function CenterModule({ style, sphere = true }: { style: Style; sphere?: boolean }) {
   const m = systemMetrics.value;
   const spx = spxStatus.value;
+  const todo = todoStatus.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
   const rNow = useRef(r);
   rNow.current = r; // the timer below is set once, so it reads the latest readings through this ref
@@ -40,7 +41,7 @@ export function CenterModule({ style, sphere = true }: { style: Style; sphere?: 
   const hudOps = useMemo(() => Z.hud && hudFrame(hud.current, {
     cpuBaseMHz: 2000, cpuPerf: r.mCpuPerf ?? 100, gpuClockMHz: r.mHwGpuClock, gpuLoad: r.mGpuLoad, load: r.mCPU, ...spx,
   }, Z.hud, style), [r, spx, style]);
-  const targetOps = tgt.current && Z.target && targetFrame(tgt.current, { cpu: r.mCPU }, Z.target, style);
+  const targetOps = tgt.current && Z.target && targetFrame(tgt.current, { cpu: r.mCPU, todos: todo.items, todoCount: todo.count }, Z.target, style);
   const sphereOps = sphere ? Z.sphere && sphereFrame(sph.current, { downBps: r.netDown }, Z.sphere, style) : null;
   const place = (zone: typeof Z.hud, ops: Op[] | null | undefined, name: string, mod: string) =>
     zone && ops && (

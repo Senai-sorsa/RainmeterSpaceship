@@ -1,11 +1,13 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import type { Pt } from '../lib/geometry';
+import type { TodoItem } from '../host/statusFeed';
 
 // Port of the usage mode of Skins/Spaceship/@Resources/Scripts/target.lua: the target lock reticle that roams the upper
 // windscreen. It glides to a new spot (smoothstep), dwells one second with a lock pulse, then moves on, and every spot
-// is checked so the whole reticle stays on the glass. Not ported: the Obsidian to-do mode (needs a note-file channel),
-// the sprite haze, the hover text and the clicks (rank change and taskmgr are actions for later).
-// The readout shows rank 1 and -- for memory until per-process figures are fed.
+// is checked so the whole reticle stays on the glass. With open to-dos (host todo.update, ReticleTodo) it locks onto the
+// next one due: count in the box, countdown, label and blips for the next three. Not ported: the sprite haze, the hover
+// text and the clicks (open the note, rank change and taskmgr are actions for later).
+// Without to-dos the readout shows rank 1 and -- for memory until per-process figures are fed.
 
 const SXR = 2560 / 1260, SYR = 1600 / 709;
 const ZX = 412, ZY = 108; // zone origin in reference px (ref_layout C_target) and the windscreen's slanted sides
@@ -17,7 +19,29 @@ export type TargetState = {
   frame: number; pos: Pt; from: Pt; to: Pt | null; t0: number; dur: number; dwellUntil: number;
   rot: number; lockAnim: number; lastName: string;
 };
-export type TargetInput = { name?: string; cpu?: number; ram?: number };
+export type TargetInput = { name?: string; cpu?: number; ram?: number; todos?: TodoItem[]; todoCount?: number; nowS?: number };
+const FONT_NUM = 'B612 Mono';
+const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Time left as target.lua shows it: LATE, 42M, 5H07, 3D. */
+export function countdown(sec: number): string {
+  if (sec < 0) return 'LATE';
+  if (sec < 3600) return `${Math.floor(sec / 60)}M`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}H${pad(Math.floor((sec % 3600) / 60))}`;
+  return `${Math.floor(sec / 86400)}D`;
+}
+
+/** The label under the reticle: the text, cut at 26, then the due day (and time when it has one), local time. */
+export function todoLabel(t: TodoItem): string {
+  let label = t.text.toUpperCase();
+  if (label.length > 26) label = `${label.slice(0, 25)}.`;
+  if (t.due === null) return label;
+  const d = new Date(t.due * 1000);
+  const when = t.timed ? `${DAYS[d.getDay()]} ${pad(d.getHours())}:${pad(d.getMinutes())}` : `${DAYS[d.getDay()]} ${pad(d.getDate())} ${MONTHS[d.getMonth()]}`;
+  return `${label}  |  ${when}`;
+}
 export type Rnd = () => number;
 
 export const targetState = (zone: Zone): TargetState => {
@@ -110,6 +134,24 @@ export function targetFrame(state: TargetState, input: TargetInput, zone: Zone, 
   const bw = 11 * SXR, bh = 11 * SYR;
   const flash = state.lockAnim > 0 && state.lockAnim % 4 < 2;
   c.rect(bx0, by0, bw, bh, RED, 1.8, flash ? 120 : 255);
+  const todos = input.todos ?? [];
+  const todo = todos[0];
+  if (todo) {
+    const nowS = input.nowS ?? Date.now() / 1000;
+    c.text(bx0 + bw / 2, by0 + bh / 2, String(input.todoCount ?? todos.length), { size: 8, weight: 700, align: 'CenterCenter', color: RED });
+    c.text(bx0 + bw / 2 - 2, cy + 7 * SYR, todo.due === null ? 'NO DUE' : countdown(todo.due - nowS), { size: 7.5, weight: 700, align: 'CenterCenter', color: RED });
+    c.text(cx, cy + R + 12, todoLabel(todo), { size: 6.2, weight: 700, align: 'CenterCenter', color: RED, font: FONT_NUM });
+    // the next items: blips on the ring, closer to the centre the sooner they're due (within a week)
+    todos.slice(1, 4).forEach((it, i) => {
+      if (it.due === null) return;
+      const d = Math.max(0, Math.min(1, (it.due - nowS) / (7 * 86400)));
+      const rr = r2 + 8 + (R - r2 - 8) * d;
+      const a = ((rot * 0.3 + i * 120 - 90) * Math.PI) / 180;
+      const x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a);
+      c.poly([[x, y - 5], [x + 5, y], [x, y + 5], [x - 5, y]], HOT, 1.4, 230, true);
+    });
+    return c.flush();
+  }
   c.text(bx0 + bw / 2, by0 + bh / 2, '1', { size: 8, weight: 700, align: 'CenterCenter', color: RED });
   const ram = input.ram ?? 0;
   c.text(bx0 + bw / 2 - 2, cy + 7 * SYR, ram > 0 ? `${Math.round(ram / 1048576)}m` : '--', { size: 7.5, weight: 700, align: 'CenterCenter', color: RED });

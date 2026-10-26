@@ -54,3 +54,20 @@ export function acceptSpxUpdate(m: unknown): void {
   if (o.type !== 'spx.update' || !positive(o.price) || !positive(o.prev)) return;
   spxStatus.value = { spxPrice: o.price as number, spxPrev: o.prev as number, spxOpen: o.open === true };
 }
+
+/** The host's todo.update (ObsidianTodo note, TodoNote.cs): open count and the first few items, soonest due first. */
+export type TodoItem = { text: string; due: number | null; timed: boolean };
+export type TodoStatus = { count: number; items: TodoItem[] };
+export const todoStatus = signal<TodoStatus>({ count: 0, items: [] });
+
+export function acceptTodoUpdate(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'todo.update' || !Number.isInteger(o.count) || (o.count as number) < 0 || !Array.isArray(o.items)) return;
+  const items = o.items.slice(0, 4).flatMap((it: unknown): TodoItem[] => {
+    const t = it as Record<string, unknown> | null;
+    if (!t || typeof t.text !== 'string' || t.text === '') return [];
+    return [{ text: t.text.slice(0, 120), due: Number.isInteger(t.due) ? (t.due as number) : null, timed: t.timed === true }];
+  });
+  todoStatus.value = { count: Math.max(o.count as number, items.length), items };
+}

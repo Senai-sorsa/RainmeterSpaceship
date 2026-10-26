@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import layout from '../src/generated/layout.json';
 import { hudFrame, hudState } from '../src/modules/hud';
 import { sphereFrame, sphereState } from '../src/modules/sphere';
-import { inside, pickNext, targetFrame, targetMove, targetState } from '../src/modules/target';
+import { countdown, inside, pickNext, targetFrame, targetMove, targetState, todoLabel } from '../src/modules/target';
 import { styleFrom } from '../src/modules/style';
 
 const st = styleFrom({});
@@ -46,6 +46,18 @@ describe('target reticle', () => {
     const s = targetState(zone);
     expect(targetFrame(s, {}, zone, st).length).toBeGreaterThan(0);
     expect(targetFrame(s, { cpu: 40, ram: 512 * 1048576 }, zone, st).length).toBeGreaterThan(0);
+  });
+
+  it('to-do mode shows the count, the countdown and the label like target.lua', () => {
+    const todos = [{ text: 'call the dentist about the appointment', due: 7200, timed: false }, { text: 'b', due: 9000, timed: true }, { text: 'c', due: null, timed: false }];
+    const ops = JSON.stringify(targetFrame(targetState(zone), { todos, todoCount: 5, nowS: 0 }, zone, st));
+    expect(ops).toContain('"5"');
+    expect(ops).toContain('2H00');
+    expect(ops).toContain('CALL THE DENTIST ABOUT TH.');
+    expect(JSON.stringify(targetFrame(targetState(zone), { todos: [todos[2]], nowS: 0 }, zone, st))).toContain('NO DUE');
+    expect([countdown(-1), countdown(125), countdown(3600 * 5 + 7 * 60), countdown(86400 * 3)]).toEqual(['LATE', '2M', '5H07', '3D']);
+    expect(todoLabel({ text: 'x', due: null, timed: false })).toBe('X');
+    expect(todoLabel({ text: 'x', due: 0, timed: true })).toMatch(/^X {2}\| {2}[A-Z]{3} \d\d:\d\d$/);
   });
 });
 

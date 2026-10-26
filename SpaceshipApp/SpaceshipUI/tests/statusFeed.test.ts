@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, devStatus, netRows, netStatus, spxStatus, upkeepStatus } from '../src/host/statusFeed';
+import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
 
 describe('acceptStatusUpdate', () => {
   // shapes StatusScripts.ToJson sends (ShipCore.Core.Tests/StatusScriptsTests)
@@ -37,5 +37,14 @@ describe('spx', () => {
     acceptSpxUpdate({ type: 'spx.update', price: 'x', prev: 5750, open: false });
     acceptSpxUpdate({ type: 'spx.update', price: 1, prev: 0, open: false });
     expect(spxStatus.value).toEqual({ spxPrice: 5800.5, spxPrev: 5750, spxOpen: true });
+  });
+});
+
+describe('todo', () => {
+  it('takes todo.update and drops bad items', () => {
+    acceptTodoUpdate({ type: 'todo.update', count: 3, items: [{ text: 'call', due: 100, timed: true }, { text: 5 }, null, { text: 'x', due: 'soon' }] });
+    expect(todoStatus.value).toEqual({ count: 3, items: [{ text: 'call', due: 100, timed: true }, { text: 'x', due: null, timed: false }] });
+    acceptTodoUpdate({ type: 'todo.update', count: -1, items: [] });
+    expect(todoStatus.value.count).toBe(3);
   });
 });
