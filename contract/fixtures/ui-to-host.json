@@ -986,5 +986,9 @@
  { "name": "hit.regions fractional", "valid": false, "msg": { "type": "hit.regions", "rects": [[0.5, 0, 10, 10]], "keyboard": false } },
  { "name": "hit.regions zero width", "valid": false, "msg": { "type": "hit.regions", "rects": [[0, 0, 0, 10]], "keyboard": false } },
  { "name": "hit.regions too far", "valid": false, "msg": { "type": "hit.regions", "rects": [[16385, 0, 10, 10]], "keyboard": false } },
- { "name": "hit.regions string number", "valid": false, "msg": { "type": "hit.regions", "rects": [["0", 0, 10, 10]], "keyboard": false } }
+ { "name": "hit.regions string number", "valid": false, "msg": { "type": "hit.regions", "rects": [["0", 0, 10, 10]], "keyboard": false } },
+ { "name": "app.launch id", "valid": true, "msg": { "type": "app.launch", "id": "chrome" } },
+ { "name": "app.launch path", "valid": false, "msg": { "type": "app.launch", "id": "C:\\Windows\\System32\\cmd.exe" } },
+ { "name": "app.launch no id", "valid": false, "msg": { "type": "app.launch" } },
+ { "name": "app.launch number", "valid": false, "msg": { "type": "app.launch", "id": 5 } }
 ]

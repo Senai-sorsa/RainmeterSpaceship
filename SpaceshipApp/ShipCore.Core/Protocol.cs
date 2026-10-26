@@ -43,6 +43,7 @@ public static class Protocol
             case "flow.open": return Str(m, "flow", out var f) && Flows.Contains(f) ? null : "bad flow";
             case "dial.set": return DialSetProblem(m);
             case "hit.regions": return HitRegionsProblem(m);
+            case "app.launch": return Str(m, "id", out var app) && AppLaunch.Id.IsMatch(app) ? null : "bad app id";
             default: return "unknown type";
         }
     }

@@ -216,7 +216,7 @@ sealed class Overlay : Form
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
-            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits);
+            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp);
         }
         // The full display, taskbar included: the desktop layer lets the taskbar draw over it.
         _home = HomeScreen(_settings).Bounds;
@@ -593,6 +593,24 @@ sealed class Overlay : Form
     // first page load and kept; Reload HUD reads it again, like Rainmeter's Refresh.
     string? _appsJson, _sysJson, _appStateSent;
     IReadOnlyList<string> _appProcs = [];
+    string _appsIni = "";
+    List<string[]> _startApps = [];
+
+    // app.launch: the page names an Apps.ini id; what runs comes from the host's own copy of Apps.ini (AppLaunch), as the skin's
+    // A.launch: an app with a window is brought to the front instead of starting a second copy
+    void LaunchApp(string id)
+    {
+        var plan = AppLaunch.Plan(_appsIni, _startApps, id, File.Exists, Environment.ExpandEnvironmentVariables);
+        if (plan is null) { _log?.WriteLine($"{DateTime.UtcNow:O},LAUNCH_REFUSED,{id}"); return; }
+        var proc = plan.Proc.ToLowerInvariant();
+        if (proc.Length > 0 && !proc.EndsWith(".exe", StringComparison.Ordinal)) proc += ".exe";
+        try
+        {
+            if (proc.Length > 0 && AppWindows.Focus(proc)) return;
+            using var _ = Process.Start(new ProcessStartInfo(plan.File, plan.Args) { UseShellExecute = true });
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { _log?.WriteLine($"{DateTime.UtcNow:O},LAUNCH_FAILED,{id},{e.GetType().Name}"); }
+    }
 
     // apps.state every 3 s (the skin helper: 1.5 s), sent only when it changed: one window walk and one process list per run
     void PushAppStates()
@@ -630,10 +648,10 @@ sealed class Overlay : Form
             if (_appsJson is null)
             {
                 var ini = File.ReadAllText(Path.Combine(_resources, "Apps.ini"));
-                _appsJson = AppsFeed.ToJson(ini,
-                    File.Exists(Path.Combine(_resources, "Data", "StartApps.txt")) ? File.ReadAllText(Path.Combine(_resources, "Data", "StartApps.txt")) : "",
-                    File.Exists, Environment.ExpandEnvironmentVariables);
+                var startText = File.Exists(Path.Combine(_resources, "Data", "StartApps.txt")) ? File.ReadAllText(Path.Combine(_resources, "Data", "StartApps.txt")) : "";
+                _appsJson = AppsFeed.ToJson(ini, startText, File.Exists, Environment.ExpandEnvironmentVariables);
                 _appProcs = AppStates.Procs(ini);
+                _appsIni = ini; _startApps = AppsFeed.Start(startText);
             }
             Post(_appsJson);
         }

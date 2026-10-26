@@ -14,8 +14,9 @@ sealed class WindowsProcessNames : IProcessNames
     }
 }
 
-// Read-only port of the skin helper's windows.txt (Scripts\ShipCore.cs WindowExes / ProcessExes): which exes have an app
-// window, as the taskbar would show it, and which run at all. Names are lower-cased file names with .exe.
+// Port of the skin helper's windows.txt (Scripts\ShipCore.cs WindowExes / ProcessExes): which exes have an app
+// window, as the taskbar would show it, and which run at all (read-only); Focus raises one when an app slot is clicked.
+// Names are lower-cased file names with .exe.
 static class AppWindows
 {
     public static HashSet<string> WithWindow()
@@ -32,6 +33,18 @@ static class AppWindows
         foreach (var p in Process.GetProcesses())
             using (p) try { set.Add(p.ProcessName.ToLowerInvariant() + ".exe"); } catch (InvalidOperationException) { /* exited */ }
         return set;
+    }
+
+    /// <summary>Brings the first app window of exe to the front, restoring it if minimised (the skin helper's focus). False if it has none.</summary>
+    public static bool Focus(string exe)
+    {
+        var found = IntPtr.Zero;
+        var cache = new Dictionary<uint, string>();
+        EnumWindows((h, _) => { if (AppWindowExe(h, cache) == exe) { found = h; return false; } return true; }, IntPtr.Zero);
+        if (found == IntPtr.Zero) return false;
+        if (IsIconic(found)) ShowWindow(found, 9); // SW_RESTORE
+        SetForegroundWindow(found);
+        return true;
     }
 
     static string ExeOf(uint pid, Dictionary<uint, string> cache)
@@ -67,6 +80,9 @@ static class AppWindows
     delegate bool EnumProc(IntPtr h, IntPtr l);
     [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int index);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowTextLength(IntPtr h);

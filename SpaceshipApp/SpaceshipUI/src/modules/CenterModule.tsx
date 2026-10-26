@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
+import type { JSX } from 'preact';
 import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler, skinMs } from '../host/scheduler';
@@ -8,7 +9,8 @@ import { spxStatus, todoStatus, topProcs } from '../host/statusFeed';
 import { hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
 import { sphereFrame, sphereState, type SphereState } from './sphere';
-import { targetFrame, targetMove, targetState, type TargetState } from './target';
+import { reticleBox, targetFrame, targetMove, targetState, type TargetState } from './target';
+import { HitRect } from './hit';
 import { visible } from './hidden';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
@@ -26,7 +28,7 @@ export function CenterModule({ style, sphere = true, hide = '' }: { style: Style
   const m = systemMetrics.value;
   const spx = spxStatus.value;
   const todo = todoStatus.value;
-  const rank = 1; // shortcut: rank 1 only, the click/scroll rank change of target.lua comes with the targeter's clicks
+  const [rank, setRank] = useState(1); // target.lua OnClick / OnScroll: the 1st to 5th busiest process
   const proc = topProcs.value[rank - 1];
   const pNow = useRef(proc);
   pNow.current = proc; // the timer below is set once, so it reads the latest process through this ref
@@ -49,15 +51,19 @@ export function CenterModule({ style, sphere = true, hide = '' }: { style: Style
   }, Z.hud, style), [r, spx, style, Z]);
   const targetOps = tgt.current && Z.target && targetFrame(tgt.current, { rank, cpu: proc?.cpu, ram: proc?.ram, todos: todo.items, todoCount: todo.count }, Z.target, style);
   const sphereOps = sphere && tier < 3 ? Z.sphere && sphereFrame(sph.current, { downBps: r.netDown }, Z.sphere, style) : null;
-  const place = (zone: typeof ZONES.hud, ops: Op[] | null | undefined, name: string, mod: string) =>
+  const place = (zone: typeof ZONES.hud, ops: Op[] | null | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && ops && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={ops} name={name} />
+        {hit}
       </g>
     );
   return (
     <>
-      {place(Z.target, targetOps, 'target', 'center-target')}
+      {place(Z.target, targetOps, 'target', 'center-target', Z.target && tgt.current && !todo.items.length && (
+        <HitRect zone={Z.target} s={style.s} box={reticleBox(tgt.current)} label={`Target ${rank}`}
+          on={{ click: () => setRank((n) => (n % 5) + 1), wheel: (d) => setRank((n) => ((n - 1 + d + 5) % 5) + 1) }} />
+      ))}
       {place(Z.hud, hudOps, 'hud', 'center-hud')}
       {place(Z.sphere, sphereOps, 'sphere', 'center-sphere')}
     </>

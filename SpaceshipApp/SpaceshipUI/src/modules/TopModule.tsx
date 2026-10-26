@@ -76,11 +76,11 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       {place(Z.alert, ops.alert, 'ta', 'alert')}
       {place(Z.settings, ops.settings, 'cs', 'console')}
       {Z.a && (
-        <rect x={Z.a.x} y={Z.a.y} width={Z.a.w} height={Z.a.h} fill="transparent" data-hit style={{ cursor: 'pointer' }}
+        <rect x={Z.a.x * style.s} y={Z.a.y * style.s} width={Z.a.w * style.s} height={Z.a.h * style.s} fill="transparent" data-hit style={{ cursor: 'pointer' }}
           onClick={() => step('a', 1)} onContextMenu={(e) => { e.preventDefault(); step('a', -1); }} />
       )}
       {Z.b && (
-        <rect x={Z.b.x} y={Z.b.y} width={Z.b.w} height={Z.b.h} fill="transparent" data-hit style={{ cursor: 'pointer' }}
+        <rect x={Z.b.x * style.s} y={Z.b.y * style.s} width={Z.b.w * style.s} height={Z.b.h * style.s} fill="transparent" data-hit style={{ cursor: 'pointer' }}
           onClick={() => step('b', 1)} onContextMenu={(e) => { e.preventDefault(); step('b', -1); }} />
       )}
     </>

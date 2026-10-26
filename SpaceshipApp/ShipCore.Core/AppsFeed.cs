@@ -6,7 +6,8 @@ namespace ShipCore.Core;
 /// file targets exist, so the page's catalog (apps.ts, a port of apps.lua) resolves the same targets as the skin. Read-only.</summary>
 public static class AppsFeed
 {
-    public static string ToJson(string ini, string startText, Func<string, bool> exists, Func<string, string> expand)
+    /// <summary>Data\StartApps.txt (Name|AppID lines) as [name, AppID] pairs.</summary>
+    public static List<string[]> Start(string startText)
     {
         var start = new List<string[]>();
         foreach (var line in startText.Split('\n'))
@@ -14,6 +15,12 @@ public static class AppsFeed
             var bar = line.IndexOf('|');
             if (bar > 0) start.Add([line[..bar].Trim(), line[(bar + 1)..].Trim()]);
         }
+        return start;
+    }
+
+    public static string ToJson(string ini, string startText, Func<string, bool> exists, Func<string, string> expand)
+    {
+        var start = Start(startText);
         var found = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var raw in ini.Split('\n'))
         {

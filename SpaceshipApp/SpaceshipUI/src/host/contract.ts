@@ -27,6 +27,7 @@ export function messageProblem(m: unknown): string | null {
     case 'flow.open': return typeof m.flow === 'string' && FLOWS.has(m.flow) ? null : 'bad flow';
     case 'dial.set': return dialSetProblem(m);
     case 'hit.regions': return hitRegionsProblem(m);
+    case 'app.launch': return typeof m.id === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(m.id) ? null : 'bad app id';
     default: return 'unknown type';
   }
 }

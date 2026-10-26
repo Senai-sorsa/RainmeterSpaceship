@@ -4,7 +4,7 @@ import { type App, type Cat, type Catalog } from './apps';
 // Port of Skins/Spaceship/@Resources/Scripts/category.lua: the tab rail (zone 1), the wireframe schematic of the
 // selected app (zone 2) and the page dots (zone 3). The scan line is drawn once and swept by CSS (scanFrame).
 
-const MAXTABS = 4;
+export const MAXTABS = 4;
 
 export type CatState = { first: number; sel: number };
 

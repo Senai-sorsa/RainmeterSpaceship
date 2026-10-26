@@ -7,7 +7,7 @@ import haze from '../../../../Skins/Spaceship/@Resources/Images/haze.png?url';
 // windscreen. It glides to a new spot (smoothstep), dwells one second with a lock pulse, then moves on, and every spot
 // is checked so the whole reticle stays on the glass. With open to-dos (host todo.update, ReticleTodo) it locks onto the
 // next one due: count in the box, countdown, label and blips for the next three. Not ported: the hover
-// text and the clicks (open the note, rank change and taskmgr are actions for later).
+// text, opening the note on a click and taskmgr on a right click (OS actions for later).
 // Without to-dos it locks onto the rank-th busiest process (host procs.top): the rank in the box, its memory below.
 
 const SXR = 2560 / 1260, SYR = 1600 / 709;
@@ -43,6 +43,9 @@ export function todoLabel(t: TodoItem): string {
   return `${label}  |  ${when}`;
 }
 export type Rnd = () => number;
+
+/** target.lua H.hit: the reticle and its readout, in zone px. */
+export const reticleBox = (s: TargetState) => ({ x: s.pos[0] - EXT_L, y: s.pos[1] - EXT_U, w: EXT_L + EXT_R, h: EXT_U + EXT_D });
 
 export const targetState = (zone: Zone): TargetState => {
   const p: Pt = [zone.w / 2, zone.h / 2];

@@ -78,6 +78,8 @@ export function DialModule({ zone, style, setter, sel0 = 1 }: { zone: (typeof la
   return (
     <g transform={`matrix(${zone.matrix.join(' ')})`} data-module="dial" data-hit>
       <OpsView ops={dialFrame(inp, zone, style, sel, note)} name="dl" />
+      {/* the hit shapes are in zone units; Canvas draws at (zone origin + x) * s, so they get the same offset and scale */}
+      <g transform={`translate(${zone.x * style.s} ${zone.y * style.s}) scale(${style.s})`}>
       <circle cx={DIAL_RING.cx} cy={DIAL_RING.cy} r={DIAL_RING.r} fill="transparent" style={{ cursor: 'pointer' }}
         onClick={ringClick} onWheel={(e) => wheel(sel - 1, e)} />
       {DIAL_LABEL_HITS.map((h) => (
@@ -88,6 +90,7 @@ export function DialModule({ zone, style, setter, sel0 = 1 }: { zone: (typeof la
         <circle cx={DIAL_CENTRE.cx} cy={DIAL_CENTRE.cy} r={DIAL_CENTRE.r} fill="transparent" style={{ cursor: 'pointer' }}
           onClick={confirmClick} />
       )}
+      </g>
     </g>
   );
 }
