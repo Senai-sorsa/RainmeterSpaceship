@@ -94,3 +94,20 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .help-title { color: var(--accent); }
 .help-body { overflow: auto; padding: 8px 16px 16px; }
 .help-body p { margin: 0 0 8px; overflow-wrap: anywhere; }
+/* Motion: short, opacity/transform only, nothing running while idle except the FULL-tier scan sweep; off for reduced motion */
+.scan { animation: scan 6.7s linear infinite; } /* category.lua: 1.5% of the zone per 100 ms frame */
+@keyframes scan { to { transform: translateY(var(--scan)); } }
+:is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn, .help-btn, .dot, .group, .group > summary) { transition: color .12s, border-color .12s, box-shadow .12s, background-color .12s; }
+.ctl-switch i { transition: left .15s ease-out, background-color .15s, box-shadow .15s; }
+.cc, .wiz { animation: hud-open .22s ease-out; }
+.help { animation: hud-slide .2s ease-out; }
+.row-help { animation: hud-fade .12s ease-out; }
+.cc::after { content: ''; position: absolute; inset: 0 0 auto; height: 40%; pointer-events: none; opacity: 0; background: linear-gradient(transparent, color-mix(in srgb, var(--accent) 18%, transparent), transparent); animation: hud-sweep .5s ease-out; }
+@keyframes hud-open { from { opacity: 0; transform: scale(.985); } }
+@keyframes hud-slide { from { opacity: 0; transform: translateX(16px); } }
+@keyframes hud-fade { from { opacity: 0; } }
+@keyframes hud-sweep { from { opacity: 1; transform: translateY(-100%); } to { opacity: 0; transform: translateY(250%); } }
+@media (prefers-reduced-motion: reduce) {
+  .scan, .cc, .cc::after, .wiz, .help, .row-help { animation: none; }
+  * { transition: none !important; }
+}

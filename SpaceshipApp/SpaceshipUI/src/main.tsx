@@ -29,6 +29,11 @@ host.onMessage(acceptSpxUpdate);
 host.onMessage(acceptTodoUpdate);
 startPerfTier(systemMetrics, store.values);
 if (host instanceof WebView2Host) startHitRegions(host, document, scheduler); // the browser and the mock have no click-through
+// the host hides the HUD for fullscreen apps and the lock screen; coming back fades in instead of popping
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+    document.documentElement.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, easing: 'ease-out' });
+});
 const q = new URLSearchParams(location.search);
 const panel = q.get('panel'); // dev routes for the shared components
 if (q.get('level') === 'advanced') store.level.value = 'advanced';

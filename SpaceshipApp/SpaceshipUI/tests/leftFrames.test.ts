@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { schematicFrame, dotsFrame, tabsFrame } from '../src/modules/category';
+import { schematicFrame, dotsFrame, scanFrame, tabsFrame } from '../src/modules/category';
 import { fakeCatalog } from '../src/modules/appsSource';
 import { slotRowFrame, slotStatus } from '../src/modules/slot';
 import { upkeepFrame } from '../src/modules/upkeep';
@@ -11,6 +11,14 @@ const dev = fakeCatalog.cats.dev;
 const chrome = fakeCatalog.apps.chrome;
 
 describe('left column frames', () => {
+  it('scan line: two hairlines at the zone top on FULL only, none in edit mode', () => {
+    const ops = scanFrame(zone, st)!;
+    expect(st.tier).toBe(0);
+    expect(ops).toHaveLength(2);
+    expect(scanFrame(zone, { ...st, tier: 1 })).toBeUndefined();
+    expect(scanFrame(zone, { ...st, edit: true })).toBeUndefined();
+  });
+
   it('slot status: RUNNING, READY, NOT FOUND and EMPTY', () => {
     expect(slotStatus(chrome, true).text).toBe('RUNNING');
     expect(slotStatus(chrome, false).text).toBe('READY');

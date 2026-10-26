@@ -6,7 +6,7 @@ import { systemMetrics } from '../host/systemMetrics';
 import { upkeepStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { fakeCatalog } from './appsSource';
-import { dotsFrame, schematicFrame, tabsFrame } from './category';
+import { dotsFrame, scanFrame, schematicFrame, tabsFrame } from './category';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
 import { upkeepFrame } from './upkeep';
@@ -36,6 +36,7 @@ export function LeftModule({ style, hide = '', catalog = fakeCatalog }: { style:
   const ops = useMemo(() => ({
     tabs: Z.tabs && tabsFrame(cat, { first: 1, sel: ai + 1 }, Z.tabs, style),
     cat: Z.category && schematicFrame(app, cat, app ? running(app.proc) : false, Z.category, style),
+    scan: Z.category && scanFrame(Z.category, style),
     dots: Z.dots && dotsFrame(catalog.catOrder.length, ci + 1, Z.dots, style),
     slots: Z.slots.map((zone, i) => {
       const e = entryOf(catalog, catalog.layout[`Slot${i + 1}`] ?? '');
@@ -55,6 +56,11 @@ export function LeftModule({ style, hide = '', catalog = fakeCatalog }: { style:
     <>
       {place(Z.tabs, ops.tabs, 'tabs', 'left-tabs')}
       {place(Z.category, ops.cat, 'cat', 'left-category')}
+      {Z.category && ops.scan && (
+        <g transform={`matrix(${Z.category.matrix.join(' ')})`}>
+          <g class="scan" style={`--scan: ${Z.category.h * style.s}px`}><OpsView ops={ops.scan} name="scan" /></g>
+        </g>
+      )}
       {place(Z.dots, ops.dots, 'dots', 'left-dots')}
       {Z.slots.map((zone, i) => place(zone, ops.slots[i], `slot${i + 1}`, `left-slot${i + 1}`))}
       {place(Z.upkeep, ops.upkeep, 'upkeep', 'left-upkeep')}

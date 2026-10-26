@@ -2,7 +2,7 @@ import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat } from './apps';
 
 // Port of Skins/Spaceship/@Resources/Scripts/category.lua: the tab rail (zone 1), the wireframe schematic of the
-// selected app (zone 2) and the page dots (zone 3). The scan line animation is not ported yet.
+// selected app (zone 2) and the page dots (zone 3). The scan line is drawn once and swept by CSS (scanFrame).
 // shortcut: tab label widths are estimated from the character count, not measured, so a tight rail may not match Rainmeter.
 
 const MAXTABS = 4;
@@ -69,6 +69,19 @@ export function schematicFrame(app: App | undefined, cat: Cat | undefined, runni
     c.icon(cat?.icon ?? 'box', cx, cy - sz * 0.06, sz * 0.62, st.dim, 1.4, 170);
     c.text(cx, cy + sz * 0.36, 'NONE INSTALLED', { size: 7.5, weight: 700, align: 'CenterCenter', color: st.warn });
   }
+  return c.flush();
+}
+
+/**
+ * The schematic's scan line, FULL tier only: two hairlines at the top of the zone. LeftModule sweeps them down with a CSS
+ * animation instead of redrawing (category.lua moves them 1.5% of the height per 100 ms frame: one sweep per 6.7 s).
+ */
+export function scanFrame(zone: Zone, st: Style): Op[] | undefined {
+  if (st.tier !== 0 || st.edit) return undefined; // edit mode's zone outline must not sweep with it
+  const c = new Canvas(zone, st);
+  const cx = zone.w / 2, h2 = Math.min(zone.w, zone.h) * 0.47;
+  c.hair(cx - h2, 0, cx + h2, 0, st.accent, 1.5, 90);
+  c.hair(cx - h2, -6, cx + h2, -6, st.accent, 1, 35);
   return c.flush();
 }
 
