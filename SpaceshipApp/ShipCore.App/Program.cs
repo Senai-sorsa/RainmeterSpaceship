@@ -100,8 +100,9 @@ sealed class Overlay : Form
     readonly MessageRouter? _router;
     SettingsStore? _settings;
     IReadOnlyList<string> _hwKeys = Array.Empty<string>();
-    // The loopback stays stopped until a setting starts it (F3 Audio), so the spectrum is null and no audio device is opened.
+    // The loopback runs while the HUD is shown and Off_BottomAudio is not 1 (AudioCapture); otherwise no audio device is opened.
     readonly WasapiLoopback _loopback = new();
+    long _audioRetryAt;
     readonly WindowsGpuCounters _gpu = new();
     readonly SystemSampler _sampler;
     readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
@@ -156,7 +157,7 @@ sealed class Overlay : Form
             var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship");
             var settingsPath = Path.Combine(appData, "settings.json");
             _settings = new SettingsStore(settingsPath, schema);
-            _hwKeys = schema.Keys.Keys.Where(k => k.StartsWith("HW_", StringComparison.Ordinal)).ToList();
+            _hwKeys = schema.Keys.Keys.Where(k => k.StartsWith("HW_", StringComparison.Ordinal)).Append("Off_BottomAudio").ToList();
             // One-time import from the skin, only on the first run; a dry run is SkinImport.Build alone.
             if (!File.Exists(settingsPath) && resources is not null)
                 _settings.Import(SkinImport.Build(new ConfigStore(resources, schema), schema).Values);
@@ -244,7 +245,7 @@ sealed class Overlay : Form
         base.OnVisibleChanged(e);
         if (_cc is null || !_running) return;
         _cc.IsVisible = Visible;
-        if (!Visible) Suspend(_cc);
+        if (!Visible) { Suspend(_cc); _loopback.Stop(); }
     }
 
     static async void Suspend(CoreWebView2CompositionController cc)
@@ -421,9 +422,20 @@ sealed class Overlay : Form
         try
         {
             var settings = _settings?.Get(_hwKeys) ?? new Dictionary<string, string>();
+            AudioCapture(settings.GetValueOrDefault("Off_BottomAudio") != "1");
             _cc.CoreWebView2.PostWebMessageAsJson(SystemSampler.ToJson(_sampler.Sample(settings, ++_metricsSeq)));
         }
         catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name}"); }
+    }
+
+    // The loopback runs only while the HUD is shown (OnVisibleChanged stops it) and the bottom audio is on.
+    // A device that refuses, or a capture that ended on a lost device, is tried again after 30 s.
+    // shortcut: a new default speaker is picked up only when the old one fails or the HUD is hidden and shown, upgrade with IMMNotificationClient if it matters
+    void AudioCapture(bool want)
+    {
+        if (!want) { _loopback.Stop(); return; }
+        if (Environment.TickCount64 < _audioRetryAt) return;
+        if (!_loopback.Start()) _audioRetryAt = Environment.TickCount64 + 30_000;
     }
 
     // Sends jarvis.update when it changes (a state, the level, or going stale). The file is opened so JARVIS can still replace it.

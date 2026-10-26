@@ -67,6 +67,7 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
     public bool Start()
     {
         if (_running) return true;
+        Stop(); // a pump that ended on a lost device leaves its client behind
         try
         {
             var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
@@ -84,7 +85,8 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
                 _capture = (IAudioCaptureClient)svc;
                 if (_client.Start() != 0) return false;
                 _running = true;
-                _thread = new Thread(() => Pump(channels, rate)) { IsBackground = true, Name = "wasapi-loopback" };
+                var capture = _capture;
+                _thread = new Thread(() => Pump(capture, channels, rate)) { IsBackground = true, Name = "wasapi-loopback" };
                 _thread.Start();
                 return true;
             }
@@ -106,35 +108,42 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
 
     public void Dispose() => Stop();
 
-    private void Pump(int channels, int rate)
+    // The capture is passed in, so Stop clearing the field cannot null it under the loop.
+    private unsafe void Pump(IAudioCaptureClient capture, int channels, int rate)
     {
         var block = new float[Block];
         var filled = 0;
+        long computedAt = 0;
         while (_running)
         {
-            Thread.Sleep(10);
-            if (_capture is null || _capture.GetNextPacketSize(out var packet) != 0) continue;
+            Thread.Sleep(20); // the shared buffer holds 1 s, so 50 wakeups a second lose nothing
+            if (capture.GetNextPacketSize(out var packet) != 0) break; // device lost or changed: end; the host starts again later
             while (packet > 0 && _running)
             {
-                if (_capture.GetBuffer(out var data, out var frames, out var flags, out _, out _) != 0) break;
+                if (capture.GetBuffer(out var data, out var frames, out var flags, out _, out _) != 0) break;
                 var silent = (flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0;
+                var samples = (float*)data;
                 for (var f = 0; f < frames; f++)
                 {
                     // Mono mix of the frame. A silent packet counts as zeros, as the device reported it.
                     var sum = 0f;
                     if (!silent)
-                        for (var c = 0; c < channels; c++) sum += Marshal.PtrToStructure<float>(data + (f * channels + c) * 4);
+                        for (var c = 0; c < channels; c++) sum += samples[f * channels + c];
                     block[filled++] = sum / channels;
                     if (filled == Block)
                     {
-                        Volatile.Write(ref _latest, SpectrumBands.Compute(block, rate, Bands));
+                        // the page gets one frame a second, so at most 4 spectra a second are worth computing
+                        var now = Environment.TickCount64;
+                        if (now - computedAt >= 250) { computedAt = now; Volatile.Write(ref _latest, SpectrumBands.Compute(block, rate, Bands)); }
                         filled = 0;
                     }
                 }
-                _capture.ReleaseBuffer(frames);
-                if (_capture.GetNextPacketSize(out packet) != 0) break;
+                capture.ReleaseBuffer(frames);
+                if (capture.GetNextPacketSize(out packet) != 0) break;
             }
         }
+        _running = false;
+        Volatile.Write(ref _latest, null);
     }
 
     /// <returns>true when the mix format is 32-bit float, with its channel count and sample rate.</returns>

@@ -23,7 +23,8 @@ const Z = {
 };
 
 /** Bottom dash: the systems dial (B_storage), audio dial, the two panels and the two strips. Behind ?module=bottom. The audio dial's clicks are not wired yet. */
-export function BottomModule({ style }: { style: Style }) {
+/** audio false (Off_BottomAudio) leaves the audio zone empty; the host stops its capture on the same setting. */
+export function BottomModule({ style, audio: audioOn = true }: { style: Style; audio?: boolean }) {
   const m = systemMetrics.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
   const [now, setNow] = useState(() => new Date());
@@ -36,7 +37,7 @@ export function BottomModule({ style }: { style: Style }) {
   const ops = useMemo(() => ({
     sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
     sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
-    au: style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
+    au: style.tier >= 3 || !audioOn ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
   }), [r]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({
