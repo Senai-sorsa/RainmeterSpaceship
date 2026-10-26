@@ -19,16 +19,18 @@ const FRAME_MS = 50; // 20 fps, the full tier of target.lua
  * The reticle and the sphere animate on a 20 fps timer; the HUD eases once per host reading. The reticle and sphere
  * show -- or TEST where the host does not supply the figure yet (speed test, per-process CPU and memory, GPU load).
  */
-export function CenterModule({ style }: { style: Style }) {
+export function CenterModule({ style, sphere = true }: { style: Style; sphere?: boolean }) {
   const m = systemMetrics.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
+  const rNow = useRef(r);
+  rNow.current = r; // the timer below is set once, so it reads the latest readings through this ref
   const hud = useRef<HudState>(hudState());
   const sph = useRef<SphereState>(sphereState());
   const tgt = useRef<TargetState | null>(Z.target ? targetState(Z.target) : null);
   const [, setTick] = useState(0);
   useEffect(() => {
     return scheduler.every(FRAME_MS, () => {
-      if (Z.target && tgt.current) targetMove(tgt.current, Z.target, { cpu: r.mCPU }, 1, Math.random);
+      if (Z.target && tgt.current) targetMove(tgt.current, Z.target, { cpu: rNow.current.mCPU }, 1, Math.random);
       setTick((n) => n + 1);
     });
   }, []);
@@ -37,7 +39,7 @@ export function CenterModule({ style }: { style: Style }) {
     cpuBaseMHz: 2000, cpuPerf: r.mCpuPerf ?? 100, gpuClockMHz: r.mHwGpuClock, gpuLoad: r.mGpuLoad, load: r.mCPU,
   }, Z.hud, style), [r, style]);
   const targetOps = tgt.current && Z.target && targetFrame(tgt.current, { cpu: r.mCPU }, Z.target, style);
-  const sphereOps = Z.sphere && sphereFrame(sph.current, { downBps: r.netDown }, Z.sphere, style);
+  const sphereOps = sphere ? Z.sphere && sphereFrame(sph.current, { downBps: r.netDown }, Z.sphere, style) : null;
   const place = (zone: typeof Z.hud, ops: Op[] | null | undefined, name: string, mod: string) =>
     zone && ops && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>

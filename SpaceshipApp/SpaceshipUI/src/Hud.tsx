@@ -18,6 +18,7 @@ import { DrawerModule } from './modules/DrawerModule';
 import { BootModule } from './modules/BootModule';
 import { JarvisModule, JarvisLogModule } from './modules/JarvisModule';
 import { styleFrom } from './modules/style';
+import { modulesOn } from './modules/modulesOn';
 
 const v = (settings as { variables: Record<string, string> }).variables;
 // Skin glow model (lib.lua Canvas:neon, tier 0): outer halo w*GlowWidth*2.1 at GlowAlpha*0.38, glow w*GlowWidth at GlowAlpha, core w.
@@ -28,17 +29,19 @@ const ICONS = ['rocket', 'starship', 'camera', 'book'] as const;
 const iconSet = icons.icons as unknown as Record<string, Prim[]>;
 // ?debug=1 only: the skin draws no zone outlines (only edit mode: Canvas:flush, fill 255,200,0,18 / stroke 255,200,0,200 / width 2).
 const debug = new URLSearchParams(location.search).get('debug') === '1';
-// Modules are off until proven (architecture plan rule 4): ?module=clock turns the mission clock on for checks.
-const clockOn = new URLSearchParams(location.search).get('module') === 'clock';
-const topOn = new URLSearchParams(location.search).get('module') === 'top';
-const bottomOn = new URLSearchParams(location.search).get('module') === 'bottom';
-const leftOn = new URLSearchParams(location.search).get('module') === 'left';
-const rightOn = new URLSearchParams(location.search).get('module') === 'right';
-const centerOn = new URLSearchParams(location.search).get('module') === 'center';
-const drawerOn = new URLSearchParams(location.search).get('module') === 'drawer';
-const bootOn = new URLSearchParams(location.search).get('module') === 'boot';
-const jarvisOn = new URLSearchParams(location.search).get('module') === 'jarvis';
-const jarvisLogOn = new URLSearchParams(location.search).get('module') === 'jarvislog';
+// Modules are off until proven (architecture plan rule 4): ?module=clock turns one on, ?module=top,left a few, ?module=all every one.
+const on = modulesOn(new URLSearchParams(location.search).get('module'));
+const clockOn = on('clock');
+const topOn = on('top');
+const bottomOn = on('bottom');
+const leftOn = on('left');
+const rightOn = on('right');
+const centerOn = on('center');
+const drawerOn = on('drawer');
+const bootOn = on('boot');
+const jarvisOn = on('jarvis');
+const jarvisLogOn = on('jarvislog');
+const anyOn = [clockOn, topOn, bottomOn, leftOn, rightOn, centerOn, drawerOn, bootOn, jarvisOn, jarvisLogOn].some(Boolean);
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 
 function Neon({ d }: { d: string }) {
@@ -82,7 +85,7 @@ export function Hud() {
           </g>
         );
       })}
-      {ICONS.map((name, i) => (
+      {!anyOn && ICONS.map((name, i) => (
         <g transform={`translate(${200 + i * 150} 700) scale(1.2)`} data-icon={name}>
           <Neon d={iconPath(iconSet[name] ?? [])} />
         </g>
@@ -91,7 +94,7 @@ export function Hud() {
       {bottomOn && <BottomModule style={styleFrom(values)} />}
       {leftOn && <LeftModule style={styleFrom(values)} />}
       {rightOn && <RightModule style={styleFrom(values)} />}
-      {centerOn && <CenterModule style={styleFrom(values)} />}
+      {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} />}
       {drawerOn && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
       {jarvisOn && <JarvisModule style={styleFrom(values)} />}
