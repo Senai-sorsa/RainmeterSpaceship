@@ -246,3 +246,14 @@ describe('edit mode', () => {
     expect(outline.stroke).toEqual({ color: [255, 200, 0, 200], width: 2 });
   });
 });
+
+describe('ClipString (H.textWidth)', () => {
+  it('trims number-font text past the clip with an ellipsis, leaves the text font to the clip box', () => {
+    // 5.6 * 1.85 = 10.36 pt, 0.65 em at 4/3 px per pt: 8.98 units a character, so a 40-unit clip fits 4
+    const c = new Canvas(zone, style({ tier: 2 }));
+    c.text(0, 0, 'ABCDEFG', { size: 5.6, font: 'B612 Mono', clip: 40 });
+    c.text(0, 0, 'ABCD', { size: 5.6, font: 'B612 Mono', clip: 40 });
+    c.text(0, 0, 'ABCDEFG', { size: 5.6, clip: 40 });
+    expect(c.flush().map((o) => o.shape.kind === 'text' && o.shape.text)).toEqual(['ABC…', 'ABCD', 'ABCDEFG']);
+  });
+});

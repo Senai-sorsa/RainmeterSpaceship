@@ -54,7 +54,7 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   const panels = useMemo(() => ({
     pl: Z.panelL && panelLeftFrame(leftRows(now, r, info, style.hi), Z.panelL, style),
     pr: Z.panelR && panelRightFrame(rightRows(r, style, info), Z.panelR, style),
-  }), [r, now, Z, info]);
+  }), [r, now, Z, info, style]);
   const place = (zone: typeof ZONES.storage, list: Op[] | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>

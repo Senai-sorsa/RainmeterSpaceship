@@ -1,10 +1,9 @@
-import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of Skins/Spaceship/@Resources/Scripts/sysinfo.lua: the network block (PING, LAN, WAN, live down and up in Mbps)
 // with the Wi-Fi emblem. PING, LAN and WAN come from the host's net.update
 // (host/statusFeed.ts netRows, which applies the IP mask) and show -- until the first reading. The speed-test box shows --
 // (its test is an action, not ported). Clicks and the speed test are not wired.
-// shortcut: text widths are estimated from the character count, not measured, so right-aligned clips may differ slightly.
 
 const SXR = 2560 / 1260, SYR = 1600 / 709; // the skin's design-to-zone scale (sysinfo.lua)
 
@@ -56,11 +55,11 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   const down = input.down === undefined ? '--' : mbps(input.down);
   const xu = X(157);
   c.text(xu, y, up, { size: 5.6, weight: 700, align: 'RightCenter', color: W, font: st.fontNum });
-  const xa = xu - up.length * 5.6 * 0.62 - 5;
+  const xa = xu - textWidth(st, up, 5.6) - 5;
   c.fillPoly([[xa - 3.5, y + 2.5], [xa + 3.5, y + 2.5], [xa, y - 3.5]], A1, 235);
   const xd = xa - 9;
   c.text(xd, y, down, { size: 5.6, weight: 700, align: 'RightCenter', color: W, font: st.fontNum });
-  const xb = xd - down.length * 5.6 * 0.62 - 5;
+  const xb = xd - textWidth(st, down, 5.6) - 5;
   c.fillPoly([[xb - 3.5, y - 2.5], [xb + 3.5, y - 2.5], [xb, y + 3.5]], A1, 235);
   // two rails along the bottom
   const ly = (rx: number, base: number) => base - (10 / 196 - 4 / 187) * (rx - 34) * SYR;

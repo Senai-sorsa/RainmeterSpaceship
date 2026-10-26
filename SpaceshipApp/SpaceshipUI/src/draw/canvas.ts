@@ -43,6 +43,9 @@ export function ramp(st: Style, v: number): RGBA {
   return mix(st.warn, st.alert, (v - 0.9) / 0.1);
 }
 
+/** Width in zone units of text at a skin size, as lib.lua H.textWidth estimates it: 0.65 em per character, pt to px 4/3. Exact for the number font (B612 Mono). */
+export const textWidth = (st: Style, txt: string, size: number) => txt.length * size * (size < 9.5 ? st.textSmall : st.textLarge) * (4 / 3) * 0.65;
+
 /** Points along an arc in degrees (0 = right, clockwise on screen). Segment count defaults as in lib.lua. */
 export function arcPts(cx: number, cy: number, rx: number, ry: number, a0: number, a1: number, segs = Math.max(6, Math.floor(Math.abs(a1 - a0) / 6))): Pt[] {
   const pts: Pt[] = [];
@@ -205,9 +208,13 @@ export class Canvas {
     const st = this.st, base = opts.size ?? 11;
     const tc = opts.color ?? st.text;
     const fill = st.coreWhite > 0 ? mix(tc, st.white, st.coreWhite * 0.5) : tc;
+    const size = base * (base < 9.5 ? st.textSmall : st.textLarge), font = opts.font ?? st.fontText;
+    // ClipString=1 trims the end with an ellipsis; the number font is monospaced, so the fit is exact.
+    // shortcut: proportional fonts only get the clip box, measure the text if their trim must match too
+    const fit = opts.clip !== undefined && font === st.fontNum ? Math.floor(opts.clip / textWidth(st, 'x', base)) : Infinity;
     const shape = {
-      kind: 'text' as const, x, y, text: txt, size: base * (base < 9.5 ? st.textSmall : st.textLarge), align: opts.align ?? 'LeftTop',
-      weight: opts.weight ?? 600, font: opts.font ?? st.fontText, clipW: opts.clip, blur: 0,
+      kind: 'text' as const, x, y, text: txt.length > fit ? txt.slice(0, Math.max(0, fit - 1)) + '…' : txt, size, align: opts.align ?? 'LeftTop',
+      weight: opts.weight ?? 600, font, clipW: opts.clip, blur: 0,
     };
     if (st.tier < 2 && st.textGlow > 0 && opts.glow !== false) {
       this.push('top', { ...shape, blur: st.textGlow }, this.tint(tc, Math.floor((st.textGlowA * (opts.alpha ?? 255)) / 255)));

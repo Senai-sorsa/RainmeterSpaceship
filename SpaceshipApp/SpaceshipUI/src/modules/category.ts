@@ -1,9 +1,8 @@
-import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat, type Catalog } from './apps';
 
 // Port of Skins/Spaceship/@Resources/Scripts/category.lua: the tab rail (zone 1), the wireframe schematic of the
 // selected app (zone 2) and the page dots (zone 3). The scan line is drawn once and swept by CSS (scanFrame).
-// shortcut: tab label widths are estimated from the character count, not measured, so a tight rail may not match Rainmeter.
 
 const MAXTABS = 4;
 
@@ -43,7 +42,7 @@ export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st:
   let total = 0;
   for (let t = 0; t < vis; t++) {
     labels.push(cat!.apps[state.first + t - 1]?.short ?? '');
-    widths.push(labels[t].length * size * 0.62);
+    widths.push(textWidth(st, labels[t], size));
     total += widths[t];
   }
   const MINGAP = 12, MAXGAP = 70;
