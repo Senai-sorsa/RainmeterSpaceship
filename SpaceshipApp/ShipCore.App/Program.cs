@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Web.WebView2.Core;
 using ShipCore.Core;
 
-// Standalone Spaceship app: one transparent window over the desktop, sized to the work area (it stops at the top of the taskbar),
+// Standalone Spaceship app: one transparent window on the desktop layer, sized to the home display (the taskbar draws over it),
 // hosting a composition-mode WebView2 through DirectComposition. Ctrl+Alt+Shift+1 stops the app and everything it started.
 // Never topmost, no hooks, no injection. Tray menu: Start, Stop, Quit.
 static class Program
@@ -64,14 +64,14 @@ sealed class Overlay : Form
     const int WM_NCHITTEST = 0x84, HTTRANSPARENT = -1, HTCLIENT = 1;
     const int WM_MOUSEMOVE = 0x200, WM_LBUTTONDOWN = 0x201, WM_LBUTTONUP = 0x202, WM_MOUSEWHEEL = 0x20A;
     const int WM_RBUTTONDOWN = 0x204, WM_RBUTTONUP = 0x205, WM_MBUTTONDOWN = 0x207, WM_MBUTTONUP = 0x208;
-    const int WM_QUERYENDSESSION = 0x11, WM_ENDSESSION = 0x16, WM_WINDOWPOSCHANGING = 0x46;
+    const int WM_QUERYENDSESSION = 0x11, WM_ENDSESSION = 0x16, WM_WINDOWPOSCHANGING = 0x46, WM_DISPLAYCHANGE = 0x7E;
 
     [StructLayout(LayoutKind.Sequential)]
     struct WindowPos { public IntPtr hwnd, hwndInsertAfter; public int x, y, cx, cy; public uint flags; }
 
     // The placeholder page's one clickable box. The real page sends its own regions (hit.regions).
     static readonly Rectangle Hit = new(80, 80, 360, 220);
-    readonly Rectangle _home;
+    Rectangle _home;
 
     // Where the page takes the mouse. Outside it the window carries WS_EX_TRANSPARENT, so clicks reach the desktop icons and
     // apps under it (HTTRANSPARENT alone only passes them to windows of this thread). The cursor is polled, as Rainmeter does.
@@ -149,16 +149,13 @@ sealed class Overlay : Form
         var menu = new ContextMenuStrip();
         menu.Items.Add("Start", null, (_, _) => Start());
         menu.Items.Add("Stop", null, (_, _) => Stop());
-        var auto = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = _autostart.IsEnabled };
-        auto.Click += (_, _) =>
+        // Autostart is deferred by the user: the menu can only remove a Run entry an earlier build wrote, never add one.
+        if (_autostart.IsEnabled)
         {
-            if (!auto.Checked) { _autostart.Disable(); return; }
-            var problem = _autostart.Enable(Environment.ProcessPath ?? "");
-            if (problem is null) return;
-            auto.Checked = false;
-            _tray.ShowBalloonTip(5000, "Spaceship", problem, ToolTipIcon.Warning);
-        };
-        menu.Items.Add(auto);
+            var auto = new ToolStripMenuItem("Stop starting with Windows");
+            auto.Click += (_, _) => { _autostart.Disable(); menu.Items.Remove(auto); };
+            menu.Items.Add(auto);
+        }
         menu.Items.Add("Quit", null, (_, _) => Quit());
         _tray.Icon = AppIcon(); _tray.Text = "CSpace"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
         if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", $"{KillChord.Label} is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
@@ -323,14 +320,15 @@ sealed class Overlay : Form
         catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},MESSAGE_ERROR,{e.GetType().Name}"); }
     }
 
-    // Renderer exit: reload. Browser exit: a fresh environment. Unresponsive: WebView2 may recover, so only log it.
+    // Renderer exit or hang: reload. Browser exit: a fresh environment. GPU exit: WebView2 starts a new GPU process itself, so only log it.
     void OnProcessFailed(CoreWebView2ProcessFailedEventArgs a)
     {
         _log?.WriteLine($"{DateTime.UtcNow:O},PROCESS_FAILED,{a.ProcessFailedKind}");
         switch (a.ProcessFailedKind)
         {
             // Deferred: the web view cannot be closed from inside its own event.
-            case CoreWebView2ProcessFailedKind.RenderProcessExited: BeginInvoke(new Action(() => Restart(false))); break;
+            case CoreWebView2ProcessFailedKind.RenderProcessExited:
+            case CoreWebView2ProcessFailedKind.RenderProcessUnresponsive: BeginInvoke(new Action(() => Restart(false))); break;
             case CoreWebView2ProcessFailedKind.BrowserProcessExited: BeginInvoke(new Action(() => Restart(true))); break;
         }
     }
@@ -402,10 +400,29 @@ sealed class Overlay : Form
 
     void Quit()
     {
+        TearDown();
+        Application.Exit();
+    }
+
+    bool _tornDown;
+    void TearDown()
+    {
+        if (_tornDown) return;
+        _tornDown = true;
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
         _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
-        Application.Exit();
+    }
+
+    // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.
+    protected override void OnFormClosed(FormClosedEventArgs e) { TearDown(); base.OnFormClosed(e); }
+
+    // Resolution or display set changed: pick the home display again and fill it.
+    void Rehome()
+    {
+        _home = HomeScreen(_settings).Bounds;
+        Bounds = _home;
+        if (_cc is not null) _cc.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
     }
 
     protected override void WndProc(ref Message m)
@@ -414,6 +431,7 @@ sealed class Overlay : Form
         {
             case WM_QUERYENDSESSION: m.Result = _life.OnQueryEndSession() ? (IntPtr)1 : IntPtr.Zero; return; // never block sign-out
             case WM_ENDSESSION: _life.OnEndSession(m.WParam != IntPtr.Zero); if (m.WParam != IntPtr.Zero) Quit(); m.Result = IntPtr.Zero; return;
+            case WM_DISPLAYCHANGE: BeginInvoke(new Action(Rehome)); break; // after Windows finishes moving the screens
             case WM_WINDOWPOSCHANGING:
             {
                 // Any z-order move (a click, Show) is turned into "stay at the bottom", so the HUD never covers an app.
