@@ -10,10 +10,11 @@ import { consoleFrame, type ConsoleConfig, type ConsoleState, type ConsoleView }
 import { graphFrame, graphState, selectSource, type GraphState } from './graph';
 import { type Readings } from './readings';
 import { powerFrame } from './power';
+import { visible } from './hidden';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the top console, read once. Each is drawn in its own skewed matrix. */
-const Z = {
+const ZONES = {
   cpu: zoneOf('G1_cpu'), ram: zoneOf('G4_ram'), a: zoneOf('G2_select'), b: zoneOf('G3_select'), power: zoneOf('T_power'),
   battery: zoneOf('T_battery'), alert: zoneOf('T_alert'), settings: zoneOf('T_settings'),
 };
@@ -25,7 +26,8 @@ const NO_VIEW: ConsoleView = { armed: null, hudHidden: false, msg: '', msgAt: 0 
 type TopState = { cpu: GraphState; ram: GraphState; a: GraphState; b: GraphState; battery: BatteryState; alert: AlertState };
 
 /** Top console: CPU and RAM graphs, two select graphs (GraphA and GraphB sources), power, battery, alert and the console. Behind ?module=top. */
-export function TopModule({ style, values }: { style: Style; values: Record<string, string> }) {
+export function TopModule({ style, values, hide = '' }: { style: Style; values: Record<string, string>; hide?: string }) {
+  const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const [st, setSt] = useState<TopState>(() => ({
     cpu: graphState('cpu'), ram: graphState('ram'), a: graphState(values.GraphA_Source ?? 'gpu'),
@@ -52,10 +54,10 @@ export function TopModule({ style, values }: { style: Style; values: Record<stri
       settings: Z.settings && consoleFrame(NO_STATUS, cfg, NO_VIEW, Z.settings, style, now).ops,
     };
     // cfg and style are not in the deps: a settings change shows on the next host reading
-  }, [m, st]);
+  }, [m, st, Z]);
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
-  const place = (zone: typeof Z.cpu, list: Op[] | undefined, name: string, mod: string) =>
+  const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={list} name={name} />

@@ -10,11 +10,12 @@ import { dotsFrame, schematicFrame, tabsFrame } from './category';
 import { devFrame } from './dev';
 import { type Readings } from './readings';
 import { slotRowFrame } from './slot';
+import { visible } from './hidden';
 import { sysinfoFrame } from './sysinfo';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the right column. Same parts as the left, mirrored, plus the network block and the dev block. */
-const Z = {
+const ZONES = {
   tabs: zoneOf('R_tabs'), category: zoneOf('R_category'), dots: zoneOf('R_dots'), sysinfo: zoneOf('R_sysinfo'), dev: zoneOf('R_dev'),
   slots: [zoneOf('R_app1'), zoneOf('R_app2'), zoneOf('R_app3'), zoneOf('R_app4')],
 };
@@ -24,7 +25,8 @@ const Z = {
  * Behind ?module=right. The catalog is the labelled fixture (see appsSource.ts). Feeds that the host does not supply yet
  * (ping, LAN, WAN, WSL, Ollama, speed test) show --. Clicks are not wired.
  */
-export function RightModule({ style, catalog = fakeCatalog, mask = true }: { style: Style; catalog?: Catalog; mask?: boolean }) {
+export function RightModule({ style, hide = '', catalog = fakeCatalog, mask = true }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean }) {
+  const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const dev = devStatus.value;
   const net = netStatus.value;
@@ -47,8 +49,8 @@ export function RightModule({ style, catalog = fakeCatalog, mask = true }: { sty
     }),
     sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, ...netRows(net, mask) }, Z.sysinfo, style),
     dev: Z.dev && devFrame(dev, Z.dev, style),
-  }), [m, dev, net, mask, ci, ai, catalog, style]);
-  const place = (zone: typeof Z.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
+  }), [m, dev, net, mask, ci, ai, catalog, style, Z]);
+  const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={list} name={name} />

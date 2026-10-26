@@ -21,6 +21,7 @@ import { JarvisModule, JarvisLogModule } from './modules/JarvisModule';
 import { jarvisFeed } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
 import { modulesOn } from './modules/modulesOn';
+import { hiddenZones } from './modules/hidden';
 
 const v = (settings as { variables: Record<string, string> }).variables;
 // Skin glow model (lib.lua Canvas:neon, tier 0): outer halo w*GlowWidth*2.1 at GlowAlpha*0.38, glow w*GlowWidth at GlowAlpha, core w.
@@ -61,9 +62,10 @@ export function Hud() {
   const pad = margins.module + margins.animationBleed;
   // the tier the page computes stands in for the skin's saved PerfTier, so every module draws at it
   const values: Record<string, string> = { ...store.values.value, PerfTier: String(perfTier.value) };
+  const hide = hiddenZones(values); // the Off_ settings, as the skin's control.lua deactivates configs
   return (
     <>
-    <FrameLayers style={frameStyleOf(values)} values={values} />
+    {values.Off_Frame !== '1' && <FrameLayers style={frameStyleOf(values)} values={values} />}
     <svg id="hud" viewBox={`0 0 ${canvas.w} ${canvas.h}`} style={{ width: '100vw', height: '100vh', position: 'relative' }}
       preserveAspectRatio="xMidYMid meet">
       {debug && (
@@ -93,16 +95,16 @@ export function Hud() {
           <Neon d={iconPath(iconSet[name] ?? [])} />
         </g>
       ))}
-      {topOn && <TopModule style={styleFrom(values)} values={values} />}
-      {bottomOn && <BottomModule style={styleFrom(values)} audio={values.Off_BottomAudio !== '1'} />}
-      {leftOn && <LeftModule style={styleFrom(values)} />}
-      {rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} />}
-      {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} />}
-      {drawerOn && <DrawerModule style={styleFrom(values)} />}
+      {topOn && <TopModule style={styleFrom(values)} values={values} hide={hide} />}
+      {bottomOn && <BottomModule style={styleFrom(values)} hide={hide} />}
+      {leftOn && <LeftModule style={styleFrom(values)} hide={hide} />}
+      {rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} hide={hide} />}
+      {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} />}
+      {drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
       {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} />}
       {jarvisLogOn && <JarvisLogModule style={styleFrom(values)} />}
-      {clockOn && clockZone && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
+      {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={fakeCalendar} captions={values.CaptionStyle !== '0'} />}
     </svg>
     <Caption />
     </>

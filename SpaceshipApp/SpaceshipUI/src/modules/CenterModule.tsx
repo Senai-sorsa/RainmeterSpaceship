@@ -9,10 +9,11 @@ import { hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
 import { sphereFrame, sphereState, type SphereState } from './sphere';
 import { targetFrame, targetMove, targetState, type TargetState } from './target';
+import { visible } from './hidden';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the centre: the target reticle, the HUD ladders and the sphere. */
-const Z = { target: zoneOf('C_target'), hud: zoneOf('C_hud'), sphere: zoneOf('C_sphere') };
+const ZONES = { target: zoneOf('C_target'), hud: zoneOf('C_hud'), sphere: zoneOf('C_sphere') };
 const FRAME_MS = 50; // 20 fps, the full tier of target.lua; 10 fps on Lite, parked from Low up
 
 /**
@@ -20,7 +21,8 @@ const FRAME_MS = 50; // 20 fps, the full tier of target.lua; 10 fps on Lite, par
  * The reticle and the sphere animate on a 20 fps timer; the HUD eases once per host reading. The reticle and sphere
  * show -- or TEST where the host does not supply the figure yet (speed test, per-process CPU and memory, GPU load).
  */
-export function CenterModule({ style, sphere = true }: { style: Style; sphere?: boolean }) {
+export function CenterModule({ style, sphere = true, hide = '' }: { style: Style; sphere?: boolean; hide?: string }) {
+  const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const spx = spxStatus.value;
   const todo = todoStatus.value;
@@ -29,23 +31,23 @@ export function CenterModule({ style, sphere = true }: { style: Style; sphere?: 
   rNow.current = r; // the timer below is set once, so it reads the latest readings through this ref
   const hud = useRef<HudState>(hudState());
   const sph = useRef<SphereState>(sphereState());
-  const tgt = useRef<TargetState | null>(Z.target ? targetState(Z.target) : null);
+  const tgt = useRef<TargetState | null>(ZONES.target ? targetState(ZONES.target) : null);
   const [, setTick] = useState(0);
   const tier = style.tier;
   useEffect(() => {
-    if (tier >= 2) return;
+    if (tier >= 2 || (!Z.target && !Z.sphere)) return; // nothing left to animate
     return scheduler.every(FRAME_MS * (tier === 1 ? 2 : 1), () => {
       if (Z.target && tgt.current) targetMove(tgt.current, Z.target, { cpu: rNow.current.mCPU }, 1, Math.random);
       setTick((n) => n + 1);
     });
-  }, [tier]);
+  }, [tier, Z]);
   // the HUD steps once per host reading, so it lives outside the animation tick
   const hudOps = useMemo(() => Z.hud && hudFrame(hud.current, {
     cpuBaseMHz: 2000, cpuPerf: r.mCpuPerf ?? 100, gpuClockMHz: r.mHwGpuClock, gpuLoad: r.mGpuLoad, load: r.mCPU, ...spx,
-  }, Z.hud, style), [r, spx, style]);
+  }, Z.hud, style), [r, spx, style, Z]);
   const targetOps = tgt.current && Z.target && targetFrame(tgt.current, { cpu: r.mCPU, todos: todo.items, todoCount: todo.count }, Z.target, style);
   const sphereOps = sphere && tier < 3 ? Z.sphere && sphereFrame(sph.current, { downBps: r.netDown }, Z.sphere, style) : null;
-  const place = (zone: typeof Z.hud, ops: Op[] | null | undefined, name: string, mod: string) =>
+  const place = (zone: typeof ZONES.hud, ops: Op[] | null | undefined, name: string, mod: string) =>
     zone && ops && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={ops} name={name} />

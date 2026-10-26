@@ -8,11 +8,12 @@ import { entryOf, type Catalog } from './apps';
 import { fakeCatalog } from './appsSource';
 import { dotsFrame, schematicFrame, tabsFrame } from './category';
 import { slotRowFrame } from './slot';
+import { visible } from './hidden';
 import { upkeepFrame } from './upkeep';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the left column. The mission clock (L_location) is its own module and is not drawn here. */
-const Z = {
+const ZONES = {
   tabs: zoneOf('L_tabs'), category: zoneOf('L_category'), dots: zoneOf('L_dots'), upkeep: zoneOf('L_upkeep'),
   slots: [zoneOf('L_app1'), zoneOf('L_app2'), zoneOf('L_app3'), zoneOf('L_app4')],
 };
@@ -22,7 +23,8 @@ const Z = {
  * Behind ?module=left. The catalog is the labelled fixture until the host supplies Apps.ini; the RUNNING state is real
  * (from the host's process list). Panel selection is local state; clicks are not wired yet.
  */
-export function LeftModule({ style, catalog = fakeCatalog }: { style: Style; catalog?: Catalog }) {
+export function LeftModule({ style, hide = '', catalog = fakeCatalog }: { style: Style; hide?: string; catalog?: Catalog }) {
+  const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const up = upkeepStatus.value;
   const [ci, setCi] = useState(0); // index into catalog.catOrder, the page shown
@@ -42,8 +44,8 @@ export function LeftModule({ style, catalog = fakeCatalog }: { style: Style; cat
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: false }, zone, style);
     }),
     upkeep: Z.upkeep && upkeepFrame(up, Z.upkeep, style),
-  }), [m, up, ci, ai, catalog, style]);
-  const place = (zone: typeof Z.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
+  }), [m, up, ci, ai, catalog, style, Z]);
+  const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={list} name={name} />

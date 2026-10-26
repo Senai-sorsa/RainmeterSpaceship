@@ -12,19 +12,21 @@ import { DialModule } from './DialModule';
 import { createDialSetter, DIAL_DEFS, hostDialRunner } from './dialSetter';
 import { ActionGate } from '../actions/gate';
 import { host, store } from '../settings/instance';
+import { visible } from './hidden';
 
 const dialSetter = createDialSetter(store, new ActionGate(DIAL_DEFS, hostDialRunner(host)));
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the bottom dash, read once. Each is drawn in its own skewed matrix. */
-const Z = {
+const ZONES = {
   storage: zoneOf('B_storage'), audio: zoneOf('B_audio'), panelL: zoneOf('B_panelL'), panelR: zoneOf('B_panelR'),
   stripL: zoneOf('B_stripL'), stripR: zoneOf('B_stripR'),
 };
 
 /** Bottom dash: the systems dial (B_storage), audio dial, the two panels and the two strips. Behind ?module=bottom. The audio dial's clicks are not wired yet. */
-/** audio false (Off_BottomAudio) leaves the audio zone empty; the host stops its capture on the same setting. */
-export function BottomModule({ style, audio: audioOn = true }: { style: Style; audio?: boolean }) {
+/** hide (the Off_ settings) leaves those zones empty; for Off_BottomAudio the host also stops its capture. */
+export function BottomModule({ style, hide = '' }: { style: Style; hide?: string }) {
+  const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
   const [now, setNow] = useState(() => new Date());
@@ -37,14 +39,14 @@ export function BottomModule({ style, audio: audioOn = true }: { style: Style; a
   const ops = useMemo(() => ({
     sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
     sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
-    au: style.tier >= 3 || !audioOn ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
-  }), [r]);
+    au: style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
+  }), [r, Z]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({
     pl: Z.panelL && panelLeftFrame(leftRows(now, r.mUptime), Z.panelL, style),
     pr: Z.panelR && panelRightFrame(rightRows(r.mUptime, style), Z.panelR, style),
-  }), [r, now]);
-  const place = (zone: typeof Z.storage, list: Op[] | undefined, name: string, mod: string) =>
+  }), [r, now, Z]);
+  const place = (zone: typeof ZONES.storage, list: Op[] | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={list} name={name} />
