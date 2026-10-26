@@ -11,6 +11,7 @@ import { acceptAppsCatalog, catalogFeed, previewCatalog } from './modules/appsSo
 import { acceptCalendarUpdate } from './modules/calendarSource';
 import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate } from './host/statusFeed';
 import { WebView2Host } from './host/HostBridge';
+import { startPreviewFeed } from './host/previewFeed';
 import { startHitRegions } from './host/hitRegions';
 import { scheduler } from './host/scheduler';
 import { startPerfTier } from './host/perfTier';
@@ -51,7 +52,7 @@ function Root() {
   useEffect(() => {
     // ?preview=1 in a plain browser (no WebView2 host) goes straight to the HUD with the skin's own apps, for screenshot checks
     const preview = q.get('preview') === '1' && !(globalThis as { chrome?: { webview?: unknown } }).chrome?.webview;
-    if (preview) { setWiz(false); previewCatalog().then((c) => { catalogFeed.value = c; }); } else shouldShow(host).then(setWiz);
+    if (preview) { setWiz(false); previewCatalog().then((c) => { catalogFeed.value = c; }); startPreviewFeed(); } else shouldShow(host).then(setWiz);
     host.onMessage((m) => { if (m.type === 'setup.state') setWiz(m.done !== true); });
   }, []);
   if (wiz === null) return null;
