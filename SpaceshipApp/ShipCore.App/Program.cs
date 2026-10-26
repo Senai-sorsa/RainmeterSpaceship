@@ -145,7 +145,7 @@ sealed class Overlay : Form
         var resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
         if (resources is not null) _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
         if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
-        _net = new NetRunner(() => _settings?.Get(["PingHost"]).GetValueOrDefault("PingHost"), () => Visible, Post);
+        _net = new NetRunner(() => _settings?.Get(["PingHost"]).GetValueOrDefault("PingHost"), () => Visible, () => _settings?.Get(["IpMask"]).GetValueOrDefault("IpMask") == "0", Post);
         _todo = new TodoRunner(() =>
         {
             var v = _settings?.Get(["ObsidianTodo", "ReticleTodo"]);
@@ -315,7 +315,7 @@ sealed class Overlay : Form
     {
         try
         {
-            _env ??= await CoreWebView2Environment.CreateAsync(null, Path.Combine(Path.GetTempPath(), "spaceship-app", "wv2"));
+            _env ??= await CoreWebView2Environment.CreateAsync(null, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship", "wv2")); // not %TEMP%: disk cleanup must not wipe a live profile
             var cc = await _env.CreateCoreWebView2CompositionControllerAsync(Handle);
             // WebView2 members may only be touched on the UI thread; an await can resume on a pool thread.
             if (InvokeRequired) BeginInvoke(new Action(() => { try { AttachOnUi(cc); } catch (Exception ex) { Fail(ex); } }));
@@ -333,7 +333,22 @@ sealed class Overlay : Form
         _cc.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
         _cc.DefaultBackgroundColor = Color.Transparent;
         _cc.IsVisible = true;
-        _cc.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false; // right click belongs to the HUD (Top steps back)
+        var s = _cc.CoreWebView2.Settings;
+        s.AreDefaultContextMenusEnabled = false; // right click belongs to the HUD (Top steps back)
+        // An app, not a browser: no host objects (postMessage only), no browser keys (reload, find, print, zoom), dialogs,
+        // status bar, zoom or autofill (MS Learn, "Develop secure WebView2 apps").
+        s.AreHostObjectsAllowed = false;
+        s.AreBrowserAcceleratorKeysEnabled = false;
+        s.AreDefaultScriptDialogsEnabled = false;
+        s.IsStatusBarEnabled = false;
+        s.IsZoomControlEnabled = false;
+        s.IsGeneralAutofillEnabled = false;
+        s.IsPasswordAutosaveEnabled = false;
+#if !DEBUG
+        s.AreDevToolsEnabled = false;
+#endif
+        _cc.CoreWebView2.PermissionRequested += (_, a) => a.State = CoreWebView2PermissionState.Deny; // no mic, camera, location, clipboard read
+        _cc.CoreWebView2.DownloadStarting += (_, a) => a.Cancel = true;
 
         // DirectComposition: a visual tree rooted on this window; WebView2 renders into _dcompVisual.
         Check(DCompositionCreateDevice(IntPtr.Zero, ref IID_IDCompositionDevice, out _dcompDevice), "DCompositionCreateDevice");

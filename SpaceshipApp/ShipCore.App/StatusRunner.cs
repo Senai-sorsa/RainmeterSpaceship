@@ -48,7 +48,8 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
     {
         if (!File.Exists(path)) throw new FileNotFoundException(path);
         var info = new ProcessStartInfo(PowerShell) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
-        foreach (var a in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", path }) info.ArgumentList.Add(a);
+        // RemoteSigned, not Bypass: local scripts run, downloaded ones don't; Bypass and -WindowStyle Hidden are what AV rules flag (CreateNoWindow already hides it).
+        foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", path }) info.ArgumentList.Add(a);
         using var p = Process.Start(info) ?? throw new InvalidOperationException("powershell did not start");
         var read = p.StandardOutput.ReadToEndAsync();
         if (!p.WaitForExit(Timeout))

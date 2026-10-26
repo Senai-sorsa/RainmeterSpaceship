@@ -28,6 +28,8 @@ describe('net', () => {
     expect(netRows({ ping: 23, lan: '10.0.0.2', wan: '' }, false)).toEqual({ ping: 23, lan: '10.0.0.2', wan: '...' });
     expect(netRows({ ping: 0, lan: '', wan: '' }, true)).toEqual({ ping: 0, lan: 'NONE', wan: 'OFFLINE' });
     expect(netRows({ ping: null, lan: null, wan: null }, true)).toEqual({ ping: undefined, lan: undefined, wan: undefined });
+    expect(netRows({ ping: 23, lan: null, wan: null }, true).wan).toBe('XX.XXX.XX.XX'); // masked: never looked up
+    expect(netRows({ ping: 23, lan: null, wan: null }, false).wan).toBeUndefined();
   });
 });
 

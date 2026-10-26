@@ -11,6 +11,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>CSpace</AssemblyName>
     <Product>CSpace</Product>
+    <!-- A full version resource: an exe without one is a reputation and AV heuristic flag. -->
+    <Version>0.1.0</Version>
+    <Company>Senai</Company>
+    <Authors>Senai</Authors>
+    <Description>CSpace desktop HUD</Description>
+    <Copyright>Copyright (c) 2026 Senai</Copyright>
     <ApplicationIcon>Assets\cspace.ico</ApplicationIcon>
   </PropertyGroup>
 

@@ -38,7 +38,8 @@ export function netRows(n: NetStatus, mask: boolean): { ping?: number; lan?: str
   return {
     ping: n.ping ?? undefined,
     lan: n.lan === null ? undefined : n.lan === '' ? 'NONE' : hide(n.lan),
-    wan: n.wan === null ? (lost ? 'OFFLINE' : undefined) : n.wan === '' ? (lost ? 'OFFLINE' : '...') : hide(n.wan),
+    // the host skips the public-IP lookup while masked, so a masked WAN shows the mask once the ping is in
+    wan: n.wan === null ? (lost ? 'OFFLINE' : mask && n.ping != null ? 'XX.XXX.XX.XX' : undefined) : n.wan === '' ? (lost ? 'OFFLINE' : '...') : hide(n.wan),
   };
 }
 
