@@ -33,6 +33,8 @@ export type SystemMetrics = {
   audioDevice: string | null;
   mic: number | null;
   micMuted: boolean | null;
+  /** Battery time left in seconds, on battery once Windows has an estimate; older hosts leave it out. */
+  batteryLife: number | null;
   hw: Record<string, number | null>;
 };
 
@@ -46,8 +48,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 export function systemMetricsFrom(m: unknown): SystemMetrics | null {
   if (!isObj(m) || m.type !== 'system.metrics') return null;
   const { seq, cpuPercent, memoryPercent, uptimeMs, onAc, batteryPercent, netDown, netUp, spectrum, processes, gpuPercent = null, memoryTotal = null, memoryUsed = null, idleMs = null, hw } = m;
-  const { driveTotal = null, driveFree = null, diskIo = null, refreshHz = null, volume = null, volumeMuted = null, audioDevice = null, mic = null, micMuted = null } = m;
-  if (![driveTotal, driveFree, diskIo, refreshHz].every((v) => v === null || isRate(v))) return null;
+  const { driveTotal = null, driveFree = null, diskIo = null, refreshHz = null, volume = null, volumeMuted = null, audioDevice = null, mic = null, micMuted = null, batteryLife = null } = m;
+  if (![driveTotal, driveFree, diskIo, refreshHz, batteryLife].every((v) => v === null || isRate(v))) return null;
   if (![volume, mic].every((v) => v === null || isPct(v)) || ![volumeMuted, micMuted].every((v) => v === null || typeof v === 'boolean')) return null;
   if (!(audioDevice === null || (typeof audioDevice === 'string' && audioDevice.length <= 256))) return null;
   if (!isNum(seq) || !(cpuPercent === null || isPct(cpuPercent)) || !isPct(memoryPercent)) return null;
@@ -65,7 +67,7 @@ export function systemMetricsFrom(m: unknown): SystemMetrics | null {
     memoryTotal: memoryTotal as number | null, memoryUsed: memoryUsed as number | null, idleMs: idleMs as number | null, hw: hw as Record<string, number | null>,
     driveTotal: driveTotal as number | null, driveFree: driveFree as number | null, diskIo: diskIo as number | null, refreshHz: refreshHz as number | null,
     volume: volume as number | null, volumeMuted: volumeMuted as boolean | null, audioDevice: audioDevice as string | null,
-    mic: mic as number | null, micMuted: micMuted as boolean | null,
+    mic: mic as number | null, micMuted: micMuted as boolean | null, batteryLife: batteryLife as number | null,
   };
 }
 
@@ -84,6 +86,7 @@ export function readingsFrom(m: SystemMetrics): Readings {
   if (m.idleMs !== null) r.mIdle = m.idleMs / 1000;
   if (m.driveTotal) { r.mD1Total = m.driveTotal; r.mD1Free = m.driveFree ?? 0; }
   if (m.diskIo !== null) r.mDiskIO = m.diskIo;
+  if (m.batteryLife !== null) r.mLifetime = m.batteryLife;
   if (m.spectrum !== null && m.spectrum.length > 0) {
     m.spectrum.forEach((v, i) => { r[`mBand${i}`] = v; });
     // shortcut: RMS and peak are derived from the bands (mean and max), not measured by the host, upgrade if the audio module needs the real values

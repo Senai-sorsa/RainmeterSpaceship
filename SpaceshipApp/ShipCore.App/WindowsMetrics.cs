@@ -54,6 +54,9 @@ sealed class WindowsMetrics : ISystemMetrics
         return (s.ACLineStatus, s.BatteryLifePercent);
     }
 
+    // BatteryLifeTime is 0xFFFFFFFF (unknown) on AC and while Windows is still estimating
+    public uint? BatteryLifeSec() => GetSystemPowerStatus(out var s) && s.BatteryLifeTime != uint.MaxValue ? s.BatteryLifeTime : null;
+
     public ulong UptimeMs() => GetTickCount64();
 
     // the input time is a 32-bit tick count, so the difference is taken in 32 bits (it wraps every 49 days)

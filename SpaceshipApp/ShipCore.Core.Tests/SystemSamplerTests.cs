@@ -144,6 +144,26 @@ public sealed class SystemSamplerTests
         public ulong UptimeMs() => 5000;
         public (ulong Total, ulong Free)? ReadDrive() { DriveReads++; return (1000, 250); }
         public AudioLevel? ReadAudio(bool capture) { AudioReads++; return capture ? null : new AudioLevel(35, false, "Speakers"); }
+        public uint? BatteryLifeSec() => 3480;
+    }
+
+    private sealed class AcMetrics : ISystemMetrics
+    {
+        public CpuTimes ReadCpuTimes() => new(0, 0, 0);
+        public (ulong Total, ulong Available) ReadMemory() => (100, 40);
+        public (byte AcLine, byte BatteryPercent) ReadPower() => (1, 80);
+        public ulong UptimeMs() => 5000;
+        public uint? BatteryLifeSec() => 3480;
+    }
+
+    [Fact]
+    public void BatteryTimeLeftIsSentOnBatteryOnly()
+    {
+        var onBatt = new SystemSampler(new SlowMetrics(), new FakeRegistry(new())).Sample(new Dictionary<string, string>(), 1);
+        Assert.Equal(3480u, onBatt.BatteryLifeSec);
+        using var doc = JsonDocument.Parse(SystemSampler.ToJson(onBatt));
+        Assert.Equal(3480, doc.RootElement.GetProperty("batteryLife").GetInt32());
+        Assert.Null(new SystemSampler(new AcMetrics(), new FakeRegistry(new())).Sample(new Dictionary<string, string>(), 1).BatteryLifeSec);
     }
 
     [Fact]

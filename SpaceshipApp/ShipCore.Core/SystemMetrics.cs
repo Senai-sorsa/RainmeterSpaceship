@@ -23,6 +23,8 @@ public interface ISystemMetrics
     int? RefreshHz() => null;
     /// <summary>The default speaker (capture false) or microphone (capture true) level; null when there is no such device.</summary>
     AudioLevel? ReadAudio(bool capture) => null;
+    /// <summary>Battery time left in seconds as Windows estimates it; null on AC, while it is still estimating, or with no battery.</summary>
+    uint? BatteryLifeSec() => null;
 }
 
 /// <summary>An audio endpoint's master level, 0 to 100, its mute flag and its Windows name (null when Windows does not say).</summary>

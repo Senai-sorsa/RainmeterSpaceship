@@ -55,7 +55,12 @@ describe('system metrics signal', () => {
   it('maps drive C and the disk I/O to mD1Total, mD1Free and mDiskIO, and keeps the audio fields', () => {
     const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":9,"cpuPercent":null,"memoryPercent":50,"uptimeMs":10,"onAc":null,"batteryPercent":null,"netDown":null,"netUp":null,"spectrum":null,"processes":{},"driveTotal":1000,"driveFree":250,"diskIo":52000,"volume":35,"volumeMuted":true,"audioDevice":"Speakers","hw":{}}'));
     expect(m && readingsFrom(m)).toEqual({ mRamPct: 50, mUptime: 0.01, mD1Total: 1000, mD1Free: 250, mDiskIO: 52000 });
-    expect(m).toMatchObject({ volume: 35, volumeMuted: true, audioDevice: 'Speakers', mic: null, refreshHz: null });
+    expect(m).toMatchObject({ volume: 35, volumeMuted: true, audioDevice: 'Speakers', mic: null, refreshHz: null, batteryLife: null });
+  });
+
+  it('maps the battery time left to mLifetime, as battery.lua reads it', () => {
+    const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":9,"cpuPercent":null,"memoryPercent":50,"uptimeMs":10,"onAc":false,"batteryPercent":40,"netDown":null,"netUp":null,"spectrum":null,"processes":{},"batteryLife":3480,"hw":{}}'));
+    expect(m && readingsFrom(m).mLifetime).toBe(3480);
   });
 
   it('keeps the short names of sys.info and ignores other messages', () => {

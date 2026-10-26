@@ -27,8 +27,14 @@
    "audioDevice": "Speakers (Realtek(R) Audio)",
    "mic": 80,
    "micMuted": true,
+   "batteryLife": null,
    "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
   }
+ },
+ {
+  "name": "a negative battery time left",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": false, "batteryPercent": 50, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "batteryLife": -5, "hw": {} }
  },
  {
   "name": "an audio device name that is not a string",
