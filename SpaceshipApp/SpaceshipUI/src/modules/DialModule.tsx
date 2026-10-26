@@ -5,6 +5,8 @@ import { OpsView } from '../draw/ops';
 import { systemMetrics } from '../host/systemMetrics';
 import { CONTROLS, DIAL_CENTRE, DIAL_LABEL_HITS, DIAL_RING, dialFrame, ringValue, stepValue, valueOf, type DialInput } from './dial';
 import type { DialSetter } from './dialSetter';
+import { host } from '../settings/instance';
+import { controlOpen } from './overlays';
 
 // A range change goes out once the scroll has paused, so a wheel does not flood the system. Stepped changes go at once.
 const SETTLE_MS = 400;
@@ -67,6 +69,13 @@ export function DialModule({ zone, style, setter, sel0 = 1 }: { zone: (typeof la
     const v = ringValue(sel - 1, p.x - DIAL_RING.cx, p.y - DIAL_RING.cy);
     if (v !== undefined) change(sel - 1, v);
   };
+  // dial.lua OnRightClick: the Windows page for the control, the control panel for glow
+  const menu = (i: number, e: MouseEvent) => {
+    e.preventDefault();
+    const id = CONTROLS[i].id;
+    const what = id === 'vol' || id === 'mic' ? 'sound' : id === 'bright' || id === 'hz' ? 'display' : id === 'power' ? 'power' : null;
+    if (what) host.send({ type: 'target.open', what }); else controlOpen.value = true;
+  };
   const confirmClick = async () => {
     if (!confirm) return;
     const r = await setter.confirm(confirm.id);
@@ -81,10 +90,10 @@ export function DialModule({ zone, style, setter, sel0 = 1 }: { zone: (typeof la
       {/* the hit shapes are in zone units; Canvas draws at (zone origin + x) * s, so they get the same offset and scale */}
       <g transform={`translate(${zone.x * style.s} ${zone.y * style.s}) scale(${style.s})`}>
       <circle cx={DIAL_RING.cx} cy={DIAL_RING.cy} r={DIAL_RING.r} fill="transparent" style={{ cursor: 'pointer' }}
-        onClick={ringClick} onWheel={(e) => wheel(sel - 1, e)} />
+        onClick={ringClick} onContextMenu={(e) => menu(sel - 1, e)} onWheel={(e) => wheel(sel - 1, e)} />
       {DIAL_LABEL_HITS.map((h) => (
         <rect x={h.x} y={h.y} width={h.w} height={h.h} fill="transparent" style={{ cursor: 'pointer' }}
-          onClick={() => pick(h.i)} onWheel={(e) => wheel(h.i, e)} />
+          onClick={() => pick(h.i)} onContextMenu={(e) => menu(h.i, e)} onWheel={(e) => wheel(h.i, e)} />
       ))}
       {confirm && (
         <circle cx={DIAL_CENTRE.cx} cy={DIAL_CENTRE.cy} r={DIAL_CENTRE.r} fill="transparent" style={{ cursor: 'pointer' }}

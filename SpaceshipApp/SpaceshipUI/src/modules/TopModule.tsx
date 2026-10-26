@@ -7,11 +7,13 @@ import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { consoleStatus } from '../host/statusFeed';
 import { alertFrame, type AlertState } from './alert';
 import { batteryFrame, type BatteryState } from './battery';
-import { consoleFrame, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
+import { consoleFrame, consoleIntent, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
 import { graphFrame, graphState, selectSource, type GraphState } from './graph';
 import { type Readings } from './readings';
 import { powerFrame } from './power';
 import { visible } from './hidden';
+import { HitRect } from './hit';
+import { controlOpen, drawerOpen } from './overlays';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the top console, read once. Each is drawn in its own skewed matrix. */
@@ -53,10 +55,16 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       power: Z.power && powerFrame({ cpu: r.mHwCpuPower, gpu: r.mHwGpuPower, chargeRate: r.mHwChargeRate }, Z.power, style).ops,
       battery: Z.battery && batteryFrame(r, Z.battery, style, st.battery, now).ops,
       alert: Z.alert && alertFrame(r, Z.alert, style, st.alert).ops,
-      settings: Z.settings && consoleFrame(withHybridMode(cs, values), cfg, NO_VIEW, Z.settings, style, now).ops,
+      settings: Z.settings && consoleFrame(withHybridMode(cs, values), cfg, NO_VIEW, Z.settings, style, now),
     };
     // cfg is not in the deps: a console setting change shows on the next host reading
   }, [m, st, Z, styleKey, cs]);
+  // shortcut: only CARGO and CFG act; the Legion Toolkit, perf, master and HUD buttons need host actions that are not built yet
+  const consoleClick = (k: number) => {
+    const it = consoleIntent(k, withHybridMode(cs, values), cfg, NO_VIEW);
+    if (it.kind === 'ui' && it.name === 'drawer') drawerOpen.value = drawerOpen.value ? null : {};
+    else if (it.kind === 'ui' && it.name === 'control') controlOpen.value = true;
+  };
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
   const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string) =>
@@ -74,7 +82,12 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       {place(Z.power, ops.power, 'pw', 'power')}
       {place(Z.battery, ops.battery, 'tb', 'battery')}
       {place(Z.alert, ops.alert, 'ta', 'alert')}
-      {place(Z.settings, ops.settings, 'cs', 'console')}
+      {Z.settings && ops.settings && (
+        <g transform={`matrix(${Z.settings.matrix.join(' ')})`} data-module="console">
+          <OpsView ops={ops.settings.ops} name="cs" />
+          {ops.settings.hits.map((h) => <HitRect zone={Z.settings!} s={style.s} box={h} label={h.tip || (h.id === 6 ? 'CARGO hold' : 'Console')} on={{ click: () => consoleClick(h.id) }} />)}
+        </g>
+      )}
       {Z.a && (
         <rect x={Z.a.x * style.s} y={Z.a.y * style.s} width={Z.a.w * style.s} height={Z.a.h * style.s} fill="transparent" data-hit style={{ cursor: 'pointer' }}
           onClick={() => step('a', 1)} onContextMenu={(e) => { e.preventDefault(); step('a', -1); }} />

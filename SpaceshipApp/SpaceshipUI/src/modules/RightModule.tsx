@@ -8,7 +8,7 @@ import { appState, appStates, devStatus, netRows, netStatus } from '../host/stat
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed } from './appsSource';
 import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabsFrame } from './category';
-import { HitRect, launch, usePanel } from './hit';
+import { HitRect, launch, openSlot, usePanel } from './hit';
 import { devFrame } from './dev';
 import { type Readings } from './readings';
 import { slotRowFrame } from './slot';
@@ -80,7 +80,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
         const e = slots[i];
         const pickOf = () => (e?.kind === 'cat' ? e.cat.apps[selIndex(e.cat, state)] : e?.app);
         return place(zone, ops.slots[i], `slot${i + 5}`, `right-slot${i + 5}`, zone && e && (
-          <HitRect zone={zone} s={style.s} label={`Slot ${i + 5}`} on={{ click: () => launch(pickOf()), menu: () => launch(pickOf()),
+          <HitRect zone={zone} s={style.s} label={`Slot ${i + 5}`} on={{ click: () => openSlot(e, pickOf()), menu: () => launch(pickOf()),
             wheel: (d) => e.kind === 'cat' && choose(e.cat, selIndex(e.cat, state) + d) }} />
         ));
       })}

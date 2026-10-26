@@ -4,6 +4,7 @@ import { host } from '../settings/instance';
 import type { App, Cat, Catalog } from './apps';
 import { SKIN_STATE } from './appsSource';
 import { selIndex, skinPick } from './category';
+import { drawerOpen } from './overlays';
 
 // The mouse side of the side columns and the reticle (H.hit + OnClick/OnRightClick/OnScroll in the skin's scripts).
 
@@ -29,6 +30,12 @@ export function HitRect({ zone, s, box = { x: 0, y: 0, w: zone.w, h: zone.h }, o
 
 /** apps.lua A.launch: the host looks the id up in its own Apps.ini, so the page never names what runs. */
 export const launch = (app: App | undefined) => { if (app && !app.missing) host.send({ type: 'app.launch', id: app.id }); };
+
+/** slot.lua OnClick (row style): a folder with apps opens the CARGO drawer on it, an empty one does nothing, an app launches. */
+export const openSlot = (e: { kind: 'cat'; cat: Cat } | { kind: 'app'; app: App } | undefined, pick: App | undefined) => {
+  if (e?.kind === 'cat') { if (e.cat.apps.length) drawerOpen.value = { focus: e.cat.id }; }
+  else launch(pick);
+};
 
 const wrap = (i: number, n: number) => ((i % n) + n) % n;
 
