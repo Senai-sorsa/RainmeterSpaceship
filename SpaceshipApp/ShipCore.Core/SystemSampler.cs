@@ -3,15 +3,17 @@ using System.Text.Json;
 namespace ShipCore.Core;
 
 /// <summary>One reading for the page. Null means not available right now: the first CPU figure has no earlier sample, and a HWiNFO value needs the sensor mapped and HWiNFO running.</summary>
-public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPercent, ulong UptimeMs, bool? OnAc, int? BatteryPercent, IReadOnlyDictionary<string, double?> Hw, (double Down, double Up)? Net = null, double[]? Spectrum = null, IReadOnlyDictionary<string, bool>? Processes = null);
+public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPercent, ulong UptimeMs, bool? OnAc, int? BatteryPercent, IReadOnlyDictionary<string, double?> Hw, (double Down, double Up)? Net = null, double[]? Spectrum = null, IReadOnlyDictionary<string, bool>? Processes = null, double? GpuPercent = null);
 
 /// <summary>Builds one frame per call. Keeps the previous CPU and network samples, which the rates need.</summary>
-public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null)
+public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null)
 {
     private CpuTimes? _prev;
     private NetCounters? _prevNet;
     private Dictionary<string, int> _auto = new();
     private int _autoAge = 59; // the first sample matches at once
+    private double? _gpu;
+    private long _gpuAt = -2;
     private static readonly System.Text.RegularExpressions.Regex ProcessName = new(@"^[A-Za-z0-9_.-]{1,64}$");
 
     /// <summary>The WatchProcesses setting: comma-separated executable names. Names with other characters are dropped, and a trailing .exe is removed.</summary>
@@ -47,9 +49,12 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         var hwinfo = new HwinfoSensors(registry, map);
         var hw = map.Keys.ToDictionary(name => name, hwinfo.Read);
 
+        // every 2 s, the value held between: PDH expands every engine instance on each read
+        if (gpu is not null && seq - _gpuAt >= 2) { _gpuAt = seq; _gpu = GpuLoad.Busiest(gpu.Read()); }
+
         var running = processes is null ? null : WatchedNames(settings).ToDictionary(name => name, processes.IsRunning);
 
-        return new SystemFrame(seq, cpuPercent, SystemMetrics.MemoryPercent(total, available), metrics.UptimeMs(), power.OnAc, power.BatteryPercent, hw, rate, spectrum?.Latest, running);
+        return new SystemFrame(seq, cpuPercent, SystemMetrics.MemoryPercent(total, available), metrics.UptimeMs(), power.OnAc, power.BatteryPercent, hw, rate, spectrum?.Latest, running, _gpu);
     }
 
     /// <summary>The message the page receives: type system.metrics, one field per reading, nulls where a reading is missing.</summary>
@@ -66,6 +71,7 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         netUp = f.Net?.Up,
         spectrum = f.Spectrum,
         processes = f.Processes,
+        gpuPercent = f.GpuPercent,
         hw = f.Hw,
     });
 }

@@ -4,12 +4,13 @@ import './ui/ui.css';
 import settings from './generated/settings.json';
 import { themeVars } from './lib/theme';
 import { DEFS, host, store } from './settings/instance';
-import { acceptSystemMetrics } from './host/systemMetrics';
+import { acceptSystemMetrics, systemMetrics } from './host/systemMetrics';
 import { acceptJarvisUpdate } from './host/jarvisFeed';
 import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate } from './host/statusFeed';
 import { WebView2Host } from './host/HostBridge';
 import { startHitRegions } from './host/hitRegions';
 import { scheduler } from './host/scheduler';
+import { startPerfTier } from './host/perfTier';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { Shell } from './ui/Shell';
 import { Wizard } from './ui/Wizard';
@@ -26,6 +27,7 @@ host.onMessage(acceptStatusUpdate);
 host.onMessage(acceptNetUpdate);
 host.onMessage(acceptSpxUpdate);
 host.onMessage(acceptTodoUpdate);
+startPerfTier(systemMetrics, store.values);
 if (host instanceof WebView2Host) startHitRegions(host, document, scheduler); // the browser and the mock have no click-through
 const q = new URLSearchParams(location.search);
 const panel = q.get('panel'); // dev routes for the shared components

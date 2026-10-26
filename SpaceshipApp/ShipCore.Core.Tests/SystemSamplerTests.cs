@@ -116,6 +116,34 @@ public sealed class SystemSamplerTests
         Assert.Null(f.Hw["HW_Fan1"]);
     }
 
+    private sealed class FakeGpu : IGpuCounters
+    {
+        public int Reads { get; private set; }
+        public IReadOnlyList<(string Instance, double Percent)> Read() { Reads++; return [("pid_4_luid_0x1_engtype_3D", 30), ("pid_9_luid_0x1_engtype_3D", 25), ("pid_9_luid_0x1_engtype_Copy", 70)]; }
+    }
+
+    [Fact]
+    public void GpuIsTheBusiestEngineReadEveryTwoSamples()
+    {
+        var m = new FakeMetrics();
+        for (var i = 0; i < 3; i++) m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var gpu = new FakeGpu();
+        var s = new SystemSampler(m, new FakeRegistry(new()), gpu: gpu);
+        Assert.Equal(70.0, s.Sample(new Dictionary<string, string>(), 1).GpuPercent);
+        Assert.Equal(70.0, s.Sample(new Dictionary<string, string>(), 2).GpuPercent);
+        s.Sample(new Dictionary<string, string>(), 3);
+        Assert.Equal(2, gpu.Reads);
+    }
+
+    [Fact]
+    public void BusiestSumsProcessesPerEngineAndClamps()
+    {
+        Assert.Null(GpuLoad.Busiest([]));
+        Assert.Equal(55.0, GpuLoad.Busiest([("pid_4_luid_0x1_engtype_3D", 30), ("pid_9_luid_0x1_engtype_3D", 25), ("pid_9_luid_0x1_engtype_Copy", 10)]));
+        Assert.Equal(100.0, GpuLoad.Busiest([("pid_1_luid_0x1_engtype_3D", 80), ("pid_2_luid_0x1_engtype_3D", 60)]));
+        Assert.Null(GpuLoad.Busiest([("pid_1_luid_0x1_engtype_3D", double.NaN)]));
+    }
+
     [Fact]
     public void TheJsonHasTheFieldsTheFixtureDeclares()
     {

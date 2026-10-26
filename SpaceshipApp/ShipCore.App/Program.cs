@@ -102,6 +102,7 @@ sealed class Overlay : Form
     IReadOnlyList<string> _hwKeys = Array.Empty<string>();
     // The loopback stays stopped until a setting starts it (F3 Audio), so the spectrum is null and no audio device is opened.
     readonly WasapiLoopback _loopback = new();
+    readonly WindowsGpuCounters _gpu = new();
     readonly SystemSampler _sampler;
     readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
     long _metricsSeq;
@@ -132,7 +133,7 @@ sealed class Overlay : Form
     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean)
     {
         _marker = marker;
-        _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames());
+        _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames(), _gpu);
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
@@ -500,7 +501,7 @@ sealed class Overlay : Form
         _marker.MarkCleanExit();
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

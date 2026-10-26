@@ -15,6 +15,8 @@ export type SystemMetrics = {
   spectrum: number[] | null;
   /** Watched process name to whether it is running. */
   processes: Record<string, boolean>;
+  /** The busiest GPU engine, 0 to 100, as Task Manager counts it. Null when the counter is unavailable; older hosts leave it out. */
+  gpuPercent: number | null;
   hw: Record<string, number | null>;
 };
 
@@ -27,17 +29,18 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 /** The reading, or null for anything that is not a valid system.metrics message. */
 export function systemMetricsFrom(m: unknown): SystemMetrics | null {
   if (!isObj(m) || m.type !== 'system.metrics') return null;
-  const { seq, cpuPercent, memoryPercent, uptimeMs, onAc, batteryPercent, netDown, netUp, spectrum, processes, hw } = m;
+  const { seq, cpuPercent, memoryPercent, uptimeMs, onAc, batteryPercent, netDown, netUp, spectrum, processes, gpuPercent = null, hw } = m;
   if (!isNum(seq) || !(cpuPercent === null || isPct(cpuPercent)) || !isPct(memoryPercent)) return null;
   if (!isNum(uptimeMs) || uptimeMs < 0) return null;
   if (!(onAc === null || typeof onAc === 'boolean') || !(batteryPercent === null || isPct(batteryPercent))) return null;
   if (!(netDown === null || isRate(netDown)) || !(netUp === null || isRate(netUp))) return null;
   if (!(spectrum === null || (Array.isArray(spectrum) && spectrum.length <= 64 && spectrum.every(isUnit)))) return null;
   if (!isObj(processes) || !Object.values(processes).every((v) => typeof v === 'boolean')) return null;
+  if (!(gpuPercent === null || isPct(gpuPercent))) return null;
   if (!isObj(hw) || !Object.values(hw).every((v) => v === null || isNum(v))) return null;
   return {
     seq, cpuPercent, memoryPercent, uptimeMs, onAc, batteryPercent, netDown, netUp, spectrum,
-    processes: processes as Record<string, boolean>, hw: hw as Record<string, number | null>,
+    processes: processes as Record<string, boolean>, gpuPercent, hw: hw as Record<string, number | null>,
   };
 }
 
@@ -51,6 +54,7 @@ export function readingsFrom(m: SystemMetrics): Readings {
   if (m.netDown !== null) r.netDown = m.netDown;
   if (m.netUp !== null) r.netUp = m.netUp;
   r.mUptime = m.uptimeMs / 1000;
+  if (m.gpuPercent !== null) r.mGPU = m.gpuPercent;
   if (m.spectrum !== null && m.spectrum.length > 0) {
     m.spectrum.forEach((v, i) => { r[`mBand${i}`] = v; });
     // shortcut: RMS and peak are derived from the bands (mean and max), not measured by the host, upgrade if the audio module needs the real values

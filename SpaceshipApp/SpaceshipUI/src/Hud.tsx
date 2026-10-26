@@ -4,6 +4,7 @@ import settings from './generated/settings.json';
 import { chamferPath, iconPath, inflateQuad, transformBox, type Matrix, type Prim } from './lib/geometry';
 import { num } from './lib/theme';
 import { store } from './settings/instance';
+import { perfTier } from './host/perfTier';
 import { frameStyleOf } from './settings/frameStyle';
 import { FrameLayers } from './ui/FrameLayers';
 import { Caption } from './ui/Caption';
@@ -58,7 +59,8 @@ function Neon({ d }: { d: string }) {
 
 export function Hud() {
   const pad = margins.module + margins.animationBleed;
-  const values = store.values.value;
+  // the tier the page computes stands in for the skin's saved PerfTier, so every module draws at it
+  const values: Record<string, string> = { ...store.values.value, PerfTier: String(perfTier.value) };
   return (
     <>
     <FrameLayers style={frameStyleOf(values)} values={values} />

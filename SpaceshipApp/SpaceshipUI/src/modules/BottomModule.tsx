@@ -36,7 +36,7 @@ export function BottomModule({ style }: { style: Style }) {
   const ops = useMemo(() => ({
     sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
     sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
-    au: Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
+    au: style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
   }), [r]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({

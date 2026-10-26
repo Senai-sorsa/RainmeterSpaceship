@@ -14,6 +14,7 @@
    "netUp": 35000,
    "spectrum": [0.1, 0.4, 0.9, 0.7, 0.3, 0.2, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
    "processes": { "Spotify": true, "obs64": false },
+   "gpuPercent": 42.5,
    "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
   }
  },
@@ -34,6 +35,11 @@
    "processes": {},
    "hw": {}
   }
+ },
+ {
+  "name": "gpu over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": null, "batteryPercent": null, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "gpuPercent": 140, "hw": {} }
  },
  {
   "name": "wrong type",
