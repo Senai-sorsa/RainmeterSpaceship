@@ -11,6 +11,7 @@ import { type Readings } from './readings';
 import { sphereFrame, sphereState, type SphereState } from './sphere';
 import { reticleBox, targetFrame, targetMove, targetState, type TargetState } from './target';
 import { HitRect } from './hit';
+import { host } from '../settings/instance';
 import { visible } from './hidden';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
@@ -60,9 +61,10 @@ export function CenterModule({ style, sphere = true, hide = '' }: { style: Style
     );
   return (
     <>
-      {place(Z.target, targetOps, 'target', 'center-target', Z.target && tgt.current && !todo.items.length && (
-        <HitRect zone={Z.target} s={style.s} box={reticleBox(tgt.current)} label={`Target ${rank}`}
-          on={{ click: () => setRank((n) => (n % 5) + 1), wheel: (d) => setRank((n) => ((n - 1 + d + 5) % 5) + 1) }} />
+      {place(Z.target, targetOps, 'target', 'center-target', Z.target && tgt.current && (
+        <HitRect zone={Z.target} s={style.s} box={reticleBox(tgt.current)} label={todo.items.length ? 'Open the to-do note' : `Target ${rank}`}
+          on={{ click: () => (todo.items.length ? host.send({ type: 'target.open', what: 'todo' }) : setRank((n) => (n % 5) + 1)),
+            menu: () => host.send({ type: 'target.open', what: 'taskmgr' }), wheel: (d) => setRank((n) => ((n - 1 + d + 5) % 5) + 1) }} />
       ))}
       {place(Z.hud, hudOps, 'hud', 'center-hud')}
       {place(Z.sphere, sphereOps, 'sphere', 'center-sphere')}

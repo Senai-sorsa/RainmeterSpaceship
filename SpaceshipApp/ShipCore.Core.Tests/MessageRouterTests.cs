@@ -137,6 +137,18 @@ public sealed class MessageRouterTests : IDisposable
     }
 
     [Fact]
+    public async Task TargetOpenPassesOnlyTheTwoFixedTargets()
+    {
+        var schema = Repo.Schema();
+        var opened = new List<string>();
+        var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), open: opened.Add);
+        Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"taskmgr\"}")).Problem);
+        Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"todo\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"cmd.exe\"}")).Problem);
+        Assert.Equal(["taskmgr", "todo"], opened);
+    }
+
+    [Fact]
     public async Task MalformedJsonIsRefused()
     {
         var r = await _router.HandleAsync("{not json");

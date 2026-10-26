@@ -216,7 +216,7 @@ sealed class Overlay : Form
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
-            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp);
+            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget);
         }
         // The full display, taskbar included: the desktop layer lets the taskbar draw over it.
         _home = HomeScreen(_settings).Bounds;
@@ -610,6 +610,23 @@ sealed class Overlay : Form
             using var _ = Process.Start(new ProcessStartInfo(plan.File, plan.Args) { UseShellExecute = true });
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { _log?.WriteLine($"{DateTime.UtcNow:O},LAUNCH_FAILED,{id},{e.GetType().Name}"); }
+    }
+
+    // target.open (target.lua OnRightClick / OnClick): Task Manager, or the ObsidianTodo note in Obsidian. Both targets are
+    // fixed here; the note is the same rooted, existing .md the to-do reader takes, and its path is never logged
+    void OpenTarget(string what)
+    {
+        string target;
+        if (what == "taskmgr") target = "taskmgr.exe";
+        else
+        {
+            var path = _settings?.Get(["ObsidianTodo"]).GetValueOrDefault("ObsidianTodo")?.Trim().Trim('"');
+            if (string.IsNullOrEmpty(path) || !Path.IsPathFullyQualified(path) || !path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+            { _log?.WriteLine($"{DateTime.UtcNow:O},OPEN_REFUSED,{what}"); return; }
+            target = "obsidian://open?path=" + Uri.EscapeDataString(path);
+        }
+        try { using var _ = Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { _log?.WriteLine($"{DateTime.UtcNow:O},OPEN_FAILED,{what},{e.GetType().Name}"); }
     }
 
     // apps.state every 3 s (the skin helper: 1.5 s), sent only when it changed: one window walk and one process list per run

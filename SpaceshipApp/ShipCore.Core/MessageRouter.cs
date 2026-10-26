@@ -14,16 +14,17 @@ public sealed class MessageRouter
     private readonly HostState _state;
     private readonly DialGate? _dial;
     private readonly HitRegions? _hits;
-    private readonly Action<string>? _launch;
+    private readonly Action<string>? _launch, _open;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
     /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
     /// <param name="launch">Runs an Apps.ini app by id (AppLaunch). Null means app.launch is accepted and ignored.</param>
+    /// <param name="open">The reticle's target.open: "taskmgr" or "todo" (checked by Protocol). Null means it is ignored.</param>
     /// <param name="dial">The systems dial's writes. Null means the dial is not wired and every dial.set is refused.</param>
     /// <param name="hits">Where the page takes the mouse. Null means hit.regions is accepted and ignored.</param>
-    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null)
+    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null)
     {
-        _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial; _hits = hits; _launch = launch;
+        _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial; _hits = hits; _launch = launch; _open = open;
     }
 
     public async Task<Routed> HandleAsync(string json)
@@ -83,6 +84,9 @@ public sealed class MessageRouter
                 return new(null, null);
             case "app.launch":
                 _launch?.Invoke(m.GetProperty("id").GetString()!);
+                return new(null, null);
+            case "target.open":
+                _open?.Invoke(m.GetProperty("what").GetString()!);
                 return new(null, null);
             default: return new(null, null);
         }

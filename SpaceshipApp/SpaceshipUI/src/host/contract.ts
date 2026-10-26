@@ -28,6 +28,7 @@ export function messageProblem(m: unknown): string | null {
     case 'dial.set': return dialSetProblem(m);
     case 'hit.regions': return hitRegionsProblem(m);
     case 'app.launch': return typeof m.id === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(m.id) ? null : 'bad app id';
+    case 'target.open': return m.what === 'taskmgr' || m.what === 'todo' ? null : 'bad target';
     default: return 'unknown type';
   }
 }

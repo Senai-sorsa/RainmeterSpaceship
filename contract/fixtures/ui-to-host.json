@@ -990,5 +990,9 @@
  { "name": "app.launch id", "valid": true, "msg": { "type": "app.launch", "id": "chrome" } },
  { "name": "app.launch path", "valid": false, "msg": { "type": "app.launch", "id": "C:\\Windows\\System32\\cmd.exe" } },
  { "name": "app.launch no id", "valid": false, "msg": { "type": "app.launch" } },
- { "name": "app.launch number", "valid": false, "msg": { "type": "app.launch", "id": 5 } }
+ { "name": "app.launch number", "valid": false, "msg": { "type": "app.launch", "id": 5 } },
+ { "name": "target.open taskmgr", "valid": true, "msg": { "type": "target.open", "what": "taskmgr" } },
+ { "name": "target.open todo", "valid": true, "msg": { "type": "target.open", "what": "todo" } },
+ { "name": "target.open other program", "valid": false, "msg": { "type": "target.open", "what": "cmd.exe" } },
+ { "name": "target.open no what", "valid": false, "msg": { "type": "target.open" } }
 ]
