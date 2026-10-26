@@ -41,3 +41,16 @@ export function netRows(n: NetStatus, mask: boolean): { ping?: number; lan?: str
     wan: n.wan === null ? (lost ? 'OFFLINE' : undefined) : n.wan === '' ? (lost ? 'OFFLINE' : '...') : hide(n.wan),
   };
 }
+
+/** The host's spx.update (Yahoo ^GSPC): the centre HUD's day-change tape. Empty until the first good reply. */
+export type SpxStatus = { spxPrice?: number; spxPrev?: number; spxOpen?: boolean };
+export const spxStatus = signal<SpxStatus>({});
+
+const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+export function acceptSpxUpdate(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'spx.update' || !positive(o.price) || !positive(o.prev)) return;
+  spxStatus.value = { spxPrice: o.price as number, spxPrev: o.prev as number, spxOpen: o.open === true };
+}

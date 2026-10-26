@@ -2,7 +2,7 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of Skins/Spaceship/@Resources/Scripts/hud.lua: the flight HUD. Left ladder = S&P 500 change today, right ladder =
 // GPU (clock in GHz when the host gives it, else load %), the bracket with the CPU-load pointer, and the diamond pipper.
-// The S&P 500 needs the Yahoo fetch, which has no host channel yet, so it shows -- and the CLOSED tag stays off.
+// The S&P 500 comes from the host's spx.update (Yahoo ^GSPC, host/statusFeed.ts) and shows -- until the first good reply.
 // Values ease toward their targets each frame (the caller passes the ease factor; 0.12 on the full tier, 1 otherwise).
 // Clicks are not wired.
 // shortcut: text widths are estimated from the character count, not measured.

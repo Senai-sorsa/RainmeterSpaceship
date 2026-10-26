@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acceptNetUpdate, acceptStatusUpdate, devStatus, netRows, netStatus, upkeepStatus } from '../src/host/statusFeed';
+import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, devStatus, netRows, netStatus, spxStatus, upkeepStatus } from '../src/host/statusFeed';
 
 describe('acceptStatusUpdate', () => {
   // shapes StatusScripts.ToJson sends (ShipCore.Core.Tests/StatusScriptsTests)
@@ -28,5 +28,14 @@ describe('net', () => {
     expect(netRows({ ping: 23, lan: '10.0.0.2', wan: '' }, false)).toEqual({ ping: 23, lan: '10.0.0.2', wan: '...' });
     expect(netRows({ ping: 0, lan: '', wan: '' }, true)).toEqual({ ping: 0, lan: 'NONE', wan: 'OFFLINE' });
     expect(netRows({ ping: null, lan: null, wan: null }, true)).toEqual({ ping: undefined, lan: undefined, wan: undefined });
+  });
+});
+
+describe('spx', () => {
+  it('takes spx.update and keeps the last good one', () => {
+    acceptSpxUpdate({ type: 'spx.update', price: 5800.5, prev: 5750, open: true });
+    acceptSpxUpdate({ type: 'spx.update', price: 'x', prev: 5750, open: false });
+    acceptSpxUpdate({ type: 'spx.update', price: 1, prev: 0, open: false });
+    expect(spxStatus.value).toEqual({ spxPrice: 5800.5, spxPrev: 5750, spxOpen: true });
   });
 });

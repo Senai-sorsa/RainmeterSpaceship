@@ -2,17 +2,18 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using ShipCore.Core;
 
-// The network block's ping, LAN and WAN rows on the skin's schedule (ping 10 s, LAN 30 s, WAN 300 s), only while the HUD
-// is shown. Runs on the UI thread with async I/O; a net.update goes to the page when a value changes.
+// The network block's ping, LAN and WAN rows on the skin's schedule (ping 10 s, LAN 30 s, WAN 300 s) and the centre's S&P 500
+// (5 min open, 1 h closed), only while the HUD is shown. Runs on the UI thread with async I/O; a message goes to the page when
+// a value changes.
 sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Action<string> post) : IDisposable
 {
-    static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10), MaxResponseContentBufferSize = 1024 };
+    static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10), MaxResponseContentBufferSize = 65536 }; // the Yahoo chart reply is a few KB
     readonly System.Windows.Forms.Timer _tick = new() { Interval = 2000 };
     readonly Ping _pinger = new();
-    DateTime _pingDue, _lanDue, _wanDue;
-    bool _pinging, _asking;
+    DateTime _pingDue, _lanDue, _wanDue, _spxDue;
+    bool _pinging, _asking, _spxAsking;
     long? _ping;
-    string? _lan, _wan, _sent;
+    string? _lan, _wan, _sent, _spxSent;
 
     public void Start()
     {
@@ -20,8 +21,8 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Action<string> 
         _tick.Start();
     }
 
-    /// <summary>The last message, for a page that just loaded.</summary>
-    public string? Last => _sent;
+    /// <summary>The last messages, for a page that just loaded.</summary>
+    public IEnumerable<string> Last => new[] { _sent, _spxSent }.OfType<string>();
 
     async void Tick()
     {
@@ -47,6 +48,24 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Action<string> 
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { _wan = ""; }
             finally { _asking = false; }
             Send();
+        }
+        if (now >= _spxDue && !_spxAsking)
+        {
+            _spxDue = now.AddSeconds(Spx.NextSeconds(true)); _spxAsking = true; // a failed fetch retries in 5 min
+            try
+            {
+                // Yahoo refuses requests without a browser user agent; the skin sends the same one.
+                using var req = new HttpRequestMessage(HttpMethod.Get, Spx.Url);
+                req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36");
+                using var res = await Http.SendAsync(req);
+                if (res.IsSuccessStatusCode && Spx.Parse(await res.Content.ReadAsStringAsync(), DateTimeOffset.UtcNow.ToUnixTimeSeconds()) is { } r)
+                {
+                    _spxDue = now.AddSeconds(Spx.NextSeconds(r.Open));
+                    if (r.Json != _spxSent) { _spxSent = r.Json; post(r.Json); }
+                }
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { } // keep the last reading
+            finally { _spxAsking = false; }
         }
     }
 
