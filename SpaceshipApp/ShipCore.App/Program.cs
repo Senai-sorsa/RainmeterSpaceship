@@ -176,6 +176,10 @@ sealed class Overlay : Form
         _life = new Lifecycle(Stop, () => Restart(false));
 
         var menu = new ContextMenuStrip();
+        // the Control Center lives in the page; the tray (or a double-click on the icon) asks the page to open it
+        void OpenControl() { if (_running) Post("{\"type\":\"control.open\"}"); }
+        menu.Items.Add("Control panel", null, (_, _) => OpenControl());
+        _tray.DoubleClick += (_, _) => OpenControl();
         menu.Items.Add("Start", null, (_, _) => Start());
         menu.Items.Add("Stop", null, (_, _) => Stop());
         // Autostart is deferred by the user: the menu can only remove a Run entry an earlier build wrote, never add one.
