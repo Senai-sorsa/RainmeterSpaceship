@@ -73,3 +73,13 @@ Need the user: W2 (training off-PC), T4 (measure live), G1 (measure), U5 wording
   loses moves; cursor shape not forwarded; DPI SystemAware.
 - WatchProcesses has no settings key in contract/config-keys.json, so the watched-process feature is dormant (no UI to set it).
 - Dial stays live (volume/brightness direct, power/refresh confirm) - same as the skin; announce before first live run.
+
+## 2026-10-26 - visual parity against the user's Rainmeter screenshot
+Commits (feature/standalone-host, not pushed): 10e6afb 7810730 02d2b87 32c4ae3 9270ed7 07bab37 162eb45 28b76ca 0e8191f
+f56c8cf c3a508b d379580 895c34b 7000bf3 229cfc4 1ba284e d3b3f84 49db154 1f8715f 54b3caa 1087bc0 5038d4f 5bc5853 2bb0c26 a0bc456.
+- Last gap closed: slot RUNNING / BACKGROUND / READY (host apps.state from EnumWindows + process list, 3 s, on change only).
+- Compared over the wallpaper: hull, glass, scan lines, colours, strip, dials, audio ring, sysinfo, slots, console match.
+- Remaining differences are data or preview-only: app counts (the preview treats every file target as installed; the host
+  uses File.Exists like the skin), orb OFFLINE vs idle, net graph colour (fake sine data), agenda/upkeep content.
+  C.L.O.V.E.R in the screenshot was the pre-reload name: Settings.inc was saved as JarvisName=Jarvis a minute before it.
+- Unverified until a live run: the host reads (COM audio, PDH, WLAN, EnumWindows). Host unit tests are blocked by SAC.
