@@ -12,17 +12,56 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        // A second copy would fight the first for the desktop layer and the kill chord, so it exits quietly.
+        // A second copy would fight the first for the desktop layer and the kill chord, so it asks the first to open its control panel and exits.
         using var single = new Mutex(true, @"Local\CSpace.SingleInstance", out var first);
-        if (!first) return;
+        using var open = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\CSpace.OpenControl");
+        if (!first) { open.Set(); return; }
         var marker = new RunMarker(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship", "running.marker"));
         var lastRunUnclean = marker.LastRunEndedUncleanly();
         marker.MarkRunning(DateTimeOffset.Now);
         // The kill chord is a deliberate stop, so it clears the marker before the process goes.
-        var kill = new KillSwitch(() => { marker.MarkCleanExit(); Process.GetCurrentProcess().Kill(entireProcessTree: true); });
+        // Kill(entireProcessTree) throws on a tree holding the caller, so each child's tree goes first, then this process.
+        var kill = new KillSwitch(() =>
+        {
+            marker.MarkCleanExit();
+            foreach (var pid in ChildPids(Environment.ProcessId))
+                try { using var p = Process.GetProcessById(pid); p.Kill(entireProcessTree: true); }
+                catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { /* already gone */ }
+            Process.GetCurrentProcess().Kill();
+        });
         var hotkey = new HotkeyThread(() => kill.Fire());
-        Application.Run(new Overlay(hotkey.Registered, marker, lastRunUnclean));
+        Application.Run(new Overlay(hotkey.Registered, marker, lastRunUnclean, open));
     }
+
+    // Direct children of a process, from a Toolhelp snapshot (.NET has no parent-pid API).
+    static List<int> ChildPids(int parent)
+    {
+        var list = new List<int>();
+        var snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snap == (IntPtr)(-1)) return list;
+        try
+        {
+            var e = new ProcessEntry32 { dwSize = (uint)Marshal.SizeOf<ProcessEntry32>() };
+            for (var ok = Process32FirstW(snap, ref e); ok; ok = Process32NextW(snap, ref e))
+                // only our helpers (the web view, script runners); an app the HUD opened for the user is theirs and keeps running
+                if (e.th32ParentProcessID == parent && e.th32ProcessID != parent && Helpers.Contains(e.szExeFile)) list.Add((int)e.th32ProcessID);
+        }
+        finally { CloseHandle(snap); }
+        return list;
+    }
+
+    static readonly HashSet<string> Helpers = new(StringComparer.OrdinalIgnoreCase) { "msedgewebview2.exe", "powershell.exe", "pwsh.exe", "conhost.exe", "ping.exe" };
+    const uint TH32CS_SNAPPROCESS = 0x2;
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct ProcessEntry32
+    {
+        public uint dwSize, cntUsage, th32ProcessID; public IntPtr th32DefaultHeapID; public uint th32ModuleID, cntThreads, th32ParentProcessID; public int pcPriClassBase; public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile;
+    }
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32FirstW(IntPtr snap, ref ProcessEntry32 e);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32NextW(IntPtr snap, ref ProcessEntry32 e);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
 }
 
 // The kill chord on its own thread, so it still works when the window is frozen.
@@ -64,6 +103,9 @@ sealed class Overlay : Form
     const int WM_NCHITTEST = 0x84, HTTRANSPARENT = -1, HTCLIENT = 1;
     const int WM_MOUSEMOVE = 0x200, WM_LBUTTONDOWN = 0x201, WM_LBUTTONUP = 0x202, WM_MOUSEWHEEL = 0x20A;
     const int WM_RBUTTONDOWN = 0x204, WM_RBUTTONUP = 0x205, WM_MBUTTONDOWN = 0x207, WM_MBUTTONUP = 0x208;
+    const int WM_LBUTTONDBLCLK = 0x203, WM_RBUTTONDBLCLK = 0x206, WM_MBUTTONDBLCLK = 0x209;
+    const int WM_XBUTTONDOWN = 0x20B, WM_XBUTTONUP = 0x20C, WM_XBUTTONDBLCLK = 0x20D, WM_MOUSEHWHEEL = 0x20E;
+    const int WM_SETTINGCHANGE = 0x1A, SPI_SETWORKAREA = 0x2F, WM_DPICHANGED = 0x2E0;
     const int WM_QUERYENDSESSION = 0x11, WM_ENDSESSION = 0x16, WM_WINDOWPOSCHANGING = 0x46, WM_DISPLAYCHANGE = 0x7E;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -132,7 +174,9 @@ sealed class Overlay : Form
     readonly NetRunner _net;
     readonly TodoRunner _todo;
 
-    public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean)
+    RegisteredWaitHandle? _openWait;
+
+    public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean, EventWaitHandle openControl)
     {
         _marker = marker;
         _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames(), _gpu);
@@ -180,8 +224,12 @@ sealed class Overlay : Form
         void OpenControl() { if (_running) Post("{\"type\":\"control.open\"}"); }
         menu.Items.Add("Control panel", null, (_, _) => OpenControl());
         _tray.DoubleClick += (_, _) => OpenControl();
+        // a second launch signals this event (pool thread); the panel opens on the UI thread
+        _openWait = ThreadPool.RegisterWaitForSingleObject(openControl, (_, _) => { if (IsHandleCreated) BeginInvoke(() => { if (!_running) Start(); OpenControl(); }); }, null, -1, false);
         menu.Items.Add("Start", null, (_, _) => Start());
         menu.Items.Add("Stop", null, (_, _) => Stop());
+        // Rainmeter's Refresh: a fresh page with the restart budget reset
+        menu.Items.Add("Reload HUD", null, (_, _) => { _failures = 0; ReleaseWebView(); Start(); });
         // Autostart is deferred by the user: the menu can only remove a Run entry an earlier build wrote, never add one.
         if (_autostart.IsEnabled)
         {
@@ -194,6 +242,7 @@ sealed class Overlay : Form
             $"Last sample (cpu % of one core, MB, js fps, web cpu %, web MB, web private MB, web processes):\n{_lastSample}\n\n" +
             $"Logs: {Path.Combine(Path.GetTempPath(), "spaceship-app")}",
             "CSpace diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        menu.Items.Add("Open log folder", null, (_, _) => Process.Start("explorer.exe", Path.Combine(Path.GetTempPath(), "spaceship-app"))?.Dispose());
         menu.Items.Add("Quit", null, (_, _) => Quit());
         _tray.Icon = AppIcon(); _tray.Text = "CSpace"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
         if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", $"{KillChord.Label} is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
@@ -249,7 +298,8 @@ sealed class Overlay : Form
     {
         base.OnVisibleChanged(e);
         // the per-frame timers do nothing while hidden, so they don't wake the CPU then (30 + 5 + 1 wakeups a second)
-        _cursor.Enabled = _jarvisTimer.Enabled = _metricsTimer.Enabled = Visible && _running;
+        _cursor.Enabled = _jarvisTimer.Enabled = _metricsTimer.Enabled = Visible && _running && !_covered;
+        if (_covered) _loopback.Stop();
         if (_cc is null || !_running) return;
         _cc.IsVisible = Visible;
         if (!Visible) { Suspend(_cc); _loopback.Stop(); }
@@ -365,13 +415,14 @@ sealed class Overlay : Form
         _cc.RootVisualTarget = Marshal.GetObjectForIUnknown(_dcompVisual); // the wrapper needs a COM object, not a raw pointer
         Check(Vcall<Commit>(_dcompDevice, 3)(_dcompDevice), "Commit");
 
-        _cc.CursorChanged += (_, _) => Cursor = Cursors.Default; // cursor shape not forwarded yet
+        // the page's cursor (hand over buttons, text bar in fields); the handle belongs to WebView2, so it is not disposed here
+        _cc.CursorChanged += (_, _) => { try { Cursor = new Cursor(_cc.Cursor); } catch (Exception e) when (e is COMException or ArgumentException or InvalidOperationException) { Cursor = Cursors.Default; } };
         _cc.CoreWebView2.WebMessageReceived += (_, a) => OnWebMessage(a);
         _cc.CoreWebView2.ProcessFailed += (_, a) => OnProcessFailed(a);
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -422,7 +473,12 @@ sealed class Overlay : Form
     void Restart(bool freshEnvironment)
     {
         if (!_running) return;
-        if (++_failures > MaxRestarts) { _log?.WriteLine($"{DateTime.UtcNow:O},GIVING_UP,{_failures}"); Stop(); return; }
+        if (++_failures > MaxRestarts)
+        {
+            _log?.WriteLine($"{DateTime.UtcNow:O},GIVING_UP,{_failures}"); Stop();
+            _tray.ShowBalloonTip(8000, "CSpace", "The HUD kept crashing, so it is stopped. Use Reload HUD in the tray to try again.", ToolTipIcon.Error);
+            return;
+        }
         ReleaseWebView();
         if (freshEnvironment) _env = null;
         Start();
@@ -436,11 +492,20 @@ sealed class Overlay : Form
         var snap = _snapshots.Take();
         var decision = _policy.Decide(snap);
         _lastReason = decision.Reason;
-        var show = decision.Visibility == Visibility.Show && !_locked;
+        var covered = decision.Visibility == Visibility.Covered;
+        var show = (decision.Visibility == Visibility.Show || covered) && !_locked;
         if (show != Visible) _log?.WriteLine($"{DateTime.UtcNow:O},{(show ? "SHOW" : "HIDE")},{decision.Reason}{(_locked ? " (locked)" : "")} [{snap.Foreground?.ClassName}/{snap.Foreground?.Process}]");
         if (show) { if (!Visible) Show(); }
         else if (Visible) Hide();
+        if (covered != _covered)
+        {
+            _covered = covered;
+            _log?.WriteLine($"{DateTime.UtcNow:O},{(covered ? "COVERED" : "UNCOVERED")},[{snap.Foreground?.ClassName}/{snap.Foreground?.Process}]");
+            Post($"{{\"type\":\"host.occluded\",\"on\":{(covered ? "true" : "false")}}}");
+            OnVisibleChanged(EventArgs.Empty); // re-gate the timers
+        }
     }
+    bool _covered; // a fullscreen window is in front: shown, but nothing is sampled or animated
 
     // WebView2 bug (WebView2Feedback #5668, open): with visual hosting the browser process keeps an alpha-0 layered top-level
     // window the size of ours right above it, and it still hit-tests, so it swallows every click meant for the HUD and the
@@ -566,6 +631,7 @@ sealed class Overlay : Form
         _tornDown = true;
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
+        _openWait?.Unregister(null);
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
         _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
@@ -588,7 +654,8 @@ sealed class Overlay : Form
         {
             case WM_QUERYENDSESSION: m.Result = _life.OnQueryEndSession() ? (IntPtr)1 : IntPtr.Zero; return; // never block sign-out
             case WM_ENDSESSION: _life.OnEndSession(m.WParam != IntPtr.Zero); if (m.WParam != IntPtr.Zero) Quit(); m.Result = IntPtr.Zero; return;
-            case WM_DISPLAYCHANGE: BeginInvoke(new Action(Rehome)); break; // after Windows finishes moving the screens
+            case WM_DISPLAYCHANGE: case WM_DPICHANGED: BeginInvoke(new Action(Rehome)); break; // after Windows finishes moving the screens
+            case WM_SETTINGCHANGE when m.WParam == (IntPtr)SPI_SETWORKAREA: BeginInvoke(new Action(Rehome)); break; // taskbar moved or resized
             case WM_WINDOWPOSCHANGING:
             {
                 // Any z-order move (a click, Show) is turned into "stay at the bottom", so the HUD never covers an app.
@@ -606,9 +673,13 @@ sealed class Overlay : Form
                 // The page is showing something to type into: take the keyboard (the window never activates by itself).
                 if (_hits.Keyboard && _cc is not null) { SetForegroundWindow(Handle); _cc.MoveFocus(CoreWebView2MoveFocusReason.Programmatic); }
                 ForwardMouse(m); return;
-            case WM_MOUSEMOVE: case WM_LBUTTONUP: case WM_MOUSEWHEEL:
+            case WM_MOUSEMOVE: case WM_LBUTTONUP: case WM_MOUSEWHEEL: case WM_MOUSEHWHEEL:
             case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_MBUTTONDOWN: case WM_MBUTTONUP:
-                ForwardMouse(m); return;
+            case WM_LBUTTONDBLCLK: case WM_RBUTTONDBLCLK: case WM_MBUTTONDBLCLK:
+            case WM_XBUTTONDOWN: case WM_XBUTTONUP: case WM_XBUTTONDBLCLK:
+                ForwardMouse(m);
+                if (m.Msg is WM_XBUTTONDOWN or WM_XBUTTONUP or WM_XBUTTONDBLCLK) m.Result = (IntPtr)1; // X buttons say they were handled
+                return;
         }
         base.WndProc(ref m);
     }
@@ -618,20 +689,31 @@ sealed class Overlay : Form
         if (_cc is null) return;
         var lp = m.LParam.ToInt64();
         var pt = new Point((short)(lp & 0xFFFF), (short)((lp >> 16) & 0xFFFF));
-        if (m.Msg == WM_MOUSEWHEEL) pt = PointToClient(pt); // wheel coordinates are screen-relative
+        var wheel = m.Msg is WM_MOUSEWHEEL or WM_MOUSEHWHEEL;
+        if (wheel) pt = PointToClient(pt); // wheel coordinates are screen-relative
         var kind = m.Msg switch
         {
             WM_MOUSEMOVE => CoreWebView2MouseEventKind.Move,
             WM_LBUTTONDOWN => CoreWebView2MouseEventKind.LeftButtonDown,
             WM_LBUTTONUP => CoreWebView2MouseEventKind.LeftButtonUp,
+            WM_LBUTTONDBLCLK => CoreWebView2MouseEventKind.LeftButtonDoubleClick,
             WM_RBUTTONDOWN => CoreWebView2MouseEventKind.RightButtonDown,
             WM_RBUTTONUP => CoreWebView2MouseEventKind.RightButtonUp,
+            WM_RBUTTONDBLCLK => CoreWebView2MouseEventKind.RightButtonDoubleClick,
             WM_MBUTTONDOWN => CoreWebView2MouseEventKind.MiddleButtonDown,
             WM_MBUTTONUP => CoreWebView2MouseEventKind.MiddleButtonUp,
+            WM_MBUTTONDBLCLK => CoreWebView2MouseEventKind.MiddleButtonDoubleClick,
+            WM_XBUTTONDOWN => CoreWebView2MouseEventKind.XButtonDown,
+            WM_XBUTTONUP => CoreWebView2MouseEventKind.XButtonUp,
+            WM_XBUTTONDBLCLK => CoreWebView2MouseEventKind.XButtonDoubleClick,
+            WM_MOUSEHWHEEL => CoreWebView2MouseEventKind.HorizontalWheel,
             _ => CoreWebView2MouseEventKind.Wheel,
         };
-        var data = m.Msg == WM_MOUSEWHEEL ? (uint)(short)((m.WParam.ToInt64() >> 16) & 0xFFFF) : 0u;
-        _cc.SendMouseInput(kind, CoreWebView2MouseEventVirtualKeys.None, data, pt);
+        var hi = (m.WParam.ToInt64() >> 16) & 0xFFFF;
+        // wheel: signed delta; X buttons: which one (1 or 2); the MK_ flags in the low word map 1:1 onto the virtual keys
+        var data = wheel ? (uint)(short)hi : m.Msg is WM_XBUTTONDOWN or WM_XBUTTONUP or WM_XBUTTONDBLCLK ? (uint)hi : 0u;
+        var keys = (CoreWebView2MouseEventVirtualKeys)(m.WParam.ToInt64() & 0x7F);
+        _cc.SendMouseInput(kind, keys, data, pt);
     }
 
     void Sample()

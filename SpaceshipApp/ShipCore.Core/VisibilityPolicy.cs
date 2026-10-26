@@ -1,6 +1,8 @@
 namespace ShipCore.Core;
 
-public enum Visibility { Show, Hide, Suspend }
+// Covered: a fullscreen window is in front. The HUD stays shown (as Rainmeter's skins do) and only stops animating,
+// so a wrong guess never makes it flicker or vanish.
+public enum Visibility { Show, Hide, Suspend, Covered }
 public sealed record VisibilityDecision(Visibility Visibility, string Reason);
 
 /// <summary>Pure decision from a snapshot: stay out of the way of fullscreen apps and of exam browsers. No window handles, no timers.</summary>
@@ -29,6 +31,6 @@ public sealed class VisibilityPolicy
         if (f is null) return new(Visibility.Show, "nothing in front");
         if (f.IsOurs || Shell.Contains(f.ClassName)) return new(Visibility.Show, "desktop or shell in front");
         // 1 px of slack: frames are rounded; a maximised window with a taskbar does not cover the monitor, so it stays visible.
-        return f.Bounds.Contains(s.Monitor, 1) ? new(Visibility.Hide, "foreground window covers the monitor") : new(Visibility.Show, "no fullscreen window");
+        return f.Bounds.Contains(s.Monitor, 1) ? new(Visibility.Covered, "foreground window covers the monitor") : new(Visibility.Show, "no fullscreen window");
     }
 }

@@ -3,6 +3,7 @@ import { WebView2Host } from '../host/HostBridge';
 import { Hud } from '../Hud';
 import { DEFS, host, store } from '../settings/instance';
 import { ControlCenter } from './ControlCenter';
+import { scheduler } from '../host/scheduler';
 
 /**
  * The HUD plus the Control Center over it, opened from the tray (control.open) like the skin's control panel; a browser
@@ -10,7 +11,11 @@ import { ControlCenter } from './ControlCenter';
  */
 export function Shell({ standalone }: { standalone: boolean }) {
   const [open, setOpen] = useState(standalone);
-  useEffect(() => host.onMessage((m) => { if (m.type === 'control.open') setOpen(true); }), []);
+  useEffect(() => host.onMessage((m) => {
+    if (m.type === 'control.open') setOpen(true);
+    // a fullscreen window covers the HUD: it stays shown (no flicker) but stops animating
+    if (m.type === 'host.occluded') scheduler.pause((m as { on?: boolean }).on === true);
+  }), []);
   return (
     <>
       {!standalone && <Hud />}

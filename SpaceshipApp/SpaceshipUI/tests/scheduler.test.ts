@@ -60,6 +60,28 @@ describe('scheduler', () => {
     }
   });
 
+  it('asks to sleep until the next job is due, not every frame', () => {
+    const waits: number[] = [];
+    let now = 0;
+    const s = createScheduler((_cb, wait) => { waits.push(wait); }, () => now);
+    s.every(1000, () => {});
+    expect(waits).toEqual([1000]);
+  });
+
+  it('runs nothing while paused, and everything once on resume', () => {
+    const f = fakeFrames();
+    let now = 0;
+    const s = createScheduler(f.frame, () => now);
+    let calls = 0;
+    s.every(33, () => { calls += 1; });
+    s.pause(true);
+    for (now = 100; now <= 1000; now += 100) f.step(now);
+    expect(calls).toBe(0);
+    s.pause(false);
+    f.step(now);
+    expect(calls).toBe(1);
+  });
+
   it('a gap with no frames fires the job once, not once per missed period', () => {
     const f = fakeFrames();
     let now = 0;

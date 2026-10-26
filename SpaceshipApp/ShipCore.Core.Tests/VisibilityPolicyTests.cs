@@ -16,10 +16,10 @@ public class VisibilityPolicyTests
 
     [Fact] public void OurOwnWindowNeverHidesUs() => Assert.Equal(Visibility.Show, _p.Decide(Snap(W("Ship", Screen, ours: true))).Visibility);
 
-    [Fact] public void AGameCoveringTheMonitorHides() => Assert.Equal(Visibility.Hide, _p.Decide(Snap(W("UnrealWindow", Screen))).Visibility);
+    [Fact] public void AGameCoveringTheMonitorCovers() => Assert.Equal(Visibility.Covered, _p.Decide(Snap(W("UnrealWindow", Screen))).Visibility);
 
     [Fact] public void FrameRoundingOfOnePixelStillCounts() =>
-        Assert.Equal(Visibility.Hide, _p.Decide(Snap(W("G", new Rect(1, 1, 2559, 1599)))).Visibility);
+        Assert.Equal(Visibility.Covered, _p.Decide(Snap(W("G", new Rect(1, 1, 2559, 1599)))).Visibility);
 
     [Fact] public void AMaximisedWindowAboveTheTaskbarDoesNotHide() =>
         Assert.Equal(Visibility.Show, _p.Decide(Snap(W("Chrome_WidgetWin_1", new Rect(0, 0, 2560, 1560)))).Visibility);
@@ -37,7 +37,7 @@ public class VisibilityPolicyTests
         Assert.Equal(Visibility.Show, _p.Decide(Snap(W("Progman", Screen), n)).Visibility);
         // the Start menu and taskbar flyouts report busy (live run)
         Assert.Equal(Visibility.Show, _p.Decide(Snap(W("XamlExplorerHostIslandWindow", new Rect(700, 500, 1860, 1500), proc: "explorer.exe"), n)).Visibility);
-        Assert.Equal(Visibility.Hide, _p.Decide(Snap(W("UnrealWindow", Screen), n)).Visibility);
+        Assert.Equal(Visibility.Covered, _p.Decide(Snap(W("UnrealWindow", Screen), n)).Visibility);
     }
 
     [Fact] public void PresentationModeHidesEvenWithOurWindowInFront() =>

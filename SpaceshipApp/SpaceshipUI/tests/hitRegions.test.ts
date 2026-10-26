@@ -28,7 +28,7 @@ describe('startHitRegions', () => {
     const sent: Msg[] = [];
     const host = { send: (m: Msg) => sent.push(m), onMessage: () => {}, telemetry: () => new Float32Array(8) };
     let job = () => {};
-    const sched: Scheduler = { every: (_ms, fn) => { job = fn; return () => {}; } };
+    const sched: Scheduler = { every: (_ms, fn) => { job = fn; return () => {}; }, pause: () => {} };
     const els: El[] = [{ attr: '', box: { left: 0, top: 0, width: 10, height: 10 } }];
     startHitRegions(host, docOf(els), sched, () => 1);
     job();
