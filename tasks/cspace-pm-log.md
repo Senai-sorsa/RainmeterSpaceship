@@ -36,6 +36,10 @@ gap list in tasks/cspace-gap-analysis.md), JARVIS-Repair-Plan.txt (CURRENT STATE
 - 24b7279 S11e audio: the loopback was never started; now runs only while shown and Off_BottomAudio is not 1, retries 30 s.
 - 3f58441 host ignores web messages not from https://spaceship.local/; confirm box owned by a topmost form, No default.
 - de4f8b0 S11f Off_<module> toggles hide their zones (were only offered in settings); hidden zones are not drawn.
+- d4495ff S11g audio follows a default-speaker switch (5 s id check while capturing). 6dd1c2f placeholder fps allowed.
+- JARVIS fakes-only items W1 T1 T3 U2 U4 X1 were already built in bdfb8fb (queue was stale).
+- Build stop (2026-10-25): everything buildable without the user's go is built. Known limit: the published folder finds
+  the UI and skin by walking up, so it must stay inside the repo until an installer is chosen.
 - Every slice now ends with an efficiency pass, noted in its commit (user, 2026-10-25).
 
 ## Queue (app)
