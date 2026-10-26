@@ -111,6 +111,9 @@ sealed class Overlay : Form
     const uint EVENT_SYSTEM_FOREGROUND = 3, WINEVENT_OUTOFCONTEXT = 0;
     readonly WinEventProc _onForeground; // kept in a field so the collector does not free it while Windows still calls it
     readonly IntPtr _foregroundHook;
+    // Locked (Win+L, the lock screen) hides the HUD, which also pauses every timer that checks Visible.
+    readonly Microsoft.Win32.SessionSwitchEventHandler _onSession;
+    bool _locked;
     readonly AutoStart _autostart = new(new RunKeyStore());
     readonly Lifecycle _life;
     readonly RunMarker _marker;
@@ -186,6 +189,13 @@ sealed class Overlay : Form
         // A new foreground app (a game, an exam browser) is checked at once; the 3 s poll stays for fullscreen toggles inside one app.
         _onForeground = (_, _, _, _, _, _, _) => ApplyVisibility();
         _foregroundHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _onForeground, 0, 0, WINEVENT_OUTOFCONTEXT);
+        // SessionSwitch arrives on the SystemEvents thread; the flag and the window are changed on this one.
+        _onSession = (_, e) =>
+        {
+            var locked = e.Reason switch { Microsoft.Win32.SessionSwitchReason.SessionLock => true, Microsoft.Win32.SessionSwitchReason.SessionUnlock => false, _ => (bool?)null };
+            if (locked is bool l && IsHandleCreated) BeginInvoke(() => { _locked = l; ApplyVisibility(); });
+        };
+        Microsoft.Win32.SystemEvents.SessionSwitch += _onSession;
 
         var dir = Path.Combine(Path.GetTempPath(), "spaceship-app");
         Directory.CreateDirectory(dir);
@@ -376,7 +386,7 @@ sealed class Overlay : Form
     {
         if (!_running || _cc is null) return;
         var decision = _policy.Decide(_snapshots.Take());
-        if (decision.Visibility == Visibility.Show) { if (!Visible) Show(); }
+        if (decision.Visibility == Visibility.Show && !_locked) { if (!Visible) Show(); }
         else if (Visible) Hide();
     }
 
@@ -466,6 +476,7 @@ sealed class Overlay : Form
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
+        Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
         _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
