@@ -18,8 +18,27 @@
    "memoryTotal": 34359738368,
    "memoryUsed": 21028159488,
    "idleMs": 4200,
+   "driveTotal": 1000202039296,
+   "driveFree": 412316860416,
+   "diskIo": 52000,
+   "refreshHz": 240,
+   "volume": 35,
+   "volumeMuted": false,
+   "audioDevice": "Speakers (Realtek(R) Audio)",
+   "mic": 80,
+   "micMuted": true,
    "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
   }
+ },
+ {
+  "name": "an audio device name that is not a string",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": null, "batteryPercent": null, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "audioDevice": 7, "hw": {} }
+ },
+ {
+  "name": "a volume over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": null, "batteryPercent": null, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "volume": 101, "hw": {} }
  },
  {
   "name": "first frame: no CPU sample yet, no battery, nothing mapped",

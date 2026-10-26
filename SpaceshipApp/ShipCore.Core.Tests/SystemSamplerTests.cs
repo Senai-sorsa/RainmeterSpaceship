@@ -135,6 +135,35 @@ public sealed class SystemSamplerTests
         Assert.Equal(2, gpu.Reads);
     }
 
+    private sealed class SlowMetrics : ISystemMetrics
+    {
+        public int AudioReads, DriveReads;
+        public CpuTimes ReadCpuTimes() => new(0, 0, 0);
+        public (ulong Total, ulong Available) ReadMemory() => (100, 40);
+        public (byte AcLine, byte BatteryPercent) ReadPower() => (0, 80);
+        public ulong UptimeMs() => 5000;
+        public (ulong Total, ulong Free)? ReadDrive() { DriveReads++; return (1000, 250); }
+        public AudioLevel? ReadAudio(bool capture) { AudioReads++; return capture ? null : new AudioLevel(35, false, "Speakers"); }
+    }
+
+    [Fact]
+    public void AudioIsReadEveryTwoSamplesAndTheDriveEveryThirtyAndHeldBetween()
+    {
+        var m = new SlowMetrics();
+        var s = new SystemSampler(m, new FakeRegistry(new()));
+        SystemFrame f = null!;
+        for (var seq = 1; seq <= 31; seq++) f = s.Sample(new Dictionary<string, string>(), seq);
+        Assert.Equal(16 * 2, m.AudioReads); // seq 1, 3, ... 31, speaker and mic each time
+        Assert.Equal(2, m.DriveReads); // seq 1 and 31
+        Assert.Equal((1000UL, 250UL), f.Drive);
+        Assert.Equal(new AudioLevel(35, false, "Speakers"), f.Speaker);
+        Assert.Null(f.Mic);
+        using var doc = JsonDocument.Parse(SystemSampler.ToJson(f));
+        Assert.Equal(35, doc.RootElement.GetProperty("volume").GetInt32());
+        Assert.Equal("Speakers", doc.RootElement.GetProperty("audioDevice").GetString());
+        Assert.Equal(JsonValueKind.Null, doc.RootElement.GetProperty("mic").ValueKind);
+    }
+
     [Fact]
     public void BusiestSumsProcessesPerEngineAndClamps()
     {

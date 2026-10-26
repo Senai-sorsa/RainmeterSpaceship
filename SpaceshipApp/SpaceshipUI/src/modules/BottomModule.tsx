@@ -5,6 +5,7 @@ import { OpsView } from '../draw/ops';
 import { scheduler } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { sysInfo } from '../host/sysInfo';
+import { netStatus } from '../host/statusFeed';
 import { audioFrame, audioState, type AudioState } from './audio';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
 import { type Readings } from './readings';
@@ -32,7 +33,10 @@ const ZONES = {
 export function BottomModule({ style, hide = '' }: { style: Style; hide?: string }) {
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
-  const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
+  const ping = netStatus.value.ping;
+  // the strip's ping comes from net.update, not system.metrics; a lost ping (0) shows --
+  const r: Readings = useMemo(() => ({ ...(m ? readingsFrom(m) : {}), ...(ping ? { mPing: ping } : {}) }), [m, ping]);
+  const vol = m?.volume == null ? undefined : m.volumeMuted ? -1 : m.volume;
   const info = sysInfo.value;
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -44,7 +48,7 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   const ops = useMemo(() => ({
     sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
     sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
-    au: style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50)),
+    au: style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50), vol, m?.audioDevice ?? undefined),
   }), [r, Z, style]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({

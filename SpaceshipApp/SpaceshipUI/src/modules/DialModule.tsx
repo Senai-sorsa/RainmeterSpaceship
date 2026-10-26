@@ -1,7 +1,8 @@
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
+import { systemMetrics } from '../host/systemMetrics';
 import { CONTROLS, DIAL_CENTRE, DIAL_LABEL_HITS, DIAL_RING, dialFrame, ringValue, stepValue, valueOf, type DialInput } from './dial';
 import type { DialSetter } from './dialSetter';
 
@@ -19,7 +20,22 @@ export function DialModule({ zone, style, setter, sel0 = 1 }: { zone: (typeof la
   const [note, setNote] = useState('');
   const [confirm, setConfirm] = useState<{ id: number; ctl: string }>();
   const settle = useRef<Record<string, number>>({});
-  const inp: DialInput = { glowAlpha: style.glowA, pending };
+  const m = systemMetrics.value;
+  // vol is negative for muted, as the skin's measure is; brightness and the power plan are not read by the host
+  const live: DialInput = {
+    glowAlpha: style.glowA, vol: m?.volume == null ? undefined : m.volumeMuted ? -1 : m.volume,
+    mic: m?.mic ?? undefined, micMuted: m?.micMuted ?? undefined, refresh: m?.refreshHz == null ? undefined : String(m.refreshHz),
+  };
+  const inp: DialInput = { ...live, pending };
+  // a pending value is dropped once the reading reaches it (Lua pending); a failed write is dropped in send
+  useEffect(() => {
+    const done = Object.keys(pending).filter((id) => {
+      const c = CONTROLS.find((x) => x.id === id);
+      const v = c && valueOf(c, live);
+      return v !== undefined && Math.abs(v - pending[id]) < 0.011;
+    });
+    if (done.length) setPending((p) => { const next = { ...p }; for (const id of done) delete next[id]; return next; });
+  }, [m, style.glowA]);
 
   const drop = (ctl: string) => setPending((p) => { const next = { ...p }; delete next[ctl]; return next; });
   const send = async (i: number, v: number) => {

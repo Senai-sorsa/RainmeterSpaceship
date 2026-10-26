@@ -15,7 +15,18 @@ public interface ISystemMetrics
     ulong UptimeMs();
     /// <summary>Time since the last keyboard or mouse input; null where it cannot be read.</summary>
     ulong? IdleMs() => null;
+    /// <summary>Drive C: size and free bytes; null where it cannot be read.</summary>
+    (ulong Total, ulong Free)? ReadDrive() => null;
+    /// <summary>All physical disks' read plus write bytes per second since the previous call; null on the first call or when the counter is missing.</summary>
+    double? DiskBytesPerSec() => null;
+    /// <summary>The primary screen's refresh rate in Hz.</summary>
+    int? RefreshHz() => null;
+    /// <summary>The default speaker (capture false) or microphone (capture true) level; null when there is no such device.</summary>
+    AudioLevel? ReadAudio(bool capture) => null;
 }
+
+/// <summary>An audio endpoint's master level, 0 to 100, its mute flag and its Windows name (null when Windows does not say).</summary>
+public sealed record AudioLevel(int Percent, bool Muted, string? Device);
 
 /// <summary>Pure arithmetic over the counters, so the numbers the modules show are tested without the OS.</summary>
 public static class SystemMetrics

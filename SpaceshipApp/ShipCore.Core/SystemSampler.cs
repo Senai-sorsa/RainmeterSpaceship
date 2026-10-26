@@ -3,7 +3,8 @@ using System.Text.Json;
 namespace ShipCore.Core;
 
 /// <summary>One reading for the page. Null means not available right now: the first CPU figure has no earlier sample, and a HWiNFO value needs the sensor mapped and HWiNFO running.</summary>
-public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPercent, ulong UptimeMs, bool? OnAc, int? BatteryPercent, IReadOnlyDictionary<string, double?> Hw, (double Down, double Up)? Net = null, double[]? Spectrum = null, IReadOnlyDictionary<string, bool>? Processes = null, double? GpuPercent = null, ulong MemoryTotal = 0, ulong MemoryUsed = 0, ulong? IdleMs = null);
+public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPercent, ulong UptimeMs, bool? OnAc, int? BatteryPercent, IReadOnlyDictionary<string, double?> Hw, (double Down, double Up)? Net = null, double[]? Spectrum = null, IReadOnlyDictionary<string, bool>? Processes = null, double? GpuPercent = null, ulong MemoryTotal = 0, ulong MemoryUsed = 0, ulong? IdleMs = null,
+    (ulong Total, ulong Free)? Drive = null, double? DiskIo = null, int? RefreshHz = null, AudioLevel? Speaker = null, AudioLevel? Mic = null);
 
 /// <summary>Builds one frame per call. Keeps the previous CPU and network samples, which the rates need.</summary>
 public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null)
@@ -14,6 +15,12 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
     private int _autoAge = 59; // the first sample matches at once
     private double? _gpu;
     private long _gpuAt = -2;
+    // slow readings, held between reads: audio every 2 s (a dial turn shows within that), the drive and refresh rate every 30 s
+    private (ulong, ulong)? _drive;
+    private int? _hz;
+    private long _slowAt = -30;
+    private AudioLevel? _speaker, _mic;
+    private double? _disk;
     private static readonly System.Text.RegularExpressions.Regex ProcessName = new(@"^[A-Za-z0-9_.-]{1,64}$");
 
     /// <summary>The WatchProcesses setting: comma-separated executable names. Names with other characters are dropped, and a trailing .exe is removed.</summary>
@@ -50,12 +57,19 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         var hw = map.Keys.ToDictionary(name => name, hwinfo.Read);
 
         // every 2 s, the value held between: PDH expands every engine instance on each read
-        if (gpu is not null && seq - _gpuAt >= 2) { _gpuAt = seq; _gpu = GpuLoad.Busiest(gpu.Read()); }
+        if (seq - _gpuAt >= 2)
+        {
+            _gpuAt = seq;
+            if (gpu is not null) _gpu = GpuLoad.Busiest(gpu.Read());
+            _speaker = metrics.ReadAudio(false); _mic = metrics.ReadAudio(true);
+            _disk = metrics.DiskBytesPerSec();
+        }
+        if (seq - _slowAt >= 30) { _slowAt = seq; _drive = metrics.ReadDrive(); _hz = metrics.RefreshHz(); }
 
         var running = processes is null ? null : WatchedNames(settings).ToDictionary(name => name, processes.IsRunning);
 
         return new SystemFrame(seq, cpuPercent, SystemMetrics.MemoryPercent(total, available), metrics.UptimeMs(), power.OnAc, power.BatteryPercent, hw, rate, spectrum?.Latest, running, _gpu,
-            total, total - Math.Min(available, total), metrics.IdleMs());
+            total, total - Math.Min(available, total), metrics.IdleMs(), _drive, _disk, _hz, _speaker, _mic);
     }
 
     /// <summary>The message the page receives: type system.metrics, one field per reading, nulls where a reading is missing.</summary>
@@ -76,6 +90,15 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         memoryTotal = f.MemoryTotal,
         memoryUsed = f.MemoryUsed,
         idleMs = f.IdleMs,
+        driveTotal = f.Drive?.Total,
+        driveFree = f.Drive?.Free,
+        diskIo = f.DiskIo,
+        refreshHz = f.RefreshHz,
+        volume = f.Speaker?.Percent,
+        volumeMuted = f.Speaker?.Muted,
+        audioDevice = f.Speaker?.Device,
+        mic = f.Mic?.Percent,
+        micMuted = f.Mic?.Muted,
         hw = f.Hw,
     });
 }

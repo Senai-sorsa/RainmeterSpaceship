@@ -63,6 +63,42 @@ sealed class WindowsMetrics : ISystemMetrics
         return GetLastInputInfo(ref i) ? unchecked((uint)GetTickCount64() - i.Time) : null;
     }
 
+    public (ulong Total, ulong Free)? ReadDrive()
+    {
+        try { var d = new DriveInfo("C"); return d.IsReady ? ((ulong)d.TotalSize, (ulong)d.AvailableFreeSpace) : null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    // one PDH counter for the process lifetime; a rate needs two collects, so the first call gives null
+    [StructLayout(LayoutKind.Sequential)] struct PdhValue { public uint CStatus, Pad; public double Value; }
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)] static extern int PdhOpenQueryW(string? source, IntPtr user, out IntPtr query);
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)] static extern int PdhAddEnglishCounterW(IntPtr query, string path, IntPtr user, out IntPtr counter);
+    [DllImport("pdh.dll")] static extern int PdhCollectQueryData(IntPtr query);
+    [DllImport("pdh.dll")] static extern int PdhGetFormattedCounterValue(IntPtr counter, uint format, out uint type, out PdhValue value);
+    IntPtr _diskQuery, _diskCounter;
+    bool _diskTried;
+
+    public double? DiskBytesPerSec()
+    {
+        if (!_diskTried)
+        {
+            _diskTried = true;
+            if (PdhOpenQueryW(null, IntPtr.Zero, out _diskQuery) != 0) _diskQuery = IntPtr.Zero;
+            else if (PdhAddEnglishCounterW(_diskQuery, @"\PhysicalDisk(_Total)\Disk Bytes/sec", IntPtr.Zero, out _diskCounter) != 0) _diskQuery = IntPtr.Zero;
+        }
+        if (_diskQuery == IntPtr.Zero || PdhCollectQueryData(_diskQuery) != 0) return null;
+        if (PdhGetFormattedCounterValue(_diskCounter, 0x200 /* PDH_FMT_DOUBLE */, out _, out var v) != 0 || v.CStatus > 1) return null;
+        return v.Value >= 0 ? v.Value : null;
+    }
+
+    public int? RefreshHz()
+    {
+        var dm = new DevMode { Size = (short)Marshal.SizeOf<DevMode>() };
+        return EnumDisplaySettings(null, -1 /* ENUM_CURRENT_SETTINGS */, ref dm) && dm.DisplayFrequency > 1 ? dm.DisplayFrequency : null;
+    }
+
+    public AudioLevel? ReadAudio(bool capture) => WindowsDial.Level(capture);
+
     /// <summary>The primary screen's current mode, as the panel's DISP row shows it: 2560x1600 @240. Null if Windows does not say.</summary>
     public static string? Display()
     {

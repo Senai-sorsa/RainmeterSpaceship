@@ -52,6 +52,12 @@ describe('system metrics signal', () => {
     expect(m && readingsFrom(m)).toEqual({ mRamPct: 50, mUptime: 0.01, mRamTotal: 2000, mRamUsed: 1000, mIdle: 4.2 });
   });
 
+  it('maps drive C and the disk I/O to mD1Total, mD1Free and mDiskIO, and keeps the audio fields', () => {
+    const m = systemMetricsFrom(JSON.parse('{"type":"system.metrics","seq":9,"cpuPercent":null,"memoryPercent":50,"uptimeMs":10,"onAc":null,"batteryPercent":null,"netDown":null,"netUp":null,"spectrum":null,"processes":{},"driveTotal":1000,"driveFree":250,"diskIo":52000,"volume":35,"volumeMuted":true,"audioDevice":"Speakers","hw":{}}'));
+    expect(m && readingsFrom(m)).toEqual({ mRamPct: 50, mUptime: 0.01, mD1Total: 1000, mD1Free: 250, mDiskIO: 52000 });
+    expect(m).toMatchObject({ volume: 35, volumeMuted: true, audioDevice: 'Speakers', mic: null, refreshHz: null });
+  });
+
   it('keeps the short names of sys.info and ignores other messages', () => {
     acceptSysInfo({ type: 'sys.info', user: 'senai', host: 'SHIP', os: null, cpu: 'x'.repeat(81), display: '2560x1600 @240' });
     expect(sysInfo.value).toEqual({ user: 'senai', host: 'SHIP', display: '2560x1600 @240' });

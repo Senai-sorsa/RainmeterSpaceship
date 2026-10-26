@@ -30,9 +30,25 @@ sealed class WindowsDial : IDialActions
     interface IMMDevice
     {
         [PreserveSig] int Activate(ref Guid iid, int clsctx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+        [PreserveSig] int OpenPropertyStore(int access, out IPropertyStore store);
     }
 
-    // Slots in the order Windows declares them. Only SetMasterVolumeLevelScalar is called; the rest hold its place.
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyStore
+    {
+        [PreserveSig] int GetCount(out uint count);
+        [PreserveSig] int GetAt(uint index, out PropKey key);
+        [PreserveSig] int GetValue(ref PropKey key, out PropVariant value);
+    }
+
+    [StructLayout(LayoutKind.Sequential)] struct PropKey { public Guid Fmtid; public int Pid; }
+    // PROPVARIANT: the type tag, three reserved words, then a union two pointers wide; only VT_LPWSTR is read
+    [StructLayout(LayoutKind.Sequential)] struct PropVariant { public ushort Vt, R1, R2, R3; public IntPtr P, P2; }
+    [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant pv);
+    const ushort VT_LPWSTR = 31;
+    static readonly PropKey FriendlyName = new() { Fmtid = new("A45C254E-DF1C-4EFD-8020-67D146A850E0"), Pid = 14 };
+
+    // Slots in the order Windows declares them. The setters before GetMute only hold the getters' places.
     [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IAudioEndpointVolume
     {
@@ -41,6 +57,14 @@ sealed class WindowsDial : IDialActions
         [PreserveSig] int GetChannelCount(out uint count);
         [PreserveSig] int SetMasterVolumeLevel(float dB, IntPtr context);
         [PreserveSig] int SetMasterVolumeLevelScalar(float level, IntPtr context);
+        [PreserveSig] int GetMasterVolumeLevel(out float dB);
+        [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
+        [PreserveSig] int SetChannelVolumeLevel(uint channel, float dB, IntPtr context);
+        [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, IntPtr context);
+        [PreserveSig] int GetChannelVolumeLevel(uint channel, out float dB);
+        [PreserveSig] int GetChannelVolumeLevelScalar(uint channel, out float level);
+        [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, IntPtr context);
+        [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
     }
 
     [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
@@ -107,6 +131,43 @@ sealed class WindowsDial : IDialActions
             if (obj is not null) Marshal.ReleaseComObject(obj);
             if (device is not null) Marshal.ReleaseComObject(device);
             Marshal.ReleaseComObject(enumerator);
+        }
+    }
+
+    /// <summary>Read-only: the default endpoint's level, mute and name. Null when there is no such device or Windows refuses a read.</summary>
+    public static AudioLevel? Level(bool capture)
+    {
+        IMMDeviceEnumerator? enumerator = null;
+        IMMDevice? device = null;
+        IPropertyStore? store = null;
+        object? obj = null;
+        try
+        {
+            enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+            if (enumerator.GetDefaultAudioEndpoint(capture ? eCapture : eRender, eConsole, out device) != 0) return null;
+            var iid = VolumeIid;
+            if (device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out obj) != 0) return null;
+            var vol = (IAudioEndpointVolume)obj;
+            if (vol.GetMasterVolumeLevelScalar(out var level) != 0 || vol.GetMute(out var muted) != 0) return null;
+            string? name = null;
+            if (device.OpenPropertyStore(0 /* STGM_READ */, out store) == 0)
+            {
+                var key = FriendlyName;
+                if (store.GetValue(ref key, out var pv) == 0)
+                {
+                    if (pv.Vt == VT_LPWSTR) name = Marshal.PtrToStringUni(pv.P);
+                    PropVariantClear(ref pv);
+                }
+            }
+            return new AudioLevel((int)Math.Round(Math.Clamp(level, 0f, 1f) * 100), muted, name);
+        }
+        catch (COMException) { return null; }
+        finally
+        {
+            if (store is not null) Marshal.ReleaseComObject(store);
+            if (obj is not null) Marshal.ReleaseComObject(obj);
+            if (device is not null) Marshal.ReleaseComObject(device);
+            if (enumerator is not null) Marshal.ReleaseComObject(enumerator);
         }
     }
 
