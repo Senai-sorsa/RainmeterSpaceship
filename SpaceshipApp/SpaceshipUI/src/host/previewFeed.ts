@@ -11,7 +11,7 @@ export function startPreviewFeed(): void {
   acceptSysInfo({ type: 'sys.info', user: 'pilot', host: 'preview-pc', os: 'Windows 11', cpu: 'SAMPLE CPU 8C', gpu: 'SAMPLE GPU', display: '2560x1600 @240' });
   acceptNetUpdate({ type: 'net.update', ping: 7, lan: '192.168.1.20', wan: '203.0.113.7' });
   // ?jarvis=<state> shows another orb state; the validator drops anything else
-  acceptJarvisUpdate({ type: 'jarvis.update', state: new URLSearchParams(location.search).get('jarvis') ?? 'idle', level: 0, say: '', err: '' });
+  acceptJarvisUpdate({ type: 'jarvis.update', state: new URLSearchParams(globalThis.location?.search).get('jarvis') ?? 'idle', level: 0, say: '', err: '' });
   let seq = 0;
   const tick = () => {
     seq += 1;
