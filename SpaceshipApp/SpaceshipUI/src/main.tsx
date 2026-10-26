@@ -49,7 +49,9 @@ if (q.get('level') === 'advanced') store.level.value = 'advanced';
 function Root() {
   const [wiz, setWiz] = useState<boolean | null>(null);
   useEffect(() => {
-    shouldShow(host).then(setWiz);
+    // ?preview=1 in a plain browser (no WebView2 host) goes straight to the HUD, for screenshot checks
+    const preview = q.get('preview') === '1' && !(globalThis as { chrome?: { webview?: unknown } }).chrome?.webview;
+    if (preview) setWiz(false); else shouldShow(host).then(setWiz);
     host.onMessage((m) => { if (m.type === 'setup.state') setWiz(m.done !== true); });
   }, []);
   if (wiz === null) return null;
