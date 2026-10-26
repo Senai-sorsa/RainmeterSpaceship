@@ -3,6 +3,7 @@ import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { systemMetrics } from '../host/systemMetrics';
+import { upkeepStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { fakeCatalog } from './appsSource';
 import { dotsFrame, schematicFrame, tabsFrame } from './category';
@@ -23,6 +24,7 @@ const Z = {
  */
 export function LeftModule({ style, catalog = fakeCatalog }: { style: Style; catalog?: Catalog }) {
   const m = systemMetrics.value;
+  const up = upkeepStatus.value;
   const [ci, setCi] = useState(0); // index into catalog.catOrder, the page shown
   const [ai, setAi] = useState(0); // index into the category's apps, the app shown
   const catId = catalog.catOrder[ci];
@@ -39,8 +41,8 @@ export function LeftModule({ style, catalog = fakeCatalog }: { style: Style; cat
       const hit = e.kind === 'app' ? e.app : undefined;
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: false }, zone, style);
     }),
-    upkeep: Z.upkeep && upkeepFrame({ mailWhy: 'no host data' }, Z.upkeep, style),
-  }), [m, ci, ai, catalog, style]);
+    upkeep: Z.upkeep && upkeepFrame(up, Z.upkeep, style),
+  }), [m, up, ci, ai, catalog, style]);
   const place = (zone: typeof Z.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>

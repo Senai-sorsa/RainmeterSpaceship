@@ -3,6 +3,7 @@ import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
+import { devStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { fakeCatalog } from './appsSource';
 import { dotsFrame, schematicFrame, tabsFrame } from './category';
@@ -25,6 +26,7 @@ const Z = {
  */
 export function RightModule({ style, catalog = fakeCatalog }: { style: Style; catalog?: Catalog }) {
   const m = systemMetrics.value;
+  const dev = devStatus.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
   const [ci, setCi] = useState(0);
   const [ai, setAi] = useState(0);
@@ -43,8 +45,8 @@ export function RightModule({ style, catalog = fakeCatalog }: { style: Style; ca
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: true }, zone, style);
     }),
     sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp }, Z.sysinfo, style),
-    dev: Z.dev && devFrame({}, Z.dev, style),
-  }), [m, ci, ai, catalog, style]);
+    dev: Z.dev && devFrame(dev, Z.dev, style),
+  }), [m, dev, ci, ai, catalog, style]);
   const place = (zone: typeof Z.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>

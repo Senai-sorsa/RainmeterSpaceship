@@ -119,6 +119,7 @@ sealed class Overlay : Form
     readonly System.Windows.Forms.Timer _jarvisTimer = new() { Interval = 200 };
     string? _jarvisFile;
     string? _jarvisSent;
+    readonly StatusRunner? _status;
 
     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean)
     {
@@ -133,6 +134,7 @@ sealed class Overlay : Form
         var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
         var resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
         if (resources is not null) _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
+        if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
         if (schemaPath is not null)
         {
             var schema = ConfigSchema.Parse(File.ReadAllText(schemaPath));
@@ -192,6 +194,7 @@ sealed class Overlay : Form
         _jarvis.Start();
         _jarvisTimer.Tick += (_, _) => PushJarvis();
         _jarvisTimer.Start();
+        _status?.Start();
     }
 
     protected override CreateParams CreateParams
@@ -301,7 +304,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; }; // a new page gets the JARVIS state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -396,6 +399,8 @@ sealed class Overlay : Form
         _cc.CoreWebView2.PostWebMessageAsJson(json);
     }
 
+    void Post(string json) => _cc?.CoreWebView2?.PostWebMessageAsJson(json);
+
     // Power and flow actions need a person to say yes; the schema lists none of them, so this is only reached through the gate.
     Task<bool> ConfirmAsync(string id) =>
         Task.FromResult(MessageBox.Show(this, $"Allow the {id} action?", "Spaceship", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
@@ -445,7 +450,7 @@ sealed class Overlay : Form
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

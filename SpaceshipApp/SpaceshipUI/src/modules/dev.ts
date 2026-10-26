@@ -3,7 +3,7 @@ import { count } from './upkeep';
 
 // Port of the 'dev' block of Skins/Spaceship/@Resources/Scripts/status_block.lua (Kind=dev, mirrored on the right): the
 // running WSL distro count (diamond) and the loaded Ollama model count (gear). The Tailscale state is in the Lua hover text
-// and is not ported. No host channel supplies these yet, so both show --.
+// and is not ported. The host runs Scripts\dev.ps1 (host/statusFeed.ts); until then both show --.
 
 export type DevInput = { wsl?: number; llm?: number };
 
