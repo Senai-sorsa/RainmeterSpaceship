@@ -5,8 +5,8 @@ import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { devStatus, netRows, netStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
-import { catalogFeed } from './appsSource';
-import { dotsFrame, schematicFrame, tabsFrame } from './category';
+import { catalogFeed, SKIN_STATE } from './appsSource';
+import { dotsFrame, schematicFrame, selIndex, skinPick, tabsFrame } from './category';
 import { devFrame } from './dev';
 import { type Readings } from './readings';
 import { slotRowFrame } from './slot';
@@ -31,9 +31,11 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
   const dev = devStatus.value;
   const net = netStatus.value;
   const r: Readings = useMemo(() => (m ? readingsFrom(m) : {}), [m]);
-  // the page shown: Apps.ini Layout Top2 (apps.lua)
-  const ci = Math.max(0, catalog.catOrder.indexOf(catalog.layout.Top2 ?? ''));
-  const [ai, setAi] = useState(0);
+  // the page and app the skin last showed (as the left column)
+  const pick = useMemo(() => skinPick(catalog, 2, SKIN_STATE), [catalog]);
+  const ci = pick.ci;
+  const [picked, setAi] = useState<number | null>(null);
+  const ai = picked ?? pick.ai;
   const catId = catalog.catOrder[ci];
   const cat = catId ? catalog.cats[catId] : undefined;
   const app = cat?.apps[ai];
@@ -45,7 +47,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
     slots: Z.slots.map((zone, i) => {
       const e = entryOf(catalog, catalog.layout[`Slot${i + 5}`] ?? '');
       if (!zone || !e) return undefined;
-      const hit = e.kind === 'app' ? e.app : undefined;
+      const hit = e.kind === 'app' ? e.app : e.cat.apps[selIndex(e.cat, SKIN_STATE)];
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: true }, zone, style);
     }),
     sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, ...netRows(net, mask) }, Z.sysinfo, style),

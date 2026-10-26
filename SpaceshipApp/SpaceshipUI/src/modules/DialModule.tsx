@@ -12,8 +12,9 @@ const SETTLE_MS = 400;
  * The systems dial in its zone (B_storage). Click a label to select it, click the ring to jump to a value, scroll to step.
  * Writes go through the setter; power and refresh wait for a click on the centre to confirm.
  */
-export function DialModule({ zone, style, setter }: { zone: (typeof layout.zones)[number]; style: Style; setter: DialSetter }) {
-  const [sel, setSel] = useState(1);
+export function DialModule({ zone, style, setter, sel0 = 1 }: { zone: (typeof layout.zones)[number]; style: Style; setter: DialSetter; sel0?: number }) {
+  // starts on the skin's saved DialSel, clamped like dial.lua. shortcut: a pick is not saved back (DialSel is not host-writable), upgrade with the host allowlist
+  const [sel, setSel] = useState(() => Math.max(1, Math.min(CONTROLS.length, Math.floor(sel0) || 1)));
   const [pending, setPending] = useState<Record<string, number>>({});
   const [note, setNote] = useState('');
   const [confirm, setConfirm] = useState<{ id: number; ctl: string }>();

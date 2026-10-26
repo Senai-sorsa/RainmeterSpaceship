@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import settings from '../generated/settings.json';
 import { loadCatalog, type Catalog } from './apps';
 
 // Fixture catalog for a browser without the host: a fixed sample built by the same loadCatalog the real data uses.
@@ -86,6 +87,9 @@ export async function previewCatalog(): Promise<Catalog> {
   const start = [...ini.matchAll(/start:([^|\n]+)/g)].map((m) => ({ name: m[1].trim(), id: m[1].trim() }));
   return loadCatalog(ini, start, () => true);
 }
+
+/** The skin's State.inc picks the imported defaults carry (DialSel, TopCat1/2, Sel_<cat>, Off_*); read-only, not settings. */
+export const SKIN_STATE: Record<string, string> = (settings as { state?: Record<string, string> }).state ?? {};
 
 /** The sample until the host sends the real catalog (a browser without the host keeps the sample). */
 export const catalogFeed = signal<Catalog>(fakeCatalog);

@@ -1,5 +1,5 @@
 import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
-import { type App, type Cat } from './apps';
+import { type App, type Cat, type Catalog } from './apps';
 
 // Port of Skins/Spaceship/@Resources/Scripts/category.lua: the tab rail (zone 1), the wireframe schematic of the
 // selected app (zone 2) and the page dots (zone 3). The scan line is drawn once and swept by CSS (scanFrame).
@@ -8,6 +8,24 @@ import { type App, type Cat } from './apps';
 const MAXTABS = 4;
 
 export type CatState = { first: number; sel: number };
+
+/**
+ * The page and app a panel opens on (category.lua Initialize): TopCat<panel> if it names a category, else Apps.ini Layout
+ * Top<panel>, else the first; then Sel_<cat> (1-based, back to the first past the end). Returns 0-based indexes.
+ */
+export function skinPick(catalog: Catalog, panel: 1 | 2, state: Record<string, string>): { ci: number; ai: number } {
+  const saved = state[`TopCat${panel}`] ?? '';
+  const id = catalog.cats[saved] ? saved : catalog.layout[`Top${panel}`] ?? '';
+  const ci = Math.max(0, catalog.catOrder.indexOf(id));
+  return { ci, ai: selIndex(catalog.cats[catalog.catOrder[ci]], state) };
+}
+
+/** A category's saved pick (State.inc Sel_<cat>, 1-based) as a 0-based index; the first app when unset or out of range (slot.lua current). */
+export function selIndex(cat: Cat | undefined, state: Record<string, string>): number {
+  const n = cat?.apps.length ?? 0;
+  const sel = cat ? Math.floor(Number(state[`Sel_${cat.id}`] ?? 1)) || 1 : 1;
+  return sel >= 1 && sel <= n ? sel - 1 : 0;
+}
 
 /** The tab rail: up to four labels justified along the rail, the selected one in the accent colour. */
 export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st: Style): Op[] {

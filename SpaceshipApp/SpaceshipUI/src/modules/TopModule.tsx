@@ -39,7 +39,9 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
     conserveWord: values.LltBatteryConserve ?? 'conservation', normalWord: values.LltBatteryNormal ?? 'normal',
     chargeLimit: num(values, 'ChargeLimit', 80), perfOverride: num(values, 'PerfOverride', -1), perfTier: num(values, 'PerfTier', 0),
   };
-  // one sample per host reading: the graph history and the alert blink advance when the reading changes, not on every render
+  // one sample per host reading: the graph history and the alert blink advance when the reading changes, not on every render.
+  // styleFrom builds a new object each Hud render, so the deps key on its contents: a Scale or colour change redraws at once
+  const styleKey = JSON.stringify(style);
   const ops = useMemo(() => {
     const r: Readings = m ? readingsFrom(m) : {};
     const now = Date.now();
@@ -53,8 +55,8 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       alert: Z.alert && alertFrame(r, Z.alert, style, st.alert).ops,
       settings: Z.settings && consoleFrame(NO_STATUS, cfg, NO_VIEW, Z.settings, style, now).ops,
     };
-    // cfg and style are not in the deps: a settings change shows on the next host reading
-  }, [m, st, Z]);
+    // cfg is not in the deps: a console setting change shows on the next host reading
+  }, [m, st, Z, styleKey]);
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
   const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string) =>

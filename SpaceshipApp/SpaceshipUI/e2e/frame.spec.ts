@@ -13,7 +13,7 @@ test.beforeEach(({ page }) => page.addInitScript(done));
 
 test('rendered has hull and corners; picture has the ship image and no corners; none has no frame layers', async ({ page }) => {
   await page.goto('/?host=mock');
-  expect(await layers(page)).toEqual(['window_mask', 'glass_fx', 'scan', 'shade', 'hull', 'mist', 'corners']);
+  expect(await layers(page)).toEqual(['glass_fx', 'scan', 'shade', 'hull', 'mist', 'corners']);
   await page.screenshot({ path: 'artifacts/frame-rendered.png' });
   await choose(page, 'picture');
   expect(await layers(page)).toEqual(['glass_pic', 'glass_fx_pic', 'scan_pic', 'shade', 'ship', 'mist_pic']);

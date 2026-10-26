@@ -14,7 +14,7 @@ const offline = feedFrom(undefined, 0);
  * The Jarvis core, behind ?module=jarvis. Centred on the old globe's zone (C_sphere). The Hud gives it the host's
  * jarvis.update feed; with none it shows OFFLINE. The orb sprite, the voice echo and the clicks are not ported.
  */
-export function JarvisModule({ style, feed = offline, onMenu }: { style: Style; feed?: Feed; onMenu?: () => void }) {
+export function JarvisModule({ style, feed = offline, label = '', onMenu }: { style: Style; feed?: Feed; label?: string; onMenu?: () => void }) {
   const [f, setF] = useState(0);
   const asleep = feed.state === 'offline';
   useEffect(() => {
@@ -25,7 +25,8 @@ export function JarvisModule({ style, feed = offline, onMenu }: { style: Style; 
   if (!sphere) return null;
   const q = transformBox(sphere.matrix as Matrix, sphere.x, sphere.y, sphere.w, sphere.h);
   const cx = (q[0][0] + q[2][0]) / 2, cy = (q[0][1] + q[2][1]) / 2;
-  const ops = jarvisFrame(f, feed, style, { x: 0, y: 0, w: layout.canvas.w, h: layout.canvas.h }, cx, cy);
+  // the skin draws the name and status at the bottom left of the Sphere window (zone C_sphere), beside the base
+  const ops = jarvisFrame(f, feed, style, { x: 0, y: 0, w: layout.canvas.w, h: layout.canvas.h }, cx, cy, label, q[3] as [number, number]);
   return (
     <>
       {ORB.length > 0 && <Orb f={f} feed={feed} style={style} cx={cx} cy={cy} />}

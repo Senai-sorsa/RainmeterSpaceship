@@ -5,8 +5,8 @@ import { OpsView } from '../draw/ops';
 import { systemMetrics } from '../host/systemMetrics';
 import { upkeepStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
-import { catalogFeed } from './appsSource';
-import { dotsFrame, scanFrame, schematicFrame, tabsFrame } from './category';
+import { catalogFeed, SKIN_STATE } from './appsSource';
+import { dotsFrame, scanFrame, schematicFrame, selIndex, skinPick, tabsFrame } from './category';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
 import { upkeepFrame } from './upkeep';
@@ -27,9 +27,11 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const up = upkeepStatus.value;
-  // index into catalog.catOrder, the page shown: Apps.ini Layout Top1 (apps.lua)
-  const ci = Math.max(0, catalog.catOrder.indexOf(catalog.layout.Top1 ?? ''));
-  const [ai, setAi] = useState(0); // index into the category's apps, the app shown
+  // the page (index into catalog.catOrder) and app the skin last showed; ai stays null until a pick of its own
+  const pick = useMemo(() => skinPick(catalog, 1, SKIN_STATE), [catalog]);
+  const ci = pick.ci;
+  const [picked, setAi] = useState<number | null>(null);
+  const ai = picked ?? pick.ai;
   const catId = catalog.catOrder[ci];
   const cat = catId ? catalog.cats[catId] : undefined;
   const app = cat?.apps[ai];
@@ -42,7 +44,8 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
     slots: Z.slots.map((zone, i) => {
       const e = entryOf(catalog, catalog.layout[`Slot${i + 1}`] ?? '');
       if (!zone || !e) return undefined;
-      const hit = e.kind === 'app' ? e.app : undefined;
+      // a folder row names its saved pick (LAST x), as slot.lua current() does
+      const hit = e.kind === 'app' ? e.app : e.cat.apps[selIndex(e.cat, SKIN_STATE)];
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: false }, zone, style);
     }),
     upkeep: Z.upkeep && upkeepFrame(up, Z.upkeep, style),

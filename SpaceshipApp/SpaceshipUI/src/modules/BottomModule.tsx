@@ -14,9 +14,12 @@ import { createDialSetter, DIAL_DEFS, hostDialRunner } from './dialSetter';
 import { ActionGate } from '../actions/gate';
 import { host, store } from '../settings/instance';
 import { visible } from './hidden';
+import { SKIN_STATE } from './appsSource';
 
 const dialSetter = createDialSetter(store, new ActionGate(DIAL_DEFS, hostDialRunner(host)));
 
+// DialSel is skin state (State.inc), not a setting: the imported defaults carry it, the store does not
+const DIAL_SEL = Number(SKIN_STATE.DialSel ?? 1);
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the bottom dash, read once. Each is drawn in its own skewed matrix. */
 const ZONES = {
@@ -56,7 +59,7 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
     );
   return (
     <>
-      {Z.storage && <DialModule zone={Z.storage} style={style} setter={dialSetter} />}
+      {Z.storage && <DialModule zone={Z.storage} style={style} setter={dialSetter} sel0={DIAL_SEL} />}
       {place(Z.audio, ops.au, 'au', 'audio')}
       {place(Z.panelL, panels.pl, 'pl', 'panel-left')}
       {place(Z.panelR, panels.pr, 'pr', 'panel-right')}

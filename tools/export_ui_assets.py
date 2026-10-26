@@ -177,7 +177,7 @@ def gen_orb(root):
 def gen_settings(root):
     v, red = parse_settings(rd(root, RES / "Settings.inc"))
     # State.inc's Off_ flags only: the browser mock seeds them so a preview hides what the skin hides (the app imports them itself)
-    off = {k: s for k, s in dict(parse_ini(rd(root, RES / "State.inc"))).get("Variables", {}).items() if k.startswith("Off_")}
+    off = {k: s for k, s in dict(parse_ini(rd(root, RES / "State.inc"))).get("Variables", {}).items() if k.startswith(("Off_", "DialSel", "Sel_", "TopCat"))}
     return {"variables": v, "redacted": red, "state": off}, len(v), [RES / "Settings.inc", RES / "State.inc"]
 
 

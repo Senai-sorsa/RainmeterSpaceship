@@ -6,6 +6,7 @@ import { num } from './lib/theme';
 import { store } from './settings/instance';
 import { perfTier } from './host/perfTier';
 import { frameStyleOf } from './settings/frameStyle';
+import { deriveLabel, validateLabel } from './settings/identity';
 import { FrameLayers } from './ui/FrameLayers';
 import { Caption } from './ui/Caption';
 import { MissionClock } from './modules/MissionClock';
@@ -47,6 +48,11 @@ const jarvisOn = on('jarvis');
 const jarvisLogOn = on('jarvislog');
 const anyOn = [clockOn, topOn, bottomOn, leftOn, rightOn, centerOn, drawerOn, bootOn, jarvisOn, jarvisLogOn].some(Boolean);
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
+/** The assistant's HUD label: AssistantLabel, or the name dotted like the skin's H.assistant('dots'). */
+const hudLabel = (v: Record<string, string>) => {
+  const l = validateLabel(v.AssistantLabel ?? '', v.JarvisName || undefined);
+  return l.ok ? l.value : deriveLabel(v.JarvisName ?? '');
+};
 
 function Neon({ d }: { d: string }) {
   const p = { d, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
@@ -116,7 +122,7 @@ export function Hud() {
       {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} />}
       {drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
-      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} onMenu={() => setLogOpen((o) => !o)} />}
+      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)} onMenu={() => setLogOpen((o) => !o)} />}
       {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} onClose={() => setLogOpen(false)} />}
       {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
     </svg>

@@ -93,9 +93,10 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 
 /**
  * One frame of the core, drawn on a canvas-sized zone with the centre at (cx, cy). `frame` is the update count.
- * Layers back to front: plexus shell, orbit rings, dial, thinking sweep, side bars, status label.
+ * Layers back to front: plexus shell, orbit rings, dial, thinking sweep, side bars, name and status label.
+ * `name` is the dotted assistant label (none when empty); `lb` the label corner in the zone's units.
  */
-export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone, cx: number, cy: number): Op[] {
+export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone, cx: number, cy: number, name = '', lb?: [number, number]): Op[] {
   const c = new Canvas(zone, style);
   const state = feed.state in LABEL ? (feed.state as JarvisState) : 'idle';
   const dim = state === 'offline';
@@ -192,9 +193,11 @@ export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone,
     }
   }
 
-  // status label, bottom left of the zone
+  // name and status label at the bottom left of the hologram's zone (lb is that corner; the zone's own corner without it)
+  const [lx, ly] = lb ?? [0, zone.h];
   const labelCol = state === 'listening' ? mix(col, W, 0.35) : state === 'offline' ? mix(col, W, 0.2) : W;
-  c.text(8, zone.h - 12, LABEL[state], { size: 4.4, weight: 700, align: 'LeftBottom', color: labelCol, glow: false });
+  if (name) c.text(lx + 8, ly - 26, name, { size: 5, weight: 700, align: 'LeftBottom', color: mix(A1, W, 0.3) });
+  c.text(lx + 8, ly - 12, LABEL[state], { size: 4.4, weight: 700, align: 'LeftBottom', color: labelCol, glow: false });
   return c.flush();
 }
 

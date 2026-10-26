@@ -1,5 +1,8 @@
 import manifest from '../generated/frame/manifest.json';
+import parts from '../generated/frameparts.json';
+import { useMemo } from 'preact/hooks';
 import type { FrameStyle } from '../settings/frameStyle';
+import { partShapes } from './frameParts';
 
 const urls = import.meta.glob('../generated/frame/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const url = (name: string) => urls[`../generated/frame/${(manifest as Record<string, string>)[name]}`];
@@ -24,18 +27,48 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
     <div class="frame-layer" data-layer={name} style={{ ...fill, background: bg, opacity: a, maskImage: `url(${url(name)})`, maskSize: '100% 100%', maskMode: mode, WebkitMaskImage: `url(${url(name)})`, WebkitMaskSize: '100% 100%' }} />
   );
   const tintA = n(values, 'GlassTint', 66);
-  // shortcut: Rainmeter fades each window shape on its own; this fades the whole frame top to bottom. Upgrade if the per-window look matters.
-  const glassGrad = `linear-gradient(to bottom, rgb(${rgb} / ${Math.min(255, tintA * 0.75) / 255}), rgb(${rgb} / ${(tintA * 0.12) / 255}) 55%, rgb(${rgb} / ${Math.min(255, tintA * 0.3) / 255}))`;
   const scan = values.ScanLines === '1';
+  // Frame.ini's Shape parts: Glass under everything (rendered only), Accents/Spill/Lights/Decor over it (Decor in both styles)
+  const vars = { ...values, ColorAccent: rgb };
   return (
     <div class="frame" data-frame={style} aria-hidden="true">
-      {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : tint('window_mask', 1, 'luminance', glassGrad)}
+      {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} />}
       {img(pic ? 'glass_fx_pic' : 'glass_fx', alpha(n(values, 'GlassGlare', 12) * 21))}
       {scan && img(pic ? 'scan_pic' : 'scan', alpha(n(values, 'ScanAlpha', 6) * 18))}
       {img('shade', alpha(n(values, 'ShadeAlpha', 155)))}
       {img(pic ? 'ship' : 'hull', hull, { filter: bright })}
       {tint(pic ? 'mist_pic' : 'mist', alpha(n(values, 'MistAlpha', 255)), 'alpha', accent)}
       {!pic && img('corners', hull, { filter: bright })}
+      <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />
     </div>
+  );
+}
+
+const PARTS = parts as unknown as Record<string, [string, Record<string, string>][]>;
+
+/** The named Parts/*.inc sections as one SVG in the canvas units, stretched over the frame like the layer images. */
+function Parts({ names, vars }: { names: string[]; vars: Record<string, string> }) {
+  const key = names.join();
+  // only the variables the parts read, so a clock tick or an unrelated setting does not rebuild a hundred shapes
+  const deps = ['ColorAccent', 'GlowAlpha', 'GlowWidth', 'CoreWhite', 'GlassTint'].map((k) => vars[k]);
+  const shapes = useMemo(() => names.flatMap((p) => (PARTS[`${p}.inc`] ?? []).flatMap(([, sec]) => partShapes(sec, vars))), [key, ...deps]);
+  return (
+    <svg class="frame-parts" data-part={key} viewBox="0 0 2560 1600" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+      {shapes.map((s, i) => {
+        const id = `fp-${key}-${i}`;
+        const fill = typeof s.fill === 'string' ? s.fill : `url(#${id})`;
+        const common = { fill, stroke: s.stroke, 'stroke-width': s.width, 'stroke-linejoin': s.join };
+        return (
+          <g key={i}>
+            {typeof s.fill !== 'string' && (
+              <linearGradient id={id} x1={s.fill.x1} y1={s.fill.y1} x2={s.fill.x2} y2={s.fill.y2}>
+                {s.fill.stops.map((st) => <stop key={st.off} offset={st.off} stop-color={st.color} />)}
+              </linearGradient>
+            )}
+            {s.kind === 'ellipse' ? <ellipse {...s.geo} {...common} /> : s.kind === 'rect' ? <rect {...s.geo} {...common} /> : <path {...s.geo} {...common} />}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
