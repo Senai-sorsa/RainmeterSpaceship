@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, consoleStatus, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
+import { acceptAppsState, appState, appStates, acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, consoleStatus, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
 
 describe('acceptStatusUpdate', () => {
   // shapes StatusScripts.ToJson sends (ShipCore.Core.Tests/StatusScriptsTests)
@@ -52,5 +52,16 @@ describe('todo', () => {
     expect(todoStatus.value).toEqual({ count: 3, items: [{ text: 'call', due: 100, timed: true }, { text: 'x', due: null, timed: false }] });
     acceptTodoUpdate({ type: 'todo.update', count: -1, items: [] });
     expect(todoStatus.value.count).toBe(3);
+  });
+});
+
+describe('apps.state', () => {
+  it('keeps valid exe names with 0/1/2 and looks a Proc up as the host keys it', () => {
+    acceptAppsState({ type: 'apps.state', states: { 'chrome.exe': 2, 'rasaero ii.exe': 1, '..\\x.exe': 2, 'bad.exe': 7, 'notexe': 1 } });
+    expect(appStates.value).toEqual({ 'chrome.exe': 2, 'rasaero ii.exe': 1 });
+    expect(appState(appStates.value, 'Chrome')).toBe(2);
+    expect(appState(appStates.value, 'RASAero II.exe')).toBe(1);
+    expect(appState(appStates.value, '')).toBe(0);
+    expect(appState(appStates.value, undefined)).toBe(0);
   });
 });

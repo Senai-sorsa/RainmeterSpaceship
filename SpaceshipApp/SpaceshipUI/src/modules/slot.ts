@@ -1,30 +1,30 @@
-import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat } from './apps';
 
 // Port of the 'row' style of Skins/Spaceship/@Resources/Scripts/slot.lua: one slot as a button with icon, name,
 // status (or app count for a category), the OPEN or LAUNCH hint and the stepped underline. Mirror flips it for the
 // right column. The other styles (compact, ship, card, rcompact) are not ported yet. Clicks are not wired.
 
-export type SlotStatus = { text: string; color: 'good' | 'warn' | 'white' };
+export type SlotStatus = { text: string; color: 'good' | 'warn' | 'white' | 'bg' };
 
-/** RUNNING when the app's process is up, NOT FOUND when its target is missing, otherwise READY. Background state needs the helper, not built. */
-export function slotStatus(app: App | undefined, running: boolean): SlotStatus {
+/** slot.lua runState over the host's apps.state: 2 RUNNING (app window), 1 BACKGROUND (process only), NOT FOUND when the target is missing, else READY. */
+export function slotStatus(app: App | undefined, state: number): SlotStatus {
   if (!app) return { text: 'EMPTY', color: 'white' };
   if (app.missing) return { text: 'NOT FOUND', color: 'warn' };
-  return running ? { text: 'RUNNING', color: 'good' } : { text: 'READY', color: 'white' };
+  return state === 2 ? { text: 'RUNNING', color: 'good' } : state === 1 ? { text: 'BACKGROUND', color: 'bg' } : { text: 'READY', color: 'white' };
 }
 
-export type SlotInput = { app?: App; cat?: Cat; running: boolean; mirror: boolean };
+export type SlotInput = { app?: App; cat?: Cat; state: number; mirror: boolean };
 
 export function slotRowFrame(input: SlotInput, zone: Zone, st: Style): Op[] {
-  const { app, cat, running, mirror } = input;
+  const { app, cat, state, mirror } = input;
   const c = new Canvas(zone, st);
   const { w, h } = zone;
   const X = (f: number) => f * w, Y = (f: number) => f * h;
   const MX = (f: number) => (mirror ? (1 - f) * w : f * w);
   const isCat = cat !== undefined;
-  const status = slotStatus(app, running);
-  const scol = status.color === 'good' ? st.good : status.color === 'warn' ? st.warn : st.white;
+  const status = slotStatus(app, state);
+  const scol = status.color === 'good' ? st.good : status.color === 'warn' ? st.warn : status.color === 'bg' ? mix(st.accent, st.dim, 0.35) : st.white;
   const icol = app && !app.missing ? st.accent : st.dim;
   const ix = MX(0.14), iy = Y(0.46);
   if (isCat) {

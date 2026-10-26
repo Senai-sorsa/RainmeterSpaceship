@@ -427,7 +427,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -543,6 +543,7 @@ sealed class Overlay : Form
             var settings = _settings?.Get(_hwKeys) ?? new Dictionary<string, string>();
             AudioCapture(settings.GetValueOrDefault("Off_BottomAudio") != "1");
             _cc.CoreWebView2.PostWebMessageAsJson(SystemSampler.ToJson(_sampler.Sample(settings, ++_metricsSeq)));
+            PushAppStates();
         }
         catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name}"); }
     }
@@ -586,7 +587,18 @@ sealed class Overlay : Form
 
     // Data a new page gets once: the machine names (sys.info) and the app catalog (Apps.ini, the Start-menu list, which file targets exist). Read on the
     // first page load and kept; Reload HUD reads it again, like Rainmeter's Refresh.
-    string? _appsJson, _sysJson;
+    string? _appsJson, _sysJson, _appStateSent;
+    IReadOnlyList<string> _appProcs = [];
+
+    // apps.state every 3 s (the skin helper: 1.5 s), sent only when it changed: one window walk and one process list per run
+    void PushAppStates()
+    {
+        if (_appProcs.Count == 0 || _metricsSeq % 3 != 1) return;
+        var json = AppStates.ToJson(_appProcs, AppWindows.WithWindow(), AppWindows.Running());
+        if (json == _appStateSent) return;
+        _appStateSent = json;
+        Post(json);
+    }
     void PostOnce()
     {
         if (_resources is null) return;
@@ -599,9 +611,14 @@ sealed class Overlay : Form
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},HARDWARE_UNREADABLE,{e.GetType().Name}"); }
         try
         {
-            _appsJson ??= AppsFeed.ToJson(File.ReadAllText(Path.Combine(_resources, "Apps.ini")),
-                File.Exists(Path.Combine(_resources, "Data", "StartApps.txt")) ? File.ReadAllText(Path.Combine(_resources, "Data", "StartApps.txt")) : "",
-                File.Exists, Environment.ExpandEnvironmentVariables);
+            if (_appsJson is null)
+            {
+                var ini = File.ReadAllText(Path.Combine(_resources, "Apps.ini"));
+                _appsJson = AppsFeed.ToJson(ini,
+                    File.Exists(Path.Combine(_resources, "Data", "StartApps.txt")) ? File.ReadAllText(Path.Combine(_resources, "Data", "StartApps.txt")) : "",
+                    File.Exists, Environment.ExpandEnvironmentVariables);
+                _appProcs = AppStates.Procs(ini);
+            }
             Post(_appsJson);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},APPS_UNREADABLE,{e.GetType().Name}"); }

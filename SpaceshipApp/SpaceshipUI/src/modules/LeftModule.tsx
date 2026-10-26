@@ -2,8 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
-import { systemMetrics } from '../host/systemMetrics';
-import { upkeepStatus } from '../host/statusFeed';
+import { appState, appStates, upkeepStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed, SKIN_STATE } from './appsSource';
 import { dotsFrame, scanFrame, schematicFrame, selIndex, skinPick, tabsFrame } from './category';
@@ -25,7 +24,6 @@ const ZONES = {
  */
 export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { style: Style; hide?: string; catalog?: Catalog }) {
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
-  const m = systemMetrics.value;
   const up = upkeepStatus.value;
   // the page (index into catalog.catOrder) and app the skin last showed; ai stays null until a pick of its own
   const pick = useMemo(() => skinPick(catalog, 1, SKIN_STATE), [catalog]);
@@ -35,10 +33,10 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
   const catId = catalog.catOrder[ci];
   const cat = catId ? catalog.cats[catId] : undefined;
   const app = cat?.apps[ai];
-  const running = (proc: string) => proc !== '' && m?.processes[proc] === true;
+  const states = appStates.value;
   const ops = useMemo(() => ({
     tabs: Z.tabs && tabsFrame(cat, { first: 1, sel: ai + 1 }, Z.tabs, style),
-    cat: Z.category && schematicFrame(app, cat, app ? running(app.proc) : false, Z.category, style),
+    cat: Z.category && schematicFrame(app, cat, appState(states, app?.proc) === 2, Z.category, style),
     scan: Z.category && scanFrame(Z.category, style),
     dots: Z.dots && dotsFrame(catalog.catOrder.length, ci + 1, Z.dots, style),
     slots: Z.slots.map((zone, i) => {
@@ -46,10 +44,10 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
       if (!zone || !e) return undefined;
       // a folder row names its saved pick (LAST x), as slot.lua current() does
       const hit = e.kind === 'app' ? e.app : e.cat.apps[selIndex(e.cat, SKIN_STATE)];
-      return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: false }, zone, style);
+      return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, state: appState(states, hit?.proc), mirror: false }, zone, style);
     }),
     upkeep: Z.upkeep && upkeepFrame(up, Z.upkeep, style),
-  }), [m, up, ci, ai, catalog, style, Z]);
+  }), [states, up, ci, ai, catalog, style, Z]);
   const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>

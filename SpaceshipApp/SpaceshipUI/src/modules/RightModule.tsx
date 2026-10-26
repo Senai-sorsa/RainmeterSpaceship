@@ -3,7 +3,7 @@ import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
-import { devStatus, netRows, netStatus } from '../host/statusFeed';
+import { appState, appStates, devStatus, netRows, netStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed, SKIN_STATE } from './appsSource';
 import { dotsFrame, scanFrame, schematicFrame, selIndex, skinPick, tabsFrame } from './category';
@@ -39,21 +39,21 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
   const catId = catalog.catOrder[ci];
   const cat = catId ? catalog.cats[catId] : undefined;
   const app = cat?.apps[ai];
-  const running = (proc: string) => proc !== '' && m?.processes[proc] === true;
+  const states = appStates.value;
   const ops = useMemo(() => ({
     tabs: Z.tabs && tabsFrame(cat, { first: 1, sel: ai + 1 }, Z.tabs, style),
-    cat: Z.category && schematicFrame(app, cat, app ? running(app.proc) : false, Z.category, style),
+    cat: Z.category && schematicFrame(app, cat, appState(states, app?.proc) === 2, Z.category, style),
     scan: Z.category && scanFrame(Z.category, style),
     dots: Z.dots && dotsFrame(catalog.catOrder.length, ci + 1, Z.dots, style),
     slots: Z.slots.map((zone, i) => {
       const e = entryOf(catalog, catalog.layout[`Slot${i + 5}`] ?? '');
       if (!zone || !e) return undefined;
       const hit = e.kind === 'app' ? e.app : e.cat.apps[selIndex(e.cat, SKIN_STATE)];
-      return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: true }, zone, style);
+      return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, state: appState(states, hit?.proc), mirror: true }, zone, style);
     }),
     sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, link, ...netRows(net, mask) }, Z.sysinfo, style),
     dev: Z.dev && devFrame(dev, Z.dev, style),
-  }), [m, dev, net, mask, link, ci, ai, catalog, style, Z]);
+  }), [r, states, dev, net, mask, link, ci, ai, catalog, style, Z]);
   const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>

@@ -1,7 +1,7 @@
 import { acceptSystemMetrics } from './systemMetrics';
 import { acceptSysInfo } from './sysInfo';
 import { acceptJarvisUpdate } from './jarvisFeed';
-import { acceptNetUpdate, acceptStatusUpdate } from './statusFeed';
+import { acceptAppsState, acceptNetUpdate, acceptStatusUpdate } from './statusFeed';
 
 // Browser preview only (?preview=1 with no WebView2 host): made-up host messages, sent through the same validators as the
 // real ones, so screenshot checks show the filled-in HUD. Generic values only; nothing here reads the machine.
@@ -11,6 +11,7 @@ export function startPreviewFeed(): void {
   acceptSysInfo({ type: 'sys.info', user: 'pilot', host: 'preview-pc', os: 'Windows 11', cpu: 'SAMPLE CPU 8C', gpu: 'SAMPLE GPU', display: '2560x1600 @240' });
   acceptNetUpdate({ type: 'net.update', ping: 7, lan: '192.168.1.20', wan: '203.0.113.7' });
   acceptStatusUpdate({ type: 'status.update', kind: 'llt', hybrid: '', power: '', refresh: '', battery: '', dgpu: 'on' });
+  acceptAppsState({ type: 'apps.state', states: { 'chrome.exe': 2, 'everything.exe': 1 } });
   // ?jarvis=<state> shows another orb state; the validator drops anything else
   acceptJarvisUpdate({ type: 'jarvis.update', state: new URLSearchParams(globalThis.location?.search).get('jarvis') ?? 'idle', level: 0, say: '', err: '' });
   let seq = 0;

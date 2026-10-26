@@ -19,17 +19,18 @@ describe('left column frames', () => {
     expect(scanFrame(zone, { ...st, edit: true })).toBeUndefined();
   });
 
-  it('slot status: RUNNING, READY, NOT FOUND and EMPTY', () => {
-    expect(slotStatus(chrome, true).text).toBe('RUNNING');
-    expect(slotStatus(chrome, false).text).toBe('READY');
-    expect(slotStatus({ ...chrome, missing: true }, false).text).toBe('NOT FOUND');
-    expect(slotStatus(undefined, false).text).toBe('EMPTY');
+  it('slot status: RUNNING, BACKGROUND, READY, NOT FOUND and EMPTY', () => {
+    expect(slotStatus(chrome, 2).text).toBe('RUNNING');
+    expect(slotStatus(chrome, 1)).toEqual({ text: 'BACKGROUND', color: 'bg' });
+    expect(slotStatus(chrome, 0).text).toBe('READY');
+    expect(slotStatus({ ...chrome, missing: true }, 2).text).toBe('NOT FOUND');
+    expect(slotStatus(undefined, 0).text).toBe('EMPTY');
   });
 
   it('slot rows draw an app, a category and a mirrored row', () => {
-    expect(slotRowFrame({ app: chrome, running: true, mirror: false }, zone, st).length).toBeGreaterThan(0);
-    expect(slotRowFrame({ cat: dev, running: false, mirror: false }, zone, st).length).toBeGreaterThan(0);
-    expect(slotRowFrame({ app: chrome, running: false, mirror: true }, zone, st).length).toBeGreaterThan(0);
+    expect(slotRowFrame({ app: chrome, state: 2, mirror: false }, zone, st).length).toBeGreaterThan(0);
+    expect(slotRowFrame({ cat: dev, state: 0, mirror: false }, zone, st).length).toBeGreaterThan(0);
+    expect(slotRowFrame({ app: chrome, state: 1, mirror: true }, zone, st).length).toBeGreaterThan(0);
   });
 
   it('tabs, schematic and dots draw for a category and for an empty one', () => {

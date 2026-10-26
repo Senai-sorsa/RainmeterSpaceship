@@ -61,6 +61,26 @@ export function acceptSpxUpdate(m: unknown): void {
   spxStatus.value = { spxPrice: o.price as number, spxPrev: o.prev as number, spxOpen: o.open === true };
 }
 
+/** The host's apps.state (AppStates.cs): per Apps.ini Proc, 2 = app window, 1 = running without one, 0 = not running. */
+export const appStates = signal<Record<string, number>>({});
+const exeName = /^[a-z0-9 _.()+-]{1,64}\.exe$/;
+
+export function acceptAppsState(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'apps.state' || typeof o.states !== 'object' || o.states === null) return;
+  const next: Record<string, number> = {};
+  for (const [k, v] of Object.entries(o.states)) if (exeName.test(k) && (v === 0 || v === 1 || v === 2)) next[k] = v;
+  appStates.value = next;
+}
+
+/** An Apps.ini Proc= value's state, keyed as the host sends it (lower case, with .exe). */
+export function appState(states: Record<string, number>, proc: string | undefined): number {
+  if (!proc) return 0;
+  const p = proc.trim().toLowerCase();
+  return states[p.endsWith('.exe') ? p : p + '.exe'] ?? 0;
+}
+
 /** The host's todo.update (ObsidianTodo note, TodoNote.cs): open count and the first few items, soonest due first. */
 export type TodoItem = { text: string; due: number | null; timed: boolean };
 export type TodoStatus = { count: number; items: TodoItem[] };
