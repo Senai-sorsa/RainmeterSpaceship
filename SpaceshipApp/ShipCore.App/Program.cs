@@ -373,7 +373,7 @@ sealed class Overlay : Form
     {
         try
         {
-            if (!a.Source.StartsWith(UiOrigin, StringComparison.Ordinal)) return; // only the app's own page may talk to the host
+            if (a.Source != "about:blank" && !a.Source.StartsWith(UiOrigin, StringComparison.Ordinal)) return; // only the app's own page (or the placeholder) may talk to the host
             var text = a.TryGetWebMessageAsString();
             if (double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var f)) { _fps = f; return; }
             if (_router is null) return;
