@@ -6,7 +6,7 @@ import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { devStatus, netRows, netStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed, SKIN_STATE } from './appsSource';
-import { dotsFrame, schematicFrame, selIndex, skinPick, tabsFrame } from './category';
+import { dotsFrame, scanFrame, schematicFrame, selIndex, skinPick, tabsFrame } from './category';
 import { devFrame } from './dev';
 import { type Readings } from './readings';
 import { slotRowFrame } from './slot';
@@ -25,7 +25,7 @@ const ZONES = {
  * Behind ?module=right. The catalog is the labelled fixture (see appsSource.ts). Feeds that the host does not supply yet
  * (ping, LAN, WAN, WSL, Ollama, speed test) show --. Clicks are not wired.
  */
-export function RightModule({ style, hide = '', catalog = catalogFeed.value, mask = true }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean }) {
+export function RightModule({ style, hide = '', catalog = catalogFeed.value, mask = true, link = 0 }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean; link?: number }) {
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const dev = devStatus.value;
@@ -43,6 +43,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
   const ops = useMemo(() => ({
     tabs: Z.tabs && tabsFrame(cat, { first: 1, sel: ai + 1 }, Z.tabs, style),
     cat: Z.category && schematicFrame(app, cat, app ? running(app.proc) : false, Z.category, style),
+    scan: Z.category && scanFrame(Z.category, style),
     dots: Z.dots && dotsFrame(catalog.catOrder.length, ci + 1, Z.dots, style),
     slots: Z.slots.map((zone, i) => {
       const e = entryOf(catalog, catalog.layout[`Slot${i + 5}`] ?? '');
@@ -50,9 +51,9 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
       const hit = e.kind === 'app' ? e.app : e.cat.apps[selIndex(e.cat, SKIN_STATE)];
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, running: hit ? running(hit.proc) : false, mirror: true }, zone, style);
     }),
-    sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, ...netRows(net, mask) }, Z.sysinfo, style),
+    sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, link, ...netRows(net, mask) }, Z.sysinfo, style),
     dev: Z.dev && devFrame(dev, Z.dev, style),
-  }), [m, dev, net, mask, ci, ai, catalog, style, Z]);
+  }), [m, dev, net, mask, link, ci, ai, catalog, style, Z]);
   const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
@@ -63,6 +64,11 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
     <>
       {place(Z.tabs, ops.tabs, 'tabs', 'right-tabs')}
       {place(Z.category, ops.cat, 'cat', 'right-category')}
+      {Z.category && ops.scan && (
+        <g transform={`matrix(${Z.category.matrix.join(' ')})`}>
+          <g class="scan" style={`--scan: ${Z.category.h * style.s}px`}><OpsView ops={ops.scan} name="rscan" /></g>
+        </g>
+      )}
       {place(Z.dots, ops.dots, 'dots', 'right-dots')}
       {Z.slots.map((zone, i) => place(zone, ops.slots[i], `slot${i + 5}`, `right-slot${i + 5}`))}
       {place(Z.sysinfo, ops.sysinfo, 'sys', 'right-sysinfo')}

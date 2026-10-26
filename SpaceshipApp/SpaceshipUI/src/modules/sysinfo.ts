@@ -1,4 +1,4 @@
-import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of Skins/Spaceship/@Resources/Scripts/sysinfo.lua: the network block (PING, LAN, WAN, live down and up in Mbps)
 // with the Wi-Fi emblem. PING, LAN and WAN come from the host's net.update
@@ -8,7 +8,7 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 
 const SXR = 2560 / 1260, SYR = 1600 / 709; // the skin's design-to-zone scale (sysinfo.lua)
 
-export type SysInput = { ping?: number; wifi?: number; down?: number; up?: number; lan?: string; wan?: string };
+export type SysInput = { ping?: number; wifi?: number; down?: number; up?: number; lan?: string; wan?: string; link?: number };
 
 const mbps = (bps: number) => {
   const v = (bps * 8) / 1000000;
@@ -33,7 +33,8 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   }
   c.dot(gx, gy + 12, 2.6, W);
   c.rect(gx + 30, gy + 12, 40, 22, A1, 1.5);
-  c.text(gx + 50, gy + 23, '--', { size: 6.4, weight: 700, align: 'CenterCenter', color: A1, font: st.fontNum });
+  // the box shows the saved line speed (LinkDownMbps) or TEST; the speed test itself is not ported
+  c.text(gx + 50, gy + 23, input.link ? String(Math.round(input.link)) : 'TEST', { size: 6.4, weight: 700, align: 'CenterCenter', color: A1, font: st.fontNum });
   // rows: label on the inner side, value on the outer side
   const pingTxt = input.ping === undefined ? '--' : input.ping <= 0 || input.ping >= 2999 ? 'LOST' : `${input.ping} MS`;
   const pcol = input.ping === undefined ? D : pingTxt === 'LOST' ? st.alert : input.ping! >= 150 ? st.warn : W;
@@ -50,7 +51,7 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   });
   // MBPS row: up and down with arrows
   const y = Y(ys[3]);
-  c.text(X(151), y, 'MBPS', { size: 6.2, weight: 700, align: 'LeftCenter', color: st.hi });
+  c.text(X(151), y, 'MBPS', { size: 6.2, weight: 700, align: 'LeftCenter', color: mix(A1, W, 0.3) });
   const up = input.up === undefined ? '--' : mbps(input.up);
   const down = input.down === undefined ? '--' : mbps(input.down);
   const xu = X(157);

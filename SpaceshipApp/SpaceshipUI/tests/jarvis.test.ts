@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { feedFrom, jarvisFrame, jarvisLogFrame, logLines, plexus, wrap } from '../src/modules/jarvis';
+import { feedFrom, jarvisFrame, jarvisLogFrame, logLines, plexus, stateColor, wrap } from '../src/modules/jarvis';
 import { styleFrom } from '../src/modules/style';
 
 const st = styleFrom({});
@@ -13,6 +13,16 @@ describe('jarvis feed', () => {
 
   it('a fresh feed gives its state and level', () => {
     expect(feedFrom('T 100\nSTATE speaking\nLEVEL 0.5', 101)).toEqual({ state: 'speaking', level: 0.5 });
+  });
+});
+
+describe('jarvis state colour', () => {
+  it('uses the colour settings, and falls back to the theme when empty or unreadable', () => {
+    expect(stateColor('idle', st)).toEqual(st.accent);
+    expect(stateColor('idle', st, { idle: '10,20,30' })).toEqual([10, 20, 30, 255]);
+    expect(stateColor('speaking', st, { idle: '10,20,30' })).toEqual([10, 20, 30, 255]);
+    expect(stateColor('listening', st, { listen: 'junk' })).not.toEqual(st.accent);
+    expect(stateColor('offline', st, { idle: '10,20,30' })).not.toEqual([10, 20, 30, 255]);
   });
 });
 

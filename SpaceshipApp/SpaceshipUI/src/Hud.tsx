@@ -118,11 +118,13 @@ export function Hud() {
       {topOn && <TopModule style={styleFrom(values)} values={values} hide={hide} />}
       {bottomOn && <BottomModule style={styleFrom(values)} hide={hide} />}
       {leftOn && <LeftModule style={styleFrom(values)} hide={hide} />}
-      {rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} hide={hide} />}
+      {rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} link={Number(values.LinkDownMbps) || 0} hide={hide} />}
       {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} />}
       {drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
-      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)} onMenu={() => setLogOpen((o) => !o)} />}
+      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)}
+        orb={{ bright: Number(values.JarvisOrbBright), tint: Number(values.JarvisTint), size: Number(values.JarvisOrbSize),
+          cols: { idle: values.JarvisColorIdle, listen: values.JarvisColorListen, speak: values.JarvisColorSpeak } }} onMenu={() => setLogOpen((o) => !o)} />}
       {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} onClose={() => setLogOpen(false)} />}
       {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
     </svg>

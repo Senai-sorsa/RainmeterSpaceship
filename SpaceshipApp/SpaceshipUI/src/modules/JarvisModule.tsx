@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
-import { mix, type Style } from '../draw/canvas';
+import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler } from '../host/scheduler';
 import { transformBox, type Matrix } from '../lib/geometry';
-import { feedFrom, jarvisFrame, jarvisLogFrame, type Feed } from './jarvis';
+import { feedFrom, jarvisFrame, jarvisLogFrame, stateColor, type Feed, type JarvisColors } from './jarvis';
 
 const FRAME_MS = 33; // the Lua orb's 30 fps
 const sphere = layout.zones.find((z) => z.id === 'C_sphere');
@@ -14,7 +14,7 @@ const offline = feedFrom(undefined, 0);
  * The Jarvis core, behind ?module=jarvis. Centred on the old globe's zone (C_sphere). The Hud gives it the host's
  * jarvis.update feed; with none it shows OFFLINE. The orb sprite, the voice echo and the clicks are not ported.
  */
-export function JarvisModule({ style, feed = offline, label = '', onMenu }: { style: Style; feed?: Feed; label?: string; onMenu?: () => void }) {
+export function JarvisModule({ style, feed = offline, label = '', orb = {}, onMenu }: { style: Style; feed?: Feed; label?: string; orb?: OrbOpts; onMenu?: () => void }) {
   const [f, setF] = useState(0);
   const asleep = feed.state === 'offline';
   useEffect(() => {
@@ -26,10 +26,10 @@ export function JarvisModule({ style, feed = offline, label = '', onMenu }: { st
   const q = transformBox(sphere.matrix as Matrix, sphere.x, sphere.y, sphere.w, sphere.h);
   const cx = (q[0][0] + q[2][0]) / 2, cy = (q[0][1] + q[2][1]) / 2;
   // the skin draws the name and status at the bottom left of the Sphere window (zone C_sphere), beside the base
-  const ops = jarvisFrame(f, feed, style, { x: 0, y: 0, w: layout.canvas.w, h: layout.canvas.h }, cx, cy, label, q[3] as [number, number]);
+  const ops = jarvisFrame(f, feed, style, { x: 0, y: 0, w: layout.canvas.w, h: layout.canvas.h }, cx, cy, label, q[3] as [number, number], orb.cols);
   return (
     <>
-      {ORB.length > 0 && <Orb f={f} feed={feed} style={style} cx={cx} cy={cy} />}
+      {ORB.length > 0 && <Orb f={f} feed={feed} style={style} cx={cx} cy={cy} opts={orb} />}
       <OpsView ops={ops} name="jarvis" />
       {/* right-click on the hologram toggles the log, as in the skin */}
       {onMenu && <circle cx={cx * style.s} cy={cy * style.s} r={165 * style.s} fill="transparent" data-hit
@@ -39,19 +39,24 @@ export function JarvisModule({ style, feed = offline, label = '', onMenu }: { st
 }
 
 // The plasma orb: the skin's Images\Jarvis\Idle frames (jarvis.lua sprite S1_1), one <image> swapped per tick, so only the
-// frame on screen is decoded. shortcut: no voice echo (S1_2) and no JarvisOrb*/JarvisTint settings, upgrade: when those are wired.
-const ORB = Object.entries(import.meta.glob('../../../../Skins/Spaceship/@Resources/Images/Jarvis/Idle/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>)
+// frame on screen is decoded. shortcut: no voice echo (S1_2), upgrade: when the speaking state is wired.
+type OrbOpts = { bright?: number; tint?: number; size?: number; cols?: JarvisColors };
+const ORB =Object.entries(import.meta.glob('../../../../Skins/Spaceship/@Resources/Images/Jarvis/Idle/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>)
   .sort(([a], [b]) => a.localeCompare(b)).map(([, u]) => u);
 const ORB_SPEED: Record<string, number> = { idle: 1, listening: 0.6, thinking: 1.5, offline: 0.35 };
 
-function Orb({ f, feed, style, cx, cy }: { f: number; feed: Feed; style: Style; cx: number; cy: number }) {
+const clampOr = (v: number | undefined, lo: number, hi: number, dflt: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v!)) : dflt);
+
+function Orb({ f, feed, style, cx, cy, opts }: { f: number; feed: Feed; style: Style; cx: number; cy: number; opts: OrbOpts }) {
   const st = feed.state, lvl = Math.min(1, Math.max(0, feed.level));
-  const col = st === 'listening' ? mix(style.accent, [0, 70, 210, 255], 0.55) : st === 'offline' ? mix(style.dim, style.accent, 0.45) : style.accent;
-  // jarvis.lua: brightness k, additive state tint and alpha per state
-  const [k, tint, a] = st === 'listening' ? [0.8, 0.11, 245] : st === 'speaking' ? [1 + 0.2 * lvl, 0.176, 245] : st === 'offline' ? [0.7, 0.066, 190] : [0.9, 0.22, 245];
+  const col = stateColor(st, style, opts.cols);
+  // jarvis.lua: JarvisOrbBright, JarvisTint and JarvisOrbSize clamped as there; brightness k, additive state tint and alpha per state
+  const bright = clampOr(opts.bright, 0.4, 1.6, 1), tintS = clampOr(opts.tint, 0, 0.8, 0.22), size = clampOr(opts.size, 0.8, 1.15, 1);
+  const [k0, tint, a] = st === 'listening' ? [0.8, tintS * 0.5, 245] : st === 'speaking' ? [1 + 0.2 * lvl, tintS * 0.8, 245] : st === 'offline' ? [0.7, tintS * 0.3, 190] : [0.9, tintS, 245];
+  const k = k0 * bright;
   const [tr, tg, tb] = col.map((c) => (c / 255) * tint);
   const speed = st === 'speaking' ? 1 + 1.6 * lvl : ORB_SPEED[st] ?? 1;
-  const s = style.s, d = 330 * (1 + 0.1 * lvl) * s;
+  const s = style.s, d = 330 * size * (1 + 0.1 * lvl) * s;
   return (
     <>
       <filter id="orb-tint" color-interpolation-filters="sRGB">

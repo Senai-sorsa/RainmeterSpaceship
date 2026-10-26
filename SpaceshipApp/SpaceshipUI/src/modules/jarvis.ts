@@ -1,12 +1,11 @@
 import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
 import type { Pt } from '../lib/geometry';
-import type { RGBA } from '../lib/theme';
+import { parseColor, type RGBA } from '../lib/theme';
 
 // Port of Skins/Spaceship/@Resources/Scripts/jarvis.lua (the centre core) and jarvislog.lua (the log window).
 // Ported: the 3D plexus shell, the two tilted orbit rings with satellites, the HUD dial, the side data bars, the
 // status label, and the conversation log. Not ported: the plasma orb and its voice echo (the 210-frame sprite is not
-// in the app's assets), the Python service, the clicks and keys, the auto-start, the MUTED file write, and the
-// per-colour settings (the default colours are used). The text is copied as written in the Lua and is queued for the
+// in the app's assets), the Python service, the clicks and keys, the auto-start and the MUTED file write. The text is copied as written in the Lua and is queued for the
 // Phase 10 hand review.
 // shortcut: no orb sprite, levels are not smoothed, and bars are not smoothed, upgrade: add the Images\Jarvis frames and a per-key smoother.
 
@@ -91,18 +90,29 @@ const hiddenBy = (x: number, y: number, z: number, cx: number, cy: number) =>
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** JarvisColorIdle / Listen / Speak, empty or unreadable = the theme default (jarvis.lua colorSetting). */
+export type JarvisColors = { idle?: string; listen?: string; speak?: string };
+
+/** The state colour, as jarvis.lua lines 312-316: offline is the idle colour dimmed. */
+export function stateColor(state: string, style: Style, cols: JarvisColors = {}): RGBA {
+  const idle = parseColor(cols.idle, style.accent);
+  if (state === 'listening') return parseColor(cols.listen, mix(style.accent, [0, 70, 210, 255], 0.55));
+  if (state === 'speaking') return parseColor(cols.speak, idle);
+  return state === 'offline' ? mix(style.dim, idle, 0.45) : idle;
+}
+
 /**
  * One frame of the core, drawn on a canvas-sized zone with the centre at (cx, cy). `frame` is the update count.
  * Layers back to front: plexus shell, orbit rings, dial, thinking sweep, side bars, name and status label.
  * `name` is the dotted assistant label (none when empty); `lb` the label corner in the zone's units.
  */
-export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone, cx: number, cy: number, name = '', lb?: [number, number]): Op[] {
+export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone, cx: number, cy: number, name = '', lb?: [number, number], cols: JarvisColors = {}): Op[] {
   const c = new Canvas(zone, style);
   const state = feed.state in LABEL ? (feed.state as JarvisState) : 'idle';
   const dim = state === 'offline';
   const lvl = clamp(feed.level, 0, 1);
   const A1 = style.accent, W = style.white, D = style.dim;
-  const col: RGBA = state === 'listening' ? mix(A1, [0, 70, 210, 255], 0.55) : state === 'offline' ? mix(D, A1, 0.45) : A1;
+  const col = stateColor(state, style, cols);
   const rc = dim ? D : col;
   const hot = mix(rc, W, 0.45);
   const spin = state === 'speaking' ? 1.4 + 2 * lvl : SPIN[state] ?? 1;
