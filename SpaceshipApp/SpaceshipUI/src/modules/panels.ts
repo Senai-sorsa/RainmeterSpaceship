@@ -56,13 +56,14 @@ export function bootText(now: Date, uptimeSec?: number): string {
 }
 
 /** The rows of the left screen, from the clock, the readings (mUptime, mIdle, in seconds) and the user name. */
-export function leftRows(now: Date, r: Readings = {}, info: SysInfo = {}): Row[] {
+export function leftRows(now: Date, r: Readings = {}, info: SysInfo = {}, hi?: RGBA): Row[] {
   const { week, yday } = weekOf(now);
   const uptimeSec = r.mUptime;
   return [
     { label: 'PILOT', value: info.user?.toUpperCase() ?? '--' },
     { label: 'DATE', value: dateText(now) },
-    { label: 'TIME', value: `${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}` },
+    // the skin draws the clock row in the highlight colour (H.C.hi)
+    { label: 'TIME', value: `${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`, color: hi },
     { label: 'WEEK', value: `W${p2(week)}  D${String(yday).padStart(3, '0')}` },
     { label: 'YEAR', value: `${now.getFullYear()}  ${yearProgress(now).toFixed(0)}%` },
     { label: 'ZONE', value: offsetText(-now.getTimezoneOffset()) },

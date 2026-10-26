@@ -52,7 +52,7 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   }), [r, Z, style]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({
-    pl: Z.panelL && panelLeftFrame(leftRows(now, r, info), Z.panelL, style),
+    pl: Z.panelL && panelLeftFrame(leftRows(now, r, info, style.hi), Z.panelL, style),
     pr: Z.panelR && panelRightFrame(rightRows(r, style, info), Z.panelR, style),
   }), [r, now, Z, info]);
   const place = (zone: typeof ZONES.storage, list: Op[] | undefined, name: string, mod: string) =>
