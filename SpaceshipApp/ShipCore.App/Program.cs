@@ -5,7 +5,7 @@ using ShipCore.Core;
 
 // Standalone Spaceship app: one transparent window on the desktop layer, sized to the home display (the taskbar draws over it),
 // hosting a composition-mode WebView2 through DirectComposition. Ctrl+Alt+Shift+1 stops the app and everything it started.
-// Never topmost, no hooks, no injection. Tray menu: Start, Stop, Quit.
+// Never topmost, no input hooks, no injection (one out-of-context foreground WinEvent). Tray menu: Start, Stop, Quit.
 static class Program
 {
     [STAThread]
@@ -106,6 +106,11 @@ sealed class Overlay : Form
     readonly VisibilityPolicy _policy;
     readonly Win32Snapshots _snapshots;
     readonly System.Windows.Forms.Timer _visibility = new() { Interval = 3000 };
+    // Out-of-context WinEvent: Windows posts the event to this thread's message loop; nothing is loaded into other processes.
+    delegate void WinEventProc(IntPtr hook, uint ev, IntPtr hwnd, int obj, int child, uint thread, uint time);
+    const uint EVENT_SYSTEM_FOREGROUND = 3, WINEVENT_OUTOFCONTEXT = 0;
+    readonly WinEventProc _onForeground; // kept in a field so the collector does not free it while Windows still calls it
+    readonly IntPtr _foregroundHook;
     readonly AutoStart _autostart = new(new RunKeyStore());
     readonly Lifecycle _life;
     readonly RunMarker _marker;
@@ -162,6 +167,9 @@ sealed class Overlay : Form
         if (lastRunUnclean) _tray.ShowBalloonTip(5000, "Spaceship", "The last run did not exit cleanly. Its log is in the temp folder under spaceship-app.", ToolTipIcon.Warning);
         _visibility.Tick += (_, _) => ApplyVisibility();
         _visibility.Start();
+        // A new foreground app (a game, an exam browser) is checked at once; the 3 s poll stays for fullscreen toggles inside one app.
+        _onForeground = (_, _, _, _, _, _, _) => ApplyVisibility();
+        _foregroundHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _onForeground, 0, 0, WINEVENT_OUTOFCONTEXT);
 
         var dir = Path.Combine(Path.GetTempPath(), "spaceship-app");
         Directory.CreateDirectory(dir);
@@ -411,6 +419,7 @@ sealed class Overlay : Form
         _tornDown = true;
         _life.Teardown(); // runs Stop once, whichever of quit or sign-out gets here first
         _marker.MarkCleanExit();
+        if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _cursor.Stop(); _loopback.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
@@ -516,6 +525,8 @@ sealed class Overlay : Form
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte alpha, uint flags);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr module, WinEventProc proc, uint pid, uint thread, uint flags);
+    [DllImport("user32.dll")] static extern bool UnhookWinEvent(IntPtr hook);
     delegate int Commit(IntPtr self);
     delegate int CreateTargetForHwnd(IntPtr self, IntPtr hwnd, bool topmost, out IntPtr target);
     delegate int CreateVisual(IntPtr self, out IntPtr visual);
