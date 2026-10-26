@@ -1,5 +1,6 @@
 import { Canvas, type Op, type Style } from '../draw/canvas';
 import { skinMs } from '../host/scheduler';
+import type { RGBA } from '../lib/theme';
 
 // Port of the timeline, the system check and the drawing of Skins/Spaceship/Overlay/Boot (boot.lua, Boot.ini).
 // The scanner line sweeps the canvas top to bottom, then the system check lists six rows and a verdict, then the
@@ -81,18 +82,22 @@ export function bootFrame(f: number, rows: CheckRow[], tl: Timeline, canvas: { w
     c.fillRect(1100, 783, 360, 1.4, st.accent, 150);
     c.fillRect(1084, 563, 120, 4, st.accent, 255);
     c.fillRect(1356, 831, 120, 4, st.accent, 255);
-    c.text(1280, 588, 'SYSTEM CHECK', { size: 13, weight: 700, align: 'CenterCenter', color: st.accent });
+    // Boot.ini's rows are plain String meters (sRow: FontNum at FontSize 13, no shadow), not lua H.text, so the size is
+    // taken back out of H.text's large-text scale and there is no glow
+    const say = (x: number, ty: number, t: string, align: string, color: RGBA, size = 13) =>
+      c.text(x, ty, t, { size: size / st.textLarge, align, color, font: st.fontNum, glow: false });
+    say(1280, 588, 'SYSTEM CHECK', 'CenterCenter', st.accent);
     const shown = f <= tl.c0 + 4 ? 0 : Math.min(rows.length, Math.floor((f - tl.c0 - 4) / 5) + 1);
     rows.slice(0, shown).forEach((r, i) => {
       const ry = ROW_Y0 + i * ROW_STEP;
       const col = r.sev === 'alert' ? st.alert : r.sev === 'warn' ? st.warn : r.sev === 'ok' ? st.good : st.dim;
-      c.text(1096, ry, r.label, { size: 13, weight: 700, align: 'LeftCenter', color: st.text });
-      c.text(1392, ry, r.value, { size: 13, weight: 700, align: 'RightCenter', color: st.white });
-      c.text(1466, ry, r.sev === 'ok' ? 'OK' : r.sev === 'unknown' ? '--' : r.sev === 'alert' ? 'FAIL' : 'CHECK', { size: 13, weight: 700, align: 'RightCenter', color: col });
+      say(1096, ry, r.label, 'LeftCenter', st.text);
+      say(1392, ry, r.value, 'RightCenter', st.white);
+      say(1466, ry, r.sev === 'ok' ? 'OK' : r.sev === 'unknown' ? '--' : r.sev === 'alert' ? 'FAIL' : 'CHECK', 'RightCenter', col);
     });
     if (f >= tl.verdict) {
       const v = bootVerdict(rows);
-      c.text(1280, 808, v.text, { size: 13, weight: 700, align: 'CenterCenter', color: v.warn ? st.warn : st.good });
+      say(1280, 808, v.text, 'CenterCenter', v.warn ? st.warn : st.good, 15);
     }
   }
   return c.flush();
