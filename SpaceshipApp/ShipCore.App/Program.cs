@@ -616,14 +616,30 @@ sealed class Overlay : Form
     // fixed here; the note is the same rooted, existing .md the to-do reader takes, and its path is never logged
     [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, int flags, int extra);
     static readonly Dictionary<string, byte> MediaKeys = new() { ["mute"] = 0xAD, ["prev"] = 0xB1, ["playpause"] = 0xB3, ["next"] = 0xB0 };
+    // the skin's OnClick bangs (panels, strip, sysinfo, sphere, hud, status_block, location .lua), one fixed program or page each
+    static readonly Dictionary<string, (string File, string Args)> Fixed = new()
+    {
+        ["taskmgr"] = ("taskmgr.exe", ""), ["taskperf"] = ("taskmgr.exe", "/7"),
+        ["sound"] = ("ms-settings:sound", ""), ["display"] = ("ms-settings:display", ""), ["power"] = ("ms-settings:powersleep", ""),
+        ["terminal"] = ("wt.exe", ""), ["powershell"] = ("powershell.exe", ""), ["about"] = ("ms-settings:about", ""), ["battery"] = ("ms-settings:batterysaver", ""),
+        ["outlookcal"] = ("outlookcal:", ""), ["gcal"] = ("https://calendar.google.com", ""), ["gmail"] = ("https://mail.google.com", ""),
+        ["update"] = ("ms-settings:windowsupdate", ""), ["defender"] = ("windowsdefender:", ""),
+        ["network"] = ("ms-settings:network-status", ""), ["wifi"] = ("ms-settings:network-wifi", ""),
+        ["spx"] = ("https://finance.yahoo.com/quote/%5EGSPC", ""), ["ollama"] = ("wt.exe", "ollama ps"),
+        ["tailscale"] = (@"C:\Program Files\Tailscale\tailscale-ipn.exe", ""),
+    };
     void OpenTarget(string what)
     {
         // media.ps1's keys (audio.lua's core = mute, wedge = prev / play / next): a key press, as the keyboard's own keys do
         if (MediaKeys.TryGetValue(what, out var vk)) { keybd_event(vk, 0, 1, 0); keybd_event(vk, 0, 3, 0); return; }
-        string target;
-        if (what == "taskmgr") target = "taskmgr.exe";
-        else if (what is "sound" or "display") target = "ms-settings:" + what; // the dial's and audio ring's right-click pages
-        else if (what == "power") target = "ms-settings:powersleep";
+        string target, args = "";
+        if (Fixed.TryGetValue(what, out var f)) (target, args) = f;
+        else if (what == "drive")
+        {
+            // storage.lua / strip.lua: the Drive1 setting's root in Explorer, only when it is a bare drive letter
+            var d = _settings?.Get(["Drive1"]).GetValueOrDefault("Drive1")?.Trim() ?? "C:";
+            target = System.Text.RegularExpressions.Regex.IsMatch(d, "^[A-Za-z]:$") ? d + "\\" : "C:\\";
+        }
         else
         {
             var path = _settings?.Get(["ObsidianTodo"]).GetValueOrDefault("ObsidianTodo")?.Trim().Trim('"');
@@ -631,7 +647,7 @@ sealed class Overlay : Form
             { _log?.WriteLine($"{DateTime.UtcNow:O},OPEN_REFUSED,{what}"); return; }
             target = "obsidian://open?path=" + Uri.EscapeDataString(path);
         }
-        try { using var _ = Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
+        try { using var _ = Process.Start(new ProcessStartInfo(target, args) { UseShellExecute = true }); }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { _log?.WriteLine($"{DateTime.UtcNow:O},OPEN_FAILED,{what},{e.GetType().Name}"); }
     }
 

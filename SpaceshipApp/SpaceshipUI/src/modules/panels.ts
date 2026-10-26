@@ -5,7 +5,7 @@ import type { Readings } from './readings';
 
 // Port of Skins/Spaceship/@Resources/Scripts/panels.lua: the two tilted screens at the bottom of the dash.
 // Left: pilot, date, time, week, year, time zone, boot, uptime, idle. Right: the condensed ship card and the TERMINAL button.
-// The names come from the host's sys.info, idle and RAM total from system.metrics; a missing one shows --. Clicks are not ported.
+// The names come from the host's sys.info, idle and RAM total from system.metrics; a missing one shows --. Clicks: BottomModule (calendar, about, terminal).
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -107,7 +107,7 @@ export function panelLeftFrame(list: Row[], zone: Zone, st: Style): Op[] {
   return c.flush();
 }
 
-/** The card and the TERMINAL button under it (left click Windows Terminal, right click PowerShell: not ported). */
+/** The card and the TERMINAL button under it (left click Windows Terminal, right click PowerShell; the hit is in BottomModule). */
 export function panelRightFrame(list: Row[], zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st);
   rowsInto(c, zone, list, zone.h * 0.76, st);

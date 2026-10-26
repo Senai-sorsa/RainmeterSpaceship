@@ -13,7 +13,8 @@ import { devFrame } from './dev';
 import { type Readings } from './readings';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
-import { sysinfoFrame } from './sysinfo';
+import { ipMaskBox, sysinfoFrame } from './sysinfo';
+import { host, store } from '../settings/instance';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the right column. Same parts as the left, mirrored, plus the network block and the dev block. */
@@ -52,6 +53,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
     sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, link, ...netRows(net, mask) }, Z.sysinfo, style),
     dev: Z.dev && devFrame(dev, Z.dev, style),
   }), [r, states, dev, net, mask, link, ci, ai, first, state, slots, catalog, style, Z]);
+  const open = (what: string) => () => host.send({ type: 'target.open', what });
   const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
@@ -84,8 +86,19 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
             wheel: (d) => e.kind === 'cat' && choose(e.cat, selIndex(e.cat, state) + d) }} />
         ));
       })}
-      {place(Z.sysinfo, ops.sysinfo, 'sys', 'right-sysinfo')}
-      {place(Z.dev, ops.dev, 'dev', 'right-dev')}
+      {/* sysinfo.lua and status_block.lua OnClick, as fixed host targets */}
+      {place(Z.sysinfo, ops.sysinfo, 'sys', 'right-sysinfo', Z.sysinfo && (
+        <>
+          <HitRect zone={Z.sysinfo} s={style.s} label="Network status" on={{ click: open('network'), menu: open('wifi') }} />
+          <HitRect zone={Z.sysinfo} s={style.s} box={ipMaskBox(Z.sysinfo.w)} label={mask ? 'Show IP' : 'Mask IP'} on={{ click: () => store.set('IpMask', mask ? '0' : '1'), menu: open('wifi') }} />
+        </>
+      ))}
+      {place(Z.dev, ops.dev, 'dev', 'right-dev', Z.dev && (
+        <>
+          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: 0, w: Z.dev.w, h: Z.dev.h / 2 }} label="Terminal" on={{ click: open('terminal') }} />
+          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: Z.dev.h / 2, w: Z.dev.w, h: Z.dev.h / 2 }} label="Ollama models" on={{ click: open('ollama') }} />
+        </>
+      ))}
     </>
   );
 }

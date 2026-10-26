@@ -85,10 +85,21 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
     <>
       {Z.storage && <DialModule zone={Z.storage} style={style} setter={dialSetter} sel0={DIAL_SEL} />}
       {place(Z.audio, ops.au, 'au', 'audio', audioHits)}
-      {place(Z.panelL, panels.pl, 'pl', 'panel-left')}
-      {place(Z.panelR, panels.pr, 'pr', 'panel-right')}
-      {place(Z.stripL, ops.sl, 'sl', 'strip-left')}
-      {place(Z.stripR, ops.sr, 'sr', 'strip-right')}
+      {/* the skin's OnClick handlers (panels.lua, strip.lua), as fixed host targets */}
+      {place(Z.panelL, panels.pl, 'pl', 'panel-left', Z.panelL && <HitRect zone={Z.panelL} s={style.s} label="Calendar" on={{ click: open('outlookcal') }} />)}
+      {place(Z.panelR, panels.pr, 'pr', 'panel-right', Z.panelR && (
+        <>
+          <HitRect zone={Z.panelR} s={style.s} box={{ x: 0, y: 0, w: Z.panelR.w, h: Z.panelR.h * 0.78 }} label="About this PC" on={{ click: open('about') }} />
+          <HitRect zone={Z.panelR} s={style.s} box={{ x: 6, y: Z.panelR.h * 0.8, w: Z.panelR.w - 12, h: Z.panelR.h * 0.16 }} label="Terminal" on={{ click: open('terminal'), menu: open('powershell') }} />
+        </>
+      ))}
+      {place(Z.stripL, ops.sl, 'sl', 'strip-left', Z.stripL && <HitRect zone={Z.stripL} s={style.s} label="Task Manager performance" on={{ click: open('taskperf') }} />)}
+      {place(Z.stripR, ops.sr, 'sr', 'strip-right', Z.stripR && (
+        <>
+          <HitRect zone={Z.stripR} s={style.s} label="Task Manager performance" on={{ click: open('taskperf') }} />
+          <HitRect zone={Z.stripR} s={style.s} box={{ x: Z.stripR.w - 4 - 76, y: 0, w: 76, h: Z.stripR.h }} label="Drive" on={{ click: open('drive') }} />
+        </>
+      ))}
     </>
   );
 }

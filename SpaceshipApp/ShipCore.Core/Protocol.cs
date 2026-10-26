@@ -8,6 +8,9 @@ public static class Protocol
 {
     private static readonly Regex Key = new(@"^[A-Za-z][A-Za-z0-9_]{0,63}$", RegexOptions.Compiled);
     private static readonly HashSet<string> Flows = new() { "gmail", "calendars", "obsidian" };
+    // target.open names: each maps to one fixed page or program in the host (Program.OpenTarget), never to text from the UI
+    public static readonly HashSet<string> Targets = new() { "taskmgr", "taskperf", "todo", "sound", "display", "power", "mute", "prev", "playpause", "next",
+        "terminal", "powershell", "about", "outlookcal", "gcal", "gmail", "update", "defender", "network", "wifi", "spx", "ollama", "tailscale", "drive", "battery" };
 
     public static string? Problem(string json, ConfigSchema schema)
     {
@@ -44,7 +47,7 @@ public static class Protocol
             case "dial.set": return DialSetProblem(m);
             case "hit.regions": return HitRegionsProblem(m);
             case "app.launch": return Str(m, "id", out var app) && AppLaunch.Id.IsMatch(app) ? null : "bad app id";
-            case "target.open": return Str(m, "what", out var w) && w is "taskmgr" or "todo" or "sound" or "display" or "power" or "mute" or "prev" or "playpause" or "next" ? null : "bad target";
+            case "target.open": return Str(m, "what", out var w) && Targets.Contains(w) ? null : "bad target";
             default: return "unknown type";
         }
     }

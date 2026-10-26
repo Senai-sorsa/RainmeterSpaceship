@@ -10,6 +10,8 @@ const SXR = 2560 / 1260, SYR = 1600 / 709;
 const X = (rx: number) => (rx - 514) * SXR;
 const Y = (ry: number) => (ry - 407) * SYR;
 const CX = ((746 - 514) / 2) * SXR, CY = Y(491), R = 180; // centred in the zone, on the screen axis
+/** sphere.lua H.hit 1: the radar disc (Task Manager). shortcut: hit 2, the speed test, is not ported (no host speedtest yet). */
+export const SPHERE_HIT = { x: CX - R, y: CY - R, w: 2 * R, h: 2 * R };
 const TILT = 0.17, TA = -9; // disk aspect and tilt (degrees)
 const FLAT = 0.22; // the level plane's aspect
 

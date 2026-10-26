@@ -6,9 +6,9 @@ import { OpsView } from '../draw/ops';
 import { scheduler, skinMs } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { spxStatus, todoStatus, topProcs } from '../host/statusFeed';
-import { hudFrame, hudState, type HudState } from './hud';
+import { HUD_HITS, hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
-import { sphereFrame, sphereState, type SphereState } from './sphere';
+import { SPHERE_HIT, sphereFrame, sphereState, type SphereState } from './sphere';
 import { reticleBox, targetFrame, targetMove, targetState, type TargetState } from './target';
 import { HitRect } from './hit';
 import { host } from '../settings/instance';
@@ -66,8 +66,15 @@ export function CenterModule({ style, sphere = true, hide = '' }: { style: Style
           on={{ click: () => (todo.items.length ? host.send({ type: 'target.open', what: 'todo' }) : setRank((n) => (n % 5) + 1)),
             menu: () => host.send({ type: 'target.open', what: 'taskmgr' }), wheel: (d) => setRank((n) => ((n - 1 + d + 5) % 5) + 1) }} />
       ))}
-      {place(Z.hud, hudOps, 'hud', 'center-hud')}
-      {place(Z.sphere, sphereOps, 'sphere', 'center-sphere')}
+      {place(Z.hud, hudOps, 'hud', 'center-hud', Z.hud && (
+        <>
+          <HitRect zone={Z.hud} s={style.s} box={HUD_HITS.gpu} label="Task Manager" on={{ click: () => host.send({ type: 'target.open', what: 'taskmgr' }) }} />
+          <HitRect zone={Z.hud} s={style.s} box={HUD_HITS.spx} label="S&P 500" on={{ click: () => host.send({ type: 'target.open', what: 'spx' }) }} />
+        </>
+      ))}
+      {place(Z.sphere, sphereOps, 'sphere', 'center-sphere', Z.sphere && (
+        <HitRect zone={Z.sphere} s={style.s} box={SPHERE_HIT} label="Task Manager" on={{ click: () => host.send({ type: 'target.open', what: 'taskmgr' }) }} />
+      ))}
     </>
   );
 }

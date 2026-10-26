@@ -14,6 +14,9 @@ const mbps = (bps: number) => {
   return v >= 99.5 ? v.toFixed(0) : v.toFixed(1);
 };
 
+/** sysinfo.lua H.hit 2: the IP mask toggle, in zone units for a zone w wide. */
+export const ipMaskBox = (w: number) => ({ x: w - (224 - 34) * SXR, y: (248 - 220) * SYR, w: (224 - 140) * SXR, h: (266 - 248) * SYR });
+
 export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st);
   const { w, h } = zone;

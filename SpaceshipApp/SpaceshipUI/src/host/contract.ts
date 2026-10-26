@@ -8,7 +8,9 @@ const FLOWS = new Set(['gmail', 'calendars', 'obsidian']);
 const DIAL_CONTROLS = new Set(['brightness', 'volume', 'mic', 'power', 'refresh']);
 const POWER_MODES = new Set(['quiet', 'balance', 'performance']);
 const REFRESH_RATES = new Set(['60', '165']);
-const TARGETS = ['taskmgr', 'todo', 'sound', 'display', 'power', 'mute', 'prev', 'playpause', 'next']; // the host's fixed target.open list
+// the host's fixed target.open list (Protocol.Targets)
+const TARGETS = ['taskmgr', 'taskperf', 'todo', 'sound', 'display', 'power', 'mute', 'prev', 'playpause', 'next',
+  'terminal', 'powershell', 'about', 'outlookcal', 'gcal', 'gmail', 'update', 'defender', 'network', 'wifi', 'spx', 'ollama', 'tailscale', 'drive', 'battery'];
 const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/; // a lone surrogate is not text the host can read
 const isObj = (m: unknown): m is Record<string, unknown> => typeof m === 'object' && m !== null && !Array.isArray(m);
 

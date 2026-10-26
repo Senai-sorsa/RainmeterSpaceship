@@ -30,7 +30,7 @@ export function rateShort(bytesPerSec: number): string {
 /** The cells of one strip: icon and text, from the outer end inward. The right strip is mirrored. */
 function cellsFrame(list: Cell[], mirror: boolean, zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st);
-  const y = zone.h / 2;
+  const y = zone.h / 2 - 2; // strip.lua uses h/2; lifted on the user's ask so the cells clear the lower neon line
   list.forEach((cl, i) => {
     const x0 = mirror ? zone.w - 4 - i * STEP - CELLW : 4 + i * STEP;
     const lv = cl.lvl ?? 0;

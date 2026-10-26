@@ -11,6 +11,7 @@ import { HitRect, launch, openSlot, usePanel } from './hit';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
 import { upkeepFrame } from './upkeep';
+import { host } from '../settings/instance';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the left column. The mission clock (L_location) is its own module and is not drawn here. */
@@ -78,7 +79,13 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
             wheel: (d) => e.kind === 'cat' && choose(e.cat, selIndex(e.cat, state) + d) }} />
         ));
       })}
-      {place(Z.upkeep, ops.upkeep, 'upkeep', 'left-upkeep')}
+      {/* status_block.lua OnClick: row 1 Windows Update, row 2 Gmail */}
+      {place(Z.upkeep, ops.upkeep, 'upkeep', 'left-upkeep', Z.upkeep && (
+        <>
+          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: 0, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Windows Update" on={{ click: () => host.send({ type: 'target.open', what: 'update' }) }} />
+          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: Z.upkeep.h / 2, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Gmail" on={{ click: () => host.send({ type: 'target.open', what: 'gmail' }) }} />
+        </>
+      ))}
     </>
   );
 }

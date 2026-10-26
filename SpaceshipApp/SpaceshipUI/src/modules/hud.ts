@@ -10,6 +10,8 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 const SXR = 2560 / 1260, SYR = 1600 / 709;
 const X = (rx: number) => (rx - 484) * SXR; // zone centred on the screen axis (x = 630)
 const Y = (ry: number) => (ry - 256) * SYR;
+/** hud.lua H.hit boxes: 1 the GPU ladder (Task Manager), 2 the S&P box (its quote page). */
+export const HUD_HITS = { gpu: { x: X(600), y: Y(290), w: X(660) - X(600), h: Y(332) - Y(290) }, spx: { x: X(486), y: Y(258), w: X(540) - X(486), h: Y(395) - Y(258) } };
 
 export type HudState = { frame: number; cpu?: number; gpu?: number; load?: number; spx?: number };
 export type HudInput = {

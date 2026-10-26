@@ -5,6 +5,7 @@ import { OpsView } from '../draw/ops';
 import { num } from '../lib/theme';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { consoleStatus } from '../host/statusFeed';
+import { host } from '../settings/instance';
 import { alertFrame, type AlertState } from './alert';
 import { batteryFrame, type BatteryState } from './battery';
 import { consoleFrame, consoleIntent, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
@@ -67,10 +68,11 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
   };
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
-  const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string) =>
+  const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string, on?: { click: () => void; label: string }) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={list} name={name} />
+        {on && <HitRect zone={zone} s={style.s} label={on.label} on={{ click: on.click }} />}
       </g>
     );
   return (
@@ -79,9 +81,10 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       {place(Z.ram, ops.ram, 'ram', 'graph-ram')}
       {place(Z.a, ops.a, 'ga', 'graph-a')}
       {place(Z.b, ops.b, 'gb', 'graph-b')}
-      {place(Z.power, ops.power, 'pw', 'power')}
-      {place(Z.battery, ops.battery, 'tb', 'battery')}
-      {place(Z.alert, ops.alert, 'ta', 'alert')}
+      {/* power.lua and alert.lua open the Control overlay, battery.lua the battery settings */}
+      {place(Z.power, ops.power, 'pw', 'power', { click: () => { controlOpen.value = true; }, label: 'Control Center' })}
+      {place(Z.battery, ops.battery, 'tb', 'battery', { click: () => host.send({ type: 'target.open', what: 'battery' }), label: 'Battery settings' })}
+      {place(Z.alert, ops.alert, 'ta', 'alert', { click: () => { controlOpen.value = true; }, label: 'Control Center' })}
       {Z.settings && ops.settings && (
         <g transform={`matrix(${Z.settings.matrix.join(' ')})`} data-module="console">
           <OpsView ops={ops.settings.ops} name="cs" />

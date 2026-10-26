@@ -145,9 +145,11 @@ public sealed class MessageRouterTests : IDisposable
         Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"taskmgr\"}")).Problem);
         Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"todo\"}")).Problem);
         Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"mute\"}")).Problem);
+        Assert.Null((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"terminal\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"C:\\\\\"}")).Problem);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"cmd.exe\"}")).Problem);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"target.open\",\"what\":\"ms-settings:sound\"}")).Problem);
-        Assert.Equal(["taskmgr", "todo", "mute"], opened);
+        Assert.Equal(["taskmgr", "todo", "mute", "terminal"], opened);
     }
 
     [Fact]
