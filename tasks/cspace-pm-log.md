@@ -41,6 +41,11 @@ gap list in tasks/cspace-gap-analysis.md), JARVIS-Repair-Plan.txt (CURRENT STATE
 - Build stop (2026-10-25): everything buildable without the user's go is built. Known limit: the published folder finds
   the UI and skin by walking up, so it must stay inside the repo until an installer is chosen.
 - Every slice now ends with an efficiency pass, noted in its commit (user, 2026-10-25).
+- Audit (user, 2026-10-25): 220df0d A1 security (RemoteSigned not Bypass, no -WindowStyle Hidden, no ipify while masked,
+  WebView2 locked down, profile out of %TEMP%, version resource); 34f64ca A2 frame timers off while hidden;
+  c70d3e8 A3 UI motion (category scan line ported, panel open/slide/fade, HUD fade-in on show, reduced-motion off).
+  Left for the user: code signing (biggest SmartScreen/AV factor), brightness still via powershell -Command on a dial
+  turn, upkeep.ps1's SecurityCenter2 AV query and winget run (recon-like, user feature), Chrome UA to Yahoo.
 
 ## Queue (app)
 1. Docs: Ctrl+Alt+1 -> Ctrl+Alt+Shift+1 in docs/HANDOFF-2026-10-20-standalone-app.md; ShipCore.App(.exe) -> CSpace in docs/tools.
