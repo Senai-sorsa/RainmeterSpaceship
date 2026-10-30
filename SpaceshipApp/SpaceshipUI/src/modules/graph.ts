@@ -3,8 +3,8 @@ import { type Readings } from './readings';
 import { normalise, nextSource, SOURCES } from './sources';
 
 // Port of Skins/Spaceship/@Resources/Scripts/graph.lua: the history instrument in the top console. Mode 'fixed' always shows
-// one source; 'select' shows a source the user picks. OnClick, OnRightClick and OnScroll are not ported: they changed the
-// source and saved it through a Rainmeter bang. selectSource() makes the change without the save.
+// one source; 'select' shows a source the user picks. OnClick, OnRightClick and OnScroll live in TopModule.tsx: they step
+// the source with selectSource() and save it (GraphA_Source / GraphB_Source).
 
 export type GraphMode = 'fixed' | 'select';
 export type GraphState = { src: string; hist: number[] };

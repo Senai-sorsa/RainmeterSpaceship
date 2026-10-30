@@ -2,8 +2,8 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import { type Readings, val } from './readings';
 
 // Port of Skins/Spaceship/@Resources/Scripts/alert.lua: the warning triangle and its count, in the top bar.
-// The triangle blinks on every frame while there are alerts, except on LOW and STEALTH. OnClick is not ported
-// (it opened a Rainmeter config).
+// The triangle blinks on every frame while there are alerts, except on LOW and STEALTH. Its click opens the
+// Control Center (TopModule.tsx), in place of the Rainmeter config it opened.
 
 export type Thresholds = { WarnCpuTemp: number; WarnGpuTemp: number; WarnDiskPct: number; WarnBattery: number };
 export const DEFAULT_THRESHOLDS: Thresholds = { WarnCpuTemp: 92, WarnGpuTemp: 85, WarnDiskPct: 90, WarnBattery: 20 };

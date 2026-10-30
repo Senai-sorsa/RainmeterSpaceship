@@ -2,9 +2,8 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat, type Catalog } from './apps';
 
 // Port of Skins/Spaceship/@Resources/Scripts/drawer.lua: the CARGO HOLD drawer (560 x 560). ALL INSTALLED APPS, then an
-// accordion of every category. Opened from a side slot it shows just that folder. Not ported: the Start-menu app
-// images (line icons are drawn instead), launching (an OS action, goes through the action gate), the clicks and the
-// idle close timer.
+// accordion of every category. Opened from a side slot it shows just that folder. The apps' own icons are drawn when
+// the host has them (line icons otherwise); the clicks, launching (through the action gate) and the idle close live in DrawerModule.tsx.
 
 export const ROWS = 19, RH = 26, TOP = 50;
 export type Row = { kind: 'all' } | { kind: 'cat'; cat: Cat; jump?: boolean } | { kind: 'app'; app: App };

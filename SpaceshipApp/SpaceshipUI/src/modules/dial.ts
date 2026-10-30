@@ -1,8 +1,8 @@
 import { Canvas, arcPts, mix, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of Skins/Spaceship/@Resources/Scripts/dial.lua: the systems dial (round, bottom left) with six controls on a ring:
-// BRT, VOL, MIC, PWR, HZ, GLW. Drawn from plain values only. Not ported: the clicks and scroll, the setters (ShipCore,
-// Windows audio, Legion Toolkit, GlowAlpha), the power-on spin-up and the right-click settings pages. The power modes and
+// BRT, VOL, MIC, PWR, HZ, GLW. Drawn from plain values only; the clicks, scroll and setters live in
+// DialModule.tsx. Not ported: the power-on spin-up and the right-click settings pages. The power modes and
 // refresh rates are the skin's defaults; shortcut: LltPowerModes and LltRefreshRates are not read, so a custom list shows as the defaults.
 
 const K = 1.13;

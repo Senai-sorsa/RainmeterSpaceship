@@ -4,7 +4,7 @@ import { usedShare } from './storage';
 
 // Port of Skins/Spaceship/@Resources/Scripts/strip.lua: the two readout strips under the dash arch. Left: CPU temp, GPU temp,
 // CPU load, fan. Right: drive fill, disk activity, ping, Wi-Fi. Warn limits are the skin's defaults (WarnCpuTemp 92,
-// WarnGpuTemp 85, WarnDiskPct 90, from Settings.inc), not read from settings yet. Click (Task Manager, drive) is not ported.
+// WarnGpuTemp 85, WarnDiskPct 90, from Settings.inc), not read from settings yet. The clicks (Task Manager, drive) live in BottomModule.tsx.
 
 const STEP = 84, CELLW = 76;
 

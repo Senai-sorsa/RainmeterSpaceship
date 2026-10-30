@@ -4,10 +4,11 @@ import { parseColor, type RGBA } from '../lib/theme';
 
 // Port of Skins/Spaceship/@Resources/Scripts/jarvis.lua (the centre core) and jarvislog.lua (the log window).
 // Ported: the 3D plexus shell, the two tilted orbit rings with satellites, the HUD dial, the side data bars, the
-// status label, and the conversation log. Not ported: the plasma orb and its voice echo (the 210-frame sprite is not
-// in the app's assets), the Python service, the clicks and keys, the auto-start and the MUTED file write. The text is copied as written in the Lua and is queued for the
+// status label, the conversation log, and the orb's level smoothing and voice echo (orbStep, orbEcho; JarvisModule.tsx draws
+// the Images\Jarvis frames). The clicks and keys live in JarvisModule.tsx; the Python service and auto-start are the host's.
+// Not here: the MUTED file write. The text is copied as written in the Lua and is queued for the
 // Phase 10 hand review.
-// shortcut: no orb sprite, levels are not smoothed, and bars are not smoothed, upgrade: add the Images\Jarvis frames and a per-key smoother.
+// shortcut: the side bars are not smoothed, upgrade: a per-bar smoother like orbStep's.
 
 /** Same centre as the old globe, in the Lua's zone units (jarvis.lua line 16). */
 export const CX = ((746 - 514) / 2) * (2560 / 1260);
@@ -274,7 +275,7 @@ export function logLines(log: string, live: string, width: number): LogLine[] {
 
 const LOG_ROWS = 20, LOG_RH = 26, LOG_TOP = 66, LX = 40, TX = 150;
 
-/** The log window, newest at the bottom. Scroll and the mic box are not ported; the window shows the last rows. */
+/** The log window, newest at the bottom; JarvisLogModule scrolls it and has the TYPE box. The mic box is not ported. */
 /** scroll: lines scrolled up from the bottom; clamped here as jarvislog.lua does. */
 export function logScrollMax(log: string, live: string, w: number, style: Style): number {
   return Math.max(0, logLines(log, live, logWidth(w, style)).length - LOG_ROWS);

@@ -3,7 +3,8 @@ import { type App, type Cat } from './apps';
 
 // Port of the 'row' style of Skins/Spaceship/@Resources/Scripts/slot.lua: one slot as a button with icon, name,
 // status (or app count for a category), the OPEN or LAUNCH hint and the stepped underline. Mirror flips it for the
-// right column. The other styles (compact, ship, card, rcompact) are not ported yet. Clicks are not wired.
+// right column. The other styles (compact, ship, card, rcompact) are left out on purpose: the HUD layout uses only 'row'.
+// The clicks live in LeftModule.tsx and RightModule.tsx.
 
 export type SlotStatus = { text: string; color: 'good' | 'warn' | 'white' | 'bg' };
 

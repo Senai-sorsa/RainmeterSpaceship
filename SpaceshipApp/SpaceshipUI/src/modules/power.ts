@@ -1,7 +1,7 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of Skins/Spaceship/@Resources/Scripts/power.lua: the power draw in the top-left bar. Sensor values come in as plain
-// numbers (undefined when there is no reading). The frame is returned, not drawn, and OnClick is not ported: it opened a Rainmeter config.
+// numbers (undefined when there is no reading). The frame is returned, not drawn, and the click (TopModule.tsx) opens the Control Center in place of a Rainmeter config.
 
 export type PowerInput = { cpu?: number; gpu?: number; chargeRate?: number };
 export type PowerFrame = { ops: Op[]; watts: number; tip: string };

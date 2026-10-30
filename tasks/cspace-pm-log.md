@@ -160,3 +160,12 @@ Not verified live (CSpace closed): real llt.exe, speedtest.exe, the IPolicyConfi
 Checks (after 675c348): tsc 0; vitest 51 files / 370 tests; e2e hud.spec 3/3; dotnet test 266 passed.
 Not ported: edit mode, presets, Rebuild icons (app-icons.ps1), JarvisPython from Settings.inc (not a schema key).
 Not verified live: the JARVIS launch, jarvis.py reading jarvis_cmd.txt, scan-apps.ps1 from the app, the tray items.
+
+## 2026-10-30 features round (clicks, slots, app icons, JARVIS orb, JarvisPython)
+- a4ad0ed JARVIS start reads JarvisPython from Settings.inc (local pythonw/pyw only; set but bad = NO PYTHON, no fallback).
+- 8a5bf8c orb voice echo + level smoothing (jarvis.lua 317-350), Active frames, echo only while speaking/thinking.
+- 8a208c7 app icons served by the host (icons.spaceship.local, icons.list); IconQueue + app-icons.ps1 after every Start-menu scan, at start when Icons\_index.txt is missing, and hourly. dist 19M -> 15M.
+- Task 5: stale "not ported" headers corrected (drawer, slot, jarvis, dial, alert, power, strip, graph).
+- Decisions: "clocks" read as clicks (all were already wired); slot styles compact/ship/card/rcompact skipped (layout uses only 'row'). CARGO is ported (drawer).
+- Checks: dotnet build 0 errors; dotnet test 274 passed (SAC let the test DLL load this time); tsc 0; vitest 55 files / 386 tests; vite build; hud e2e 3/3; app-icons.ps1 on a scratch copy of @Resources: exit 0, icons=2, missing path skipped.
+- Not verified live (CSpace closed): JARVIS launch with JarvisPython, the echo in WebView2, the icons virtual host, the first real icon run (a few hundred icons, 10 min timeout), the hourly rescan.
