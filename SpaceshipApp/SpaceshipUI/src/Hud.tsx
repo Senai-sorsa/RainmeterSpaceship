@@ -47,6 +47,14 @@ const drawerOn = on('drawer');
 const bootOn = on('boot');
 const jarvisOn = on('jarvis');
 const jarvisLogOn = on('jarvislog');
+// controller.lua: the start-up sequence plays when the app starts, not on Reload HUD (the tab's sessionStorage survives a reload)
+const firstLoad = (() => {
+  try {
+    if (sessionStorage.getItem('cspace.booted')) return false;
+    sessionStorage.setItem('cspace.booted', '1');
+  } catch { /* storage blocked: play it */ }
+  return true;
+})();
 const anyOn = [clockOn, topOn, bottomOn, leftOn, rightOn, centerOn, drawerOn, bootOn, jarvisOn, jarvisLogOn].some(Boolean);
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 /** The assistant's HUD label: AssistantLabel, or the name dotted like the skin's H.assistant('dots'). */
@@ -135,7 +143,7 @@ export function Hud() {
       {shown && rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} link={Number(values.LinkDownMbps) || 0} linkUp={Number(values.LinkUpMbps) || 0} hide={hide} />}
       {shown && centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} link={Number(values.LinkDownMbps) || 0} linkUp={Number(values.LinkUpMbps) || 0} />}
       {shown && drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
-      {bootOn && <BootModule style={styleFrom(values)} />}
+      {bootOn && firstLoad && store.loaded.value && values.BootAnim !== '0' && <BootModule style={styleFrom(values)} />}
       {shown && jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)}
         orb={{ bright: Number(values.JarvisOrbBright), tint: Number(values.JarvisTint), size: Number(values.JarvisOrbSize),
           cols: { idle: values.JarvisColorIdle, listen: values.JarvisColorListen, speak: values.JarvisColorSpeak } }} onMenu={() => setLogOpen((o) => !o)} />}

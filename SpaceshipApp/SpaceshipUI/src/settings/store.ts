@@ -58,6 +58,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     return v;
   });
   const level = signal<Level>('normal');
+  const loaded = signal(false); // the host's values have arrived at least once
   const query = signal('');
   const error = signal<{ key: string; message: string } | null>(null);
   const past = signal<Entry[]>([]);
@@ -142,6 +143,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     // a key being edited keeps the user's value; the host's older answer must not overwrite it
     for (const [k, v] of Object.entries(got)) if (typeof v === 'string' && isRaw(byKey.get(k)) && !busy.has(k)) { next[k] = v; sent[k] = v; }
     raw.value = next;
+    loaded.value = true;
   }
   const off = host.onMessage((m) => {
     if (m.type === 'config.ack') onAck(m);
@@ -261,6 +263,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     error: error as ReadonlySignal<{ key: string; message: string } | null>,
     canUndo: computed(() => past.value.length > 0),
     canRedo: computed(() => future.value.length > 0),
+    loaded: loaded as ReadonlySignal<boolean>,
     dispose: () => { if (typeof off === 'function') off(); },
     set, undo, redo, flush, settled, loadFromHost, resetKey, resetGroup, isChanged, applyDefaults, search, visibleDefs,
   };
