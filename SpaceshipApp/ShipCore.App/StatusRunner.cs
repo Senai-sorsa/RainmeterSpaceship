@@ -47,7 +47,7 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
     }
 
     // A fixed interpreter (by full path, not PATH) and a fixed script under the skin folder; nothing from the page reaches the command line.
-    static string RunScript(string path)
+    internal static string RunScript(string path)
     {
         if (!File.Exists(path)) throw new FileNotFoundException(path);
         var info = new ProcessStartInfo(PowerShell) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };

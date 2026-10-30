@@ -26,7 +26,7 @@ public sealed class MessageRouter
     /// <param name="open">target.open: Task Manager, the to-do note, a settings page or a media key, from a fixed list (checked by Protocol). Null means it is ignored.</param>
     /// <param name="dial">The systems dial's writes. Null means the dial is not wired and every dial.set is refused.</param>
     /// <param name="llt">The console's Legion Toolkit buttons. Null means every llt.set is refused.</param>
-    /// <param name="refresh">status.refresh: reads that block (llt when no kind is given) again now. Null means it is ignored.</param>
+    /// <param name="refresh">status.refresh: reads that block (llt when no kind is given) again now; "apps" for the apps.scan action. Null means it is ignored.</param>
     /// <param name="speed">speed.run: starts the speed test (it reports with status.update). Null means it is ignored.</param>
     /// <param name="jarvis">jarvis.cmd and the jarvis.* actions: a verb from JarvisStatus.Verbs and the asked text. Null means they are ignored.</param>
     /// <param name="hits">Where the page takes the mouse. Null means hit.regions is accepted and ignored.</param>
@@ -71,6 +71,8 @@ public sealed class MessageRouter
                 if (id == "setup.rerun") return Reply(new { type = "setup.state", done = false });
                 // the Control Center's assistant buttons (control.lua STOP / FORGET / REINDEX / TRAIN)
                 if (id.StartsWith("jarvis.", StringComparison.Ordinal) && JarvisStatus.Verbs.Contains(id[7..])) { _jarvis?.Invoke(id[7..], null); return new(null, null); }
+                // the Control Center's Scan apps (controller.lua Rescan): the host reruns the Start-menu scan
+                if (id == "apps.scan") { _refresh?.Invoke("apps"); return new(null, null); }
                 // Only power ids reach the gate; the other schema actions are not implemented in the host yet.
                 if (id is not ("shutdown" or "restart" or "sleep" or "lock")) return new(null, null);
                 var g = await _gate.PowerAsync(id, _confirm);

@@ -171,12 +171,14 @@ public sealed class MessageRouterTests : IDisposable
         Assert.Contains("\"id\":4", r.Reply);
         Assert.Equal(["refresh-rate 60"], llt.Calls);
         Assert.Equal(["llt"], refreshed);
+        Assert.Null((await router.HandleAsync("{\"type\":\"action\",\"id\":\"apps.scan\"}")).Problem);
+        Assert.Equal(["llt", "apps"], refreshed);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"llt.set\",\"id\":5,\"feature\":\"refresh\",\"value\":\"60 & calc\"}")).Problem);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"llt.set\",\"id\":5,\"feature\":\"fan\",\"value\":\"max\"}")).Problem);
         Assert.Null((await router.HandleAsync("{\"type\":\"status.refresh\"}")).Problem);
         Assert.Null((await router.HandleAsync("{\"type\":\"status.refresh\",\"kind\":\"mail\"}")).Problem);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"status.refresh\",\"kind\":\"calc\"}")).Problem);
-        Assert.Equal(["llt", "llt", "mail"], refreshed);
+        Assert.Equal(["llt", "apps", "llt", "mail"], refreshed);
         Assert.Single(llt.Calls);
     }
 

@@ -233,7 +233,7 @@ sealed class Overlay : Form
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
             _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget,
-                new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else if (k == "calendar") _calendar?.Soon(); else _status?.Soon(k); }, () => _speed?.Run(), JarvisCommand);
+                new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else if (k == "calendar") _calendar?.Soon(); else if (k == "apps") ScanApps(); else _status?.Soon(k); }, () => _speed?.Run(), JarvisCommand);
             var store = _settings;
             _speed = new SpeedRunner((k, v) => store.Set(k, v).Ok, Post);
         }
@@ -306,6 +306,8 @@ sealed class Overlay : Form
         _jarvisTimer.Tick += (_, _) => PushJarvis();
         _jarvisTimer.Start();
         _status?.Start();
+        // controller.lua: scan the Start menu on the first run, and again when the list is a day old
+        if (_resources is not null && File.GetLastWriteTimeUtc(Path.Combine(_resources, "Data", "StartApps.txt")) < DateTime.UtcNow.AddDays(-1)) ScanApps();
         _net.Start();
         _todo.Start();
         _calendar?.Start();
@@ -778,6 +780,22 @@ sealed class Overlay : Form
         _topSent = json;
         Post(json);
     }
+    // controller.lua Rescan: Scripts\scan-apps.ps1 (Get-StartApps, query only) rewrites Data\StartApps.txt; then the catalog goes out again
+    bool _scanning;
+    void ScanApps()
+    {
+        if (_resources is null || _scanning) return;
+        _scanning = true;
+        var path = Path.Combine(_resources, "Scripts", "scan-apps.ps1");
+        Task.Run(() => StatusRunner.RunScript(path)).ContinueWith(t =>
+        {
+            _scanning = false;
+            _log?.WriteLine($"{DateTime.UtcNow:O},APPS_SCAN,{(t.Exception is { } e ? e.InnerException?.GetType().Name : "ok")}");
+            _appsJson = null;
+            if (_running) PostOnce();
+        }, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
     void PostOnce()
     {
         if (_resources is null) return;
