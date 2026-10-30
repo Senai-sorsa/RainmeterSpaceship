@@ -708,12 +708,15 @@ sealed class Overlay : Form
     }
 
     // jarvis.lua StartService: pythonw Jarvis\jarvis.py <@Resources>\ from fixed places only; jarvis.py keeps itself to one instance
-    // shortcut: JarvisPython in Settings.inc is not read (it is not a schema key), the default places are; read it when it becomes one.
+    // JarvisPython is read from Settings.inc here, not from the page's settings, so the page can never pick what is launched
     void JarvisStart()
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         if (_resources is null || _jarvisStarted > 0) return; // already launching
-        var py = JarvisStatus.PythonW(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", Environment.GetEnvironmentVariable("WINDIR") ?? @"C:\Windows", File.Exists);
+        string? configured = null;
+        try { ConfigStore.Parse(File.ReadAllText(Path.Combine(_resources, "Settings.inc"))).TryGetValue("JarvisPython", out configured); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        var py = JarvisStatus.PythonW(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", Environment.GetEnvironmentVariable("WINDIR") ?? @"C:\Windows", File.Exists, configured);
         var script = Path.Combine(_resources, "Jarvis", "jarvis.py");
         if (py is null) { _jarvisNote = ("NO PYTHON", now + 6); _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_START_FAILED,NoPython"); return; }
         if (!File.Exists(script)) { _jarvisNote = ("NO SCRIPT", now + 6); return; }

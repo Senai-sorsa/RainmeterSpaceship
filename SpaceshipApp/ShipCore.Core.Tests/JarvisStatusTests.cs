@@ -81,6 +81,13 @@ public class JarvisStatusTests
         Assert.Equal(pyw, JarvisStatus.PythonW(@"C:\L", @"C:\W", p => p == pyw));
         Assert.Null(JarvisStatus.PythonW(@"C:\L", @"C:\W", _ => false));
         Assert.Equal(@"C:\W\pyw.exe", JarvisStatus.PythonW("", @"C:\W", _ => true)); // no LOCALAPPDATA: never a relative path
+        // JarvisPython: used when it is a local, existing pythonw/pyw; set but anything else is NO PYTHON, with no fallback
+        Assert.Equal(venv, JarvisStatus.PythonW(@"C:\L", @"C:\W", _ => true, "  "));
+        Assert.Equal(@"D:\Py\pythonw.exe", JarvisStatus.PythonW(@"C:\L", @"C:\W", _ => true, @"""D:\Py\pythonw.exe"""));
+        Assert.Null(JarvisStatus.PythonW(@"C:\L", @"C:\W", _ => true, @"Py\pythonw.exe"));
+        Assert.Null(JarvisStatus.PythonW(@"C:\L", @"C:\W", _ => true, @"\server\share\pythonw.exe"));
+        Assert.Null(JarvisStatus.PythonW(@"C:\L", @"C:\W", _ => true, @"C:\Windows\System32\cmd.exe"));
+        Assert.Null(JarvisStatus.PythonW(@"C:\L", @"C:\W", p => p == venv, @"D:\Py\pythonw.exe"));
     }
 
     [Fact]

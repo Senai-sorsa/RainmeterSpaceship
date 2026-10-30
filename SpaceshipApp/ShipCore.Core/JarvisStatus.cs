@@ -63,10 +63,17 @@ public static class JarvisStatus
     /// <summary>The captions the host shows under the orb for a while (jarvis.lua's note).</summary>
     public static readonly HashSet<string> Notes = ["STARTING", "NO PYTHON", "NO SCRIPT", "START FAILED", "STOPPED"];
 
-    /// <summary>jarvis.lua pythonw(): the HUD's venv pythonw.exe, else the py launcher's pyw.exe; null when none exists.</summary>
-    public static string? PythonW(string localAppData, string winDir, Func<string, bool> exists) =>
-        new[] { Path.Combine(localAppData, "SpaceshipHUD", "venv", "Scripts", "pythonw.exe"), Path.Combine(winDir, "pyw.exe"),
+    /// <summary>jarvis.lua pythonw(): JarvisPython when set, else the HUD's venv pythonw.exe, else the py launcher's pyw.exe; null when none exists.</summary>
+    /// <param name="configured">Settings.inc JarvisPython. Untrusted: kept only as a fully qualified local path to an existing pythonw.exe or pyw.exe; set but not that is null (NO PYTHON), as jarvis.lua does not fall back either.</param>
+    public static string? PythonW(string localAppData, string winDir, Func<string, bool> exists, string? configured = null)
+    {
+        var c = configured?.Trim().Trim('"') ?? "";
+        if (c.Length > 0)
+            return Path.IsPathFullyQualified(c) && !c.StartsWith(@"\\", StringComparison.Ordinal) && c.IndexOfAny(Path.GetInvalidPathChars()) < 0
+                && Path.GetFileName(c).ToLowerInvariant() is "pythonw.exe" or "pyw.exe" && exists(c) ? c : null;
+        return new[] { Path.Combine(localAppData, "SpaceshipHUD", "venv", "Scripts", "pythonw.exe"), Path.Combine(winDir, "pyw.exe"),
             Path.Combine(localAppData, "Programs", "Python", "Launcher", "pyw.exe") }.Where(Path.IsPathFullyQualified).FirstOrDefault(exists);
+    }
     public const int MaxAsk = 500;
 
     /// <summary>The jarvis_cmd.txt line for a page request, as lib.lua H.cmd / H.ask write it; null when an ask has no text.</summary>
