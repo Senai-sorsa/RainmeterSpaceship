@@ -122,3 +122,10 @@ Measured (not fixed):
   (target.open / app.launch, Program.cs:613/653); launches are not logged, so an unclicked open is unverified.
 Fix ideas for later: log every launch; run upkeep's winget/WU search rarely and not on each start; skip dev.ps1 CLIs
 that aren't installed/running; drop Get-PnpDevice/llt polling or lengthen it; profile the page's animation rates.
+
+## 2026-10-29: hover captions (ee9dc35)
+- Done: the condensed captions, the skin's H.hit tips minus what is already on screen; the targeter shows process, CPU % and RAM MB.
+- Checked: vitest 50 files/360 tests, tsc 0, vite build OK, mission-clock e2e 4/4 (two stale tests updated), hover checked in the preview.
+- Not checked: live CSpace (it is closed), and the targeter tip with real procs.top data (the mock host sends none).
+- Still open: #5 the picture-frame zoom (need the user to say where), #8 per-feature diff (console llt/perf/master/HUD buttons,
+  ToggleNext, picks not persisted, speed test, dev right-click, mail/calendar refresh), and the parked helper CPU/GPU issue.
