@@ -5,6 +5,10 @@ describe('jarvisFeedFrom', () => {
   // the shape JarvisStatus.ToJson sends (ShipCore.Core.Tests/JarvisStatusTests)
   const ok = { type: 'jarvis.update', state: 'speaking', level: 0.642, say: 'Good evening', err: '' };
   it('takes the host message', () => expect(jarvisFeedFrom(ok)).toEqual({ state: 'speaking', level: 0.642 }));
+  it('takes a known caption only', () => {
+    expect(jarvisFeedFrom({ ...ok, note: 'STARTING' })).toEqual({ state: 'speaking', level: 0.642, note: 'STARTING' });
+    expect(jarvisFeedFrom({ ...ok, note: 'HACKED' })).toEqual({ state: 'speaking', level: 0.642 });
+  });
   it.each([
     ['other type', { ...ok, type: 'system.metrics' }],
     ['unknown state', { ...ok, state: 'dancing' }],

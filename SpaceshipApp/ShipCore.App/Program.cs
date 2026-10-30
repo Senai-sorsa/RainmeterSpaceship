@@ -173,6 +173,11 @@ sealed class Overlay : Form
     string? _jarvisFile;
     string? _jarvisSent, _jarvisText;
     DateTime _jarvisWrite;
+    // jarvis.lua StartService: the caption under the orb until a time, when the service was last launched, and the one auto-start try
+    (string Text, long Until) _jarvisNote = ("", 0);
+    long _jarvisStarted;
+    bool _jarvisAutoTried;
+    readonly long _born = Environment.TickCount64;
     // the log pop-up's files (jarvislog.lua): the conversation, the reply being written, and jarvis_env.txt for MUTED
     readonly (string? Path, DateTime Write, string? Text)[] _logFiles = new (string?, DateTime, string?)[3];
     string? _logJson, _logSent;
@@ -596,7 +601,18 @@ sealed class Overlay : Form
             catch (IOException) { _jarvisWrite = default; } // missing, or mid-replace: retry next tick
             catch (UnauthorizedAccessException) { _jarvisWrite = default; }
         }
-        var json = JarvisStatus.ToJson(_jarvisText, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var json = JarvisStatus.ToJson(_jarvisText, now, _jarvisNote.Until >= now ? _jarvisNote.Text : "");
+        var offline = json.Contains("\"state\":\"offline\"", StringComparison.Ordinal); // our own serializer: quotes in text are escaped
+        if (_jarvisStarted > 0 && !offline) _jarvisStarted = 0;
+        else if (_jarvisStarted > 0 && now - _jarvisStarted > 25) { _jarvisStarted = 0; _jarvisNote = ("START FAILED", now + 30); } // launched, never came online
+        // JarvisAutoStart=1: once, about 5 s after the app starts, when the service isn't already running
+        if (!_jarvisAutoTried && Environment.TickCount64 - _born > 5000)
+        {
+            _jarvisAutoTried = true;
+            var v = _settings?.Get(["JarvisAutoStart", "JarvisEnabled"]);
+            if (offline && v?.GetValueOrDefault("JarvisAutoStart", "1") == "1" && v.GetValueOrDefault("JarvisEnabled", "1") == "1") JarvisStart();
+        }
         if (json != _jarvisSent) { _jarvisSent = json; _cc.CoreWebView2.PostWebMessageAsJson(json); }
         PushJarvisLog();
     }
@@ -670,6 +686,8 @@ sealed class Overlay : Form
     void JarvisCommand(string verb, string? text)
     {
         if (_resources is null) return;
+        if (verb == "start") { JarvisStart(); return; }
+        if (verb == "quit") _jarvisNote = ("STOPPED", DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 6);
         int.TryParse(_settings?.Get(["PerfTier"]).GetValueOrDefault("PerfTier"), out var tier); // H.tier
         var line = JarvisStatus.CmdLine(verb, text, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), tier);
         if (line is null) return;
@@ -682,6 +700,33 @@ sealed class Overlay : Form
             _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_CMD,{verb}"); // the verb only: the asked text stays private
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_CMD_FAILED,{e.GetType().Name}"); }
+    }
+
+    // jarvis.lua StartService: pythonw Jarvis\jarvis.py <@Resources>\ from fixed places only; jarvis.py keeps itself to one instance
+    // shortcut: JarvisPython in Settings.inc is not read (it is not a schema key), the default places are; read it when it becomes one.
+    void JarvisStart()
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        if (_resources is null || _jarvisStarted > 0) return; // already launching
+        var py = JarvisStatus.PythonW(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", Environment.GetEnvironmentVariable("WINDIR") ?? @"C:\Windows", File.Exists);
+        var script = Path.Combine(_resources, "Jarvis", "jarvis.py");
+        if (py is null) { _jarvisNote = ("NO PYTHON", now + 6); _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_START_FAILED,NoPython"); return; }
+        if (!File.Exists(script)) { _jarvisNote = ("NO SCRIPT", now + 6); return; }
+        try
+        {
+            var info = new ProcessStartInfo(py) { UseShellExecute = false, WorkingDirectory = _resources };
+            info.ArgumentList.Add(script);
+            info.ArgumentList.Add(_resources + Path.DirectorySeparatorChar);
+            using var _ = Process.Start(info);
+            _jarvisNote = ("STARTING", now + 10);
+            _jarvisStarted = now;
+            _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_START");
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            _jarvisNote = ("START FAILED", now + 30);
+            _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_START_FAILED,{e.GetType().Name}");
+        }
     }
 
     void OpenTarget(string what)

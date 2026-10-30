@@ -20,7 +20,7 @@ export type JarvisState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'offl
 export const LABEL: Record<JarvisState, string> = { idle: 'STANDBY', listening: 'LISTENING', thinking: 'THINKING', speaking: 'SPEAKING', offline: 'OFFLINE' };
 const SPIN: Record<string, number> = { idle: 1, listening: 0.7, thinking: 3, speaking: 1.4, offline: 0.3 };
 
-export type Feed = { state: string; level: number };
+export type Feed = { state: string; level: number; note?: string }; // note: the host's caption (STARTING, NO PYTHON...) in place of the state's
 
 /** Data\jarvis.txt lines (T, STATE, LEVEL). No file, or one older than 8 s, means offline. */
 export function feedFrom(text: string | undefined, nowS: number): Feed {
@@ -207,7 +207,7 @@ export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone,
   const [lx, ly] = lb ?? [0, zone.h];
   const labelCol = state === 'listening' ? mix(col, W, 0.35) : state === 'offline' ? mix(col, W, 0.2) : W;
   if (name) c.text(lx + 8, ly - 26, name, { size: 5, weight: 700, align: 'LeftBottom', color: mix(A1, W, 0.3) });
-  c.text(lx + 8, ly - 12, LABEL[state], { size: 4.4, weight: 700, align: 'LeftBottom', color: labelCol, glow: false });
+  c.text(lx + 8, ly - 12, feed.note || LABEL[state], { size: 4.4, weight: 700, align: 'LeftBottom', color: labelCol, glow: false });
   return c.flush();
 }
 

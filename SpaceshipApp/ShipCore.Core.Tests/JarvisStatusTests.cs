@@ -4,7 +4,7 @@ namespace ShipCore.Core.Tests;
 
 public class JarvisStatusTests
 {
-    static JsonElement Parse(string? text, long now) => JsonDocument.Parse(JarvisStatus.ToJson(text, now)).RootElement;
+    static JsonElement Parse(string? text, long now, string note = "") => JsonDocument.Parse(JarvisStatus.ToJson(text, now, note)).RootElement;
 
     [Fact]
     public void ReadsTheFileJarvisWrites()
@@ -61,6 +61,26 @@ public class JarvisStatusTests
         Assert.Null(JarvisStatus.CmdLine("ask", " \n ", 100, 0));
         Assert.Equal(4 + 4 + JarvisStatus.MaxAsk, JarvisStatus.CmdLine("ask", new string('a', 900), 100, 0)!.Length);
         Assert.Null(JarvisStatus.CmdLine("shutdown", null, 100, 0));
+        Assert.Null(JarvisStatus.CmdLine("start", null, 100, 0));
+    }
+
+    [Fact]
+    public void NotesAreAFixedList()
+    {
+        Assert.Equal("STARTING", Parse(null, 0, "STARTING").GetProperty("note").GetString());
+        Assert.Equal("", Parse(null, 0, "HACKED").GetProperty("note").GetString());
+        Assert.Equal("", Parse(null, 0).GetProperty("note").GetString());
+    }
+
+    [Fact]
+    public void PythonIsTheSkinsOrder()
+    {
+        var venv = @"C:\L\SpaceshipHUD\venv\Scripts\pythonw.exe";
+        var pyw = @"C:\L\Programs\Python\Launcher\pyw.exe";
+        Assert.Equal(venv, JarvisStatus.PythonW(@"C:\L", @"C:\W", p => p == venv || p == pyw));
+        Assert.Equal(pyw, JarvisStatus.PythonW(@"C:\L", @"C:\W", p => p == pyw));
+        Assert.Null(JarvisStatus.PythonW(@"C:\L", @"C:\W", _ => false));
+        Assert.Equal(@"C:\W\pyw.exe", JarvisStatus.PythonW("", @"C:\W", _ => true)); // no LOCALAPPDATA: never a relative path
     }
 
     [Fact]

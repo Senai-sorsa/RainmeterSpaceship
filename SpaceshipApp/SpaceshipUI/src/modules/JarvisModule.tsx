@@ -13,8 +13,7 @@ const offline = feedFrom(undefined, 0);
 
 /**
  * The Jarvis core, behind ?module=jarvis. Centred on the old globe's zone (C_sphere). The Hud gives it the host's
- * jarvis.update feed; with none it shows OFFLINE. A click wakes him or cancels the turn (jarvis.lua OnClick).
- * shortcut: a click while OFFLINE does nothing (the skin starts the service); port StartService when the host can run it.
+ * jarvis.update feed; with none it shows OFFLINE. A click starts the service, wakes him or cancels the turn (jarvis.lua OnClick).
  */
 export function JarvisModule({ style, feed = offline, label = '', orb = {}, enabled = true, onMenu }: {
   style: Style; feed?: Feed; label?: string; orb?: OrbOpts; enabled?: boolean; onMenu?: () => void;
@@ -72,11 +71,11 @@ function Orb({ f, feed, style, cx, cy, opts }: { f: number; feed: Feed; style: S
 }
 
 let lastCmd = 0;
-/** jarvis.lua OnClick: once a second at most; idle wakes him at the HUD's tier, any other state cancels the turn. */
-export function orbClick(enabled: boolean, state: string, now = Date.now()): 'wake' | 'cancel' | null {
-  if (!enabled || state === 'offline' || now - lastCmd < 1000) return null;
+/** jarvis.lua OnClick: once a second at most; offline starts the service, idle wakes him at the HUD's tier, any other state cancels the turn. */
+export function orbClick(enabled: boolean, state: string, now = Date.now()): 'start' | 'wake' | 'cancel' | null {
+  if (!enabled || now - lastCmd < 1000) return null;
   lastCmd = now;
-  const cmd = state === 'idle' ? 'wake' : 'cancel';
+  const cmd = state === 'offline' ? 'start' : state === 'idle' ? 'wake' : 'cancel';
   host.send({ type: 'jarvis.cmd', cmd });
   return cmd;
 }

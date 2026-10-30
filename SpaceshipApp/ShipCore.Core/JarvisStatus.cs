@@ -10,7 +10,8 @@ public static class JarvisStatus
     static readonly HashSet<string> States = ["idle", "listening", "thinking", "speaking"];
 
     /// <param name="text">The file's text, or null when it is missing. Untrusted: unknown states become idle, text is trimmed and stripped of control characters.</param>
-    public static string ToJson(string? text, long nowS)
+    /// <param name="note">The host's caption under the orb for now (one of <see cref="Notes"/>), or empty.</param>
+    public static string ToJson(string? text, long nowS, string note = "")
     {
         string state = "idle", say = "", err = "", pop = "";
         double level = 0;
@@ -32,7 +33,7 @@ public static class JarvisStatus
         }
         if (!States.Contains(state)) state = "idle";
         if (text is null || nowS - t > StaleSeconds) { state = "offline"; level = 0; }
-        return JsonSerializer.Serialize(new { type = "jarvis.update", state, level = Math.Round(Math.Clamp(level, 0, 1), 3), say, err, pop });
+        return JsonSerializer.Serialize(new { type = "jarvis.update", state, level = Math.Round(Math.Clamp(level, 0, 1), 3), say, err, pop, note = Notes.Contains(note) ? note : "" });
     }
 
     public const int MaxLog = 65536;
@@ -57,7 +58,15 @@ public static class JarvisStatus
     }
 
     /// <summary>What the page may ask JARVIS to do (jarvis.py's jarvis_cmd.txt verbs; train is TRAINWAKE).</summary>
-    public static readonly HashSet<string> Verbs = ["wake", "cancel", "ask", "forget", "reindex", "train", "quit"];
+    public static readonly HashSet<string> Verbs = ["wake", "cancel", "ask", "forget", "reindex", "train", "quit", "start"];
+
+    /// <summary>The captions the host shows under the orb for a while (jarvis.lua's note).</summary>
+    public static readonly HashSet<string> Notes = ["STARTING", "NO PYTHON", "NO SCRIPT", "START FAILED", "STOPPED"];
+
+    /// <summary>jarvis.lua pythonw(): the HUD's venv pythonw.exe, else the py launcher's pyw.exe; null when none exists.</summary>
+    public static string? PythonW(string localAppData, string winDir, Func<string, bool> exists) =>
+        new[] { Path.Combine(localAppData, "SpaceshipHUD", "venv", "Scripts", "pythonw.exe"), Path.Combine(winDir, "pyw.exe"),
+            Path.Combine(localAppData, "Programs", "Python", "Launcher", "pyw.exe") }.Where(Path.IsPathFullyQualified).FirstOrDefault(exists);
     public const int MaxAsk = 500;
 
     /// <summary>The jarvis_cmd.txt line for a page request, as lib.lua H.cmd / H.ask write it; null when an ask has no text.</summary>
@@ -72,6 +81,7 @@ public static class JarvisStatus
                 if (t.Length > MaxAsk) t = t[..(char.IsHighSurrogate(t[MaxAsk - 1]) ? MaxAsk - 1 : MaxAsk)];
                 return t.Length == 0 ? null : $"ASK {unixS} {t}";
             case "train": return $"TRAINWAKE {unixS}";
+            case "start": return null; // the host launches the service; nothing goes in the file
             default: return Verbs.Contains(verb) ? $"{verb.ToUpperInvariant()} {unixS}" : null;
         }
     }

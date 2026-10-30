@@ -998,6 +998,7 @@
  { "name": "target.open other program", "valid": false, "msg": { "type": "target.open", "what": "cmd.exe" } },
  { "name": "target.open no what", "valid": false, "msg": { "type": "target.open" } },
  { "name": "jarvis.cmd wake", "valid": true, "msg": { "type": "jarvis.cmd", "cmd": "wake" } },
+ { "name": "jarvis.cmd start", "valid": true, "msg": { "type": "jarvis.cmd", "cmd": "start" } },
  { "name": "jarvis.cmd ask", "valid": true, "msg": { "type": "jarvis.cmd", "cmd": "ask", "text": "what time is it" } },
  { "name": "jarvis.cmd ask no text", "valid": false, "msg": { "type": "jarvis.cmd", "cmd": "ask" } },
  { "name": "jarvis.cmd ask too long", "valid": false, "msg": { "type": "jarvis.cmd", "cmd": "ask", "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } },

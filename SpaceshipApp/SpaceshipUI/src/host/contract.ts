@@ -12,7 +12,7 @@ const REFRESH_RATES = new Set(['60', '165']);
 const TARGETS = ['taskmgr', 'taskperf', 'todo', 'sound', 'display', 'power', 'mute', 'prev', 'playpause', 'next', 'audionext', 'jarvislog',
   'terminal', 'powershell', 'about', 'outlookcal', 'gcal', 'gmail', 'update', 'defender', 'network', 'wifi', 'spx', 'ollama', 'tailscale', 'drive', 'battery'];
 const LLT_FEATURES = ['hybrid', 'power', 'refresh', 'battery']; // LltGate.Features
-const JARVIS_CMDS = ['wake', 'cancel', 'ask', 'forget', 'reindex', 'train', 'quit']; // JarvisStatus.Verbs
+const JARVIS_CMDS = ['wake', 'cancel', 'ask', 'forget', 'reindex', 'train', 'quit', 'start']; // JarvisStatus.Verbs
 const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/; // a lone surrogate is not text the host can read
 const isObj = (m: unknown): m is Record<string, unknown> => typeof m === 'object' && m !== null && !Array.isArray(m);
 

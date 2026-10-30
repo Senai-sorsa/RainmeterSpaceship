@@ -2,6 +2,7 @@ import { signal } from '@preact/signals';
 import type { Feed } from '../modules/jarvis';
 
 const STATES = new Set(['offline', 'idle', 'listening', 'thinking', 'speaking']);
+const NOTES = new Set(['STARTING', 'NO PYTHON', 'NO SCRIPT', 'START FAILED', 'STOPPED']); // JarvisStatus.Notes
 
 /** The host's jarvis.update message (read from Data\jarvis.txt), or null for anything else. say and err are not drawn yet. */
 export function jarvisFeedFrom(m: unknown): Feed | null {
@@ -9,7 +10,7 @@ export function jarvisFeedFrom(m: unknown): Feed | null {
   const o = m as Record<string, unknown>;
   if (o.type !== 'jarvis.update' || typeof o.state !== 'string' || !STATES.has(o.state)) return null;
   if (typeof o.level !== 'number' || !(o.level >= 0 && o.level <= 1)) return null;
-  return { state: o.state, level: o.level };
+  return { state: o.state, level: o.level, ...(typeof o.note === 'string' && NOTES.has(o.note) ? { note: o.note } : {}) };
 }
 
 /** Offline until the host says otherwise. */
