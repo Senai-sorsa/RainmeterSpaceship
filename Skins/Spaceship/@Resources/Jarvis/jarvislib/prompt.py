@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 from .base import MEMORYSTATUSEX, RES, SYSTEM_POWER_STATUS, log, read_kv, setting, settings, todo_note
 from .calc import clock
+from .helpdocs import help_hits
 from .llm import ctx_tokens
 from .meaning import MEANING_BLOCK, closeness, meaning
 from .memory import keywords, load_memory, related
@@ -24,6 +25,8 @@ BLOCK_EXAMPLES = {
            "Is my graphics card busy?"),
     "net": ("Is my internet working?", "How fast is my connection?", "Am I connected to the wifi?"),
     "apps": ("What apps are open right now?", "Which programs are running?"),
+    "help": ("Why is JARVIS offline?", "Why isn't my mail updating?", "The HUD is frozen, how do I fix it?",
+             "CSpace shows an error, what does it mean?", "Why won't the assistant start?"),
     "pending": ("What alarms do I have set?", "Did you set my reminder?", "How long is left on the timer?",
                 "When will you wake me up?"),
 }
@@ -39,6 +42,8 @@ BLOCKS = {"calendar": r"schedule|today|tomorrow|tonight|week|class|quiz|exam|tes
           "apps": r"open\b|running|windows?\b|apps?\b|programs?\b",
           # the Pending line (in sensors()): sent on its own for anything about time or setting things, so "wake me
           # at 7" or "did you set it" can be checked against the real schedule; left out of unrelated chat
+          "help": r"cspace|error|broken|not working|doesn'?t work|won'?t (?:start|open|load|connect)|can'?t (?:start|connect)|"
+                  r"fail(?:s|ed|ing)?\b|offline|frozen|blank|troubleshoot|how do i fix|installer|uninstall",
           "pending": r"alarms?\b|timers?\b|remind|wake|snooze|cancel|pending|schedul|set\b|did you|o'?clock|"
                      r"\d+ ?(?:am|pm|a\.m|p\.m)\b|minutes?\b|hours?\b|morning|tonight|later\b"}
 # "tell me a joke" is not about you: "me" right after tell/give/show/help/let does not count
@@ -98,6 +103,12 @@ def context(text=None, kind=None):
         st = settings()
         if st.get("LinkDownMbps"):
             lines.append(f"Internet speed (last test {st.get('LastSpeedTest', '?')}): {st.get('LinkDownMbps')} down / {st.get('LinkUpMbps', '?')} up Mbps")
+    hits = help_hits(text) if text and kind != "brief" else []   # known CSpace problems and fixes: the search is the gate
+    if hits:
+        err = re.search(r"^ERR (.+)$", read_kv("jarvis.txt"), re.M)
+        if err:
+            lines.append(f"My last error: {err.group(1)[:120]}")
+        lines.append("CSPACE HELP (known problems and fixes; answer from these and say if none fits): " + " | ".join(hits))
     todo = todo_note() if "todo" in want else ""
     if todo:
         try:

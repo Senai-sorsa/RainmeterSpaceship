@@ -128,7 +128,8 @@ def missed_line(peak, call=""):
 def _decode(model, audio):
     """Whisper told what to expect. VAD trims the silence; when it leaves nothing (it can cut a short "yes") the audio
     is decoded once more without it, and without the hint, which Whisper can say back on near-silence."""
-    opts = dict(beam_size=5 if _whisper_dev[0] == "cuda" else 3, language="en", condition_on_previous_text=False)
+    opts = dict(beam_size=5 if _whisper_dev[0] == "cuda" else 3, language="en", condition_on_previous_text=False,
+                temperature=0.0)                               # J3: no hotter retries of a noisy clip (slower, and where loops come from)
     segs = list(model.transcribe(audio, vad_filter=True, hotwords="Clover Jarvis", initial_prompt=HINT, **opts)[0])
     if not segs:
         segs = list(model.transcribe(audio, vad_filter=False, **opts)[0])
@@ -147,8 +148,12 @@ def no_loops(segs):
     return keep
 
 
+LOOP_WORDS = re.compile(r"\b(\w[\w']*(?: \w[\w']*){0,3})(?:[ ,]+\1\b){3,}", re.I)   # a 1-4 word phrase 4+ times in a row
+
+
 def no_repeats(text):
     """"Okay. Okay. Okay." -> "Okay.": a sentence said 3+ times in a row is kept once (Whisper's repetition loop)."""
+    text = LOOP_WORDS.sub(r"\1", text)                         # J3: "thank you thank you thank you thank you" -> once
     parts = re.split(r"(?<=[.!?])\s+", text)
     same = [re.sub(r"[^\w']+", "", p.lower()) for p in parts]  # "Okay." and "okay" are the same sentence
     res, i = [], 0

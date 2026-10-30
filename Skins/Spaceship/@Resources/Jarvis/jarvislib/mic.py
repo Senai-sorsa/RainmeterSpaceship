@@ -137,7 +137,9 @@ def follow_name_wait():
         return max(follow_wait(), 10.0)
 
 
-onset = [0.0]                                                  # seconds the last _listen waited before speech began
+FAST_END = 0.7                                                 # seconds of quiet that end a short utterance (J2)
+SHORT_TALK = 100                                               # "short": the first 100 blocks (3 s) since speech began
+onset = [0.0]                                                 # seconds the last _listen waited before speech began
 peak = [0.0]                                                   # U5: the loudest 30 ms block (rms, 0-1) of the last _listen
 
 
@@ -152,6 +154,10 @@ def _listen(patience=6, dim_after=None):
         quiet_blocks = int(max(0.5, min(6.0, float(setting("JarvisSilence", "1.0")))) / 0.03)
     except ValueError:
         quiet_blocks = 33
+    # J2: a short utterance (a command) ends after FAST_END of quiet; a long one keeps the full wait. An explicit
+    # JarvisSilence always wins, and JarvisFastEnd=0 turns it off.
+    fast_blocks = int(FAST_END / 0.03) if setting("JarvisFastEnd", "1") == "1" and not setting("JarvisSilence", "") else quiet_blocks
+    talked = 0
     stream = None
     try:
         stream = sd.InputStream(samplerate=rate, channels=1, dtype="float32", blocksize=block, device=mic_device())
@@ -185,7 +191,8 @@ def _listen(patience=6, dim_after=None):
                 else:
                     waited += 1
                     frames = (frames + [x.copy()])[-10:]     # keep 0.3 s before speech starts
-                if started and silent > quiet_blocks:
+                talked += started
+                if started and silent > (fast_blocks if talked <= SHORT_TALK else quiet_blocks):
                     break
                 if dim_after and not started and not dim and waited * 0.03 > dim_after:
                     dim = True

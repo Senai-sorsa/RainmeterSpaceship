@@ -1239,6 +1239,25 @@ for _loud, _want in ((10 ** 6, ["standby"]), (20, ["standby", "listening"])):   
     sys.modules["sounddevice"] = _Sd(_loud)
     _mic._listen(0.9, 0.3)                                    # 30 blocks of 30 ms; dim from 0.3 s
     assert _seen == _want, (_loud, _seen)
+# J2: a short utterance ends after 0.7 s of quiet, a long one waits the full JarvisSilence; an explicit setting or JarvisFastEnd=0 wins
+class _Pat(_Strm):
+    reads = 0
+    def __init__(self, talk): _Strm.__init__(self, 0); self.talk = talk
+    def read(self, block):
+        self.n += 1; _Pat.reads += 1
+        return _np.full((block, 1), 0.5 if self.n <= self.talk else 0.0, dtype=_np.float32), False
+class _SdPat:
+    def __init__(self, talk): self.talk = talk
+    def InputStream(self, **k): return _Pat(self.talk)
+def _quiet_blocks(talk, **cfg):
+    _mic.setting = lambda n, d="": cfg.get(n, d)
+    sys.modules["sounddevice"] = _SdPat(talk)
+    _Pat.reads = 0
+    _mic._listen(5)
+    return _Pat.reads - talk
+_short, _long = _quiet_blocks(20), _quiet_blocks(120)
+assert 22 <= _short <= 26 and 32 <= _long <= 36, (_short, _long)                      # 0.7 s vs 1.0 s of quiet
+assert 32 <= _quiet_blocks(20, JarvisSilence="1.0") <= 36 and 32 <= _quiet_blocks(20, JarvisFastEnd="0") <= 36
 _mic.S = _real_S
 if _real_sd is None: del sys.modules["sounddevice"]
 else: sys.modules["sounddevice"] = _real_sd
@@ -1542,6 +1561,7 @@ for text in ("Good morning.", "good evening jarvis", "Brief me", "Hey Jarvis, da
 for text in ("Good morning, can you open Chrome?", "brief me on quantum physics", "is it a good morning?"):
     assert j.route(text)[0] == "chat", text
 prompts, heard, speaks, temps = [], [0], [0], []
+orig_stream = j.chat_stream                                    # the T4 test below needs the real one back
 j.chat_stream = lambda model, messages, temperature=0.5: temps.append(temperature) or prompts.append(messages[0]["content"])
 j.sentences_from = lambda stream, collected: collected.append("Ha.") or iter(["Ha."])
 j.speak_all = j.say_text_only = lambda sentences, *a: list(sentences)
@@ -1688,6 +1708,9 @@ j.save_reminders([])
 j.listen, j.transcribe = _listen, (lambda a: "")
 
 # ---- Phase 10B U1: Whisper's confidence is the word-weighted mean; a one-word noisy tail does not drag a clear command down
+S_ = types.SimpleNamespace
+import types
+S_ = types.SimpleNamespace                                         # first used here; it was defined only at the Phase 10B Whisper tests below
 CS = lambda text, lp: S_(text=text, avg_logprob=lp)
 assert j.confidence([CS(" set a timer for ten minutes", -0.3), CS(" uh", -2.5)]) == -0.3   # the tail is ignored
 assert abs(j.confidence([CS(" set a timer", -0.3), CS(" for ten minutes", -1.4)]) - (-0.85)) < 1e-9
@@ -1720,6 +1743,7 @@ prompt_mod = sys.modules["jarvislib.prompt"]
 real_persona, real_stamp = j.PERSONA, prompt_mod._persona[:]
 j.PERSONA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "persona.txt")
 prompt_mod._persona[:], prompt_mod._persona_said[0] = [None, {}], None
+lines = []
 lines[:], j.log = [], lines.append
 sections = j.persona()
 assert sections and "system" in sections and lines == [f"persona.txt loaded ({len(sections)} sections)"], (sections.keys(), lines)
@@ -1737,9 +1761,11 @@ import json as _json
 sent = []
 real_http2 = j.http_json
 j.http_json = lambda path, payload=None, timeout=5: sent.append((path, payload)) or {}
+j.warm = real_warm                                           # line 1025 left the no-op warm in place
 j.warm("m")
-assert until(lambda: len(sent) == 1)
+assert until(lambda: len(sent) == 1), sent
 assert sent[0][0] == "/api/generate" and sent[0][1]["options"] == j.load_options() and j.load_options()["num_ctx"] == j.ctx_tokens(), sent
+fake_stream, j.chat_stream = j.chat_stream, orig_stream
 for card in (True, False):
     j.gpu = lambda card=card: card
     sent.clear()
@@ -1761,6 +1787,8 @@ for card in (True, False):
     assert all(opts[k] == v for k, v in j.load_options().items()), (card, opts)       # chat asks for what warm() loaded
     assert ("num_thread" in opts) == (not card)
 j.gpu, j.http_json = real_gpu, real_http2
+j.chat_stream = fake_stream
+j.warm = lambda m: None                                        # back to the no-op that line 1025 installed
 
 for text, want in (("Uh huh.", "no"), ("okay", "no"), ("Mom the pasta is boiling over.", "ask"), ("What's the time?", "yes"),
                    ("Thank you.", "yes"), ("No.", "yes"), ("Jarvis, the pasta.", "yes"), ("set a timer for 2 minutes", "yes"),
@@ -2865,7 +2893,6 @@ j.whisper = real_whisper                                          # an empty tra
 # ---- Phase 3: hearing you correctly
 # 3a: Whisper is told what to expect; VAD trims the silence, and an empty result is decoded once more without it
 calls = []
-S_ = types.SimpleNamespace
 
 
 class OptWhisper:
@@ -3629,6 +3656,10 @@ assert lines == ["transcript: dropped (loop) 2 of 4 parts"]                   # 
 assert j.no_repeats("So that's it. Okay. Okay. Okay. okay.") == "So that's it. Okay."
 assert j.no_repeats("Yes. Yes. Set a timer.") == "Yes. Yes. Set a timer."   # twice is kept: it can be real
 assert j.no_repeats("Set a timer for ten minutes.") == "Set a timer for ten minutes." and j.no_repeats("") == ""
+# J3: a word or short phrase looped 4+ times collapses; three times (or real speech) is left alone
+assert j.no_repeats("Thank you thank you thank you thank you") == "Thank you"
+assert j.no_repeats("Turn it up, up, up, up please") == "Turn it up please"
+assert j.no_repeats("No no no") == "No no no" and j.no_repeats("Play it again and again") == "Play it again and again"
 fake_whisper = S_(transcribe=lambda audio, **k: ([Seg(" Okay."), Seg(" Okay."), Seg(" Okay."), Seg(" Okay.")], None))
 j._whisper_dev[0] = "cpu"
 assert j._decode(fake_whisper, "audio") == "Okay."
@@ -4090,5 +4121,13 @@ j.setting = lambda name, default="": "1" if name == "JarvisPrivacy" else default
 ctx = REAL_CONTEXT("which apps are open")
 assert "Open apps: 2 (names are private)" in ctx and "chrome" not in ctx and "Code" not in ctx, ctx
 j.setting = lambda name, default="": default
+
+# ---- help block: a question about a CSpace problem pulls the known fixes; an unrelated one does not
+import jarvislib.helpdocs as HD
+HD.HELP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "help_cspace.txt")
+j.read_kv = lambda name: ""
+assert "CSPACE HELP" in REAL_CONTEXT("my gmail stopped updating") and "Gmail sign-in" in REAL_CONTEXT("my gmail stopped updating")
+assert "CSPACE HELP" not in REAL_CONTEXT("what is the capital of France")
+assert "CSPACE HELP" not in REAL_CONTEXT("how hot is my cpu") and "CSPACE HELP" not in REAL_CONTEXT("tell me a joke")
 
 print("test_jarvis: OK")

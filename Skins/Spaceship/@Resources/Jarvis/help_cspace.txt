@@ -1,0 +1,23 @@
+JARVIS offline, JARVIS not starting, assistant will not start: The orb shows OFFLINE when the assistant is not running. Click the orb or press Start JARVIS in Control Center > System > Help to start him. If it says NO PYTHON, Python is not installed or not found; install Python 3 and run Jarvis\Setup-Jarvis.ps1. If it says NO SCRIPT, the Jarvis folder is missing from the skin. START FAILED means Python was found but the script crashed; see Data\jarvis_log.txt.
+
+Voice, microphone, wake word or speech not working, no sound: The voice models (vosk, kokoro, voices, wake) are not part of the installer. Run Jarvis\Setup-Jarvis.ps1 once to download them. Check the microphone in Control Center > Assistant, and that the mic is not muted.
+
+Mail not updating, Gmail error, unread count wrong: The Gmail check needs the Gmail sign-in from Control Center > Integrations > Connect Gmail. If the mail line shows an error, connect Gmail again, then use Check mail now in System > Help. Mail is checked less often on battery when Power saver is on.
+
+Calendar empty or not updating: Connect the calendars in Control Center > Integrations. Calendar is fetched on a timer and less often on battery. Right-click the clock to refresh it.
+
+Notes search finds nothing: Set the notes vault in Control Center > Assistant. The first search builds an index in the background; if ChromaDB is not installed he falls back to plain keyword search.
+
+HUD is blank, frozen or wrong after a change: Use Reload HUD page in System > Help. If it stays blank, quit CSpace from the tray and start it again. The kill switch is Ctrl+Alt+Shift+1.
+
+Battery, power saver, slow checks on battery: With Power saver on (Control Center > Performance > Battery), status, mail and calendar checks run four times less often while unplugged. Turn it off there for normal speed.
+
+Animations, motion, flicker: Display > Reduce motion stops the interface animations. It does not change the HUD module animations.
+
+Apps missing from the app drawer: Use Scan apps; the scan runs on its own when the list is missing or a day old. Apps launch only from the Start menu list.
+
+Settings not saving, a setting reverted: A setting the host refuses is rolled back and shows an error under the row. Use Undo in Control Center, or reset the group.
+
+CSpace will not open, stopped, tray only: A manual Stop is remembered across restarts. Use Start from the tray menu, or launch CSpace again. Left-click the tray icon opens the Control Center.
+
+Installer, install location, uninstall: CSpace installs per user under AppData\Local\Programs\CSpace and needs the .NET 10 Desktop Runtime. Uninstall from Windows Settings > Apps.
