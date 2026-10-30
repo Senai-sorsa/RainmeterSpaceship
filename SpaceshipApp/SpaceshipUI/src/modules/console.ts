@@ -2,8 +2,8 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import type { ActionDef } from '../actions/gate';
 
 // Port of Skins/Spaceship/@Resources/Scripts/console.lua: the top console with the GPU-mode tabs and the quick settings.
-// Clicks no longer run anything. consoleIntent() says what the click asks for: an OS action (which goes through the action
-// gate and needs a confirm), a UI change, or nothing. Legion Toolkit and status.ps1 calls are the C# runner's job.
+// Clicks run nothing here. consoleIntent() says what the click asks for: a Legion Toolkit switch (lltMessage -> the host's
+// llt.set, checked again by its LltGate), a status refresh, a UI change, or nothing.
 
 export type HybridMode = 'ECO' | 'HYBRID' | 'AUTO' | 'DGPU';
 /** Status read from the host, lower-cased like console.lua's OnStatus. '' means not known yet. */
@@ -159,4 +159,16 @@ export function consoleActions(cfg: ConsoleConfig): Record<string, ActionDef> {
     'llt.battery': { args: { mode: { kind: 'enum', values: [cfg.conserveWord, cfg.normalWord] } }, confirm: true },
     'status.refresh': { args: {}, confirm: false },
   };
+}
+
+const LLT: Record<string, [feature: string, arg: string]> = {
+  'llt.hybrid': ['hybrid', 'mode'], 'llt.power': ['power', 'mode'], 'llt.refresh': ['refresh', 'hz'], 'llt.battery': ['battery', 'mode'],
+};
+/** The host's llt.set for a Legion Toolkit intent (console.lua runLlt), and its line: "> VALUE", condensed from the skin's
+ * "SET FEATURE > VALUE", which its 150-unit message clip cuts off. Null for any other intent. */
+export function lltMessage(it: Intent, id: number) {
+  const f = it.kind === 'action' ? LLT[it.action] : undefined;
+  if (!f || it.kind !== 'action') return null;
+  const value = String(it.args[f[1]]);
+  return { msg: { type: 'llt.set', id, feature: f[0], value }, say: `> ${value.toUpperCase()}` };
 }

@@ -22,6 +22,9 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
     /// <summary>The last message of each kind, for a page that just loaded.</summary>
     public IEnumerable<string> Last => _last.Values.ToList();
 
+    /// <summary>Runs one kind on the next tick (status.refresh, and after a console switch); a run already going is followed by another.</summary>
+    public void Soon(string kind) => _due[kind] = DateTime.MinValue;
+
     void Tick()
     {
         if (!shown()) return;

@@ -218,7 +218,8 @@ sealed class Overlay : Form
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
-            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget);
+            _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget,
+                new LltGate(new LltRunner(), ConfirmAsync), () => _status?.Soon("llt"));
         }
         // The full display, taskbar included: the desktop layer lets the taskbar draw over it.
         _home = HomeScreen(_settings).Bounds;

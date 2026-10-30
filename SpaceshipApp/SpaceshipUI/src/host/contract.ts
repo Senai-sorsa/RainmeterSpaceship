@@ -11,6 +11,7 @@ const REFRESH_RATES = new Set(['60', '165']);
 // the host's fixed target.open list (Protocol.Targets)
 const TARGETS = ['taskmgr', 'taskperf', 'todo', 'sound', 'display', 'power', 'mute', 'prev', 'playpause', 'next',
   'terminal', 'powershell', 'about', 'outlookcal', 'gcal', 'gmail', 'update', 'defender', 'network', 'wifi', 'spx', 'ollama', 'tailscale', 'drive', 'battery'];
+const LLT_FEATURES = ['hybrid', 'power', 'refresh', 'battery']; // LltGate.Features
 const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/; // a lone surrogate is not text the host can read
 const isObj = (m: unknown): m is Record<string, unknown> => typeof m === 'object' && m !== null && !Array.isArray(m);
 
@@ -32,6 +33,11 @@ export function messageProblem(m: unknown): string | null {
     case 'hit.regions': return hitRegionsProblem(m);
     case 'app.launch': return typeof m.id === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(m.id) ? null : 'bad app id';
     case 'target.open': return typeof m.what === 'string' && TARGETS.includes(m.what) ? null : 'bad target';
+    case 'llt.set':
+      if (typeof m.feature !== 'string' || !LLT_FEATURES.includes(m.feature)) return 'bad feature';
+      if (typeof m.value !== 'string' || !/^[A-Za-z0-9-]{1,32}$/.test(m.value)) return 'bad value';
+      return Number.isSafeInteger(m.id) && (m.id as number) >= 0 ? null : 'bad id';
+    case 'status.refresh': return null;
     default: return 'unknown type';
   }
 }

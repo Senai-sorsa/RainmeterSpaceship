@@ -23,6 +23,7 @@ import { jarvisFeed } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
 import { modulesOn } from './modules/modulesOn';
 import { hiddenZones } from './modules/hidden';
+import { hudHidden } from './modules/overlays';
 import { useEffect, useState } from 'preact/hooks';
 
 const v = (settings as { variables: Record<string, string> }).variables;
@@ -83,9 +84,10 @@ export function Hud() {
   const values: Record<string, string> = { ...store.values.value, PerfTier: String(perfTier.value) };
   values.Scale = String(num(values, 'Scale', 1) / fit);
   const hide = hiddenZones(values); // the Off_ settings, as the skin's control.lua deactivates configs
+  const shown = !hudHidden.value; // the console's OFF tab keeps only the top console
   return (
     <>
-    {values.Off_Frame !== '1' && <FrameLayers style={frameStyleOf(values)} values={values} />}
+    {shown && values.Off_Frame !== '1' && <FrameLayers style={frameStyleOf(values)} values={values} />}
     <svg id="hud" viewBox={`0 0 ${canvas.w} ${canvas.h}`} style={{ width: '100vw', height: '100vh', position: 'relative' }}
       preserveAspectRatio="xMidYMid meet">
       {debug && (
@@ -116,17 +118,17 @@ export function Hud() {
         </g>
       ))}
       {topOn && <TopModule style={styleFrom(values)} values={values} hide={hide} />}
-      {bottomOn && <BottomModule style={styleFrom(values)} hide={hide} />}
-      {leftOn && <LeftModule style={styleFrom(values)} hide={hide} />}
-      {rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} link={Number(values.LinkDownMbps) || 0} hide={hide} />}
-      {centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} />}
-      {drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
+      {shown && bottomOn && <BottomModule style={styleFrom(values)} hide={hide} />}
+      {shown && leftOn && <LeftModule style={styleFrom(values)} hide={hide} />}
+      {shown && rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} link={Number(values.LinkDownMbps) || 0} hide={hide} />}
+      {shown && centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} />}
+      {shown && drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
-      {jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)}
+      {shown && jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)}
         orb={{ bright: Number(values.JarvisOrbBright), tint: Number(values.JarvisTint), size: Number(values.JarvisOrbSize),
           cols: { idle: values.JarvisColorIdle, listen: values.JarvisColorListen, speak: values.JarvisColorSpeak } }} onMenu={() => setLogOpen((o) => !o)} />}
       {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} onClose={() => setLogOpen(false)} />}
-      {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
+      {shown && clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
     </svg>
     <Caption on={values.CaptionStyle !== '0'} />
     </>

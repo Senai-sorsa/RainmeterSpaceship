@@ -994,5 +994,11 @@
  { "name": "target.open taskmgr", "valid": true, "msg": { "type": "target.open", "what": "taskmgr" } },
  { "name": "target.open todo", "valid": true, "msg": { "type": "target.open", "what": "todo" } },
  { "name": "target.open other program", "valid": false, "msg": { "type": "target.open", "what": "cmd.exe" } },
- { "name": "target.open no what", "valid": false, "msg": { "type": "target.open" } }
+ { "name": "target.open no what", "valid": false, "msg": { "type": "target.open" } },
+ { "name": "llt.set refresh", "valid": true, "msg": { "type": "llt.set", "id": 1, "feature": "refresh", "value": "165" } },
+ { "name": "llt.set hybrid mode", "valid": true, "msg": { "type": "llt.set", "id": 2, "feature": "hybrid", "value": "ECO" } },
+ { "name": "llt.set other feature", "valid": false, "msg": { "type": "llt.set", "id": 3, "feature": "fan", "value": "max" } },
+ { "name": "llt.set shell text", "valid": false, "msg": { "type": "llt.set", "id": 4, "feature": "power", "value": "quiet & calc" } },
+ { "name": "llt.set no id", "valid": false, "msg": { "type": "llt.set", "feature": "power", "value": "quiet" } },
+ { "name": "status.refresh", "valid": true, "msg": { "type": "status.refresh" } }
 ]

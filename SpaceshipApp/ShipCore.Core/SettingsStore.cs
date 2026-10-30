@@ -83,7 +83,14 @@ public sealed class SettingsStore : IConfigStore
 
     private SetResult Save(Dictionary<string, string> values)
     {
-        try { WriteAtomic(values); return new(true); }
+        try
+        {
+            WriteAtomic(values);
+            // cache what was just written: two quick writes of the same length can share a timestamp, so the stamp alone can't tell them apart
+            var info = new FileInfo(_path);
+            (_cache, _cacheStamp) = (new(values, StringComparer.Ordinal), (info.LastWriteTimeUtc, info.Length));
+            return new(true);
+        }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return new(false, "could not write settings"); }
     }
 

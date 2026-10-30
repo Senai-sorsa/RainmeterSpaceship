@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Style } from '../src/draw/canvas';
-import { consoleActions, consoleFrame, isTabUnderline, consoleIntent, withHybridMode, type ConsoleConfig, type ConsoleState, type ConsoleView } from '../src/modules/console';
+import { consoleActions, consoleFrame, isTabUnderline, consoleIntent, lltMessage, withHybridMode, type ConsoleConfig, type ConsoleState, type ConsoleView } from '../src/modules/console';
 
 // Fake status and config only. Expected values are worked out from console.lua. Zone 580 x 104.
 const st: Style = {
@@ -102,5 +102,18 @@ describe('console clicks (intent, not execution)', () => {
     expect(Object.keys(defs).sort()).toEqual(['llt.battery', 'llt.hybrid', 'llt.power', 'llt.refresh', 'status.refresh']);
     expect(defs['status.refresh'].confirm).toBe(false);
     expect(defs['llt.hybrid'].confirm).toBe(true);
+  });
+});
+
+describe('lltMessage', () => {
+  it('turns a Legion Toolkit intent into the host llt.set and its line', () => {
+    expect(lltMessage({ kind: 'action', action: 'llt.refresh', args: { hz: '165' } }, 7)).toEqual({
+      msg: { type: 'llt.set', id: 7, feature: 'refresh', value: '165' }, say: '> 165',
+    });
+    expect(lltMessage({ kind: 'action', action: 'llt.hybrid', args: { mode: 'ECO' } }, 1)?.msg.feature).toBe('hybrid');
+  });
+  it('is null for anything else', () => {
+    expect(lltMessage({ kind: 'action', action: 'status.refresh', args: {} }, 1)).toBeNull();
+    expect(lltMessage({ kind: 'ui', name: 'hud' }, 1)).toBeNull();
   });
 });

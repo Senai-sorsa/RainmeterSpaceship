@@ -48,6 +48,12 @@ public static class Protocol
             case "hit.regions": return HitRegionsProblem(m);
             case "app.launch": return Str(m, "id", out var app) && AppLaunch.Id.IsMatch(app) ? null : "bad app id";
             case "target.open": return Str(m, "what", out var w) && Targets.Contains(w) ? null : "bad target";
+            case "llt.set":
+                if (!Str(m, "feature", out var lf) || Array.IndexOf(LltGate.Features, lf) < 0) return "bad feature";
+                if (!Str(m, "value", out var lv) || !LltGate.Word.IsMatch(lv)) return "bad value";
+                return m.TryGetProperty("id", out var lid) && lid.ValueKind == JsonValueKind.Number && lid.TryGetInt64(out var ln) && ln >= 0
+                    && lid.GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) < 0 ? null : "bad id";
+            case "status.refresh": return null;
             default: return "unknown type";
         }
     }

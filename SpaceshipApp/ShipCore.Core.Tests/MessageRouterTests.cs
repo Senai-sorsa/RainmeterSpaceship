@@ -152,6 +152,32 @@ public sealed class MessageRouterTests : IDisposable
         Assert.Equal(["taskmgr", "todo", "mute", "terminal"], opened);
     }
 
+    sealed class FakeLlt : ILltRunner
+    {
+        public readonly List<string> Calls = [];
+        public int Set(string feature, string value) { Calls.Add(feature + " " + value); return 0; }
+    }
+
+    [Fact]
+    public async Task LltSetRunsTheGateAndRefreshesTheStatus()
+    {
+        var schema = Repo.Schema();
+        var llt = new FakeLlt();
+        var refreshed = 0;
+        var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true),
+            llt: new LltGate(llt, _ => Task.FromResult(true)), refresh: () => refreshed++);
+        var r = await router.HandleAsync("{\"type\":\"llt.set\",\"id\":4,\"feature\":\"refresh\",\"value\":\"60\"}");
+        Assert.Contains("\"ran\":true", r.Reply);
+        Assert.Contains("\"id\":4", r.Reply);
+        Assert.Equal(["refresh-rate 60"], llt.Calls);
+        Assert.Equal(1, refreshed);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"llt.set\",\"id\":5,\"feature\":\"refresh\",\"value\":\"60 & calc\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"llt.set\",\"id\":5,\"feature\":\"fan\",\"value\":\"max\"}")).Problem);
+        Assert.Null((await router.HandleAsync("{\"type\":\"status.refresh\"}")).Problem);
+        Assert.Equal(2, refreshed);
+        Assert.Single(llt.Calls);
+    }
+
     [Fact]
     public async Task MalformedJsonIsRefused()
     {

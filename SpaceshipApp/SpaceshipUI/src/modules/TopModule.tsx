@@ -1,20 +1,20 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { num } from '../lib/theme';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { consoleStatus } from '../host/statusFeed';
-import { host } from '../settings/instance';
+import { host, store } from '../settings/instance';
 import { alertFrame, type AlertState } from './alert';
 import { batteryFrame, type BatteryState } from './battery';
-import { consoleFrame, consoleIntent, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
+import { consoleFrame, consoleIntent, lltMessage, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
 import { graphFrame, graphState, selectSource, type GraphState } from './graph';
 import { type Readings } from './readings';
 import { powerFrame } from './power';
 import { visible } from './hidden';
 import { HitRect } from './hit';
-import { controlOpen, drawerOpen } from './overlays';
+import { controlOpen, drawerOpen, hudHidden } from './overlays';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the top console, read once. Each is drawn in its own skewed matrix. */
@@ -24,6 +24,9 @@ const ZONES = {
 };
 
 const NO_VIEW: ConsoleView = { armed: null, hudHidden: false, msg: '', msgAt: 0 };
+let lltId = 1;
+// controller.lua Master(): the tier before STEALTH, to go back to. shortcut: kept for this run only (the skin saves MasterPrev), add a key if a restart must keep it
+let masterPrev = -1;
 
 type TopState = { cpu: GraphState; ram: GraphState; a: GraphState; b: GraphState; battery: BatteryState; alert: AlertState };
 
@@ -36,6 +39,9 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
     cpu: graphState('cpu'), ram: graphState('ram'), a: graphState(values.GraphA_Source ?? 'gpu'),
     b: graphState(values.GraphB_Source ?? 'netdown'), battery: { samples: [] }, alert: { blink: 0 },
   }));
+  const [view, setView] = useState(NO_VIEW);
+  const say = (msg: string) => setView((v) => ({ ...v, msg, msgAt: Date.now() }));
+  useEffect(() => host.onMessage((r) => { if (r.type === 'llt.result') say(r.ran === true ? 'DONE' : 'FAILED'); }) || undefined, []);
   const cfg: ConsoleConfig = {
     powerModes: (values.LltPowerModes ?? 'quiet,balance,performance').split(','),
     rates: (values.LltRefreshRates ?? '60,165').split(','),
@@ -56,15 +62,25 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       power: Z.power && powerFrame({ cpu: r.mHwCpuPower, gpu: r.mHwGpuPower, chargeRate: r.mHwChargeRate }, Z.power, style),
       battery: Z.battery && batteryFrame(r, Z.battery, style, st.battery, now).ops,
       alert: Z.alert && alertFrame(r, Z.alert, style, st.alert),
-      settings: Z.settings && consoleFrame(withHybridMode(cs, values), cfg, NO_VIEW, Z.settings, style, now),
+      settings: Z.settings && consoleFrame(withHybridMode(cs, values), cfg, { ...view, hudHidden: hudHidden.value }, Z.settings, style, now),
     };
     // cfg is not in the deps: a console setting change shows on the next host reading
-  }, [m, st, Z, styleKey, cs]);
-  // shortcut: only CARGO and CFG act; the Legion Toolkit, perf, master and HUD buttons need host actions that are not built yet
-  const consoleClick = (k: number) => {
-    const it = consoleIntent(k, withHybridMode(cs, values), cfg, NO_VIEW);
-    if (it.kind === 'ui' && it.name === 'drawer') drawerOpen.value = drawerOpen.value ? null : {};
-    else if (it.kind === 'ui' && it.name === 'control') controlOpen.value = true;
+  }, [m, st, Z, styleKey, cs, view, hudHidden.value]);
+  // console.lua OnClick: a Legion Toolkit switch goes to the host (DONE / SWITCH FAILED when it answers), the rest is the page's own
+  const consoleClick = (k: number, button: 'left' | 'right' = 'left') => {
+    const it = consoleIntent(k, withHybridMode(cs, values), cfg, view, button);
+    const llt = lltMessage(it, lltId++);
+    if (llt) { host.send(llt.msg); say(llt.say); return; }
+    if (it.kind === 'action' && it.action === 'status.refresh') { host.send({ type: 'status.refresh' }); say('REFRESHING'); return; }
+    if (it.kind !== 'ui') return;
+    if (it.name === 'drawer') drawerOpen.value = drawerOpen.value ? null : {};
+    else if (it.name === 'control') controlOpen.value = true;
+    else if (it.name === 'hud') hudHidden.value = !hudHidden.value;
+    else if (it.name === 'perf') store.set('PerfOverride', String(it.value));
+    else if (it.name === 'master') {
+      if (cfg.perfOverride === 3) store.set('PerfOverride', String(masterPrev));
+      else { masterPrev = cfg.perfOverride; store.set('PerfOverride', '3'); }
+    }
   };
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
@@ -88,7 +104,7 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       {Z.settings && ops.settings && (
         <g transform={`matrix(${Z.settings.matrix.join(' ')})`} data-module="console">
           <OpsView ops={ops.settings.ops} name="cs" />
-          {ops.settings.hits.map((h) => <HitRect zone={Z.settings!} s={style.s} box={h} label={h.tip || (h.id === 6 ? 'CARGO hold' : 'Console')} tip={h.tip} on={{ click: () => consoleClick(h.id) }} />)}
+          {ops.settings.hits.map((h) => <HitRect zone={Z.settings!} s={style.s} box={h} label={h.tip || (h.id === 6 ? 'CARGO hold' : 'Console')} tip={h.tip} on={{ click: () => consoleClick(h.id), menu: () => consoleClick(h.id, 'right') }} />)}
         </g>
       )}
       {Z.a && (
