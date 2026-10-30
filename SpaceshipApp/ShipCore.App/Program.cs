@@ -249,6 +249,9 @@ sealed class Overlay : Form
         // the Control Center lives in the page; the tray (or a double-click on the icon) asks the page to open it
         void OpenControl() { if (_running) Post("{\"type\":\"control.open\"}"); }
         menu.Items.Add("Control panel", null, (_, _) => OpenControl());
+        // Common.inc's other context items: the CARGO drawer and the start-up sequence
+        menu.Items.Add("App drawer (CARGO)", null, (_, _) => { if (_running) Post("{\"type\":\"drawer.open\"}"); });
+        menu.Items.Add("Play startup sequence", null, (_, _) => { if (_running) Post("{\"type\":\"boot.play\"}"); });
         _tray.DoubleClick += (_, _) => OpenControl();
         // a second launch signals this event (pool thread); the panel opens on the UI thread
         _openWait = ThreadPool.RegisterWaitForSingleObject(openControl, (_, _) => { if (IsHandleCreated) BeginInvoke(() => { if (!_running) Start(); OpenControl(); }); }, null, -1, false);

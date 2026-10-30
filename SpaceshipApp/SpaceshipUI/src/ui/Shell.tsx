@@ -4,7 +4,7 @@ import { Hud } from '../Hud';
 import { DEFS, host, store } from '../settings/instance';
 import { ControlCenter } from './ControlCenter';
 import { scheduler } from '../host/scheduler';
-import { controlOpen } from '../modules/overlays';
+import { bootReplays, controlOpen, drawerOpen } from '../modules/overlays';
 
 /**
  * The HUD plus the Control Center over it, opened from the tray (control.open) like the skin's control panel; a browser
@@ -15,6 +15,9 @@ export function Shell({ standalone }: { standalone: boolean }) {
   const open = controlOpen.value, setOpen = (v: boolean) => { controlOpen.value = v; }; // HUD clicks open it too (console CFG, dial)
   useEffect(() => host.onMessage((m) => {
     if (m.type === 'control.open') setOpen(true);
+    // the skin's other right-click items, from the tray: the CARGO drawer and the start-up sequence
+    if (m.type === 'drawer.open') drawerOpen.value = {};
+    if (m.type === 'boot.play') bootReplays.value += 1;
     // a fullscreen window covers the HUD: it stays shown (no flicker) but stops animating
     if (m.type === 'host.occluded') scheduler.pause((m as { on?: boolean }).on === true);
   }), []);

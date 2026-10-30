@@ -7,3 +7,5 @@ export const drawerOpen = signal<{ focus?: string } | null>(null);
 export const controlOpen = signal(false);
 /** The console's OFF tab (console.lua toggleHud): every module but the top console hidden. */
 export const hudHidden = signal(false);
+/** How many times the tray asked to replay the start-up sequence (Common.inc "Play startup sequence"). */
+export const bootReplays = signal(0);

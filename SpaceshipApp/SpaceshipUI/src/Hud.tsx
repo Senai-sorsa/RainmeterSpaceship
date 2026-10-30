@@ -23,7 +23,7 @@ import { jarvisFeed, jarvisLog, jarvisPop } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
 import { modulesOn } from './modules/modulesOn';
 import { hiddenZones } from './modules/hidden';
-import { hudHidden } from './modules/overlays';
+import { bootReplays, hudHidden } from './modules/overlays';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 
 const v = (settings as { variables: Record<string, string> }).variables;
@@ -143,7 +143,8 @@ export function Hud() {
       {shown && rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} link={Number(values.LinkDownMbps) || 0} linkUp={Number(values.LinkUpMbps) || 0} hide={hide} />}
       {shown && centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} link={Number(values.LinkDownMbps) || 0} linkUp={Number(values.LinkUpMbps) || 0} />}
       {shown && drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
-      {bootOn && firstLoad && store.loaded.value && values.BootAnim !== '0' && <BootModule style={styleFrom(values)} />}
+      {/* a replay plays whatever BootAnim says, as !ActivateConfig Boot does; the key restarts it */}
+      {bootOn && store.loaded.value && (bootReplays.value > 0 || firstLoad && values.BootAnim !== '0') && <BootModule key={bootReplays.value} style={styleFrom(values)} />}
       {shown && jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)} enabled={values.JarvisEnabled !== '0'}
         orb={{ bright: Number(values.JarvisOrbBright), tint: Number(values.JarvisTint), size: Number(values.JarvisOrbSize),
           cols: { idle: values.JarvisColorIdle, listen: values.JarvisColorListen, speak: values.JarvisColorSpeak } }} onMenu={() => setLogOpen((o) => !o)} />}
