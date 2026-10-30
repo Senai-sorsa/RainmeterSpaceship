@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler, skinMs } from '../host/scheduler';
 import { transformBox, type Matrix } from '../lib/geometry';
 import { host } from '../settings/instance';
-import { feedFrom, jarvisFrame, jarvisLogFrame, logScrollMax, stateColor, type Feed, type JarvisColors } from './jarvis';
+import { feedFrom, jarvisFrame, jarvisLogFrame, logScrollMax, orbEcho, orbStep, stateColor, type Feed, type JarvisColors, type OrbMotion } from './jarvis';
 
 const FRAME_MS = skinMs(33); // the Lua orb's Update=33, ~21 fps in Rainmeter
 const sphere = layout.zones.find((z) => z.id === 'C_sphere');
@@ -41,31 +41,41 @@ export function JarvisModule({ style, feed = offline, label = '', orb = {}, enab
   );
 }
 
-// The plasma orb: the skin's Images\Jarvis\Idle frames (jarvis.lua sprite S1_1), one <image> swapped per tick, so only the
-// frame on screen is decoded. shortcut: no voice echo (S1_2), upgrade: when the speaking state is wired.
+// The plasma orb: the skin's Images\Jarvis\Idle frames (jarvis.lua sprite S1_1) and its voice echo (S1_2, the Active frames,
+// else Idle half a loop ahead). One <image> each, swapped per tick, so only the frames on screen are decoded.
 type OrbOpts = { bright?: number; tint?: number; size?: number; cols?: JarvisColors };
-const ORB =Object.entries(import.meta.glob('../../../../Skins/Spaceship/@Resources/Images/Jarvis/Idle/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>)
-  .sort(([a], [b]) => a.localeCompare(b)).map(([, u]) => u);
-const ORB_SPEED: Record<string, number> = { idle: 1, listening: 0.6, thinking: 1.5, offline: 0.35 };
+const frames = (g: Record<string, string>) => Object.entries(g).sort(([a], [b]) => a.localeCompare(b)).map(([, u]) => u);
+const ORB = frames(import.meta.glob('../../../../Skins/Spaceship/@Resources/Images/Jarvis/Idle/*.png', { eager: true, query: '?url', import: 'default' }));
+const ACTIVE = frames(import.meta.glob('../../../../Skins/Spaceship/@Resources/Images/Jarvis/Active/*.png', { eager: true, query: '?url', import: 'default' }));
+const tintMatrix = (k: number, col: number[], tint: number, a: number) =>
+  `${k} 0 0 0 ${(col[0] / 255) * tint} 0 ${k} 0 0 ${(col[1] / 255) * tint} 0 0 ${k} 0 ${(col[2] / 255) * tint} 0 0 0 ${a / 255} 0`;
 
 const clampOr = (v: number | undefined, lo: number, hi: number, dflt: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v!)) : dflt);
 
 function Orb({ f, feed, style, cx, cy, opts }: { f: number; feed: Feed; style: Style; cx: number; cy: number; opts: OrbOpts }) {
-  const st = feed.state, lvl = Math.min(1, Math.max(0, feed.level));
+  const st = feed.state;
+  const mo = useRef<{ f: number; m: OrbMotion }>({ f, m: { lvl: 0, act: 0, fIdle: 0, fAct: 0 } });
+  if (mo.current.f !== f) mo.current = { f, m: orbStep(mo.current.m, st, feed.level, Math.max(0, f - mo.current.f)) }; // once per tick
+  const m = mo.current.m, lvl = m.lvl;
   const col = stateColor(st, style, opts.cols);
   // jarvis.lua: JarvisOrbBright, JarvisTint and JarvisOrbSize clamped as there; brightness k, additive state tint and alpha per state
   const bright = clampOr(opts.bright, 0.4, 1.6, 1), tintS = clampOr(opts.tint, 0, 0.8, 0.22), size = clampOr(opts.size, 0.8, 1.15, 1);
   const [k0, tint, a] = st === 'listening' ? [0.8, tintS * 0.5, 245] : st === 'speaking' ? [1 + 0.2 * lvl, tintS * 0.8, 245] : st === 'offline' ? [0.7, tintS * 0.3, 190] : [0.9, tintS, 245];
-  const k = k0 * bright;
-  const [tr, tg, tb] = col.map((c) => (c / 255) * tint);
-  const speed = st === 'speaking' ? 1 + 1.6 * lvl : ORB_SPEED[st] ?? 1;
   const s = style.s, d = 330 * size * (1 + 0.1 * lvl) * s;
+  const echo = orbEcho(m, col, style.white, size, bright);
+  const ef = ACTIVE.length ? ACTIVE[Math.floor(m.fAct) % ACTIVE.length] : ORB[(Math.floor(m.fIdle) + (ORB.length >> 1)) % ORB.length];
   return (
     <>
       <filter id="orb-tint" color-interpolation-filters="sRGB">
-        <feColorMatrix type="matrix" values={`${k} 0 0 0 ${tr} 0 ${k} 0 0 ${tg} 0 0 ${k} 0 ${tb} 0 0 0 ${a / 255} 0`} />
+        <feColorMatrix type="matrix" values={tintMatrix(k0 * bright, col, tint, a)} />
       </filter>
-      <image href={ORB[Math.floor(f * speed) % ORB.length]} x={cx * s - d / 2} y={cy * s - d / 2} width={d} height={d} filter="url(#orb-tint)" data-module="jarvis-orb" />
+      <image href={ORB[Math.floor(m.fIdle) % ORB.length]} x={cx * s - d / 2} y={cy * s - d / 2} width={d} height={d} filter="url(#orb-tint)" data-module="jarvis-orb" />
+      {echo && <>
+        <filter id="orb-echo" color-interpolation-filters="sRGB">
+          <feColorMatrix type="matrix" values={tintMatrix(echo.k, echo.col, echo.tint, echo.alpha)} />
+        </filter>
+        <image href={ef} x={cx * s - (echo.d * s) / 2} y={cy * s - (echo.d * s) / 2} width={echo.d * s} height={echo.d * s} filter="url(#orb-echo)" data-module="jarvis-echo" />
+      </>}
     </>
   );
 }

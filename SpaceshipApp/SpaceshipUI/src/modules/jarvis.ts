@@ -101,6 +101,25 @@ export function stateColor(state: string, style: Style, cols: JarvisColors = {})
   return state === 'offline' ? mix(style.dim, idle, 0.45) : idle;
 }
 
+/** The orb's motion between ticks: smoothed voice level, echo strength, and the Idle and Active frame positions. */
+export type OrbMotion = { lvl: number; act: number; fIdle: number; fAct: number };
+const ORB_SPEED: Record<string, number> = { idle: 1, listening: 0.6, thinking: 1.5, offline: 0.35 };
+
+/** One orb update over `dt` frames (jarvis.lua lines 317-329): fast attack, slow release, the echo swells while he speaks. */
+export function orbStep(m: OrbMotion, state: string, level: number, dt: number): OrbMotion {
+  const target = state === 'speaking' || state === 'listening' ? clamp(Number.isFinite(level) ? level : 0, 0, 1) : 0;
+  const lvl = m.lvl + (target - m.lvl) * (target > m.lvl ? 0.55 : 0.18);
+  const want = state === 'speaking' ? 0.55 + 0.45 * lvl : state === 'thinking' ? 0.25 : 0;
+  const speed = state === 'speaking' ? 1 + 1.6 * lvl : ORB_SPEED[state] ?? 1;
+  return { lvl, act: m.act + (want - m.act) * 0.25, fIdle: m.fIdle + dt * speed, fAct: m.fAct + dt * (1 + 1.2 * lvl) };
+}
+
+/** The voice echo sprite (jarvis.lua lines 346-350), or null when it would be invisible (alpha under 3). */
+export function orbEcho(m: OrbMotion, col: RGBA, white: RGBA, size: number, bright: number) {
+  if (m.act * 255 < 3) return null;
+  return { d: 330 * size * (1.12 + 0.28 * m.lvl), col: mix(col, white, 0.4), alpha: m.act * 150, k: 1.1 * bright, tint: 0.3 };
+}
+
 /**
  * One frame of the core, drawn on a canvas-sized zone with the centre at (cx, cy). `frame` is the update count.
  * Layers back to front: plexus shell, orbit rings, dial, thinking sweep, side bars, name and status label.
