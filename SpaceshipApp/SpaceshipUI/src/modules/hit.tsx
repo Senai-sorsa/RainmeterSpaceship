@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'preact/hooks';
+import { signal } from '@preact/signals';
+import { useMemo } from 'preact/hooks';
 import type { Zone } from '../draw/canvas';
 import { host } from '../settings/instance';
 import type { App, Cat, Catalog } from './apps';
@@ -43,23 +44,33 @@ export const slotTip = (e: { kind: 'cat'; cat: Cat } | { kind: 'app'; app: App }
 
 const wrap = (i: number, n: number) => ((i % n) + n) % n;
 
+const PICKS = 'cspace.picks.v1';
+/** The picks made in the app (Sel_<cat>, TopCat<panel>), over the skin's State.inc; kept in the page's storage so they survive a restart, as State.inc does in the skin. */
+export const picks = signal<Record<string, string>>((() => {
+  try {
+    const o = JSON.parse(localStorage.getItem(PICKS) ?? '{}');
+    return o && typeof o === 'object' && !Array.isArray(o) ? Object.fromEntries(Object.entries(o).filter(([k, v]) => /^(Sel_|TopCat)/.test(k) && typeof v === 'string')) as Record<string, string> : {};
+  } catch { return {}; }
+})());
+const savePick = (k: string, v: string) => {
+  picks.value = { ...picks.value, [k]: v };
+  try { localStorage.setItem(PICKS, JSON.stringify(picks.value)); } catch { /* storage blocked: this run only */ }
+};
+
 /**
- * A column's page and pick (category.lua): it opens where the skin last was; then the dots and scroll change the page and
- * the tabs, schematic and slot scroll change a category's pick (Sel_<cat>, shared by the tabs and the slots).
- * shortcut: picks last for this run only (not written back to State.inc); persist them if the user misses that.
+ * A column's page and pick (category.lua): it opens where it last was; then the dots and scroll change the page and
+ * the tabs, schematic and slot scroll change a category's pick (Sel_<cat>, shared by the tabs, the slots and both columns).
  */
 export function usePanel(catalog: Catalog, panel: 1 | 2) {
-  const pick = useMemo(() => skinPick(catalog, panel, SKIN_STATE), [catalog, panel]);
-  const [page, setPage] = useState<number | null>(null);
-  const [sels, setSels] = useState<Record<string, string>>({});
-  const state = useMemo(() => ({ ...SKIN_STATE, ...sels }), [sels]);
+  const state = useMemo(() => ({ ...SKIN_STATE, ...picks.value }), [picks.value]);
+  const pick = useMemo(() => skinPick(catalog, panel, state), [catalog, panel, state]);
   const n = catalog.catOrder.length;
-  const ci = page !== null && page < n ? page : pick.ci;
+  const ci = pick.ci;
   const cat: Cat | undefined = catalog.cats[catalog.catOrder[ci]];
   const ai = selIndex(cat, state);
   return {
     ci, cat, ai, app: cat?.apps[ai], state,
-    choose: (c: Cat | undefined, i: number) => { if (c?.apps.length) setSels((s) => ({ ...s, [`Sel_${c.id}`]: String(wrap(i, c.apps.length) + 1) })); },
-    turn: (i: number) => { if (n) setPage(wrap(i, n)); },
+    choose: (c: Cat | undefined, i: number) => { if (c?.apps.length) savePick(`Sel_${c.id}`, String(wrap(i, c.apps.length) + 1)); },
+    turn: (i: number) => { if (n) savePick(`TopCat${panel}`, catalog.catOrder[wrap(i, n)]); },
   };
 }
