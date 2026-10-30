@@ -3,7 +3,7 @@ import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 // Port of the 'upkeep' rows of Skins/Spaceship/@Resources/Scripts/status_block.lua: the pending Windows update count
 // (diamond) and the Gmail unread count (envelope). Unknown values show as '-', never as zero. The caller passes
 // them: the update count from the host's Scripts\upkeep.ps1 run (host/statusFeed.ts); mail from the host's IMAP check (ShipCore.App/MailRunner.cs). The winget count and the antivirus line sit in the Lua hover text, not ported.
-// Clicks (LeftModule): the top half opens Windows Update, the bottom half Gmail, as fixed host targets.
+// Clicks (LeftModule): the top half opens Windows Update, the bottom half Gmail, as fixed host targets; a right-click checks that half again now.
 
 export type UpkeepInput = {
   updates?: number; // pending Windows updates, undefined when unknown

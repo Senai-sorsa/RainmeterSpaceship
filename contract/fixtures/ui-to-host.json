@@ -1001,5 +1001,8 @@
  { "name": "llt.set shell text", "valid": false, "msg": { "type": "llt.set", "id": 4, "feature": "power", "value": "quiet & calc" } },
  { "name": "llt.set no id", "valid": false, "msg": { "type": "llt.set", "feature": "power", "value": "quiet" } },
  { "name": "status.refresh", "valid": true, "msg": { "type": "status.refresh" } },
+ { "name": "status.refresh mail", "valid": true, "msg": { "type": "status.refresh", "kind": "mail" } },
+ { "name": "status.refresh unknown kind", "valid": false, "msg": { "type": "status.refresh", "kind": "upkeep.ps1" } },
+ { "name": "status.refresh kind not text", "valid": false, "msg": { "type": "status.refresh", "kind": 1 } },
  { "name": "speed.run", "valid": true, "msg": { "type": "speed.run" } }
 ]

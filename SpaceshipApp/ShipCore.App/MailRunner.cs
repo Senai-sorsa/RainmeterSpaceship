@@ -26,7 +26,7 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post) : ID
 
     async void Tick()
     {
-        if (!shown() || _fetching) return;
+        if (!shown() || _fetching) { if (_tick.Interval < 3000) _tick.Interval = 3000; return; } // after Soon(): don't spin while hidden or busy
         _tick.Interval = 120000;
         _fetching = true;
         try
@@ -88,6 +88,9 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post) : ID
         try { await Imap("a3", "LOGOUT"); } catch (IOException) { }
         return m.Success && int.TryParse(m.Groups[1].Value, out var n) ? n : throw new InvalidDataException("no unread count in reply");
     }
+
+    /// <summary>status_block.lua right-click (Data\mail.refresh): check on the next tick instead of in up to 2 min.</summary>
+    public void Soon() { _tick.Stop(); _tick.Interval = 1; _tick.Start(); }
 
     public void Dispose() { _tick.Stop(); _tick.Dispose(); }
 }

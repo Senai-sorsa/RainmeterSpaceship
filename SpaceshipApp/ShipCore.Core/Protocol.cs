@@ -9,6 +9,7 @@ public static class Protocol
     private static readonly Regex Key = new(@"^[A-Za-z][A-Za-z0-9_]{0,63}$", RegexOptions.Compiled);
     private static readonly HashSet<string> Flows = new() { "gmail", "calendars", "obsidian" };
     // target.open names: each maps to one fixed page or program in the host (Program.OpenTarget), never to text from the UI
+    public static readonly HashSet<string> RefreshKinds = new() { "llt", "upkeep", "dev", "mail" };
     public static readonly HashSet<string> Targets = new() { "taskmgr", "taskperf", "todo", "sound", "display", "power", "mute", "prev", "playpause", "next",
         "terminal", "powershell", "about", "outlookcal", "gcal", "gmail", "update", "defender", "network", "wifi", "spx", "ollama", "tailscale", "drive", "battery" };
 
@@ -53,7 +54,8 @@ public static class Protocol
                 if (!Str(m, "value", out var lv) || !LltGate.Word.IsMatch(lv)) return "bad value";
                 return m.TryGetProperty("id", out var lid) && lid.ValueKind == JsonValueKind.Number && lid.TryGetInt64(out var ln) && ln >= 0
                     && lid.GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) < 0 ? null : "bad id";
-            case "status.refresh": return null;
+            // the block to read again (status_block.lua / console.lua right-click); no kind = the console's status.ps1
+            case "status.refresh": return !m.TryGetProperty("kind", out _) || Str(m, "kind", out var rk) && RefreshKinds.Contains(rk) ? null : "bad kind";
             case "speed.run": return null;
             default: return "unknown type";
         }

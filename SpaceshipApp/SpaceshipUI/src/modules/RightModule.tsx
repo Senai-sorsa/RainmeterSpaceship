@@ -98,8 +98,8 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
       ))}
       {place(Z.dev, ops.dev, 'dev', 'right-dev', Z.dev && (
         <>
-          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: 0, w: Z.dev.w, h: Z.dev.h / 2 }} label="Terminal" tip="Running WSL distros" on={{ click: open('terminal') }} />
-          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: Z.dev.h / 2, w: Z.dev.w, h: Z.dev.h / 2 }} label="Ollama models" tip="Ollama models loaded" on={{ click: open('ollama') }} />
+          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: 0, w: Z.dev.w, h: Z.dev.h / 2 }} label="Terminal" tip="Running WSL distros" on={{ click: open('terminal'), menu: () => host.send({ type: 'status.refresh', kind: 'dev' }) }} />
+          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: Z.dev.h / 2, w: Z.dev.w, h: Z.dev.h / 2 }} label="Ollama models" tip="Ollama models loaded" on={{ click: open('ollama'), menu: () => host.send({ type: 'status.refresh', kind: 'dev' }) }} />
         </>
       ))}
     </>

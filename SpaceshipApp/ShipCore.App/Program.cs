@@ -220,7 +220,7 @@ sealed class Overlay : Form
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
             _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget,
-                new LltGate(new LltRunner(), ConfirmAsync), () => _status?.Soon("llt"), () => _speed?.Run());
+                new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else _status?.Soon(k); }, () => _speed?.Run());
             var store = _settings;
             _speed = new SpeedRunner((k, v) => store.Set(k, v).Ok, Post);
         }

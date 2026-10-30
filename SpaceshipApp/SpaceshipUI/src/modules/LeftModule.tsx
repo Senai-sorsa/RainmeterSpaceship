@@ -82,8 +82,8 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
       {/* status_block.lua OnClick: row 1 Windows Update, row 2 Gmail */}
       {place(Z.upkeep, ops.upkeep, 'upkeep', 'left-upkeep', Z.upkeep && (
         <>
-          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: 0, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Windows Update" tip="Pending Windows updates" on={{ click: () => host.send({ type: 'target.open', what: 'update' }) }} />
-          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: Z.upkeep.h / 2, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Gmail" tip={up.mail !== undefined ? undefined : up.mailWhy === 'off' ? 'Gmail not set up' : `Gmail: ${up.mailWhy ?? '?'}`} on={{ click: () => host.send({ type: 'target.open', what: 'gmail' }) }} />
+          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: 0, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Windows Update" tip="Pending Windows updates" on={{ click: () => host.send({ type: 'target.open', what: 'update' }), menu: () => host.send({ type: 'status.refresh', kind: 'upkeep' }) }} />
+          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: Z.upkeep.h / 2, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Gmail" tip={up.mail !== undefined ? undefined : up.mailWhy === 'off' ? 'Gmail not set up' : `Gmail: ${up.mailWhy ?? '?'}`} on={{ click: () => host.send({ type: 'target.open', what: 'gmail' }), menu: () => host.send({ type: 'status.refresh', kind: 'mail' }) }} />
         </>
       ))}
     </>

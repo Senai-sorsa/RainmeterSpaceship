@@ -16,7 +16,7 @@ public sealed class MessageRouter
     private readonly HitRegions? _hits;
     private readonly Action<string>? _launch, _open;
     private readonly LltGate? _llt;
-    private readonly Action? _refresh;
+    private readonly Action<string>? _refresh;
     private readonly Action? _speed;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
@@ -25,10 +25,10 @@ public sealed class MessageRouter
     /// <param name="open">target.open: Task Manager, the to-do note, a settings page or a media key, from a fixed list (checked by Protocol). Null means it is ignored.</param>
     /// <param name="dial">The systems dial's writes. Null means the dial is not wired and every dial.set is refused.</param>
     /// <param name="llt">The console's Legion Toolkit buttons. Null means every llt.set is refused.</param>
-    /// <param name="refresh">status.refresh: reads the console status again now. Null means it is ignored.</param>
+    /// <param name="refresh">status.refresh: reads that block (llt when no kind is given) again now. Null means it is ignored.</param>
     /// <param name="speed">speed.run: starts the speed test (it reports with status.update). Null means it is ignored.</param>
     /// <param name="hits">Where the page takes the mouse. Null means hit.regions is accepted and ignored.</param>
-    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null, LltGate? llt = null, Action? refresh = null, Action? speed = null)
+    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null, LltGate? llt = null, Action<string>? refresh = null, Action? speed = null)
     {
         _llt = llt; _refresh = refresh; _speed = speed;
         _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial; _hits = hits; _launch = launch; _open = open;
@@ -101,11 +101,11 @@ public sealed class MessageRouter
                 var feature = m.GetProperty("feature").GetString()!;
                 if (_llt is null) return Reply(new { type = "llt.result", id, feature, ran = false, reason = "not wired" });
                 var g = await _llt.SetAsync(feature, m.GetProperty("value").GetString()!, _store.Get(LltGate.Keys));
-                if (g.Ran) _refresh?.Invoke();
+                if (g.Ran) _refresh?.Invoke("llt");
                 return Reply(new { type = "llt.result", id, feature, ran = g.Ran, reason = g.Reason });
             }
             case "status.refresh":
-                _refresh?.Invoke();
+                _refresh?.Invoke(m.TryGetProperty("kind", out var rk) ? rk.GetString()! : "llt");
                 return new(null, null);
             case "speed.run":
                 _speed?.Invoke();

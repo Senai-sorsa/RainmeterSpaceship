@@ -163,18 +163,20 @@ public sealed class MessageRouterTests : IDisposable
     {
         var schema = Repo.Schema();
         var llt = new FakeLlt();
-        var refreshed = 0;
+        var refreshed = new List<string>();
         var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true),
-            llt: new LltGate(llt, _ => Task.FromResult(true)), refresh: () => refreshed++);
+            llt: new LltGate(llt, _ => Task.FromResult(true)), refresh: k => refreshed.Add(k));
         var r = await router.HandleAsync("{\"type\":\"llt.set\",\"id\":4,\"feature\":\"refresh\",\"value\":\"60\"}");
         Assert.Contains("\"ran\":true", r.Reply);
         Assert.Contains("\"id\":4", r.Reply);
         Assert.Equal(["refresh-rate 60"], llt.Calls);
-        Assert.Equal(1, refreshed);
+        Assert.Equal(["llt"], refreshed);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"llt.set\",\"id\":5,\"feature\":\"refresh\",\"value\":\"60 & calc\"}")).Problem);
         Assert.NotNull((await router.HandleAsync("{\"type\":\"llt.set\",\"id\":5,\"feature\":\"fan\",\"value\":\"max\"}")).Problem);
         Assert.Null((await router.HandleAsync("{\"type\":\"status.refresh\"}")).Problem);
-        Assert.Equal(2, refreshed);
+        Assert.Null((await router.HandleAsync("{\"type\":\"status.refresh\",\"kind\":\"mail\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"status.refresh\",\"kind\":\"calc\"}")).Problem);
+        Assert.Equal(["llt", "llt", "mail"], refreshed);
         Assert.Single(llt.Calls);
     }
 

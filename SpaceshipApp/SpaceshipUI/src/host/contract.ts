@@ -37,7 +37,8 @@ export function messageProblem(m: unknown): string | null {
       if (typeof m.feature !== 'string' || !LLT_FEATURES.includes(m.feature)) return 'bad feature';
       if (typeof m.value !== 'string' || !/^[A-Za-z0-9-]{1,32}$/.test(m.value)) return 'bad value';
       return Number.isSafeInteger(m.id) && (m.id as number) >= 0 ? null : 'bad id';
-    case 'status.refresh': case 'speed.run': return null;
+    case 'status.refresh': return m.kind === undefined || (typeof m.kind === 'string' && ['llt', 'upkeep', 'dev', 'mail'].includes(m.kind)) ? null : 'bad kind';
+    case 'speed.run': return null;
     default: return 'unknown type';
   }
 }
