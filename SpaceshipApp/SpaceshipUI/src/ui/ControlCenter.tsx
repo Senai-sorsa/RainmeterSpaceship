@@ -3,15 +3,28 @@ import type { HostBridge } from '../host/HostBridge';
 import { CATEGORIES } from '../settings/registry';
 import type { SettingsStore } from '../settings/store';
 import type { CategoryId, SettingDef } from '../settings/types';
+import { controlCat } from '../modules/overlays';
+import { sysInfo } from '../host/sysInfo';
+import { About } from './About';
+import { HelpCenter } from './HelpCenter';
 import { CategoryRail } from './CategoryRail';
 import { HelpPanel } from './HelpPanel';
 import { SettingsPanel } from './SettingsPanel';
 
+/** Text with the matched part of the search wrapped in <mark>; plain text nodes only. */
+function Mark({ text, q }: { text: string; q: string }) {
+  const s = q.trim().toLowerCase(), i = s ? text.toLowerCase().indexOf(s) : -1;
+  return i < 0 ? <>{text}</> : <>{text.slice(0, i)}<mark>{text.slice(i, i + s.length)}</mark>{text.slice(i + s.length)}</>;
+}
+
 type P = { store: SettingsStore; host: HostBridge; defs: SettingDef[]; onClose: () => void };
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && (t as HTMLInputElement).type !== 'range');
 
+/** The category last open, kept in the page's own storage (blocked storage just means the first one). */
+const remembered = () => { try { return localStorage.getItem('ui.cat.v1'); } catch { return null; } };
+
 export function ControlCenter({ store, host, defs, onClose }: P) {
-  const [cat, setCat] = useState<CategoryId>(CATEGORIES[0].id);
+  const [cat, setCat] = useState<CategoryId>(CATEGORIES.find((c) => c.id === (controlCat.peek() ?? remembered()))?.id ?? CATEGORIES[0].id);
   const [jump, setJump] = useState<string | null>(null);
   const [help, setHelp] = useState<string | null>(null);
   const pane = useRef<HTMLDivElement>(null);
@@ -21,7 +34,7 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
   const results = q.trim() ? store.search(q).filter((d) => adv || d.level !== 'advanced').slice(0, 30) : [];
   const groups = [...new Set(defs.filter((d) => d.category === cat && !d.hidden && (adv || d.level !== 'advanced')).map((d) => d.group))];
 
-  const go = (id: CategoryId) => { if (pane.current) scrolls.current[cat] = pane.current.scrollTop; setCat(id); };
+  const go = (id: CategoryId) => { if (pane.current) scrolls.current[cat] = pane.current.scrollTop; setCat(id); try { localStorage.setItem('ui.cat.v1', id); } catch { /* blocked storage: not remembered */ } };
   /** Edge fades show only on the side that has more content. */
   const edges = () => {
     const el = pane.current;
@@ -63,6 +76,7 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
     <div class="cc" data-hit="keyboard" role="dialog" aria-label="Control Center">
       <header class="cc-head">
         <span class="label cc-title">Control Center</span>
+        <span class="cc-save" role="status" aria-live="polite" data-saving={store.saving.value > 0 ? '1' : '0'}>{store.saving.value > 0 ? 'Saving…' : 'Saved'}</span>
         <input class="ctl-text cc-search" type="search" placeholder="Search settings ( / )" aria-label="Search settings" value={q}
           onInput={(e) => { store.query.value = (e.target as HTMLInputElement).value; }} />
         <button type="button" class="ctl-action cc-btn" aria-label="Undo" disabled={!store.canUndo.value} onClick={() => store.undo()}>Undo</button>
@@ -80,16 +94,19 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
             <ul class="cc-results" aria-label="Search results">
               {results.map((d) => (
                 <li><button type="button" class="rail-btn" onClick={() => pick(d)}>
-                  <span class="label">{d.label}</span> <small>{label(d.category)} / {d.group}</small>
+                  <span class="label"><Mark text={d.label} q={q} /></span> <small>{label(d.category)} / {d.group}</small>
                 </button></li>
               ))}
-              {results.length === 0 && <li class="label empty">No settings match.</li>}
+              {results.length === 0 && <li class="label empty">No setting matches "{q.trim()}".</li>}
             </ul>
+          ) : !store.loaded.value ? (
+            <p class="label empty cc-wait" role="status">Connecting to host…</p>
           ) : (
             <>
               <div class="cc-resets">
                 {groups.map((g) => <button type="button" class="ctl-action cc-btn" aria-label={`Reset group ${g}`} onClick={() => store.resetGroup(cat, g)}>Reset {g}</button>)}
               </div>
+              {cat === 'system' && <><About version={sysInfo.value.version} /><HelpCenter host={host} /></>}
               <SettingsPanel store={store} host={host} defs={defs} categories={[cat]} mode="center" onHelp={setHelp} />
             </>
           )}

@@ -12,6 +12,20 @@ test('every registry category is listed in the rail', async ({ page }) => {
   await page.screenshot({ path: 'artifacts/control-center-normal.png' });
 });
 
+test('the System category shows the About block with the host version', async ({ page }) => {
+  await page.goto(cc);
+  await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: 'System', exact: true }).click();
+  await expect(page.locator('[data-about-version]')).toHaveText(/^CSpace (v\d|\(version unknown\))/);
+});
+
+test('the System category has Help with findings and an Ask JARVIS box', async ({ page }) => {
+  await page.goto(cc);
+  await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: 'System', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Findings' }).locator('li')).not.toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Ask JARVIS for help' })).toBeVisible();
+  await page.screenshot({ path: 'artifacts/help-center.png' });
+});
+
 test('search "scale" shows the Scale row and clicking the result expands its group', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('ui.groups.v1', JSON.stringify({ 'display/Size and text': false }))); // start collapsed
   await page.goto(cc);

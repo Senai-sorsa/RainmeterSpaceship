@@ -1,11 +1,11 @@
 import { signal } from '@preact/signals';
 
 /** The host's sys.info, sent once per page: the Windows user and machine names, Hardware.inc's OS, CPU and GPU names, and the primary screen. */
-export type SysInfo = { user?: string; host?: string; os?: string; cpu?: string; gpu?: string; display?: string };
+export type SysInfo = { user?: string; host?: string; os?: string; cpu?: string; gpu?: string; display?: string; version?: string };
 
 export const sysInfo = signal<SysInfo>({});
 
-const KEYS = ['user', 'host', 'os', 'cpu', 'gpu', 'display'] as const;
+const KEYS = ['user', 'host', 'os', 'cpu', 'gpu', 'display', 'version'] as const;
 
 /** Keeps the short text fields of a sys.info message; anything else is ignored. */
 export function acceptSysInfo(m: unknown): void {

@@ -8,7 +8,7 @@ import { acceptAppsState, acceptNetUpdate, acceptStatusUpdate, acceptTopProcs } 
 // A plain setInterval, not the scheduler: headless Edge's screenshot mode hardly runs animation frames.
 
 export function startPreviewFeed(): void {
-  acceptSysInfo({ type: 'sys.info', user: 'pilot', host: 'preview-pc', os: 'Windows 11', cpu: 'SAMPLE CPU 8C', gpu: 'SAMPLE GPU', display: '2560x1600 @240' });
+  acceptSysInfo({ type: 'sys.info', user: 'pilot', host: 'preview-pc', os: 'Windows 11', cpu: 'SAMPLE CPU 8C', gpu: 'SAMPLE GPU', display: '2560x1600 @240', version: '0.1.0' });
   acceptNetUpdate({ type: 'net.update', ping: 7, lan: '192.168.1.20', wan: '203.0.113.7' });
   acceptStatusUpdate({ type: 'status.update', kind: 'llt', hybrid: '', power: '', refresh: '', battery: '', dgpu: 'on' });
   acceptAppsState({ type: 'apps.state', states: { 'chrome.exe': 2, 'everything.exe': 1 } });

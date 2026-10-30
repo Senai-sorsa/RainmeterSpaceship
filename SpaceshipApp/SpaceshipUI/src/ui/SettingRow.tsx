@@ -21,7 +21,7 @@ export function SettingRow({ def, store, host, onHelp }: P) {
       <div class="row-ctl"><ControlWidget def={def} store={store} host={host} describedBy={helpId} /></div>
       <div class="row-state">
         {!isAction && store.isChanged(def.key) && (
-          <button type="button" class="dot" aria-label={`Reset ${def.label} to default`} title="Changed from default. Click to reset." onClick={() => store.resetKey(def.key)} />
+          <button type="button" class="dot" aria-label={`Reset ${def.label} to default`} title="Changed from default. Click to reset." onClick={() => store.resetKey(def.key)}>MOD</button>
         )}
       </div>
       {err && err.key === def.key && <div class="row-err" role="alert">{err.message}</div>}

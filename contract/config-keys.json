@@ -2499,6 +2499,22 @@
       "default": "1.1.1.1"
     },
     {
+      "key": "PowerSaver",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "ReduceMotion",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
       "key": "ReticleTodo",
       "file": "Settings.inc",
       "control": {

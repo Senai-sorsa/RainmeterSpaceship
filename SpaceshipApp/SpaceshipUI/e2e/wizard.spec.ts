@@ -13,11 +13,10 @@ test('fresh host shows the wizard, not the HUD', async ({ page }) => {
   await expect(page.locator('g.zone')).toHaveCount(0);
 });
 
-test('Next x5 with no edits reaches Review; Finish writes nothing and shows the HUD for good', async ({ page }) => {
+test('Launch with no edits writes nothing and shows the HUD for good', async ({ page }) => {
   await page.goto(fresh);
-  for (let n = 0; n < 5; n++) await btn(page, 'Next').click();
   await expect(page.getByLabel('Your changes')).toContainText('No changes');
-  await btn(page, 'Finish').click();
+  await btn(page, 'Launch CSpace').click();
   await expect(wizard(page)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open Control Center' })).toBeVisible();
   expect(await sent(page, 'config.set')).toEqual([]);
@@ -26,9 +25,8 @@ test('Next x5 with no edits reaches Review; Finish writes nothing and shows the 
   await expect(page.getByRole('button', { name: 'Open Control Center' })).toBeVisible();
 });
 
-test('Use defaults on step 2 finishes at once and the wizard never reappears', async ({ page }) => {
+test('Use defaults finishes at once and the wizard never reappears', async ({ page }) => {
   await page.goto(fresh);
-  await btn(page, 'Next').click();
   await btn(page, 'Use defaults').click();
   await expect(wizard(page)).toHaveCount(0);
   expect((await sent(page, 'setup.finish'))[0]).toMatchObject({ mode: 'defaults' });
@@ -36,17 +34,17 @@ test('Use defaults on step 2 finishes at once and the wizard never reappears', a
   await expect(wizard(page)).toHaveCount(0);
 });
 
-test('customizing writes only the edited keys and Review lists them', async ({ page }) => {
+test('customizing writes only the edited keys, Confirm lights the module and the list shows the change', async ({ page }) => {
   await page.goto(fresh);
-  await btn(page, 'Next').click(); // you
   const call = page.getByRole('textbox', { name: 'Call me' });
   await call.fill('Captain');
   await call.press('Enter');
   await page.getByRole('textbox', { name: 'About me' }).fill('I like space.');
-  await btn(page, 'Next').click();
-  for (let n = 0; n < 3; n++) await btn(page, 'Next').click();
   await expect(page.getByLabel('Your changes')).toContainText('Call me');
-  await btn(page, 'Finish').click();
+  await btn(page, 'Confirm').click();
+  await expect(page.locator('.wiz-mod').first()).toContainText('Ready');
+  await expect(page.locator('.wiz-mod').nth(1)).toHaveAttribute('aria-current', 'step');
+  await btn(page, 'Launch CSpace').click();
   await expect(wizard(page)).toHaveCount(0);
   expect((await sent(page, 'config.set')).map((m) => m.key)).toEqual(['JarvisCallMe']);
   expect((await sent(page, 'aboutme.set'))[0]).toMatchObject({ text: 'I like space.' });
@@ -54,8 +52,6 @@ test('customizing writes only the edited keys and Review lists them', async ({ p
 
 test('label preview is live and an invalid label shows the reason', async ({ page }) => {
   await page.goto(fresh);
-  await btn(page, 'Next').click();
-  await btn(page, 'Next').click(); // assistant
   const preview = page.locator('[data-preview]');
   await expect(preview).toContainText('J.A.R.V.I.S');
   await page.getByRole('textbox', { name: 'Assistant name' }).fill('Friday');
@@ -66,8 +62,6 @@ test('label preview is live and an invalid label shows the reason', async ({ pag
 
 test('Advanced disclosure on the assistant step starts closed and expands', async ({ page }) => {
   await page.goto(fresh);
-  await btn(page, 'Next').click();
-  await btn(page, 'Next').click();
   const adv = page.locator('details[data-advanced]');
   await expect(adv).toHaveJSProperty('open', false);
   await adv.locator('> summary').click();
@@ -86,7 +80,7 @@ test('with localStorage blocked the wizard still gates from host state', async (
 
 test('apps step opens the secure flows through the host; System > Reset setup clears the flag', async ({ page }) => {
   await page.goto(fresh);
-  for (let n = 0; n < 4; n++) await btn(page, 'Next').click();
+  await page.locator('.wiz-mod').nth(3).click();
   await btn(page, 'Connect Gmail').click();
   expect((await sent(page, 'flow.open'))[0]).toMatchObject({ flow: 'gmail' });
   await btn(page, 'Use defaults').click();
@@ -96,12 +90,20 @@ test('apps step opens the secure flows through the host; System > Reset setup cl
   await expect(wizard(page)).toBeVisible();
 });
 
-test('all six steps fit 1280x800 without scrolling (screenshots)', async ({ page }) => {
+test('every module opens, the page never scrolls at 1280x800 and the Systems module lists the HUD modules (screenshots)', async ({ page }) => {
   await page.goto(fresh);
   for (let n = 0; n < STEPS.length; n++) {
-    const main = page.locator('.wiz-main');
-    expect(await main.evaluate((e) => e.scrollHeight <= e.clientHeight), `step ${STEPS[n].id} scrolls`).toBe(true);
+    await page.locator('.wiz-mod').nth(n).click();
+    expect(await page.locator('.wiz').evaluate((e) => e.scrollHeight <= e.clientHeight), `module ${STEPS[n].id} scrolls the page`).toBe(true);
     await page.screenshot({ path: `artifacts/wizard-${n + 1}.png` });
-    if (n < STEPS.length - 1) await btn(page, 'Next').click();
   }
+  await page.locator('.wiz-mod').nth(2).click();
+  expect(await page.locator('[data-step="systems"] .row').count()).toBeGreaterThan(3);
+});
+
+test('stacks below 1100px without hiding Launch', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.goto(fresh);
+  await expect(btn(page, 'Launch CSpace')).toBeVisible();
+  await page.screenshot({ path: 'artifacts/wizard-narrow.png' });
 });

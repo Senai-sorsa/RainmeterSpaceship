@@ -69,8 +69,8 @@ describe('system metrics signal', () => {
   });
 
   it('keeps the short names of sys.info and ignores other messages', () => {
-    acceptSysInfo({ type: 'sys.info', user: 'senai', host: 'SHIP', os: null, cpu: 'x'.repeat(81), display: '2560x1600 @240' });
-    expect(sysInfo.value).toEqual({ user: 'senai', host: 'SHIP', display: '2560x1600 @240' });
+    acceptSysInfo({ type: 'sys.info', user: 'senai', host: 'SHIP', os: null, cpu: 'x'.repeat(81), display: '2560x1600 @240', version: '1.2.3' });
+    expect(sysInfo.value).toEqual({ user: 'senai', host: 'SHIP', display: '2560x1600 @240', version: '1.2.3' });
     acceptSysInfo({ type: 'other', user: 'nope' });
     expect(sysInfo.value.user).toBe('senai');
   });

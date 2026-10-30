@@ -50,6 +50,7 @@ add('display', 'Theme', 'normal', [
   ['ColorAccent', 'Accent colour', 'Main HUD colour (r,g,b).', col, '0,210,255', { w: 'look' }],
   ['ColorWarn', 'Warning colour', 'Colour for warnings such as a low battery.', col, '255,130,40'],
   ['GlowAlpha', 'Glow strength', 'How strongly the neon lines glow.', sl(0, 160, 4), '76'],
+  ['ReduceMotion', 'Reduce motion', 'Turns off the Control Center and setup animations and fades. The HUD itself keeps running.', tog, '0', { opt: 1 }],
 ]);
 add('display', 'Theme', 'advanced', [
   ['ColorDim', 'Dim colour', 'Colour for inactive lines and labels.', col, '0,110,150'],
@@ -173,6 +174,9 @@ add('sensors', 'HWiNFO labels', 'advanced', ([
 add('performance', 'Tier', 'normal', [
   ['PerfTier', 'Current tier', 'The performance tier now in use (0 full, 3 stealth).', sel('0|Full', '1|Lite', '2|Low', '3|Stealth'), '0'],
   ['PerfOverride', 'Tier mode', 'Force a tier, or leave on Auto.', sel('-1|Auto', '0|Full', '1|Lite', '2|Low', '3|Stealth'), '0'],
+]);
+add('performance', 'Battery', 'normal', [
+  ['PowerSaver', 'Battery saver', 'On battery, checks for mail, calendars and updates run four times less often.', tog, '1', { opt: 1 }],
 ]);
 add('performance', 'Tier', 'advanced', [
   ['TierLite', 'Lite above', 'GPU percent where Lite starts.', sl(10, 95, 5), '50'],

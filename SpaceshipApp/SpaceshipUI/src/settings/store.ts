@@ -60,6 +60,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   const level = signal<Level>('normal');
   const loaded = signal(false); // the host's values have arrived at least once
   const query = signal('');
+  const saving = signal(0); // writes sent and not yet answered, for the "saving" readout
   const error = signal<{ key: string; message: string } | null>(null);
   const past = signal<Entry[]>([]);
   const future = signal<Entry[]>([]);
@@ -73,6 +74,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
   function send(key: string, value: string, res?: (ok: boolean) => void) {
     const id = nextId++;
     inflight.set(id, { key, value, prev: sent[key], prevId: latestId[key] ?? 0, res });
+    saving.value = inflight.size;
     latestId[key] = id;
     sent[key] = value;
     host.send({ type: 'config.set', key, value, id }); // MockHost acks synchronously, so register first
@@ -113,6 +115,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     const e = inflight.get(id);
     if (!e) return; // duplicate or foreign ack
     inflight.delete(id);
+    saving.value = inflight.size;
     if (!inflight.size) for (const w of [...waiters]) w();
     const latest = latestId[e.key] === id;
     if (m.ok === true) {
@@ -264,6 +267,7 @@ export function createSettingsStore(host: HostBridge, defs: SettingDef[], opts: 
     canUndo: computed(() => past.value.length > 0),
     canRedo: computed(() => future.value.length > 0),
     loaded: loaded as ReadonlySignal<boolean>,
+    saving: saving as ReadonlySignal<number>,
     dispose: () => { if (typeof off === 'function') off(); },
     set, undo, redo, flush, settled, loadFromHost, resetKey, resetGroup, isChanged, applyDefaults, search, visibleDefs,
   };

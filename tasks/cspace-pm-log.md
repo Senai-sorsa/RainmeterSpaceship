@@ -161,6 +161,14 @@ Checks (after 675c348): tsc 0; vitest 51 files / 370 tests; e2e hud.spec 3/3; do
 Not ported: edit mode, presets, Rebuild icons (app-icons.ps1), JarvisPython from Settings.inc (not a schema key).
 Not verified live: the JARVIS launch, jarvis.py reading jarvis_cmd.txt, scan-apps.ps1 from the app, the tray items.
 
+## 2026-10-29 QoL pass (uncommitted, not published)
+- Built: icon, HUD kit, live theming, Control Center re-skin, Pre-flight wizard, S1 About/version, S2 tray (Help, About, kill-switch label), S3 Reduce motion, S4 remembered Stop + last category, S5 Power saver (x4 status/mail/calendar periods on battery), S6 notices, S7 Help (deterministic diagnosis + whitelisted fixes + Ask JARVIS via existing `jarvis.cmd ask`; jarvis.py untouched).
+- Non-goals: no commit, publish, live run, push; no Python changes (Phase 10 tone needs hand-review).
+- Rollback: `git restore` the edited files you did not already have changes in; delete the new untracked files (src/ui/kit, About/Notices/HelpCenter.tsx, src/help, src/host/notices.ts, PowerPolicy*.cs, new tests).
+- S8 installer NOT built: no Inno Setup/WiX installed (installing one needs your yes), and the published exe finds the UI and skin by walking up the repo, so an installer needs a layout decision first. Existing: `dotnet publish` profile -> SpaceshipApp/publish/CSpace.
+- Unmeasured: S5 battery baseline, per-slice idle CPU/RAM.
+- S8 installer (2026-10-30, Inno Setup 6.7.3 installed per-user via winget at your word): installer/CSpace.iss + installer/Build-Installer.ps1. Per-user install to %LOCALAPPDATA%\Programs\CSpace (the app writes @Resources\Data). Publishes to installer\stage (live publish\CSpace untouched). Excludes Data, Backups, caches and JARVIS models (vosk/kokoro/voices/wake: run Setup-Jarvis.ps1 after). Compiled -> installer/Output/CSpace-Setup-0.1.0.exe (33 MB). NOT run, NOT installed. Rollback: delete installer\ (uninstall Inno via winget uninstall JRSoftware.InnoSetup if wanted).
+
 ## 2026-10-30 features round (clicks, slots, app icons, JARVIS orb, JarvisPython)
 - a4ad0ed JARVIS start reads JarvisPython from Settings.inc (local pythonw/pyw only; set but bad = NO PYTHON, no fallback).
 - 8a5bf8c orb voice echo + level smoothing (jarvis.lua 317-350), Active frames, echo only while speaking/thinking.
@@ -169,3 +177,4 @@ Not verified live: the JARVIS launch, jarvis.py reading jarvis_cmd.txt, scan-app
 - Decisions: "clocks" read as clicks (all were already wired); slot styles compact/ship/card/rcompact skipped (layout uses only 'row'). CARGO is ported (drawer).
 - Checks: dotnet build 0 errors; dotnet test 274 passed (SAC let the test DLL load this time); tsc 0; vitest 55 files / 386 tests; vite build; hud e2e 3/3; app-icons.ps1 on a scratch copy of @Resources: exit 0, icons=2, missing path skipped.
 - Not verified live (CSpace closed): JARVIS launch with JarvisPython, the echo in WebView2, the icons virtual host, the first real icon run (a few hundred icons, 10 min timeout), the hourly rescan.
+- 2026-10-30 JARVIS help context: Jarvis/help_cspace.txt (12 known problems + fixes) searched by meaning (same MiniLM model as the HUD blocks; shared-words fallback when it is off) in new jarvislib/helpdocs.py; prompt.context() adds a "CSPACE HELP" line (+ his last ERR) only when a passage is close (>= 0.35), for any question. No new service, no actions; read-only text. Rollback: git restore jarvislib/prompt.py test_jarvis.py, delete helpdocs.py and help_cspace.txt. Not live-tested.

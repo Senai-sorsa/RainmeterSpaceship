@@ -24,18 +24,23 @@ function make(o: ConstructorParameters<typeof MockHost>[0] = {}) {
 }
 
 describe('wizard', () => {
-  it('has exactly 6 steps, welcome first and review last', () => {
-    expect(STEPS.map((s) => s.id)).toEqual(['welcome', 'you', 'assistant', 'look', 'apps', 'review']);
+  it('has exactly 4 modules in order', () => {
+    expect(STEPS.map((s) => s.id)).toEqual(['copilot', 'visor', 'systems', 'uplinks']);
   });
-  it('next/back/skip move within bounds and write nothing', () => {
+  it('select clamps, confirm marks done and opens the next unconfirmed module, and nothing is written', () => {
     const { wiz, host } = make();
     const before = host.sent.length;
-    wiz.back();
-    expect(wiz.step.value).toBe(0);
-    for (let i = 0; i < 9; i++) wiz.skip();
-    expect(wiz.step.value).toBe(5);
-    wiz.back(); wiz.next();
-    expect(wiz.step.value).toBe(5);
+    wiz.select(-3);
+    expect(wiz.open.value).toBe(0);
+    wiz.select(99);
+    expect(wiz.open.value).toBe(3);
+    wiz.select(0);
+    wiz.confirm();
+    expect(wiz.done.value).toEqual(['copilot']);
+    expect(wiz.open.value).toBe(1);
+    wiz.select(0); wiz.confirm(); // confirming twice does not duplicate
+    expect(wiz.done.value).toEqual(['copilot']);
+    expect(wiz.open.value).toBe(1);
     expect(host.sent.slice(before).filter((m) => m.type !== 'config.get')).toEqual([]);
   });
   it('useDefaults writes changed keys, finishes as defaults, and is idempotent', async () => {
@@ -104,13 +109,13 @@ describe('wizard', () => {
     const mute: HostBridge = { send: () => {}, onMessage: () => {}, telemetry: () => new Float32Array(8) };
     expect(await shouldShow(mute, 10)).toBe(true);
   });
-  it('reload mid-wizard starts at welcome with applied values prefilled', () => {
+  it('reload mid-wizard starts at the first module with applied values prefilled', () => {
     const storage = mem();
     const a = make({ storage });
-    a.wiz.next(); a.wiz.next();
+    a.wiz.select(2);
     a.store.set('name', 'Zed');
     const b = make({ storage });
-    expect(b.wiz.step.value).toBe(0);
+    expect(b.wiz.open.value).toBe(0);
     expect(b.store.values.value.name).toBe('Zed');
   });
 });
