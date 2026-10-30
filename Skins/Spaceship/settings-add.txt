@@ -10,3 +10,7 @@ ObsidianTodo=
 ReticleTodo=1
 ; 1 = mask IP addresses in the network block (click the LAN / WAN rows to toggle)
 IpMask=0
+; S2-5: 1 = he may fetch weather and headlines from the internet when asked (off by default); your town for the weather; an https RSS feed for the news (empty = BBC)
+JarvisOnline=0
+JarvisPlace=
+JarvisNewsFeed=

@@ -174,9 +174,9 @@ def persona():
 
 
 def mood_key():
-    v = setting("JarvisPersonality", "playful").strip().lower()
+    v = setting("JarvisPersonality", "mirror").strip().lower()
     v = MOOD_ALIAS.get(v, v)
-    return v if v in MOODS else "playful"
+    return v if v in MOODS else "mirror"
 
 
 # "good morning" / "brief me": the model words it, from data the prompt already holds
@@ -271,7 +271,8 @@ LIVE_FACT_LINE = "I can't look that up yet."
 def no_data(text, blocks):
     """L10: a fixed reply when everything asked about is empty, so the model never fills the gap. None: data to use."""
     if not blocks and LIVE_FACT.search(text + " "):
-        return LIVE_FACT_LINE
+        from .online import answer                            # S2-5: weather and news when JarvisOnline=1, else the fixed line
+        return answer(text) or LIVE_FACT_LINE
     if not blocks or blocks - {"calendar", "mail", "todo"}:
         return None
     have = context(text)

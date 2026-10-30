@@ -4528,7 +4528,7 @@ FROM THE GEMINI AUDIT (rebuilding_jarvis.md, added 2026-10-15; the user's word p
     P2-17 Gmail headers / calendar creation  NEW, S2-27: opt-in; creation behind ask_yes.
     P2-19 clipboard / PDF summarizer  NEW, S2-28.
     P2-20 engineering data toolkit    NEW, S2-29: deterministic maths, no model arithmetic.
-    P2-21 GPU governor           NEW, S2-30: ties to 6i and Fix Round 6; measure first.
+    P2-21 GPU governor           DROPPED 2026-10-30 at the user's word (was S2-30).
     P2-22 research reports       NEW, S2-31: saves a cited note after ask_yes.
     P2-23 speaker verification   NEW, S2-32: TV / other voices cannot wake or confirm.
     P2-24 telemetry panel        NEW, S2-33: Control Center health readout; shares data with Phase 9.

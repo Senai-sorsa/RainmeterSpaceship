@@ -49,7 +49,7 @@ ADD = {
     "less": "Talk less: one short sentence.",
 }
 # serious-topic state (C5): `left` = counted turns still serious after the trigger turn
-state = {"left": 0, "topic": False}                               # topic: this turn is serious because of the topic, not class
+state = {"left": 0, "topic": False, "temp": None}                               # topic: this turn is serious because of the topic, not class
 
 
 def on(name, default="1"):
@@ -72,6 +72,10 @@ def turn_mood(text, base, counted=True):
     state["topic"] = False
     if class_time():
         return "serious"
+    if state["temp"] and time.time() >= state["temp"][1]:
+        state["temp"] = None                                      # the timed mood ran out
+    if state["temp"]:
+        base = state["temp"][0]
     if serious_topic(text):
         state["left"], state["topic"] = 1, True                   # this turn plus one more counted turn
         return "serious"
@@ -141,11 +145,27 @@ def command(cmd):
     return None
 
 
+def timed(cmd):
+    """'be serious for the next ten minutes' -> (mood, seconds), or None. Up to 4 hours; never saved to Settings.inc."""
+    from .reminders import duration
+    m = re.fullmatch(r"(.+?) for (?:the next |the )?(.+)", re.sub(r"[.!,]", "", (cmd or "").strip().lower()))
+    key = command(m.group(1)) if m else None
+    secs = duration(m.group(2)) if key else None
+    return (key, secs) if secs and 0 < secs <= 14400 else None
+
+
+def start_timed(key, secs):
+    """Start a timed mood and return what to say."""
+    state["temp"] = (key, time.time() + secs)
+    n, unit = (secs // 3600, "hour") if secs % 3600 == 0 else (round(secs / 60), "minute")
+    return f"{NAMED[key].capitalize()} for {n} {unit}{'s' if n != 1 else ''}, sir."
+
+
 def current():
     """The mood setting as it is now (old values mapped), for the undo."""
-    v = setting("JarvisPersonality", "playful").strip().lower()
+    v = setting("JarvisPersonality", "mirror").strip().lower()
     v = {"proper": "serious", "natural": "mirror"}.get(v, v)
-    return v if v in VALUES else "playful"
+    return v if v in VALUES else "mirror"
 
 
 def act_mood(key):

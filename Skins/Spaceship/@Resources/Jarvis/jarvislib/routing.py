@@ -8,7 +8,7 @@ from .actions import BT_GENERIC, MEDIA_KEYS, bt_devices, bt_link, bt_names, pick
 from .audio import mic_volume, speakers_mute
 from .base import set_setting
 from .mic import pick_mic
-from .mood import act_mood, command as mood_command
+from .mood import act_mood, command as mood_command, start_timed, timed as mood_timed
 from .base import NAME, log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
@@ -396,6 +396,9 @@ def route(text):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
         return ("end", None, None, None)                       # T1: he drops it and says nothing (jarvis.py: control)
+    tm = mood_timed(cmd)
+    if tm:                                                     # Slice 3: "be serious for ten minutes" (this session only)
+        return ("say", None, None, start_timed(*tm))
     key = mood_command(cmd)
     if key:                                                    # M2: "be serious", "just answer briefly", "stop joking"
         return ("act", "mood", key, None)

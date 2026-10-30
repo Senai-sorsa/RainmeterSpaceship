@@ -177,7 +177,8 @@ sealed class Overlay : Form
     // jarvis.lua StartService: the caption under the orb until a time, when the service was last launched, and the one auto-start try
     (string Text, long Until) _jarvisNote = ("", 0);
     long _jarvisStarted;
-    bool _jarvisAutoTried;
+    bool _jarvisAutoTried, _superTold;
+    readonly JarvisSupervisor _super = new();
     readonly long _born = Environment.TickCount64;
     // the log pop-up's files (jarvislog.lua): the conversation, the reply being written, and jarvis_env.txt for MUTED
     readonly (string? Path, DateTime Write, string? Text)[] _logFiles = new (string?, DateTime, string?)[3];
@@ -739,6 +740,14 @@ sealed class Overlay : Form
             var v = _settings?.Get(["JarvisAutoStart", "JarvisEnabled"]);
             if (offline && v?.GetValueOrDefault("JarvisAutoStart", "1") == "1" && v.GetValueOrDefault("JarvisEnabled", "1") == "1") JarvisStart();
         }
+        // P6-2: a JARVIS that was online and died is started again (2/5/15 s apart, 5 tries per 10 min); the Control Center's quit keeps it down
+        if (_super.Tick(offline, now, () => _settings?.Get(["JarvisAutoStart", "JarvisEnabled"]) is { } s && s.GetValueOrDefault("JarvisAutoStart", "1") == "1" && s.GetValueOrDefault("JarvisEnabled", "1") == "1"))
+        {
+            _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_RESTART");
+            JarvisStart();
+        }
+        if (_super.GaveUp && !_superTold) { _superTold = true; _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_RESTART_GAVE_UP"); Notice("jarvis", "JARVIS keeps stopping. Start it from the Control Center when you are ready."); }
+        else if (!_super.GaveUp) _superTold = false;
         if (json != _jarvisSent) { _jarvisSent = json; _cc.CoreWebView2.PostWebMessageAsJson(json); }
         PushJarvisLog();
     }
@@ -818,7 +827,8 @@ sealed class Overlay : Form
     void JarvisCommand(string verb, string? text)
     {
         if (_resources is null) return;
-        if (verb == "start") { JarvisStart(); return; }
+        if (verb == "start") { _super.Started(); JarvisStart(); return; }
+        if (verb == "quit") _super.Quit();
         if (verb == "quit") _jarvisNote = ("STOPPED", DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 6);
         int.TryParse(_settings?.Get(["PerfTier"]).GetValueOrDefault("PerfTier"), out var tier); // H.tier
         var line = JarvisStatus.CmdLine(verb, text, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), tier);

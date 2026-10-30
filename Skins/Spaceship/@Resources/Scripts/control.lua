@@ -587,7 +587,7 @@ local function rowsJarvis()
     { '>', function() jset('JarvisKokoroVoice', cycle(KV, kv, 1)) end },
     { 'SLOWER', function() jbump('JarvisVoiceRate', -1, -5, 5, 1) end },
     { 'FASTER', function() jbump('JarvisVoiceRate', 1, -5, 5, 1) end } } }
-  local mood = string.lower(H.str('JarvisPersonality', 'playful'))
+  local mood = string.lower(H.str('JarvisPersonality', 'mirror'))
   if mood == 'proper' then mood = 'serious' elseif mood == 'natural' then mood = 'mirror' end   -- the old values (same mapping as prompt.py)
   if mood ~= 'serious' and mood ~= 'brief' and mood ~= 'mirror' then mood = 'playful' end
   local callme = H.str('JarvisCallMe', '')

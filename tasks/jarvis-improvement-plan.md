@@ -51,6 +51,12 @@ Gates for every slice: `test_jarvis: OK` under venv python AND `py -3`; `check_v
 - Warm: first token 0.11 s. After 60 s and 300 s idle (GPU drops to P8, 180 MHz): 0.30-0.32 s, prefill 0.25 s vs 0.04 s warm. The idle penalty is ~0.2 s, not 3.6-4.3 s.
 - Conclusion: the old 3.6-4.3 s spike is NOT reproduced by qwen3 4B alone. It was llama3.1:8b and/or contention with Whisper/Kokoro/wake word in the real pipeline [?]. J1 is downgraded: no keep-warm ping (0.2 s is not worth a GPU wake-up loop); re-check with the per-turn timing log (6j) in the combined live test.
 
+### STATUS 2026-10-30
+- J0 done. J2 + J3 built and committed (f3a69b0, by the other session together with its own work); test_jarvis OK under venv and py -3, check_voice OK. `check_route.py` no longer exists. NOT copied live, not pushed. Short utterances end after 0.72 s of quiet vs 1.02 s [M, fake mic stream].
+- J4 measured, NO CHANGE (not worth it). Per component [M, same process, working set / VRAM]: Whisper small.en +160 MB / +704 MB; Kokoro on GPU +1063 MB / +564 MB; openWakeWord+VAD +40 MB; MiniLM +109 MB; Vosk small +14 MB; imports ~190 MB. Total ~1.54 GB RAM, 1.27 GB VRAM. Kokoro's RAM is the CUDA/cuDNN runtime; ORT options (no arena, device-allocator initializers) saved 0-13 MB. Dropping GPU Kokoro would save ~1 GB RAM but cost ~0.7 s per sentence; `JarvisIdleUnload` already frees it after 10 min idle. Left as is.
+- J5 skipped: warm prefill is 0.04 s for 570 tokens, nothing to gain from moving the clock line.
+- J6 (wake evaluator + any-name) and J7 (CSpace supervisor over the pipe) not started: J6 needs the user's own recordings; J7 touches the dirty SpaceshipApp tree.
+
 ### J1 - (downgraded, see J0 result) first-turn-after-gap spike
 - If clocks / idle downclock: a cheap tiny keep-warm ping near the expected turn; if cold KV/prefill: stable-prefix ordering (clock to the end, J5); if partial CPU offload: fix `num_gpu`/`ollama_on_cpu` path.
 - Accept: first-turn first-sentence p50 within 1 s of the warm figure, measured before/after. Worth it: yes, largest felt problem.
@@ -78,8 +84,10 @@ Gates for every slice: `test_jarvis: OK` under venv python AND `py -3`; `check_v
 ### J7 - Process supervision over the existing pipe (CSpace side)
 - P6-2 supervisor and the `jarvis.update` / `jarvis.cmd` messages through `HostPipeWire`/`Protocol.cs` and `jarvislib/host_pipe.py`. Needs a C# + Python contract test. Do after J0-J3.
 
+J7 BUILT 2026-10-30 (not committed, not live): `JarvisSupervisor.cs` (pure logic, 5 tests) wired in `Program.cs` PushJarvis/JarvisCommand. The pipe was NOT needed: the app already starts JARVIS and watches jarvis.txt; the supervisor adds restart-after-crash only. `dotnet build` 0 errors, `dotnet test` 303/303. Never run against a real crash.
+
 ### Parked (user's call to pull forward)
-Fullscreen-game governor and Legion power mode (S2-30/S2-35); weather/RSS opt-in (S2-5, conflicts with Gemini's "drop"); tone/personality work (Phase 10: **tell the user and get their hand-review first**).
+Legion power mode (S2-35); tone/personality work (Phase 10: **tell the user and get their hand-review first**).
 
 ## 3. Order and checkpoints
 J0 -> **checkpoint (user sees numbers)** -> J1 + J2 + J3 (independent, each its own commit) -> **checkpoint (one combined live test)** -> J4/J5 only if J0 numbers justify -> J6/J7 on the user's decision.
@@ -97,3 +105,10 @@ J0 -> **checkpoint (user sees numbers)** -> J1 + J2 + J3 (independent, each its 
 2. Wake word: tune current "Hey Jarvis", or go to the planned "Hey Clover" training?
 3. Pull the game governor / Legion power mode forward, or stay parked?
 4. Weather/RSS: keep opt-in as planned?
+
+### PHASE 10 ANSWERS APPLIED 2026-10-30 (not committed, not live-tested)
+- (b) default mood is now `mirror` (prompt.py, mood.py, control.lua); no JarvisPersonality key was in Settings.inc, so the live setting follows the default. Tests that pinned "playful" as the default were changed.
+- (c) `JarvisCallMe=Sir` -> `Mr. Sorsa` in Skins/Spaceship/@Resources/Settings.inc (one line; backup in the session scratchpad). persona.txt NOT edited: it still says "sir" in almost every reply and "Mr. Sorsa" only on serious topics. Needs the user's wording.
+- (d) "As an AI" was already allowed (only "hope this helps" is banned). No change.
+- Slice 3 done: timed mood ("be serious for the next ten minutes", up to 4 h, this session only, saved setting untouched). Not doable without approval: trained wake model, voice training, other-speaker detection.
+- Still open: answer length (1-3 sentences) and the "who made you" wording.
