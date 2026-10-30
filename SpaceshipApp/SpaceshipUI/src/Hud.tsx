@@ -120,8 +120,8 @@ export function Hud() {
       {topOn && <TopModule style={styleFrom(values)} values={values} hide={hide} />}
       {shown && bottomOn && <BottomModule style={styleFrom(values)} hide={hide} />}
       {shown && leftOn && <LeftModule style={styleFrom(values)} hide={hide} />}
-      {shown && rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} link={Number(values.LinkDownMbps) || 0} hide={hide} />}
-      {shown && centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} />}
+      {shown && rightOn && <RightModule style={styleFrom(values)} mask={values.IpMask !== '0'} link={Number(values.LinkDownMbps) || 0} linkUp={Number(values.LinkUpMbps) || 0} hide={hide} />}
+      {shown && centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} link={Number(values.LinkDownMbps) || 0} linkUp={Number(values.LinkUpMbps) || 0} />}
       {shown && drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
       {bootOn && <BootModule style={styleFrom(values)} />}
       {shown && jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)}

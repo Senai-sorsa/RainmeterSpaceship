@@ -179,6 +179,18 @@ public sealed class MessageRouterTests : IDisposable
     }
 
     [Fact]
+    public async Task SpeedRunStartsTheTest()
+    {
+        var schema = Repo.Schema();
+        var runs = 0;
+        var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), speed: () => runs++);
+        var r = await router.HandleAsync("{\"type\":\"speed.run\"}");
+        Assert.Null(r.Problem);
+        Assert.Null(r.Reply);
+        Assert.Equal(1, runs);
+    }
+
+    [Fact]
     public async Task MalformedJsonIsRefused()
     {
         var r = await _router.HandleAsync("{not json");

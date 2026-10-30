@@ -72,6 +72,7 @@ export class MockHost implements HostBridge {
         this.save();
         return this.reply({ type: 'aboutme.value', text });
       }
+      case 'speed.run': return this.reply({ type: 'status.update', kind: 'speed', state: 'testing', why: '' }); // the mock never finishes one
     }
   }
   onMessage(cb: (m: Msg) => void) {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { acceptAppsState, acceptTopProcs, topProcs, appState, appStates, acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, consoleStatus, devStatus, netRows, netStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
+import { acceptAppsState, acceptTopProcs, topProcs, appState, appStates, acceptNetUpdate, acceptSpxUpdate, acceptStatusUpdate, acceptTodoUpdate, consoleStatus, devStatus, netRows, netStatus, speedStatus, spxStatus, todoStatus, upkeepStatus } from '../src/host/statusFeed';
+import { speedTip } from '../src/modules/sysinfo';
 
 describe('acceptStatusUpdate', () => {
   // shapes StatusScripts.ToJson sends (ShipCore.Core.Tests/StatusScriptsTests)
@@ -27,6 +28,23 @@ describe('acceptStatusUpdate', () => {
     acceptStatusUpdate({ type: 'status.update', kind: 'other', wsl: 9 });
     acceptStatusUpdate({ type: 'system.metrics', kind: 'dev', wsl: 9 });
     expect(devStatus.value.wsl).toBe(2);
+  });
+});
+
+describe('speed', () => {
+  it('takes the three states and a plain reason, and drops anything else', () => {
+    acceptStatusUpdate({ type: 'status.update', kind: 'speed', state: 'error', why: 'timed out' });
+    expect(speedStatus.value).toEqual({ state: 'error', why: 'timed out' });
+    acceptStatusUpdate({ type: 'status.update', kind: 'speed', state: 'bogus', why: '' });
+    expect(speedStatus.value.state).toBe('error');
+    acceptStatusUpdate({ type: 'status.update', kind: 'speed', state: 'done', why: '<b>x</b>' });
+    expect(speedStatus.value).toEqual({ state: 'done', why: '' });
+  });
+  it('captions the state, or the upload the box does not show', () => {
+    expect(speedTip('testing', '', 400)).toBe('Speed test running');
+    expect(speedTip('error', 'no result', 400)).toBe('Speed test failed: no result');
+    expect(speedTip('done', '', 423)).toBe('Up 423 Mbps');
+    expect(speedTip('', '', 0)).toBe('');
   });
 });
 

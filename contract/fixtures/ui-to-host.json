@@ -1000,5 +1000,6 @@
  { "name": "llt.set other feature", "valid": false, "msg": { "type": "llt.set", "id": 3, "feature": "fan", "value": "max" } },
  { "name": "llt.set shell text", "valid": false, "msg": { "type": "llt.set", "id": 4, "feature": "power", "value": "quiet & calc" } },
  { "name": "llt.set no id", "valid": false, "msg": { "type": "llt.set", "feature": "power", "value": "quiet" } },
- { "name": "status.refresh", "valid": true, "msg": { "type": "status.refresh" } }
+ { "name": "status.refresh", "valid": true, "msg": { "type": "status.refresh" } },
+ { "name": "speed.run", "valid": true, "msg": { "type": "speed.run" } }
 ]

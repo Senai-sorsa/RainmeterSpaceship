@@ -54,6 +54,7 @@ public static class Protocol
                 return m.TryGetProperty("id", out var lid) && lid.ValueKind == JsonValueKind.Number && lid.TryGetInt64(out var ln) && ln >= 0
                     && lid.GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) < 0 ? null : "bad id";
             case "status.refresh": return null;
+            case "speed.run": return null;
             default: return "unknown type";
         }
     }

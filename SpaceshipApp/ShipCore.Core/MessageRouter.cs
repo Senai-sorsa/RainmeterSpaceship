@@ -17,6 +17,7 @@ public sealed class MessageRouter
     private readonly Action<string>? _launch, _open;
     private readonly LltGate? _llt;
     private readonly Action? _refresh;
+    private readonly Action? _speed;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
     /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
@@ -25,10 +26,11 @@ public sealed class MessageRouter
     /// <param name="dial">The systems dial's writes. Null means the dial is not wired and every dial.set is refused.</param>
     /// <param name="llt">The console's Legion Toolkit buttons. Null means every llt.set is refused.</param>
     /// <param name="refresh">status.refresh: reads the console status again now. Null means it is ignored.</param>
+    /// <param name="speed">speed.run: starts the speed test (it reports with status.update). Null means it is ignored.</param>
     /// <param name="hits">Where the page takes the mouse. Null means hit.regions is accepted and ignored.</param>
-    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null, LltGate? llt = null, Action? refresh = null)
+    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null, LltGate? llt = null, Action? refresh = null, Action? speed = null)
     {
-        _llt = llt; _refresh = refresh;
+        _llt = llt; _refresh = refresh; _speed = speed;
         _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial; _hits = hits; _launch = launch; _open = open;
     }
 
@@ -104,6 +106,9 @@ public sealed class MessageRouter
             }
             case "status.refresh":
                 _refresh?.Invoke();
+                return new(null, null);
+            case "speed.run":
+                _speed?.Invoke();
                 return new(null, null);
             default: return new(null, null);
         }

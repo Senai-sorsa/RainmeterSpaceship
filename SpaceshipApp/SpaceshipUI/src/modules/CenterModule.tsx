@@ -5,10 +5,11 @@ import type { Op, Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler, skinMs } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
-import { spxStatus, todoStatus, topProcs } from '../host/statusFeed';
+import { speedStatus, spxStatus, todoStatus, topProcs } from '../host/statusFeed';
 import { HUD_HITS, hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
-import { SPHERE_HIT, sphereFrame, sphereState, type SphereState } from './sphere';
+import { speedTip } from './sysinfo';
+import { NET_HIT, SPHERE_HIT, sphereFrame, sphereState, type SphereState } from './sphere';
 import { reticleBox, targetFrame, targetMove, targetState, targetTip, type TargetState } from './target';
 import { HitRect } from './hit';
 import { host } from '../settings/instance';
@@ -27,7 +28,9 @@ const FRAME_MS = skinMs(50); // Update=50, ~16 fps in Rainmeter (full tier of ta
  * The reticle and the sphere animate on a 20 fps timer; the HUD eases once per host reading. The reticle and sphere
  * show -- or TEST where the host does not supply the figure yet (speed test, GPU load).
  */
-export function CenterModule({ style, sphere = true, hide = '' }: { style: Style; sphere?: boolean; hide?: string }) {
+export function CenterModule({ style, sphere = true, hide = '', link = 0, linkUp = 0 }: { style: Style; sphere?: boolean; hide?: string; link?: number; linkUp?: number }) {
+  const speed = speedStatus.value;
+  const testing = speed.state === 'testing';
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const spx = spxStatus.value;
@@ -54,7 +57,7 @@ export function CenterModule({ style, sphere = true, hide = '' }: { style: Style
     cpuBaseMHz: 2000, cpuPerf: r.mCpuPerf ?? 100, gpuClockMHz: r.mHwGpuClock, gpuLoad: r.mGpuLoad, load: r.mCPU, ...spx,
   }, Z.hud, style), [r, spx, style, Z]);
   const targetOps = tgt.current && Z.target && targetFrame(tgt.current, { rank, cpu: proc?.cpu, ram: proc?.ram, todos: todo.items, todoCount: todo.count }, Z.target, style);
-  const sphereOps = sphere && tier < 3 ? Z.sphere && sphereFrame(sph.current, { downBps: r.netDown }, Z.sphere, style) : null;
+  const sphereOps = sphere && tier < 3 ? Z.sphere && sphereFrame(sph.current, { downBps: r.netDown, linkDownMbps: link, testing }, Z.sphere, style) : null;
   const place = (zone: typeof ZONES.hud, ops: Op[] | null | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && ops && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
@@ -77,7 +80,10 @@ export function CenterModule({ style, sphere = true, hide = '' }: { style: Style
         </>
       ))}
       {place(Z.sphere, sphereOps, 'sphere', 'center-sphere', Z.sphere && (
-        <HitRect zone={Z.sphere} s={style.s} box={SPHERE_HIT} label="Task Manager" on={{ click: () => host.send({ type: 'target.open', what: 'taskmgr' }) }} />
+        <>
+          <HitRect zone={Z.sphere} s={style.s} box={SPHERE_HIT} label="Task Manager" on={{ click: () => host.send({ type: 'target.open', what: 'taskmgr' }) }} />
+          <HitRect zone={Z.sphere} s={style.s} box={NET_HIT} label="Speed test" tip={speedTip(speed.state, speed.why, linkUp)} on={{ click: () => { if (!testing) host.send({ type: 'speed.run' }); } }} />
+        </>
       ))}
     </>
   );

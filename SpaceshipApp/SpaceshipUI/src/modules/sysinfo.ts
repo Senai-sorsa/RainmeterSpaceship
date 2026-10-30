@@ -2,12 +2,12 @@ import { Canvas, mix, textWidth, type Op, type Style, type Zone } from '../draw/
 
 // Port of Skins/Spaceship/@Resources/Scripts/sysinfo.lua: the network block (PING, LAN, WAN, live down and up in Mbps)
 // with the Wi-Fi emblem. PING, LAN and WAN come from the host's net.update
-// (host/statusFeed.ts netRows, which applies the IP mask) and show -- until the first reading. The speed-test box shows --
-// (its test is an action, not ported). Clicks and the speed test are not wired.
+// (host/statusFeed.ts netRows, which applies the IP mask) and show -- until the first reading. The box shows the saved
+// line speed; clicking it runs the host's speed test (speed.run, RightModule).
 
 const SXR = 2560 / 1260, SYR = 1600 / 709; // the skin's design-to-zone scale (sysinfo.lua)
 
-export type SysInput = { ping?: number; wifi?: number; down?: number; up?: number; lan?: string; wan?: string; link?: number };
+export type SysInput = { ping?: number; wifi?: number; down?: number; up?: number; lan?: string; wan?: string; link?: number; testing?: boolean };
 
 const mbps = (bps: number) => {
   const v = (bps * 8) / 1000000;
@@ -16,6 +16,13 @@ const mbps = (bps: number) => {
 
 /** sysinfo.lua H.hit 2: the IP mask toggle, in zone units for a zone w wide. */
 export const ipMaskBox = (w: number) => ({ x: w - (224 - 34) * SXR, y: (248 - 220) * SYR, w: (224 - 140) * SXR, h: (266 - 248) * SYR });
+
+/** sysinfo.lua H.hit 3: the emblem and its speed-test box, in zone units for a zone w wide. */
+export const speedBox = (w: number) => ({ x: w - (100 - 34) * SXR - 42, y: (256 - 220) * SYR - 42, w: 116, h: 84 });
+
+/** The speed-test caption (sysinfo.lua / sphere.lua), minus the download already in the box. */
+export const speedTip = (state: string, why: string, up: number) =>
+  state === 'testing' ? 'Speed test running' : state === 'error' ? `Speed test failed: ${why || '?'}` : up > 0 ? `Up ${up} Mbps` : '';
 
 export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st);
@@ -34,9 +41,10 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
     c.arc(gx, gy + 12, 9 + i * 8, 225, 315, lit ? W : D, 1.6, lit ? 255 : 120);
   }
   c.dot(gx, gy + 12, 2.6, W);
-  c.rect(gx + 30, gy + 12, 40, 22, A1, 1.5);
-  // the box shows the saved line speed (LinkDownMbps) or TEST; the speed test itself is not ported
-  c.text(gx + 50, gy + 23, input.link ? String(Math.round(input.link)) : 'TEST', { size: 6.4, weight: 700, align: 'CenterCenter', color: A1, font: st.fontNum });
+  const boxCol = input.testing ? st.warn : A1;
+  c.rect(gx + 30, gy + 12, 40, 22, boxCol, 1.5);
+  // the box shows the saved line speed (LinkDownMbps) or TEST; dots while a test runs (static here: the block redraws once a second)
+  c.text(gx + 50, gy + 23, input.testing ? '...' : input.link ? String(Math.round(input.link)) : 'TEST', { size: 6.4, weight: 700, align: 'CenterCenter', color: boxCol, font: st.fontNum });
   // rows: label on the inner side, value on the outer side
   const pingTxt = input.ping === undefined ? '--' : input.ping <= 0 || input.ping >= 2999 ? 'LOST' : `${input.ping} MS`;
   const pcol = input.ping === undefined ? D : pingTxt === 'LOST' ? st.alert : input.ping! >= 150 ? st.warn : W;

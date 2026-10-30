@@ -178,6 +178,7 @@ sealed class Overlay : Form
     readonly TodoRunner _todo;
     readonly CalendarRunner? _calendar;
     readonly MailRunner? _mail;
+    SpeedRunner? _speed;
 
     RegisteredWaitHandle? _openWait;
     readonly string? _resources;
@@ -219,7 +220,9 @@ sealed class Overlay : Form
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
             _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget,
-                new LltGate(new LltRunner(), ConfirmAsync), () => _status?.Soon("llt"));
+                new LltGate(new LltRunner(), ConfirmAsync), () => _status?.Soon("llt"), () => _speed?.Run());
+            var store = _settings;
+            _speed = new SpeedRunner((k, v) => store.Set(k, v).Ok, Post);
         }
         // The full display, taskbar included: the desktop layer lets the taskbar draw over it.
         _home = HomeScreen(_settings).Bounds;
@@ -434,7 +437,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_speed?.Last is { } sp) Post(sp); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {

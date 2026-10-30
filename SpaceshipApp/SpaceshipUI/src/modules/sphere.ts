@@ -3,15 +3,16 @@ import type { Pt } from '../lib/geometry';
 
 // Port of Skins/Spaceship/@Resources/Scripts/sphere.lua: the tilted disk, the level plane, the orange sweep, the base
 // ring and the NET box with its load bar. Not ported: the two sphere sprites (the body is a filled circle here, the
-// rim glow is left out), the process blips, the ISS and YOU markers (no host feed), the hover text and the speed-test
-// action (an OS action, goes through the action gate later).
+// rim glow is left out), the process blips and the ISS and YOU markers (no host feed). The NET box runs the host's speed test (CenterModule).
 
 const SXR = 2560 / 1260, SYR = 1600 / 709;
 const X = (rx: number) => (rx - 514) * SXR;
 const Y = (ry: number) => (ry - 407) * SYR;
 const CX = ((746 - 514) / 2) * SXR, CY = Y(491), R = 180; // centred in the zone, on the screen axis
-/** sphere.lua H.hit 1: the radar disc (Task Manager). shortcut: hit 2, the speed test, is not ported (no host speedtest yet). */
+/** sphere.lua H.hit 1: the radar disc (Task Manager). */
 export const SPHERE_HIT = { x: CX - R, y: CY - R, w: 2 * R, h: 2 * R };
+/** sphere.lua H.hit 2: the NET box (the speed test). */
+export const NET_HIT = { x: X(687), y: Y(526), w: X(744) - X(687), h: Y(544) - Y(526) };
 const TILT = 0.17, TA = -9; // disk aspect and tilt (degrees)
 const FLAT = 0.22; // the level plane's aspect
 

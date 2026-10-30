@@ -4,7 +4,7 @@ import type { JSX } from 'preact';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
-import { appState, appStates, devStatus, netRows, netStatus } from '../host/statusFeed';
+import { appState, appStates, devStatus, netRows, netStatus, speedStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed } from './appsSource';
 import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabsFrame } from './category';
@@ -13,7 +13,7 @@ import { devFrame } from './dev';
 import { type Readings } from './readings';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
-import { ipMaskBox, sysinfoFrame } from './sysinfo';
+import { ipMaskBox, speedBox, speedTip, sysinfoFrame } from './sysinfo';
 import { host, store } from '../settings/instance';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
@@ -28,7 +28,9 @@ const ZONES = {
  * Behind ?module=right. The catalog is the labelled fixture (see appsSource.ts). Feeds that the host does not supply yet
  * (ping, LAN, WAN, WSL, Ollama, speed test) show --. Clicks as the left column (hit.tsx).
  */
-export function RightModule({ style, hide = '', catalog = catalogFeed.value, mask = true, link = 0 }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean; link?: number }) {
+export function RightModule({ style, hide = '', catalog = catalogFeed.value, mask = true, link = 0, linkUp = 0 }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean; link?: number; linkUp?: number }) {
+  const speed = speedStatus.value;
+  const testing = speed.state === 'testing';
   const Z = useMemo(() => visible(ZONES, hide), [hide]);
   const m = systemMetrics.value;
   const dev = devStatus.value;
@@ -50,9 +52,9 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
       const hit = e.kind === 'app' ? e.app : e.cat.apps[selIndex(e.cat, state)];
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, state: appState(states, hit?.proc), mirror: true }, zone, style);
     }),
-    sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, link, ...netRows(net, mask) }, Z.sysinfo, style),
+    sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, link, testing, ...netRows(net, mask) }, Z.sysinfo, style),
     dev: Z.dev && devFrame(dev, Z.dev, style),
-  }), [r, states, dev, net, mask, link, ci, ai, first, state, slots, catalog, style, Z]);
+  }), [r, states, dev, net, mask, link, testing, ci, ai, first, state, slots, catalog, style, Z]);
   const open = (what: string) => () => host.send({ type: 'target.open', what });
   const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && list && (
@@ -91,6 +93,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
         <>
           <HitRect zone={Z.sysinfo} s={style.s} label="Network status" on={{ click: open('network'), menu: open('wifi') }} />
           <HitRect zone={Z.sysinfo} s={style.s} box={ipMaskBox(Z.sysinfo.w)} label={mask ? 'Show IP' : 'Mask IP'} on={{ click: () => store.set('IpMask', mask ? '0' : '1'), menu: open('wifi') }} />
+          <HitRect zone={Z.sysinfo} s={style.s} box={speedBox(Z.sysinfo.w)} label="Speed test" tip={speedTip(speed.state, speed.why, linkUp)} on={{ click: () => { if (!testing) host.send({ type: 'speed.run' }); }, menu: open('wifi') }} />
         </>
       ))}
       {place(Z.dev, ops.dev, 'dev', 'right-dev', Z.dev && (
