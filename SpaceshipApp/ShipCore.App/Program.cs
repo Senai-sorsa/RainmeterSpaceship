@@ -639,6 +639,7 @@ sealed class Overlay : Form
     {
         // media.ps1's keys (audio.lua's core = mute, wedge = prev / play / next): a key press, as the keyboard's own keys do
         if (MediaKeys.TryGetValue(what, out var vk)) { keybd_event(vk, 0, 1, 0); keybd_event(vk, 0, 3, 0); return; }
+        if (what == "audionext") { if (!AudioOut.Next()) _log?.WriteLine($"{DateTime.UtcNow:O},OPEN_FAILED,{what}"); return; }
         string target, args = "";
         if (Fixed.TryGetValue(what, out var f)) (target, args) = f;
         else if (what == "drive")

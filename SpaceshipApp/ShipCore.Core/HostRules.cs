@@ -4,6 +4,10 @@ namespace ShipCore.Core;
 public static class HostRules
 {
     /// <returns>index of the first display whose size matches the home size, or -1 when none does.</returns>
+    /// <summary>ToggleNext: the device after <paramref name="current"/>, wrapping; the first when current is not listed; null for none.</summary>
+    public static string? NextDevice(IReadOnlyList<string> ids, string? current) =>
+        ids.Count == 0 ? null : ids[(ids.ToList().IndexOf(current ?? "") + 1) % ids.Count];
+
     public static int PickHomeDisplay(IReadOnlyList<(int Width, int Height)> displays, (int Width, int Height) home)
     {
         for (int i = 0; i < displays.Count; i++)

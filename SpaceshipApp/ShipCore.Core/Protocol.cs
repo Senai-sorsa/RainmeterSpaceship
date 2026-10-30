@@ -8,10 +8,11 @@ public static class Protocol
 {
     private static readonly Regex Key = new(@"^[A-Za-z][A-Za-z0-9_]{0,63}$", RegexOptions.Compiled);
     private static readonly HashSet<string> Flows = new() { "gmail", "calendars", "obsidian" };
-    // target.open names: each maps to one fixed page or program in the host (Program.OpenTarget), never to text from the UI
+    // status.refresh kinds: the status scripts (StatusScripts.Kinds) and the mail check
     public static readonly HashSet<string> RefreshKinds = new() { "llt", "upkeep", "dev", "mail" };
+    // target.open names: each maps to one fixed page or program in the host (Program.OpenTarget), never to text from the UI
     public static readonly HashSet<string> Targets = new() { "taskmgr", "taskperf", "todo", "sound", "display", "power", "mute", "prev", "playpause", "next",
-        "terminal", "powershell", "about", "outlookcal", "gcal", "gmail", "update", "defender", "network", "wifi", "spx", "ollama", "tailscale", "drive", "battery" };
+        "terminal", "powershell", "about", "outlookcal", "gcal", "gmail", "update", "defender", "network", "wifi", "spx", "ollama", "tailscale", "drive", "battery", "audionext" };
 
     public static string? Problem(string json, ConfigSchema schema)
     {

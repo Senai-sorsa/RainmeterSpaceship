@@ -73,8 +73,8 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
       <>
         <HitRect zone={z} s={s} box={AUDIO_HITS.disc} label="Volume" on={{ menu, wheel: volStep }} />
         <HitRect zone={z} s={s} box={AUDIO_HITS.core} label="Mute" on={{ click: open('mute'), menu, wheel: volStep }} />
-        {/* shortcut: ToggleNext (next output device) needs an undocumented Windows interface; the click opens sound settings instead */}
-        <HitRect zone={z} s={s} box={AUDIO_HITS.readout} label="Sound output" on={{ click: menu, menu, wheel: volStep }} />
+        {/* audio.lua k == 3: mVol ToggleNext, the next active output device */}
+        <HitRect zone={z} s={s} box={AUDIO_HITS.readout} label="Next sound output" on={{ click: open('audionext'), menu, wheel: volStep }} />
         {(['prev', 'playpause', 'next'] as const).map((k, i) => (
           <HitRect zone={z} s={s} box={AUDIO_HITS.keys[i]} label={k} on={{ click: open(k), menu, wheel: volStep }} />
         ))}

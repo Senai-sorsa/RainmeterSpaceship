@@ -33,4 +33,15 @@ public class HostRulesTests
         };
         Assert.Equal(new[] { "old.csv" }, HostRules.ExpiredLogs(files, now, TimeSpan.FromDays(7)));
     }
+
+    [Fact]
+    public void NextDeviceWrapsAndStartsAtTheFirst()
+    {
+        string[] ids = ["a", "b", "c"];
+        Assert.Equal("b", HostRules.NextDevice(ids, "a"));
+        Assert.Equal("a", HostRules.NextDevice(ids, "c"));
+        Assert.Equal("a", HostRules.NextDevice(ids, null));
+        Assert.Equal("a", HostRules.NextDevice(ids, "gone"));
+        Assert.Null(HostRules.NextDevice([], "a"));
+    }
 }
