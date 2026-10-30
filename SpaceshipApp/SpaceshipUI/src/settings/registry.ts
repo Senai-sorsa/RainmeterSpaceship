@@ -110,14 +110,15 @@ add('display', 'Startup', 'normal', [
 ]);
 
 // ---------------------------------------------------------------- Layout (module keys come from dynamic.ts)
+// shortcut: edit mode, presets and Rebuild icons have no host side yet, so their buttons are hidden; show them when built
 add('layout', 'Edit', 'normal', [
-  ['EditMode', 'Edit mode', 'Unlock modules so you can drag them.', act('edit.toggle'), '0'],
-  ['presets', 'Presets', 'Save or load a whole layout.', act('presets.open'), '', V],
+  ['EditMode', 'Edit mode', 'Unlock modules so you can drag them.', act('edit.toggle'), '0', { hide: 1 }],
+  ['presets', 'Presets', 'Save or load a whole layout.', act('presets.open'), '', { virtual: 1, hide: 1 }],
 ]);
 
 // ---------------------------------------------------------------- Apps
 add('apps', 'Apps', 'normal', [['apps.scan', 'Scan apps', 'Rescan the Start menu for apps.', act('apps.scan'), '', { w: 'apps', virtual: 1 }]]);
-add('apps', 'Apps', 'advanced', [['apps.icons', 'Rebuild icons', 'Rebuild the app icon cache.', act('apps.icons'), '', V]]);
+add('apps', 'Apps', 'advanced', [['apps.icons', 'Rebuild icons', 'Rebuild the app icon cache.', act('apps.icons'), '', { virtual: 1, hide: 1 }]]);
 
 // ---------------------------------------------------------------- Sensors
 const SRC = ['cpu', 'ram', 'gpu', 'vram', 'cputemp|CPU temp', 'gputemp|GPU temp', 'power', 'disk', 'netdown|Net down', 'netup|Net up', 'battery'];

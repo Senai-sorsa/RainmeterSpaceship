@@ -19,7 +19,7 @@ export function ControlCenter({ store, host, defs, onClose }: P) {
   const q = store.query.value;
   const adv = store.level.value === 'advanced';
   const results = q.trim() ? store.search(q).filter((d) => adv || d.level !== 'advanced').slice(0, 30) : [];
-  const groups = [...new Set(defs.filter((d) => d.category === cat && (adv || d.level !== 'advanced')).map((d) => d.group))];
+  const groups = [...new Set(defs.filter((d) => d.category === cat && !d.hidden && (adv || d.level !== 'advanced')).map((d) => d.group))];
 
   const go = (id: CategoryId) => { if (pane.current) scrolls.current[cat] = pane.current.scrollTop; setCat(id); };
   /** Edge fades show only on the side that has more content. */
