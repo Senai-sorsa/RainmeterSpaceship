@@ -3040,6 +3040,36 @@
       "default": "1"
     },
     {
+      "key": "WallpaperQuality",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "max",
+            "label": "Original"
+          },
+          {
+            "value": "screen",
+            "label": "Match this screen"
+          },
+          {
+            "value": "1440",
+            "label": "1440p"
+          },
+          {
+            "value": "1080",
+            "label": "1080p"
+          },
+          {
+            "value": "720",
+            "label": "720p"
+          }
+        ]
+      },
+      "default": "max"
+    },
+    {
       "key": "WarnBattery",
       "file": "Settings.inc",
       "control": {

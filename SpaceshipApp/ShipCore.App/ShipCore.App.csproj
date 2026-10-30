@@ -3,7 +3,10 @@
   <!-- Standalone Spaceship app (replaces the Rainmeter host). Windows only. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!-- the Windows 10 API projection is for the wallpaper encoder (Windows.Media.Transcoding); the exe stays where the scripts and shortcuts look -->
+    <OutputPath>bin\$(Configuration)\net10.0-windows\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>

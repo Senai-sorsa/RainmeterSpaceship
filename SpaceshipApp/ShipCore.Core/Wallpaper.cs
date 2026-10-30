@@ -16,6 +16,33 @@ public static class Wallpaper
         return Videos.Contains(ext) || Images.Contains(ext) ? Path.GetFullPath(p) : null;
     }
 
+    /// <summary>
+    /// The size to re-encode a w×h video to for WallpaperQuality ("screen" = still covers this screen, "1440"/"1080"/"720" = short side),
+    /// or null to play the original (Original, an unknown level, or a video already that small).
+    /// </summary>
+    public static (int W, int H)? Scaled(int w, int h, string? quality, int screenW, int screenH)
+    {
+        if (w <= 0 || h <= 0) return null;
+        double s = quality switch
+        {
+            "screen" => Math.Max((double)screenW / w, (double)screenH / h),
+            "1440" or "1080" or "720" => int.Parse(quality) / (double)Math.Min(w, h),
+            _ => 1,
+        };
+        if (s >= 0.95) return null; // a 5 % shrink isn't worth an encode
+        return ((int)Math.Round(w * s / 2) * 2, (int)Math.Round(h * s / 2) * 2); // encoders want even sizes
+    }
+
+    /// <summary>
+    /// A file's name in CSpace's wallpaper folder: the original as is (size null) or re-encoded to size. A new source file, edit
+    /// or size gets a new name, so a stale copy is never played.
+    /// </summary>
+    public static string CacheName(string path, long length, DateTime written, (int W, int H)? size)
+    {
+        var id = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{path.ToUpperInvariant()}|{length}|{written.Ticks}")))[..16];
+        return size is { } s ? $"wall-{id}-{s.W}x{s.H}.mp4" : $"wall-{id}{Path.GetExtension(path).ToLowerInvariant()}";
+    }
+
     /// <summary>True when the foreground window hides the desktop: fullscreen, or maximised over the work area.</summary>
     public static bool Hidden(WindowSnapshot s, Rect workArea)
     {

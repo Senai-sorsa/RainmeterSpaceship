@@ -548,30 +548,98 @@ sealed class Overlay : Form
     }
     bool _covered; // a fullscreen window is in front: shown, but nothing is sampled or animated
 
-    // The live wallpaper (Wallpaper.cs): the chosen file's folder on its own host name, so the page's <video> streams it from disk
-    // with range requests. Only our page can load that host (navigation is locked to UiOrigin). "\0" = not sent to this page yet.
+    // The live wallpaper (Wallpaper.cs). The page's <video> streams from CSpace's own wallpaper folder on its own host name (range
+    // requests come free with a folder mapping); that folder holds only a hard link to (or copy of) the chosen file and its smaller
+    // re-encodes, so the files beside the user's video are never reachable. Only our page can load that host (navigation is locked
+    // to UiOrigin). "\0" = not sent to this page yet.
     const string WallHost = "wallpaper.spaceship.local";
+    static readonly string WallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Spaceship", "wallpaper");
     string? _wallKey = "\0";
     bool? _wallPaused;
+    int _wallGen; // a new URL per file, so the <video> reloads even when two files share a name
+    CancellationTokenSource? _wallWork;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool CreateHardLinkW(string newName, string existing, IntPtr security);
 
     void SyncWallpaper()
     {
         if (_cc is null) return;
-        var v = _settings?.Get(["WallpaperOn", "WallpaperFile"]);
-        var key = v?.GetValueOrDefault("WallpaperOn") == "1" ? v.GetValueOrDefault("WallpaperFile") ?? "" : null;
+        var v = _settings?.Get(["WallpaperOn", "WallpaperFile", "WallpaperQuality"]);
+        var key = v?.GetValueOrDefault("WallpaperOn") == "1" ? $"{v.GetValueOrDefault("WallpaperFile")}|{v.GetValueOrDefault("WallpaperQuality")}" : null;
         if (key == _wallKey) return;
         _wallKey = key;
-        var path = Wallpaper.FilePath(key);
+        _wallWork?.Cancel();
+        _wallWork = null;
+        var path = key is null ? null : Wallpaper.FilePath(v!.GetValueOrDefault("WallpaperFile"));
         if (path is not null && !File.Exists(path)) path = null;
-        try { _cc.CoreWebView2.ClearVirtualHostNameToFolderMapping(WallHost); } catch (Exception e) when (e is ArgumentException or COMException) { /* nothing mapped yet */ }
-        if (path is not null) _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(WallHost, Path.GetDirectoryName(path)!, CoreWebView2HostResourceAccessKind.DenyCors);
         if (key is not null && path is null) _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_REFUSED,not a local video or picture that exists");
-        Post(System.Text.Json.JsonSerializer.Serialize(new
+        if (path is null) { ShowWallpaper(null); return; }
+        try { _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(WallHost, Directory.CreateDirectory(WallDir).FullName, CoreWebView2HostResourceAccessKind.DenyCors); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_FAILED,{e.GetType().Name}"); ShowWallpaper(null); return; }
+        _wallWork = new CancellationTokenSource();
+        _ = PrepareWallpaper(path, v!.GetValueOrDefault("WallpaperQuality"), key!, _wallWork.Token);
+    }
+
+    void ShowWallpaper(string? file) => Post(System.Text.Json.JsonSerializer.Serialize(new
+    {
+        type = "wallpaper.src",
+        url = file is null ? "" : $"https://{WallHost}/{Uri.EscapeDataString(Path.GetFileName(file))}?v={++_wallGen}",
+        video = file is not null && Wallpaper.Videos.Contains(Path.GetExtension(file)),
+    }));
+
+    // Puts the original in WallDir (a hard link costs no space; another drive gets a copy) and shows it, then, when WallpaperQuality
+    // asks for a smaller size, re-encodes it once with Windows' own (hardware) encoder and switches to that. Both are kept for the
+    // next start; anything else in WallDir is an old wallpaper and is removed. On any failure the original keeps playing.
+    async Task PrepareWallpaper(string path, string? quality, string key, CancellationToken ct)
+    {
+        var info = new FileInfo(path);
+        var original = Path.Combine(WallDir, Wallpaper.CacheName(path, info.Length, info.LastWriteTimeUtc, null));
+        string? encoded = null;
+        try
         {
-            type = "wallpaper.src",
-            url = path is null ? "" : $"https://{WallHost}/{Uri.EscapeDataString(Path.GetFileName(path))}",
-            video = path is not null && Wallpaper.Videos.Contains(Path.GetExtension(path)),
-        }));
+            if (!File.Exists(original) && !CreateHardLinkW(original, path, IntPtr.Zero))
+                await Task.Run(() => { File.Copy(path, original + ".part", true); File.Move(original + ".part", original, true); }, ct);
+            if (ct.IsCancellationRequested) return;
+            if (Wallpaper.Videos.Contains(info.Extension) && quality is not (null or "" or "max"))
+            {
+                var src = await Windows.Storage.StorageFile.GetFileFromPathAsync(original);
+                var profile = await Windows.Media.MediaProperties.MediaEncodingProfile.CreateFromFileAsync(src);
+                var screen = Screen.FromRectangle(_home).Bounds;
+                if (Wallpaper.Scaled((int)profile.Video.Width, (int)profile.Video.Height, quality, screen.Width, screen.Height) is { } size)
+                {
+                    encoded = Path.Combine(WallDir, Wallpaper.CacheName(path, info.Length, info.LastWriteTimeUtc, size));
+                    if (!File.Exists(encoded))
+                    {
+                        ShowWallpaper(original); // plays while the smaller copy is made
+                        _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_ENCODE,{size.W}x{size.H}");
+                        profile.Audio = null; // the <video> is muted
+                        profile.Container.Subtype = "MPEG4";
+                        profile.Video.Subtype = "H264"; // decodes on every GPU
+                        (profile.Video.Width, profile.Video.Height) = ((uint)size.W, (uint)size.H);
+                        profile.Video.Bitrate = (uint)(size.W * size.H * 4); // ~16 Mbit/s at 2560x1600
+                        var folder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(WallDir);
+                        var part = await folder.CreateFileAsync(Path.GetFileName(encoded) + ".part", Windows.Storage.CreationCollisionOption.ReplaceExisting);
+                        var prep = await new Windows.Media.Transcoding.MediaTranscoder { HardwareAccelerationEnabled = true }.PrepareFileTranscodeAsync(src, part, profile);
+                        if (!prep.CanTranscode) throw new InvalidOperationException($"cannot encode: {prep.FailureReason}");
+                        await prep.TranscodeAsync().AsTask(ct);
+                        File.Move(encoded + ".part", encoded, true);
+                    }
+                }
+            }
+            if (!ct.IsCancellationRequested) ShowWallpaper(encoded ?? original);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception e)
+        {
+            _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_FAILED,{e.GetType().Name}: {e.Message.ReplaceLineEndings(" ")}");
+            encoded = null;
+            if (!ct.IsCancellationRequested) ShowWallpaper(File.Exists(original) ? original : null);
+        }
+        if (ct.IsCancellationRequested || key != _wallKey) return;
+        // only CSpace's own files in its own folder; a hard link going away leaves the user's file untouched
+        foreach (var f in Directory.EnumerateFiles(WallDir, "wall-*"))
+            if (f != original && f != encoded)
+                try { File.Delete(f); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* still open in the page: next time */ }
     }
 
     // Lively's pause rules: nothing to see behind a maximised or fullscreen window, and (by default) none on battery.
