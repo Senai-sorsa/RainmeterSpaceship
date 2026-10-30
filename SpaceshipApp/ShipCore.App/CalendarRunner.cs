@@ -31,7 +31,7 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
 
     async void Tick()
     {
-        if (!shown()) return;
+        if (!shown()) { if (_tick.Interval < 2000) _tick.Interval = 2000; return; } // after Soon(): don't spin while hidden
         _tick.Interval = 60000;
         if (DateTime.UtcNow >= _fetchDue && !_fetching && !SkinCoreRunning())
         {
@@ -113,6 +113,9 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
         }
         finally { hEnc.Free(); hEnt.Free(); }
     }
+
+    /// <summary>location.lua right-click (Data\calendar.refresh): fetch the feeds on the next tick.</summary>
+    public void Soon() { _fetchDue = DateTime.MinValue; _tick.Stop(); _tick.Interval = 1; _tick.Start(); }
 
     public void Dispose() { _tick.Stop(); _tick.Dispose(); }
 }

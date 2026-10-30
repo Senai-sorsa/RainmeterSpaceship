@@ -46,19 +46,20 @@ export function MissionClock({ zone, source, captions, style }: { zone: Zone; so
   const state = source.read(now);
   const feed = state.errors > 0 ? `${state.errors} calendar feed${state.errors > 1 ? 's' : ''} failed` : undefined;
   const gcal = () => host.send({ type: 'target.open', what: 'gcal' });
+  const refresh = (e: MouseEvent) => { e.preventDefault(); host.send({ type: 'status.refresh', kind: 'calendar' }); };
   const s = style.s, rowH = 11 * SYR * s;
   return (
     <g transform={`matrix(${zone.matrix.join(' ')})`} data-module="clock" data-tip={captions ? feed : undefined}>
       {!captions && feed && <title>{feed}</title>}
       <OpsView ops={clockFrame(state, now, zone, style)} name="clock" />
-      {/* location.lua OnClick: Google Calendar; the row boxes below take the same click */}
-      <HitRect zone={zone} s={s} label="Google Calendar" on={{ click: gcal }} />
+      {/* location.lua OnClick: Google Calendar, OnRightClick: fetch the feeds now; the row boxes below take the same clicks */}
+      <HitRect zone={zone} s={s} label="Google Calendar" on={{ click: gcal, menu: () => host.send({ type: 'status.refresh', kind: 'calendar' }) }} />
       {ROW_Y.map((ry, i) => {
         const tip = rowTip(state, now, i);
         // invisible hover box per row, so a cut title shows its full text
         return tip && (
           <rect key={i} data-row={i + 1} data-tip={captions ? tip : undefined} x={zone.x * s} y={(zone.y + Y(ry)) * s - rowH / 2}
-            width={zone.w * s} height={rowH} fill="transparent" data-hit style={{ cursor: 'pointer' }} onClick={gcal}>
+            width={zone.w * s} height={rowH} fill="transparent" data-hit style={{ cursor: 'pointer' }} onClick={gcal} onContextMenu={refresh}>
             {!captions && <title>{tip}</title>}
           </rect>
         );
