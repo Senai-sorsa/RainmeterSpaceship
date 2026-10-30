@@ -642,13 +642,14 @@ sealed class Overlay : Form
                 try { File.Delete(f); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* still open in the page: next time */ }
     }
 
-    // Lively's pause rules: nothing to see behind a maximised or fullscreen window, and (by default) none on battery.
+    // Lively's pause rules: nothing to see behind a maximised or fullscreen window or over Remote Desktop, and (by default) none on battery.
     void PauseWallpaper(WindowSnapshot snap)
     {
         if (_wallKey is null or "\0") return;
         var v = _settings?.Get(["WallpaperPauseMax", "WallpaperBattery"]);
         var paused = (v?.GetValueOrDefault("WallpaperPauseMax") != "0" && Wallpaper.Hidden(snap, ToRect(Screen.FromRectangle(_home).WorkingArea)))
-            || (v?.GetValueOrDefault("WallpaperBattery") != "0" && SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Offline);
+            || (v?.GetValueOrDefault("WallpaperBattery") != "0" && SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Offline)
+            || SystemInformation.TerminalServerSession; // Remote Desktop: frames would be streamed over the network for nothing (Lively's default)
         if (paused == _wallPaused) return;
         _wallPaused = paused;
         Post($"{{\"type\":\"wallpaper.pause\",\"on\":{(paused ? "true" : "false")}}}");
@@ -1044,9 +1045,11 @@ sealed class Overlay : Form
     // Resolution or display set changed: pick the home display again and fill it.
     void Rehome()
     {
+        var was = _home.Size;
         _home = HomeScreen(_settings).Bounds;
         Bounds = _home;
         if (_cc is not null) _cc.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
+        if (_home.Size != was && _wallKey?.EndsWith("|screen", StringComparison.Ordinal) == true) { _wallKey = "\0"; SyncWallpaper(); } // "Match this screen" re-picks its size
     }
 
     protected override void WndProc(ref Message m)
