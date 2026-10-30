@@ -128,7 +128,7 @@ export function Hud() {
       {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} onClose={() => setLogOpen(false)} />}
       {clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
     </svg>
-    <Caption />
+    <Caption on={values.CaptionStyle !== '0'} />
     </>
   );
 }

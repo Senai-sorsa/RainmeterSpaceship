@@ -7,7 +7,7 @@ import { appState, appStates, upkeepStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed } from './appsSource';
 import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabsFrame } from './category';
-import { HitRect, launch, openSlot, usePanel } from './hit';
+import { HitRect, launch, openSlot, slotTip, usePanel } from './hit';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
 import { upkeepFrame } from './upkeep';
@@ -61,7 +61,7 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
         return <HitRect zone={Z.tabs} s={style.s} label="Category tabs" on={{ click: (x) => choose(cat, tab(x)), menu: (x) => launch(cat?.apps[tab(x)]), wheel: (d) => choose(cat, ai + d) }} />;
       })())}
       {place(Z.category, ops.cat, 'cat', 'left-category', Z.category && (
-        <HitRect zone={Z.category} s={style.s} label="Launch the selected app" on={{ click: () => launch(app), menu: () => launch(app), wheel: (d) => choose(cat, ai + d) }} />
+        <HitRect zone={Z.category} s={style.s} label="Launch the selected app" tip={app && `${app.name}${app.missing ? '   not found' : ''}`} on={{ click: () => launch(app), menu: () => launch(app), wheel: (d) => choose(cat, ai + d) }} />
       ))}
       {Z.category && ops.scan && (
         <g transform={`matrix(${Z.category.matrix.join(' ')})`}>
@@ -75,15 +75,15 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
         const e = slots[i];
         const pickOf = () => (e?.kind === 'cat' ? e.cat.apps[selIndex(e.cat, state)] : e?.app);
         return place(zone, ops.slots[i], `slot${i + 1}`, `left-slot${i + 1}`, zone && e && (
-          <HitRect zone={zone} s={style.s} label={`Slot ${i + 1}`} on={{ click: () => openSlot(e, pickOf()), menu: () => launch(pickOf()),
+          <HitRect zone={zone} s={style.s} tip={slotTip(e, i + 1)} label={`Slot ${i + 1}`} on={{ click: () => openSlot(e, pickOf()), menu: () => launch(pickOf()),
             wheel: (d) => e.kind === 'cat' && choose(e.cat, selIndex(e.cat, state) + d) }} />
         ));
       })}
       {/* status_block.lua OnClick: row 1 Windows Update, row 2 Gmail */}
       {place(Z.upkeep, ops.upkeep, 'upkeep', 'left-upkeep', Z.upkeep && (
         <>
-          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: 0, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Windows Update" on={{ click: () => host.send({ type: 'target.open', what: 'update' }) }} />
-          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: Z.upkeep.h / 2, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Gmail" on={{ click: () => host.send({ type: 'target.open', what: 'gmail' }) }} />
+          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: 0, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Windows Update" tip="Pending Windows updates" on={{ click: () => host.send({ type: 'target.open', what: 'update' }) }} />
+          <HitRect zone={Z.upkeep} s={style.s} box={{ x: 0, y: Z.upkeep.h / 2, w: Z.upkeep.w, h: Z.upkeep.h / 2 }} label="Gmail" tip={up.mail !== undefined ? undefined : up.mailWhy === 'off' ? 'Gmail not set up' : `Gmail: ${up.mailWhy ?? '?'}`} on={{ click: () => host.send({ type: 'target.open', what: 'gmail' }) }} />
         </>
       ))}
     </>

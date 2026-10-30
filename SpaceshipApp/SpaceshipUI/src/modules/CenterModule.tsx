@@ -9,11 +9,14 @@ import { spxStatus, todoStatus, topProcs } from '../host/statusFeed';
 import { HUD_HITS, hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
 import { SPHERE_HIT, sphereFrame, sphereState, type SphereState } from './sphere';
-import { reticleBox, targetFrame, targetMove, targetState, type TargetState } from './target';
+import { reticleBox, targetFrame, targetMove, targetState, targetTip, type TargetState } from './target';
 import { HitRect } from './hit';
 import { host } from '../settings/instance';
 import { visible } from './hidden';
 
+/** hud.lua's S&P caption, condensed: price, day change and whether the market is open. */
+const spxTip = (x: { spxPrice?: number; spxPrev?: number; spxOpen?: boolean }) => x.spxPrice === undefined || !x.spxPrev ? 'S&P 500 waiting for data'
+  : `S&P 500 ${x.spxPrice.toFixed(1)}   ${((x.spxPrice - x.spxPrev) / x.spxPrev * 100).toFixed(2).replace(/^(?!-)/, '+')}%   ${x.spxOpen ? 'open' : 'closed'}`;
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the centre: the target reticle, the HUD ladders and the sphere. */
 const ZONES = { target: zoneOf('C_target'), hud: zoneOf('C_hud'), sphere: zoneOf('C_sphere') };
@@ -63,13 +66,14 @@ export function CenterModule({ style, sphere = true, hide = '' }: { style: Style
     <>
       {place(Z.target, targetOps, 'target', 'center-target', Z.target && tgt.current && (
         <HitRect zone={Z.target} s={style.s} box={reticleBox(tgt.current)} label={todo.items.length ? 'Open the to-do note' : `Target ${rank}`}
+          tip={targetTip({ name: proc?.name, cpu: proc?.cpu, ram: proc?.ram, todos: todo.items, todoCount: todo.count })}
           on={{ click: () => (todo.items.length ? host.send({ type: 'target.open', what: 'todo' }) : setRank((n) => (n % 5) + 1)),
             menu: () => host.send({ type: 'target.open', what: 'taskmgr' }), wheel: (d) => setRank((n) => ((n - 1 + d + 5) % 5) + 1) }} />
       ))}
       {place(Z.hud, hudOps, 'hud', 'center-hud', Z.hud && (
         <>
           <HitRect zone={Z.hud} s={style.s} box={HUD_HITS.gpu} label="Task Manager" on={{ click: () => host.send({ type: 'target.open', what: 'taskmgr' }) }} />
-          <HitRect zone={Z.hud} s={style.s} box={HUD_HITS.spx} label="S&P 500" on={{ click: () => host.send({ type: 'target.open', what: 'spx' }) }} />
+          <HitRect zone={Z.hud} s={style.s} box={HUD_HITS.spx} label="S&P 500" tip={spxTip(spx)} on={{ click: () => host.send({ type: 'target.open', what: 'spx' }) }} />
         </>
       ))}
       {place(Z.sphere, sphereOps, 'sphere', 'center-sphere', Z.sphere && (

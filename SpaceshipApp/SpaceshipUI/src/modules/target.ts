@@ -42,6 +42,15 @@ export function todoLabel(t: TodoItem): string {
   const when = t.timed ? `${DAYS[d.getDay()]} ${pad(d.getHours())}:${pad(d.getMinutes())}` : `${DAYS[d.getDay()]} ${pad(d.getDate())} ${MONTHS[d.getMonth()]}`;
   return `${label}  |  ${when}`;
 }
+/** target.lua's hover caption, condensed: the to-do's full text and how many are open, or which process and what it takes. */
+export function targetTip(input: TargetInput): string {
+  const t = input.todos?.[0];
+  if (t) return `${t.text}   ${input.todoCount ?? input.todos!.length} open`;
+  if (!input.name) return '';
+  const ram = input.ram ? `   ${Math.round(input.ram / 1048576)} MB` : '';
+  return `${input.name}   ${(input.cpu ?? 0).toFixed(0)}% CPU${ram}`;
+}
+
 export type Rnd = () => number;
 
 /** target.lua H.hit: the reticle and its readout, in zone px. */

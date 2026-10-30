@@ -53,9 +53,9 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       ram: Z.ram && graphFrame(st.ram, r, Z.ram, style, 'fixed').ops,
       a: Z.a && graphFrame(st.a, r, Z.a, style, 'select').ops,
       b: Z.b && graphFrame(st.b, r, Z.b, style, 'select').ops,
-      power: Z.power && powerFrame({ cpu: r.mHwCpuPower, gpu: r.mHwGpuPower, chargeRate: r.mHwChargeRate }, Z.power, style).ops,
+      power: Z.power && powerFrame({ cpu: r.mHwCpuPower, gpu: r.mHwGpuPower, chargeRate: r.mHwChargeRate }, Z.power, style),
       battery: Z.battery && batteryFrame(r, Z.battery, style, st.battery, now).ops,
-      alert: Z.alert && alertFrame(r, Z.alert, style, st.alert).ops,
+      alert: Z.alert && alertFrame(r, Z.alert, style, st.alert),
       settings: Z.settings && consoleFrame(withHybridMode(cs, values), cfg, NO_VIEW, Z.settings, style, now),
     };
     // cfg is not in the deps: a console setting change shows on the next host reading
@@ -68,11 +68,11 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
   };
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
-  const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string, on?: { click: () => void; label: string }) =>
+  const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string, on?: { click: () => void; label: string; tip?: string }) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
         <OpsView ops={list} name={name} />
-        {on && <HitRect zone={zone} s={style.s} label={on.label} on={{ click: on.click }} />}
+        {on && <HitRect zone={zone} s={style.s} label={on.label} tip={on.tip} on={{ click: on.click }} />}
       </g>
     );
   return (
@@ -82,13 +82,13 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       {place(Z.a, ops.a, 'ga', 'graph-a')}
       {place(Z.b, ops.b, 'gb', 'graph-b')}
       {/* power.lua and alert.lua open the Control overlay, battery.lua the battery settings */}
-      {place(Z.power, ops.power, 'pw', 'power', { click: () => { controlOpen.value = true; }, label: 'Control Center' })}
+      {place(Z.power, ops.power?.ops, 'pw', 'power', { click: () => { controlOpen.value = true; }, label: 'Control Center', tip: ops.power?.tip })}
       {place(Z.battery, ops.battery, 'tb', 'battery', { click: () => host.send({ type: 'target.open', what: 'battery' }), label: 'Battery settings' })}
-      {place(Z.alert, ops.alert, 'ta', 'alert', { click: () => { controlOpen.value = true; }, label: 'Control Center' })}
+      {place(Z.alert, ops.alert?.ops, 'ta', 'alert', { click: () => { controlOpen.value = true; }, label: 'Control Center', tip: ops.alert?.tip })}
       {Z.settings && ops.settings && (
         <g transform={`matrix(${Z.settings.matrix.join(' ')})`} data-module="console">
           <OpsView ops={ops.settings.ops} name="cs" />
-          {ops.settings.hits.map((h) => <HitRect zone={Z.settings!} s={style.s} box={h} label={h.tip || (h.id === 6 ? 'CARGO hold' : 'Console')} on={{ click: () => consoleClick(h.id) }} />)}
+          {ops.settings.hits.map((h) => <HitRect zone={Z.settings!} s={style.s} box={h} label={h.tip || (h.id === 6 ? 'CARGO hold' : 'Console')} tip={h.tip} on={{ click: () => consoleClick(h.id) }} />)}
         </g>
       )}
       {Z.a && (

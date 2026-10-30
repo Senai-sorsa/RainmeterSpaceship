@@ -8,7 +8,7 @@ import { appState, appStates, devStatus, netRows, netStatus } from '../host/stat
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed } from './appsSource';
 import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabsFrame } from './category';
-import { HitRect, launch, openSlot, usePanel } from './hit';
+import { HitRect, launch, openSlot, slotTip, usePanel } from './hit';
 import { devFrame } from './dev';
 import { type Readings } from './readings';
 import { slotRowFrame } from './slot';
@@ -68,7 +68,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
         return <HitRect zone={Z.tabs} s={style.s} label="Category tabs" on={{ click: (x) => choose(cat, tab(x)), menu: (x) => launch(cat?.apps[tab(x)]), wheel: (d) => choose(cat, ai + d) }} />;
       })())}
       {place(Z.category, ops.cat, 'cat', 'right-category', Z.category && (
-        <HitRect zone={Z.category} s={style.s} label="Launch the selected app" on={{ click: () => launch(app), menu: () => launch(app), wheel: (d) => choose(cat, ai + d) }} />
+        <HitRect zone={Z.category} s={style.s} label="Launch the selected app" tip={app && `${app.name}${app.missing ? '   not found' : ''}`} on={{ click: () => launch(app), menu: () => launch(app), wheel: (d) => choose(cat, ai + d) }} />
       ))}
       {Z.category && ops.scan && (
         <g transform={`matrix(${Z.category.matrix.join(' ')})`}>
@@ -82,7 +82,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
         const e = slots[i];
         const pickOf = () => (e?.kind === 'cat' ? e.cat.apps[selIndex(e.cat, state)] : e?.app);
         return place(zone, ops.slots[i], `slot${i + 5}`, `right-slot${i + 5}`, zone && e && (
-          <HitRect zone={zone} s={style.s} label={`Slot ${i + 5}`} on={{ click: () => openSlot(e, pickOf()), menu: () => launch(pickOf()),
+          <HitRect zone={zone} s={style.s} tip={slotTip(e, i + 5)} label={`Slot ${i + 5}`} on={{ click: () => openSlot(e, pickOf()), menu: () => launch(pickOf()),
             wheel: (d) => e.kind === 'cat' && choose(e.cat, selIndex(e.cat, state) + d) }} />
         ));
       })}
@@ -95,8 +95,8 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
       ))}
       {place(Z.dev, ops.dev, 'dev', 'right-dev', Z.dev && (
         <>
-          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: 0, w: Z.dev.w, h: Z.dev.h / 2 }} label="Terminal" on={{ click: open('terminal') }} />
-          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: Z.dev.h / 2, w: Z.dev.w, h: Z.dev.h / 2 }} label="Ollama models" on={{ click: open('ollama') }} />
+          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: 0, w: Z.dev.w, h: Z.dev.h / 2 }} label="Terminal" tip="Running WSL distros" on={{ click: open('terminal') }} />
+          <HitRect zone={Z.dev} s={style.s} box={{ x: 0, y: Z.dev.h / 2, w: Z.dev.w, h: Z.dev.h / 2 }} label="Ollama models" tip="Ollama models loaded" on={{ click: open('ollama') }} />
         </>
       ))}
     </>

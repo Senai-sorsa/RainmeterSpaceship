@@ -17,10 +17,10 @@ const zoneX = (e: MouseEvent, zone: Box, s: number) => {
   return m ? new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()).x / s - zone.x : 0;
 };
 
-/** A transparent click target over a zone, or over box (zone units) inside it; drawn in the zone's matrix group. */
-export function HitRect({ zone, s, box = { x: 0, y: 0, w: zone.w, h: zone.h }, on, label }: { zone: Zone; s: number; box?: Box; on: On; label: string }) {
+/** A transparent click target over a zone, or over box (zone units) inside it; drawn in the zone's matrix group. tip: its hover caption (H.hit's last argument). */
+export function HitRect({ zone, s, box = { x: 0, y: 0, w: zone.w, h: zone.h }, on, label, tip }: { zone: Zone; s: number; box?: Box; on: On; label: string; tip?: string }) {
   return (
-    <rect x={(zone.x + box.x) * s} y={(zone.y + box.y) * s} width={box.w * s} height={box.h * s} fill="transparent" data-hit aria-label={label}
+    <rect x={(zone.x + box.x) * s} y={(zone.y + box.y) * s} width={box.w * s} height={box.h * s} fill="transparent" data-hit aria-label={label} data-tip={tip || undefined}
       style={{ cursor: 'pointer' }}
       onClick={(e) => on.click?.(zoneX(e, zone, s))}
       onContextMenu={(e) => { e.preventDefault(); on.menu?.(zoneX(e, zone, s)); }}
@@ -36,6 +36,10 @@ export const openSlot = (e: { kind: 'cat'; cat: Cat } | { kind: 'app'; app: App 
   if (e?.kind === 'cat') { if (e.cat.apps.length) drawerOpen.value = { focus: e.cat.id }; }
   else launch(pick);
 };
+
+/** slot.lua's caption: only a missing app or an empty slot says anything; a filled slot's name is already on screen. */
+export const slotTip = (e: { kind: 'cat'; cat: Cat } | { kind: 'app'; app: App } | undefined, slot: number) =>
+  e?.kind === 'app' && e.app.missing ? `${e.app.name} not installed or moved` : !e ? `Slot ${slot} unassigned` : undefined;
 
 const wrap = (i: number, n: number) => ((i % n) + n) % n;
 

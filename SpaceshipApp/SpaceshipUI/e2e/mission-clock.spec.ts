@@ -9,10 +9,10 @@ test('mission clock is off by default', async ({ page }) => {
   await expect(page.locator('[data-module="clock"]')).toHaveCount(0);
 });
 
-test('?module=clock draws three rows, and a cut title shows its full text on hover', async ({ page }) => {
+test('?module=clock gives only the cut title a hover row, and it shows its full text', async ({ page }) => {
   await page.addInitScript(SETUP_DONE);
   await page.goto('/?host=mock&module=clock');
-  await expect(page.locator('[data-module="clock"] [data-row]')).toHaveCount(3);
+  await expect(page.locator('[data-module="clock"] [data-row]')).toHaveCount(1);
   await page.screenshot({ path: 'artifacts/mission-clock.png' });
 
   await page.locator('[data-row="2"]').hover();
@@ -22,7 +22,8 @@ test('?module=clock draws three rows, and a cut title shows its full text on hov
 test('a short title shows no caption', async ({ page }) => {
   await page.addInitScript(SETUP_DONE);
   await page.goto('/?host=mock&module=clock');
-  await page.locator('[data-row="1"]').hover();
+  // the zone's own click target, near its top edge (above the rows): no row tip there
+  await page.locator('[data-module="clock"] rect[aria-label="Google Calendar"]').hover({ position: { x: 20, y: 3 }, force: true });
   await expect(page.locator('#hud-caption')).toHaveCount(0);
 });
 
