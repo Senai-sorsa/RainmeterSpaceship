@@ -235,7 +235,7 @@ public sealed class SystemSamplerTests
     [Fact]
     public void SysInfoTakesTheNamesFromHardwareIncAndLeavesOutBlankOnes()
     {
-        var json = SysInfo.ToJson("senai", "SHIP", "[Variables]\r\nCpuName=RYZEN AI 9 465\r\n;OsName=X\r\nDGpuName=  \r\n", "2560x1600 @240");
+        var json = SysInfo.ToJson("senai", "SHIP", "[Variables]\r\nCpuName=RYZEN AI 9 465\r\n;OsName=X\r\nDGpuName=  \r\n", "2560x1600 @240", "0.1.0");
         using var doc = JsonDocument.Parse(json);
         var r = doc.RootElement;
         Assert.Equal("sys.info", r.GetProperty("type").GetString());
@@ -243,5 +243,6 @@ public sealed class SystemSamplerTests
         Assert.Equal(JsonValueKind.Null, r.GetProperty("os").ValueKind);
         Assert.Equal(JsonValueKind.Null, r.GetProperty("gpu").ValueKind);
         Assert.Equal("2560x1600 @240", r.GetProperty("display").GetString());
+        Assert.Equal("0.1.0", r.GetProperty("version").GetString());
     }
 }

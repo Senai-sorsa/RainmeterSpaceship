@@ -72,6 +72,17 @@ public sealed class MessageRouterTests : IDisposable
     }
 
     [Fact]
+    public void AUserStopIsRememberedAcrossARestart()
+    {
+        var path = Path.Combine(_dir, "ui-state.json");
+        Assert.False(new HostState(path).Stopped);
+        new HostState(path).SetStopped(true);
+        Assert.True(new HostState(path).Stopped);
+        new HostState(path).SetStopped(false);
+        Assert.False(new HostState(path).Stopped);
+    }
+
+    [Fact]
     public async Task SetupRerunReopensTheWizardWithoutClearingTheFlag()
     {
         var r = await _router.HandleAsync("{\"type\":\"action\",\"id\":\"setup.rerun\"}");

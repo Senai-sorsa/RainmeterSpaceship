@@ -130,6 +130,7 @@ sealed class Overlay : Form
     TimeSpan _lastCpu; DateTime _lastWall = DateTime.UtcNow;
     readonly Dictionary<int, TimeSpan> _webCpu = new(); // last CPU time per msedgewebview2 pid, for the delta
     double _fps;
+    HostState? _hostState; // the tray remembers a user Stop across launches
     bool _running, _starting; // _running = the user asked for it; _starting = a web view is being created
     int _failures; // web view restarts since the last good page load
     const int MaxRestarts = 3;
@@ -209,9 +210,9 @@ sealed class Overlay : Form
             string[] names = ["jarvis_log.txt", "jarvis_live.txt", "jarvis_env.txt"];
             for (var i = 0; i < 3; i++) _logFiles[i].Path = Path.Combine(resources, "Data", names[i]);
         }
-        if (resources is not null) _calendar = new CalendarRunner(Path.Combine(resources, "Data"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
-        if (resources is not null) _mail = new MailRunner(Path.Combine(resources, "Data"), () => Visible, Post);
-        if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
+        if (resources is not null) _calendar = new CalendarRunner(Path.Combine(resources, "Data"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"), PowerFactor);
+        if (resources is not null) _mail = new MailRunner(Path.Combine(resources, "Data"), () => Visible, Post, PowerFactor);
+        if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"), PowerFactor);
         _net = new NetRunner(() => _settings?.Get(["PingHost"]).GetValueOrDefault("PingHost"), () => Visible, () => _settings?.Get(["IpMask"]).GetValueOrDefault("IpMask") == "0", Post);
         _todo = new TodoRunner(() =>
         {
@@ -231,7 +232,7 @@ sealed class Overlay : Form
                 _settings.Import(SkinImport.Build(new ConfigStore(resources, schema), schema).Values);
             // Shortcut: power actions and flows are not wired (the schema lists no power action, and flows need P-F). The gate refuses by throwing, which is logged.
             var unwired = new UnwiredHost();
-            var state = new HostState(Path.Combine(appData, "ui-state.json"));
+            var state = _hostState = new HostState(Path.Combine(appData, "ui-state.json"));
             _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget,
                 new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else if (k == "calendar") _calendar?.Soon(); else if (k == "apps") ScanApps(); else _status?.Soon(k); }, () => _speed?.Run(), JarvisCommand);
             var store = _settings;
@@ -247,16 +248,17 @@ sealed class Overlay : Form
 
         var menu = new ContextMenuStrip();
         // the Control Center lives in the page; the tray (or a double-click on the icon) asks the page to open it
-        void OpenControl() { if (_running) Post("{\"type\":\"control.open\"}"); }
+        void OpenControl(string? cat = null) { if (_running) Post(cat is null ? "{\"type\":\"control.open\"}" : $"{{\"type\":\"control.open\",\"cat\":\"{cat}\"}}"); }
         menu.Items.Add("Control panel", null, (_, _) => OpenControl());
         // Common.inc's other context items: the CARGO drawer and the start-up sequence
         menu.Items.Add("App drawer (CARGO)", null, (_, _) => { if (_running) Post("{\"type\":\"drawer.open\"}"); });
         menu.Items.Add("Play startup sequence", null, (_, _) => { if (_running) Post("{\"type\":\"boot.play\"}"); });
         _tray.DoubleClick += (_, _) => OpenControl();
+        _tray.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) OpenControl(); };
         // a second launch signals this event (pool thread); the panel opens on the UI thread
-        _openWait = ThreadPool.RegisterWaitForSingleObject(openControl, (_, _) => { if (IsHandleCreated) BeginInvoke(() => { if (!_running) Start(); OpenControl(); }); }, null, -1, false);
-        menu.Items.Add("Start", null, (_, _) => Start());
-        menu.Items.Add("Stop", null, (_, _) => Stop());
+        _openWait = ThreadPool.RegisterWaitForSingleObject(openControl, (_, _) => { if (IsHandleCreated) BeginInvoke(() => { if (!_running) { _hostState?.SetStopped(false); Start(); } OpenControl(); }); }, null, -1, false);
+        menu.Items.Add("Start", null, (_, _) => { _hostState?.SetStopped(false); Start(); });
+        menu.Items.Add("Stop", null, (_, _) => { _hostState?.SetStopped(true); Stop(); });
         // Rainmeter's Refresh: a fresh page with the restart budget reset
         menu.Items.Add("Reload HUD", null, (_, _) => { _failures = 0; _appsJson = _sysJson = null; ReleaseWebView(); Start(); });
         // Autostart is deferred by the user: the menu can only remove a Run entry an earlier build wrote, never add one.
@@ -266,6 +268,9 @@ sealed class Overlay : Form
             auto.Click += (_, _) => { _autostart.Disable(); menu.Items.Remove(auto); };
             menu.Items.Add(auto);
         }
+        menu.Items.Add("Help", null, (_, _) => OpenControl("system"));
+        menu.Items.Add("About CSpace", null, (_, _) => OpenControl("system"));
+        menu.Items.Add(new ToolStripMenuItem($"Kill switch: {KillChord.Label}") { Enabled = false });
         menu.Items.Add("Diagnostics", null, (_, _) => MessageBox.Show(
             $"Shown: {Visible}, locked: {_locked}\nLast visibility reason: {_lastReason}\n\n" +
             $"Last sample (cpu % of one core, MB, js fps, web cpu %, web MB, web private MB, web processes):\n{_lastSample}\n\n" +
@@ -273,7 +278,7 @@ sealed class Overlay : Form
             "CSpace diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("Open log folder", null, (_, _) => Process.Start("explorer.exe", Path.Combine(Path.GetTempPath(), "spaceship-app"))?.Dispose());
         menu.Items.Add("Quit", null, (_, _) => Quit());
-        _tray.Icon = AppIcon(); _tray.Text = "CSpace"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
+        _tray.Icon = AppIcon(); _tray.Text = $"CSpace {AppVersion()}"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
         if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", $"{KillChord.Label} is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
         if (lastRunUnclean) _tray.ShowBalloonTip(5000, "Spaceship", "The last run did not exit cleanly. Its log is in the temp folder under spaceship-app.", ToolTipIcon.Warning);
         _visibility.Tick += (_, _) => ApplyVisibility();
@@ -354,7 +359,7 @@ sealed class Overlay : Form
         // shortcut: unverified with WS_EX_NOREDIRECTIONBITMAP; if the first live run shows nothing, drop WS_EX_LAYERED and this call.
         SetLayeredWindowAttributes(Handle, 0, 255, LWA_ALPHA);
         AttachToDesktopLayer();
-        Start();
+        if (_hostState?.Stopped != true) Start();
     }
 
     // Takes the mouse only while the cursor is over a region; UpdateStyles re-reads CreateParams without a z-order move.
@@ -764,6 +769,12 @@ sealed class Overlay : Form
 
     void Post(string json) => _cc?.CoreWebView2?.PostWebMessageAsJson(json);
 
+    /// <summary>1, or 4 on battery with the PowerSaver setting on (the default): how much longer the background runners wait.</summary>
+    int PowerFactor() => PowerPolicy.Factor(_settings?.Get(["PowerSaver"]).GetValueOrDefault("PowerSaver") != "0", SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Offline);
+
+    /// <summary>A plain-language problem for the page's notice stack; the source and text are fixed strings, never exception text.</summary>
+    void Notice(string source, string text) => Post(System.Text.Json.JsonSerializer.Serialize(new { type = "notice", source, level = "warn", text }));
+
     // Data a new page gets once: the machine names (sys.info) and the app catalog (Apps.ini, the Start-menu list, which file targets exist). Read on the
     // first page load and kept; Reload HUD reads it again, like Rainmeter's Refresh.
     string? _appsJson, _sysJson, _appStateSent;
@@ -784,7 +795,7 @@ sealed class Overlay : Form
             if (proc.Length > 0 && AppWindows.Focus(proc)) return;
             using var _ = Process.Start(new ProcessStartInfo(plan.File, plan.Args) { UseShellExecute = true });
         }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { _log?.WriteLine($"{DateTime.UtcNow:O},LAUNCH_FAILED,{id},{e.GetType().Name}"); }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { _log?.WriteLine($"{DateTime.UtcNow:O},LAUNCH_FAILED,{id},{e.GetType().Name}"); Notice("apps", "An app could not be opened. Check that it is still installed."); }
     }
 
     // target.open (target.lua OnRightClick / OnClick): Task Manager, or the ObsidianTodo note in Obsidian. Both targets are
@@ -834,7 +845,7 @@ sealed class Overlay : Form
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         var py = JarvisStatus.PythonW(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", Environment.GetEnvironmentVariable("WINDIR") ?? @"C:\Windows", File.Exists, configured);
         var script = Path.Combine(_resources, "Jarvis", "jarvis.py");
-        if (py is null) { _jarvisNote = ("NO PYTHON", now + 6); _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_START_FAILED,NoPython"); return; }
+        if (py is null) { _jarvisNote = ("NO PYTHON", now + 6); _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_START_FAILED,NoPython"); Notice("jarvis", "JARVIS could not start: Python was not found."); return; }
         if (!File.Exists(script)) { _jarvisNote = ("NO SCRIPT", now + 6); return; }
         try
         {
@@ -961,7 +972,7 @@ sealed class Overlay : Form
         try
         {
             var hwInc = Path.Combine(_resources, "Hardware.inc");
-            _sysJson ??= SysInfo.ToJson(Environment.UserName, Environment.MachineName, File.Exists(hwInc) ? File.ReadAllText(hwInc) : "", WindowsMetrics.Display());
+            _sysJson ??= SysInfo.ToJson(Environment.UserName, Environment.MachineName, File.Exists(hwInc) ? File.ReadAllText(hwInc) : "", WindowsMetrics.Display(), AppVersion());
             Post(_sysJson);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},HARDWARE_UNREADABLE,{e.GetType().Name}"); }
@@ -988,6 +999,9 @@ sealed class Overlay : Form
         using var top = new Form { TopMost = true, ShowInTaskbar = false };
         return Task.FromResult(MessageBox.Show(top, $"Allow the {id} action?", "CSpace", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes);
     }
+
+    /// <summary>The assembly version (the csproj Version), without build metadata.</summary>
+    static string AppVersion() => typeof(Program).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "";
 
     static string? FindUp(string relative)
     {

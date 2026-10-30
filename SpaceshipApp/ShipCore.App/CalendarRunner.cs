@@ -5,7 +5,7 @@ using ShipCore.Core;
 // The mission clock's events, as the skin's ShipCore does it: the calendar links (DPAPI, %LOCALAPPDATA%\SpaceshipHUD\calendars.dat)
 // fetched every 10 min into Data\calendar.txt, which JARVIS reads too. While the skin's ShipCore runs (Rainmeter up) it stays the only
 // writer and this only reads the file. Checks once a minute, only while the HUD is shown; a message goes to the page when the file changes.
-sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, Action<string> log) : IDisposable
+sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, Action<string> log, Func<int>? factor = null) : IDisposable
 {
     static readonly HttpClient Http = CreateHttp();
     readonly System.Windows.Forms.Timer _tick = new() { Interval = 2000 }; // 60 s once the HUD has been shown (it is not yet at Start)
@@ -32,10 +32,11 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
     async void Tick()
     {
         if (!shown()) { if (_tick.Interval < 2000) _tick.Interval = 2000; return; } // after Soon(): don't spin while hidden
-        _tick.Interval = 60000;
+        var f = factor?.Invoke() ?? 1;
+        _tick.Interval = PowerPolicy.Scale(60000, f);
         if (DateTime.UtcNow >= _fetchDue && !_fetching && !SkinCoreRunning())
         {
-            _fetchDue = DateTime.UtcNow.AddMinutes(10); _fetching = true;
+            _fetchDue = DateTime.UtcNow.AddMinutes(PowerPolicy.Scale(10, f)); _fetching = true;
             try { await Fetch(); }
             finally { _fetching = false; }
         }

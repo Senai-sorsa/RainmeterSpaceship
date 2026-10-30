@@ -9,7 +9,7 @@ using ShipCore.Core;
 // %LOCALAPPDATA%\SpaceshipHUD\gmail.dat, saved by ShipCore setup-gmail) sign in over IMAP/TLS and read STATUS INBOX (UNSEEN).
 // Every 2 min while the HUD is shown, into Data\mail.txt (JARVIS reads it too), and a status.update to the page.
 // The login is a secret: it is never logged or sent to the page; the page gets the count or a short reason.
-sealed class MailRunner(string data, Func<bool> shown, Action<string> post) : IDisposable
+sealed class MailRunner(string data, Func<bool> shown, Action<string> post, Func<int>? factor = null) : IDisposable
 {
     readonly System.Windows.Forms.Timer _tick = new() { Interval = 3000 }; // 120 s after the first check
     readonly string _file = Path.Combine(data, "mail.txt");
@@ -27,7 +27,7 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post) : ID
     async void Tick()
     {
         if (!shown() || _fetching) { if (_tick.Interval < 3000) _tick.Interval = 3000; return; } // after Soon(): don't spin while hidden or busy
-        _tick.Interval = 120000;
+        _tick.Interval = PowerPolicy.Scale(120000, factor?.Invoke() ?? 1);
         _fetching = true;
         try
         {

@@ -4,13 +4,14 @@ using ShipCore.Core;
 // Runs the skin's query-only status scripts (Scripts\upkeep.ps1, Scripts\dev.ps1) on the skin's schedule, the way its
 // RunCommand measures do: the first run 5 s after start, then every period while the HUD is shown. One run per script
 // at a time; a run past its timeout has its own process tree ended. The output becomes a status.update message.
-sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> post, Action<string> log) : IDisposable
+sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> post, Action<string> log, Func<int>? factor = null) : IDisposable
 {
     static readonly string PowerShell = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
     static readonly TimeSpan Timeout = TimeSpan.FromSeconds(120);
     readonly System.Windows.Forms.Timer _tick = new() { Interval = 5000 };
     readonly Dictionary<string, DateTime> _due = StatusScripts.Kinds.Keys.ToDictionary(k => k, _ => DateTime.MinValue);
     readonly HashSet<string> _busy = [];
+    readonly HashSet<string> _started = [];
     readonly Dictionary<string, string> _last = [];
 
     public void Start()
@@ -31,8 +32,12 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
         foreach (var (kind, (script, period)) in StatusScripts.Kinds)
         {
             if (_busy.Contains(kind) || DateTime.UtcNow < _due[kind]) continue;
+            var f = factor?.Invoke() ?? 1;
+            // on battery the first run of the slow update search (winget, Windows Update) waits a whole stretched period; status.refresh still runs it at once
+            if (kind == "upkeep" && f > 1 && _started.Add(kind)) { _due[kind] = DateTime.UtcNow.AddSeconds(PowerPolicy.Scale(period, f)); continue; }
+            _started.Add(kind);
             _busy.Add(kind);
-            _due[kind] = DateTime.UtcNow.AddSeconds(period);
+            _due[kind] = DateTime.UtcNow.AddSeconds(PowerPolicy.Scale(period, f));
             var path = Path.Combine(scriptsDir, script);
             Task.Run(() => RunScript(path)).ContinueWith(t =>
             {
