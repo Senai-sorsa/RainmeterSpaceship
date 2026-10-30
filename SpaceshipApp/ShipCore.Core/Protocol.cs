@@ -58,6 +58,10 @@ public static class Protocol
             // the block to read again (status_block.lua / console.lua right-click); no kind = the console's status.ps1
             case "status.refresh": return !m.TryGetProperty("kind", out _) || Str(m, "kind", out var rk) && RefreshKinds.Contains(rk) ? null : "bad kind";
             case "speed.run": return null;
+            // the orb, the log's TYPE box and the Control Center's assistant buttons; the host writes the line itself
+            case "jarvis.cmd":
+                if (!Str(m, "cmd", out var jc) || !JarvisStatus.Verbs.Contains(jc)) return "bad cmd";
+                return jc != "ask" || Str(m, "text", out var jt) && jt.Length <= JarvisStatus.MaxAsk ? null : "bad text";
             default: return "unknown type";
         }
     }

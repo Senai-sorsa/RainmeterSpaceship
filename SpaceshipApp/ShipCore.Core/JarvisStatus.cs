@@ -56,6 +56,26 @@ public static class JarvisStatus
         return nl < 0 ? "" : text[(nl + 1)..];
     }
 
+    /// <summary>What the page may ask JARVIS to do (jarvis.py's jarvis_cmd.txt verbs; train is TRAINWAKE).</summary>
+    public static readonly HashSet<string> Verbs = ["wake", "cancel", "ask", "forget", "reindex", "train", "quit"];
+    public const int MaxAsk = 500;
+
+    /// <summary>The jarvis_cmd.txt line for a page request, as lib.lua H.cmd / H.ask write it; null when an ask has no text.</summary>
+    /// <param name="text">The typed question (ask only). Untrusted: control characters become spaces, runs of space collapse, at most 500 characters.</param>
+    public static string? CmdLine(string verb, string? text, long unixS, int tier)
+    {
+        switch (verb)
+        {
+            case "wake": return $"WAKE {unixS} {Math.Clamp(tier, 0, 9)}";
+            case "ask":
+                var t = string.Join(' ', new string((text ?? "").Select(ch => char.IsControl(ch) ? ' ' : ch).ToArray()).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                if (t.Length > MaxAsk) t = t[..(char.IsHighSurrogate(t[MaxAsk - 1]) ? MaxAsk - 1 : MaxAsk)];
+                return t.Length == 0 ? null : $"ASK {unixS} {t}";
+            case "train": return $"TRAINWAKE {unixS}";
+            default: return Verbs.Contains(verb) ? $"{verb.ToUpperInvariant()} {unixS}" : null;
+        }
+    }
+
     static string Clean(string s)
     {
         var c = new string(s.Where(ch => !char.IsControl(ch)).ToArray());

@@ -13,9 +13,12 @@ const offline = feedFrom(undefined, 0);
 
 /**
  * The Jarvis core, behind ?module=jarvis. Centred on the old globe's zone (C_sphere). The Hud gives it the host's
- * jarvis.update feed; with none it shows OFFLINE. The orb sprite, the voice echo and the clicks are not ported.
+ * jarvis.update feed; with none it shows OFFLINE. A click wakes him or cancels the turn (jarvis.lua OnClick).
+ * shortcut: a click while OFFLINE does nothing (the skin starts the service); port StartService when the host can run it.
  */
-export function JarvisModule({ style, feed = offline, label = '', orb = {}, onMenu }: { style: Style; feed?: Feed; label?: string; orb?: OrbOpts; onMenu?: () => void }) {
+export function JarvisModule({ style, feed = offline, label = '', orb = {}, enabled = true, onMenu }: {
+  style: Style; feed?: Feed; label?: string; orb?: OrbOpts; enabled?: boolean; onMenu?: () => void;
+}) {
   const [f, setF] = useState(0);
   const asleep = feed.state === 'offline';
   useEffect(() => {
@@ -32,9 +35,9 @@ export function JarvisModule({ style, feed = offline, label = '', orb = {}, onMe
     <>
       {ORB.length > 0 && <Orb f={f} feed={feed} style={style} cx={cx} cy={cy} opts={orb} />}
       <OpsView ops={ops} name="jarvis" />
-      {/* right-click on the hologram toggles the log, as in the skin */}
-      {onMenu && <circle cx={cx * style.s} cy={cy * style.s} r={165 * style.s} fill="transparent" data-hit
-        onContextMenu={(e) => { e.preventDefault(); onMenu(); }} />}
+      {/* click wakes or cancels; right-click on the hologram toggles the log, as in the skin */}
+      <circle cx={cx * style.s} cy={cy * style.s} r={165 * style.s} fill="transparent" data-hit style={{ cursor: 'pointer' }}
+        onClick={() => orbClick(enabled, feed.state)} onContextMenu={(e) => { e.preventDefault(); onMenu?.(); }} />
     </>
   );
 }
@@ -68,12 +71,22 @@ function Orb({ f, feed, style, cx, cy, opts }: { f: number; feed: Feed; style: S
   );
 }
 
+let lastCmd = 0;
+/** jarvis.lua OnClick: once a second at most; idle wakes him at the HUD's tier, any other state cancels the turn. */
+export function orbClick(enabled: boolean, state: string, now = Date.now()): 'wake' | 'cancel' | null {
+  if (!enabled || state === 'offline' || now - lastCmd < 1000) return null;
+  lastCmd = now;
+  const cmd = state === 'idle' ? 'wake' : 'cancel';
+  host.send({ type: 'jarvis.cmd', cmd });
+  return cmd;
+}
+
 const LOG_IDLE_MS = 180000; // jarvislog.lua closes after 3 minutes with nothing new and no hover or scroll
 
 /**
  * The conversation log pop-up (jarvislog.lua): the host's jarvis.log text, newest at the bottom. The wheel scrolls by 3
- * lines, right-click opens the log file in Notepad, X closes it. Placed at the top left of the canvas, as Overlay\Jarvis.
- * shortcut: the TYPE box (ask by text) is drawn but not wired; wire it when the host has an ask message.
+ * lines, right-click opens the log file in Notepad, X closes it, TYPE opens a text box that asks him (works muted).
+ * Placed at the top left of the canvas, as Overlay\Jarvis.
  */
 export function JarvisLogModule({ style, log = '', live = '', muted = false, assistant = 'Clover', onClose }: {
   style: Style; log?: string; live?: string; muted?: boolean; assistant?: string; onClose?: () => void;
@@ -81,6 +94,7 @@ export function JarvisLogModule({ style, log = '', live = '', muted = false, ass
   const W = 1200, H = 616, s = style.s;
   const [scroll, setScroll] = useState(0);
   const [poke, setPoke] = useState(0);
+  const [typing, setTyping] = useState(false);
   useEffect(() => setScroll(0), [log, live]); // new text jumps back to the newest line
   useEffect(() => {
     if (!onClose) return;
@@ -98,6 +112,19 @@ export function JarvisLogModule({ style, log = '', live = '', muted = false, ass
       {/* the X jarvisLogFrame draws at (w-36..w-20, 16..32) */}
       {onClose && <rect x={(W - 44) * s} y={8 * s} width={32 * s} height={32 * s} fill="transparent" data-hit aria-label="Close log"
         style={{ cursor: 'pointer' }} onClick={onClose} />}
+      {/* TYPE at (w-330, 8, 90x32) opens Jarvis.ini's mAsk InputText (150, 556, 860x36) */}
+      <rect x={(W - 330) * s} y={8 * s} width={90 * s} height={32 * s} fill="transparent" data-hit aria-label={`Type to ${assistant}`}
+        style={{ cursor: 'pointer' }} onClick={() => setTyping(true)} />
+      {typing && <foreignObject x={150 * s} y={556 * s} width={860 * s} height={36 * s}>
+        <input data-hit="keyboard" aria-label={`Ask ${assistant}`} maxLength={500} autoFocus ref={(el) => el?.focus()}
+          style={{ width: '100%', height: '100%', boxSizing: 'border-box', border: 0, outline: 0, padding: `0 ${6 * s}px`,
+            background: 'rgb(3,9,16)', color: 'rgb(0,210,255)', font: `${14 * (96 / 72) * s}px Rajdhani, sans-serif` }}
+          onKeyDown={(e) => {
+            const el = e.currentTarget;
+            if (e.key === 'Enter') { if (el.value.trim()) host.send({ type: 'jarvis.cmd', cmd: 'ask', text: el.value.slice(0, 500) }); setTyping(false); }
+            else if (e.key === 'Escape') setTyping(false);
+          }} onBlur={() => setTyping(false)} />
+      </foreignObject>}
     </g>
   );
 }

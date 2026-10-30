@@ -18,6 +18,7 @@ public sealed class MessageRouter
     private readonly LltGate? _llt;
     private readonly Action<string>? _refresh;
     private readonly Action? _speed;
+    private readonly Action<string, string?>? _jarvis;
 
     /// <param name="confirm">Asks the person before a power action. Never reached from the page today: the schema lists no power actions.</param>
     /// <param name="state">Setup flag and About-me text. Without it they live in memory for this run only.</param>
@@ -27,10 +28,11 @@ public sealed class MessageRouter
     /// <param name="llt">The console's Legion Toolkit buttons. Null means every llt.set is refused.</param>
     /// <param name="refresh">status.refresh: reads that block (llt when no kind is given) again now. Null means it is ignored.</param>
     /// <param name="speed">speed.run: starts the speed test (it reports with status.update). Null means it is ignored.</param>
+    /// <param name="jarvis">jarvis.cmd and the jarvis.* actions: a verb from JarvisStatus.Verbs and the asked text. Null means they are ignored.</param>
     /// <param name="hits">Where the page takes the mouse. Null means hit.regions is accepted and ignored.</param>
-    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null, LltGate? llt = null, Action<string>? refresh = null, Action? speed = null)
+    public MessageRouter(ConfigSchema schema, IConfigStore store, ActionGate gate, Func<string, Task<bool>> confirm, HostState? state = null, DialGate? dial = null, HitRegions? hits = null, Action<string>? launch = null, Action<string>? open = null, LltGate? llt = null, Action<string>? refresh = null, Action? speed = null, Action<string, string?>? jarvis = null)
     {
-        _llt = llt; _refresh = refresh; _speed = speed;
+        _llt = llt; _refresh = refresh; _speed = speed; _jarvis = jarvis;
         _schema = schema; _store = store; _gate = gate; _confirm = confirm; _state = state ?? new HostState(null); _dial = dial; _hits = hits; _launch = launch; _open = open;
     }
 
@@ -67,6 +69,8 @@ public sealed class MessageRouter
                 // Setup actions mirror the mock host: reset clears the flag for the next start, rerun reopens the wizard now.
                 if (id == "setup.reset") { _state.SetSetupDone(false); return new(null, null); }
                 if (id == "setup.rerun") return Reply(new { type = "setup.state", done = false });
+                // the Control Center's assistant buttons (control.lua STOP / FORGET / REINDEX / TRAIN)
+                if (id.StartsWith("jarvis.", StringComparison.Ordinal) && JarvisStatus.Verbs.Contains(id[7..])) { _jarvis?.Invoke(id[7..], null); return new(null, null); }
                 // Only power ids reach the gate; the other schema actions are not implemented in the host yet.
                 if (id is not ("shutdown" or "restart" or "sleep" or "lock")) return new(null, null);
                 var g = await _gate.PowerAsync(id, _confirm);
@@ -109,6 +113,9 @@ public sealed class MessageRouter
                 return new(null, null);
             case "speed.run":
                 _speed?.Invoke();
+                return new(null, null);
+            case "jarvis.cmd":
+                _jarvis?.Invoke(m.GetProperty("cmd").GetString()!, m.TryGetProperty("text", out var jt) && jt.ValueKind == JsonValueKind.String ? jt.GetString() : null);
                 return new(null, null);
             default: return new(null, null);
         }

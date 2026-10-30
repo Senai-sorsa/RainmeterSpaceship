@@ -3022,6 +3022,10 @@
     "apps.scan",
     "defaults.all",
     "edit.toggle",
+    "jarvis.forget",
+    "jarvis.quit",
+    "jarvis.reindex",
+    "jarvis.train",
     "presets.open",
     "setup.rerun",
     "setup.reset"

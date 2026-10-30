@@ -51,6 +51,19 @@ public class JarvisStatusTests
     }
 
     [Fact]
+    public void CmdLinesAreTheSkinsLines()
+    {
+        Assert.Equal("WAKE 100 2", JarvisStatus.CmdLine("wake", null, 100, 2));
+        Assert.Equal("WAKE 100 9", JarvisStatus.CmdLine("wake", null, 100, 40));
+        Assert.Equal("CANCEL 100", JarvisStatus.CmdLine("cancel", "ignored", 100, 0));
+        Assert.Equal("TRAINWAKE 100", JarvisStatus.CmdLine("train", null, 100, 0));
+        Assert.Equal("ASK 100 what is the time", JarvisStatus.CmdLine("ask", "  what\nis\u0007the   time ", 100, 0));
+        Assert.Null(JarvisStatus.CmdLine("ask", " \n ", 100, 0));
+        Assert.Equal(4 + 4 + JarvisStatus.MaxAsk, JarvisStatus.CmdLine("ask", new string('a', 900), 100, 0)!.Length);
+        Assert.Null(JarvisStatus.CmdLine("shutdown", null, 100, 0));
+    }
+
+    [Fact]
     public void TailStartsOnAWholeLine()
     {
         var bytes = System.Text.Encoding.UTF8.GetBytes("U|1|aaaa\nJ|2|bb\n");

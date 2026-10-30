@@ -228,7 +228,7 @@ sealed class Overlay : Form
             var unwired = new UnwiredHost();
             var state = new HostState(Path.Combine(appData, "ui-state.json"));
             _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget,
-                new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else if (k == "calendar") _calendar?.Soon(); else _status?.Soon(k); }, () => _speed?.Run());
+                new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else if (k == "calendar") _calendar?.Soon(); else _status?.Soon(k); }, () => _speed?.Run(), JarvisCommand);
             var store = _settings;
             _speed = new SpeedRunner((k, v) => store.Set(k, v).Ok, Post);
         }
@@ -666,6 +666,24 @@ sealed class Overlay : Form
         ["spx"] = ("https://finance.yahoo.com/quote/%5EGSPC", ""), ["ollama"] = ("wt.exe", "ollama ps"),
         ["tailscale"] = (@"C:\Program Files\Tailscale\tailscale-ipn.exe", ""),
     };
+    // lib.lua H.cmd: JARVIS polls Data\jarvis_cmd.txt by its time stamp; the line goes in whole through a temp file
+    void JarvisCommand(string verb, string? text)
+    {
+        if (_resources is null) return;
+        int.TryParse(_settings?.Get(["PerfTier"]).GetValueOrDefault("PerfTier"), out var tier); // H.tier
+        var line = JarvisStatus.CmdLine(verb, text, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), tier);
+        if (line is null) return;
+        var dst = Path.Combine(_resources, "Data", "jarvis_cmd.txt");
+        try
+        {
+            File.WriteAllText(dst + ".tmp", line + "\n");
+            File.Move(dst + ".tmp", dst, true);
+            if (verb == "forget" && _logFiles[0].Path is { } log) File.WriteAllText(log, ""); // jarvis.lua Forget() empties the shown log too
+            _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_CMD,{verb}"); // the verb only: the asked text stays private
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},JARVIS_CMD_FAILED,{e.GetType().Name}"); }
+    }
+
     void OpenTarget(string what)
     {
         // media.ps1's keys (audio.lua's core = mute, wedge = prev / play / next): a key press, as the keyboard's own keys do

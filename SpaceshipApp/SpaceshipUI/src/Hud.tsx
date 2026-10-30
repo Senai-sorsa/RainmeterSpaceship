@@ -144,7 +144,7 @@ export function Hud() {
       {shown && centerOn && <CenterModule style={styleFrom(values)} sphere={!jarvisOn} hide={hide} link={Number(values.LinkDownMbps) || 0} linkUp={Number(values.LinkUpMbps) || 0} />}
       {shown && drawerOn && values.Off_OverlayDrawer !== '1' && <DrawerModule style={styleFrom(values)} />}
       {bootOn && firstLoad && store.loaded.value && values.BootAnim !== '0' && <BootModule style={styleFrom(values)} />}
-      {shown && jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)}
+      {shown && jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)} enabled={values.JarvisEnabled !== '0'}
         orb={{ bright: Number(values.JarvisOrbBright), tint: Number(values.JarvisTint), size: Number(values.JarvisOrbSize),
           cols: { idle: values.JarvisColorIdle, listen: values.JarvisColorListen, speak: values.JarvisColorSpeak } }} onMenu={() => setLogOpen((o) => !o)} />}
       {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} log={jarvisLog.value.log} live={jarvisLog.value.live} muted={jarvisLog.value.muted}

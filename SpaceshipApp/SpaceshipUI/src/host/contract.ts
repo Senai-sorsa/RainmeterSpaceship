@@ -12,6 +12,7 @@ const REFRESH_RATES = new Set(['60', '165']);
 const TARGETS = ['taskmgr', 'taskperf', 'todo', 'sound', 'display', 'power', 'mute', 'prev', 'playpause', 'next', 'audionext', 'jarvislog',
   'terminal', 'powershell', 'about', 'outlookcal', 'gcal', 'gmail', 'update', 'defender', 'network', 'wifi', 'spx', 'ollama', 'tailscale', 'drive', 'battery'];
 const LLT_FEATURES = ['hybrid', 'power', 'refresh', 'battery']; // LltGate.Features
+const JARVIS_CMDS = ['wake', 'cancel', 'ask', 'forget', 'reindex', 'train', 'quit']; // JarvisStatus.Verbs
 const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/; // a lone surrogate is not text the host can read
 const isObj = (m: unknown): m is Record<string, unknown> => typeof m === 'object' && m !== null && !Array.isArray(m);
 
@@ -39,6 +40,9 @@ export function messageProblem(m: unknown): string | null {
       return Number.isSafeInteger(m.id) && (m.id as number) >= 0 ? null : 'bad id';
     case 'status.refresh': return m.kind === undefined || (typeof m.kind === 'string' && ['llt', 'upkeep', 'dev', 'mail', 'calendar'].includes(m.kind)) ? null : 'bad kind';
     case 'speed.run': return null;
+    case 'jarvis.cmd':
+      if (typeof m.cmd !== 'string' || !JARVIS_CMDS.includes(m.cmd)) return 'bad cmd';
+      return m.cmd !== 'ask' || (typeof m.text === 'string' && m.text.length <= 500) ? null : 'bad text';
     default: return 'unknown type';
   }
 }

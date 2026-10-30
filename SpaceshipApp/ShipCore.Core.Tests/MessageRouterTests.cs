@@ -193,6 +193,21 @@ public sealed class MessageRouterTests : IDisposable
     }
 
     [Fact]
+    public async Task JarvisCommandsAreAFixedList()
+    {
+        var schema = Repo.Schema();
+        var got = new List<string>();
+        var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), jarvis: (v, t) => got.Add(v + ":" + t));
+        Assert.Null((await router.HandleAsync("{\"type\":\"jarvis.cmd\",\"cmd\":\"wake\"}")).Problem);
+        Assert.Null((await router.HandleAsync("{\"type\":\"jarvis.cmd\",\"cmd\":\"ask\",\"text\":\"hi\"}")).Problem);
+        Assert.Null((await router.HandleAsync("{\"type\":\"action\",\"id\":\"jarvis.forget\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"jarvis.cmd\",\"cmd\":\"ask\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"jarvis.cmd\",\"cmd\":\"QUIT\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"action\",\"id\":\"jarvis.ask\"}")).Problem); // not a schema action
+        Assert.Equal(["wake:", "ask:hi", "forget:"], got);
+    }
+
+    [Fact]
     public async Task MalformedJsonIsRefused()
     {
         var r = await _router.HandleAsync("{not json");

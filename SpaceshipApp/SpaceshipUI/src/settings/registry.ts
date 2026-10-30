@@ -188,6 +188,13 @@ add('assistant', 'Identity', 'normal', [
   ['JarvisEnabled', 'Assistant enabled', 'Turn the assistant on or off.', tog, '1'],
   ['JarvisAutoStart', 'Start with HUD', 'Start the assistant when the HUD starts.', tog, '1'],
 ]);
+// control.lua's SERVICE / NOTE SEARCH / WAKE TRAINING buttons; the host writes Data\jarvis_cmd.txt
+add('assistant', 'Service', 'normal', [
+  ['jarvis.quit', 'Stop assistant', 'Stop the assistant service.', act('jarvis.quit'), '', V],
+  ['jarvis.forget', 'Forget conversation', 'Clear what the assistant remembers of this conversation, and its log.', act('jarvis.forget'), '', V],
+  ['jarvis.reindex', 'Rebuild notes index', 'Index your notes vault again for note search.', act('jarvis.reindex'), '', V],
+  ['jarvis.train', 'Train wake word', 'About a minute; the steps show in the log pop-up, so it works muted.', act('jarvis.train'), '', V],
+]);
 add('assistant', 'Wake word', 'normal', [['JarvisWakeModel', 'Wake model', 'Wake-word model name.', tx('^[A-Za-z0-9_.-]{1,40}$', 40), 'hey_jarvis', { w: 'assistant' }]]);
 add('assistant', 'Wake word', 'advanced', [
   ['JarvisWakeSensitivity', 'Wake sensitivity', 'Lower hears you more easily, higher is stricter.', sl(0.2, 0.9, 0.05), '0.5', { w: 'assistant' }],
