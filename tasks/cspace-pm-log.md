@@ -129,3 +129,22 @@ that aren't installed/running; drop Get-PnpDevice/llt polling or lengthen it; pr
 - Not checked: live CSpace (it is closed), and the targeter tip with real procs.top data (the mock host sends none).
 - Still open: #5 the picture-frame zoom (need the user to say where), #8 per-feature diff (console llt/perf/master/HUD buttons,
   ToggleNext, picks not persisted, speed test, dev right-click, mail/calendar refresh), and the parked helper CPU/GPU issue.
+
+## 2026-10-29: per-feature sweep vs the skin (#8) and the frame zoom (#5)
+Slices, one commit each (none pushed):
+- 1fc9204 console buttons (Legion Toolkit, perf, master, HUD, refresh) as console.lua.
+- 0a83528 the columns' category/app picks persist, as State.inc.
+- 4ae600e the NET boxes run the speed test (sphere.lua / sysinfo.lua).
+- 1aebda5 right-click on upkeep/dev/mail blocks checks again (status_block.lua).
+- f169942 the sound readout switches output device (audio.lua ToggleNext, IPolicyConfig in AudioOut.cs).
+- 8eebeb4 master switch keeps the tier before STEALTH across restarts (MasterPrev).
+- e25a89e right-click on the mission clock fetches the calendars (location.lua).
+- 282ea6e #5: the cockpit frame grows from the top-left like Frame.ini, so it lines up at any Scale.
+- 066075c select graphs save their source and step on the wheel (graph.lua).
+- 9704cf6 the JARVIS log pop-up shows Data\jarvis_log/live/env (jarvislog.lua): POP open/close, wheel scroll, right-click opens Notepad, 180 s idle close.
+- 11a207a the boot sequence plays once per app start, after config arrives, and obeys BootAnim (controller.lua).
+Checked against the skin and matching: audio, battery, category, console, control, dial, drawer, graph, hud, jarvis,
+jarvislog, location, panels, power, slot, alert, sphere, status_block, strip, sysinfo, target, boot. storage.lua is unused.
+Checks (after 11a207a): tsc 0; vitest 50 files / 368 tests; e2e hud.spec 3/3; dotnet test 262 passed (after 9704cf6).
+Not ported: the JARVIS TYPE box (ask by text), the "Play startup sequence" replay menu, edit mode.
+Not verified live (CSpace closed): real llt.exe, speedtest.exe, the IPolicyConfig switch, real JARVIS log files, the targeter tip with real procs.
