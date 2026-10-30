@@ -85,7 +85,13 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
     }
   };
   // a click moves a select graph to the next source (right click the previous one); the history starts again
-  const step = (k: 'a' | 'b', dir: number) => setSt((s) => (k === 'a' ? { ...s, a: selectSource(s.a, dir) } : { ...s, b: selectSource(s.b, dir) }));
+  // graph.lua setSource: a new source starts an empty history and is saved (GraphA_Source / GraphB_Source)
+  const step = (k: 'a' | 'b', dir: number) => {
+    const next = selectSource(st[k], dir);
+    setSt((s) => ({ ...s, [k]: next }));
+    store.set(k === 'a' ? 'GraphA_Source' : 'GraphB_Source', next.src);
+  };
+  const wheel = (k: 'a' | 'b') => (e: WheelEvent) => { e.preventDefault(); step(k, e.deltaY > 0 ? 1 : -1); };
   const place = (zone: typeof ZONES.cpu, list: Op[] | undefined, name: string, mod: string, on?: { click: () => void; label: string; tip?: string }) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
@@ -111,11 +117,11 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
       )}
       {Z.a && (
         <rect x={Z.a.x * style.s} y={Z.a.y * style.s} width={Z.a.w * style.s} height={Z.a.h * style.s} fill="transparent" data-hit style={{ cursor: 'pointer' }}
-          onClick={() => step('a', 1)} onContextMenu={(e) => { e.preventDefault(); step('a', -1); }} />
+          onClick={() => step('a', 1)} onContextMenu={(e) => { e.preventDefault(); step('a', -1); }} onWheel={wheel('a')} />
       )}
       {Z.b && (
         <rect x={Z.b.x * style.s} y={Z.b.y * style.s} width={Z.b.w * style.s} height={Z.b.h * style.s} fill="transparent" data-hit style={{ cursor: 'pointer' }}
-          onClick={() => step('b', 1)} onContextMenu={(e) => { e.preventDefault(); step('b', -1); }} />
+          onClick={() => step('b', 1)} onContextMenu={(e) => { e.preventDefault(); step('b', -1); }} onWheel={wheel('b')} />
       )}
     </>
   );
