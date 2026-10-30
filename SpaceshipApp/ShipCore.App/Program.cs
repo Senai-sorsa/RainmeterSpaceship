@@ -308,6 +308,9 @@ sealed class Overlay : Form
         _status?.Start();
         // controller.lua: scan the Start menu on the first run, and again when the list is a day old
         if (_resources is not null && File.GetLastWriteTimeUtc(Path.Combine(_resources, "Data", "StartApps.txt")) < DateTime.UtcNow.AddDays(-1)) ScanApps();
+        else if (_resources is not null && !File.Exists(Path.Combine(_resources, "Icons", "_index.txt"))) StartIcons();
+        _rescan.Tick += (_, _) => ScanApps(); // controller.lua tick % 3600
+        _rescan.Start();
         _net.Start();
         _todo.Start();
         _calendar?.Start();
@@ -467,11 +470,14 @@ sealed class Overlay : Form
         {
             // The built UI, served from its folder under a fixed name; only that origin may load.
             _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(UiHost, ui, CoreWebView2HostResourceAccessKind.DenyCors);
+            // the apps' own icons (app-icons.ps1 output) on a second name; the page only builds URLs from icons.list's checked names
+            if (_resources is not null) _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(IconsHost, Directory.CreateDirectory(Path.Combine(_resources, "Icons")).FullName, CoreWebView2HostResourceAccessKind.DenyCors);
             _cc.CoreWebView2.Navigate(UiOrigin + "index.html?module=all"); // the full HUD; the page still accepts one name or a list
         }
     }
 
     const string UiHost = "spaceship.local";
+    const string IconsHost = "icons.spaceship.local";
     const string UiOrigin = "https://spaceship.local/";
 
     // A number is the page's frame rate; anything else is a message for MessageRouter (which checks it first).
@@ -796,7 +802,47 @@ sealed class Overlay : Form
             _log?.WriteLine($"{DateTime.UtcNow:O},APPS_SCAN,{(t.Exception is { } e ? e.InnerException?.GetType().Name : "ok")}");
             _appsJson = null;
             if (_running) PostOnce();
+            StartIcons();
         }, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    // controller.lua StartIcons: Data\IconQueue.txt from the catalog, then Scripts\app-icons.ps1 (reads the apps' icons, writes only
+    // @Resources\Icons); the page then gets the new list. Ten minutes, not the status scripts' two: it draws a few hundred icons.
+    bool _iconing;
+    readonly System.Windows.Forms.Timer _rescan = new() { Interval = 3_600_000 };
+    void StartIcons()
+    {
+        if (_resources is null || _iconing) return;
+        try
+        {
+            var start = Path.Combine(_resources, "Data", "StartApps.txt");
+            var queue = AppIcons.Queue(File.ReadAllText(Path.Combine(_resources, "Apps.ini")), AppsFeed.Start(File.Exists(start) ? File.ReadAllText(start) : ""), File.Exists, Environment.ExpandEnvironmentVariables);
+            if (queue.Count == 0) return;
+            var dst = Path.Combine(_resources, "Data", "IconQueue.txt");
+            File.WriteAllLines(dst + ".tmp", queue);
+            File.Move(dst + ".tmp", dst, true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},ICONS_QUEUE,{e.GetType().Name}"); return; }
+        _iconing = true;
+        var path = Path.Combine(_resources, "Scripts", "app-icons.ps1");
+        Task.Run(() => StatusRunner.RunScript(path, TimeSpan.FromMinutes(10))).ContinueWith(t =>
+        {
+            _iconing = false;
+            _log?.WriteLine($"{DateTime.UtcNow:O},ICONS,{(t.Exception is { } e ? e.InnerException?.GetType().Name + " " + e.InnerException?.Message : t.Result.Trim())}");
+            if (_running) PostIcons();
+        }, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    // icons.list: the names of Icons\*.png, versioned by the newest write so a rerun's icons are fetched again
+    void PostIcons()
+    {
+        if (_resources is null) return;
+        try
+        {
+            var files = new DirectoryInfo(Path.Combine(_resources, "Icons")).GetFiles("*.png");
+            Post(AppIcons.ListJson(files.Select(f => Path.GetFileNameWithoutExtension(f.Name)), files.Length == 0 ? 0 : files.Max(f => f.LastWriteTimeUtc).Ticks / TimeSpan.TicksPerSecond));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},ICONS_UNREADABLE,{e.GetType().Name}"); }
     }
 
     void PostOnce()
@@ -822,6 +868,7 @@ sealed class Overlay : Form
             Post(_appsJson);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},APPS_UNREADABLE,{e.GetType().Name}"); }
+        PostIcons();
     }
 
     // Power and flow actions need a person to say yes; the schema lists none of them, so this is only reached through the gate.
@@ -879,7 +926,7 @@ sealed class Overlay : Form
         _openWait?.Unregister(null);
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
-        _visibility.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _mail?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _rescan.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _mail?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

@@ -15,6 +15,7 @@ import { slotRowFrame } from './slot';
 import { visible } from './hidden';
 import { ipMaskBox, speedBox, speedTip, sysinfoFrame } from './sysinfo';
 import { host, store } from '../settings/instance';
+import { iconList } from '../draw/appIcons';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the right column. Same parts as the left, mirrored, plus the network block and the dev block. */
@@ -40,6 +41,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
   const nTabs = Math.min(MAXTABS, cat?.apps.length ?? 0);
   const first = Math.max(1, Math.min(ai - 2, (cat?.apps.length ?? 0) - MAXTABS + 1)); // the pick stays on the rail
   const states = appStates.value;
+  const icons = iconList.value; // the slots redraw when the host's icon list arrives
   const slots = useMemo(() => Z.slots.map((_, i) => entryOf(catalog, catalog.layout[`Slot${i + 5}`] ?? '')), [catalog, Z]);
   const ops = useMemo(() => ({
     tabs: Z.tabs && tabsFrame(cat, { first, sel: ai + 1 }, Z.tabs, style),
@@ -54,7 +56,7 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
     }),
     sysinfo: Z.sysinfo && sysinfoFrame({ wifi: r.mWifi, down: r.netDown, up: r.netUp, link, testing, ...netRows(net, mask) }, Z.sysinfo, style),
     dev: Z.dev && devFrame(dev, Z.dev, style),
-  }), [r, states, dev, net, mask, link, testing, ci, ai, first, state, slots, catalog, style, Z]);
+  }), [r, states, dev, net, mask, link, testing, ci, ai, first, state, slots, catalog, style, Z, icons]);
   const open = (what: string) => () => host.send({ type: 'target.open', what });
   const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && list && (

@@ -13,7 +13,7 @@ public static class AppLaunch
     public static readonly Regex Id = new(@"^[A-Za-z0-9_.-]{1,64}$");
     static readonly Regex BareExe = new(@"^[A-Za-z0-9_.-]{1,64}\.exe$", RegexOptions.IgnoreCase);
     static readonly Regex Settings = new(@"^ms-settings:[a-z0-9-]{0,64}$");
-    static readonly Regex AppId = new(@"^[A-Za-z0-9_.!{}\\ ~-]{1,256}$");
+    public static readonly Regex AppId = new(@"^[A-Za-z0-9_.!{}\\ ~-]{1,256}$");
 
     /// <param name="start">Data\StartApps.txt as [name, AppID] pairs (AppsFeed reads it the same way).</param>
     public static LaunchPlan? Plan(string ini, IReadOnlyList<string[]> start, string id, Func<string, bool> exists, Func<string, string> expand)

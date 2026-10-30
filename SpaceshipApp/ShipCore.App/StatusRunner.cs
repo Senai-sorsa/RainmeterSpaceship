@@ -47,7 +47,7 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
     }
 
     // A fixed interpreter (by full path, not PATH) and a fixed script under the skin folder; nothing from the page reaches the command line.
-    internal static string RunScript(string path)
+    internal static string RunScript(string path, TimeSpan? timeout = null)
     {
         if (!File.Exists(path)) throw new FileNotFoundException(path);
         var info = new ProcessStartInfo(PowerShell) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
@@ -55,7 +55,7 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
         foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", path }) info.ArgumentList.Add(a);
         using var p = Process.Start(info) ?? throw new InvalidOperationException("powershell did not start");
         var read = p.StandardOutput.ReadToEndAsync();
-        if (!p.WaitForExit(Timeout))
+        if (!p.WaitForExit(timeout ?? Timeout))
         {
             p.Kill(entireProcessTree: true); // only the tree this runner started
             throw new TimeoutException(Path.GetFileName(path));

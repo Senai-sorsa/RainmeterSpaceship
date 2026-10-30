@@ -12,6 +12,7 @@ import { slotRowFrame } from './slot';
 import { visible } from './hidden';
 import { upkeepFrame } from './upkeep';
 import { host } from '../settings/instance';
+import { iconList } from '../draw/appIcons';
 
 const zoneOf = (id: string) => layout.zones.find((z) => z.id === id);
 /** Zones of the left column. The mission clock (L_location) is its own module and is not drawn here. */
@@ -32,6 +33,7 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
   const nTabs = Math.min(MAXTABS, cat?.apps.length ?? 0);
   const first = Math.max(1, Math.min(ai - 2, (cat?.apps.length ?? 0) - MAXTABS + 1)); // the pick stays on the rail
   const states = appStates.value;
+  const icons = iconList.value; // the slots redraw when the host's icon list arrives
   const slots = useMemo(() => Z.slots.map((_, i) => entryOf(catalog, catalog.layout[`Slot${i + 1}`] ?? '')), [catalog, Z]);
   const ops = useMemo(() => ({
     tabs: Z.tabs && tabsFrame(cat, { first, sel: ai + 1 }, Z.tabs, style),
@@ -46,7 +48,7 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
       return slotRowFrame({ app: hit, cat: e.kind === 'cat' ? e.cat : undefined, state: appState(states, hit?.proc), mirror: false }, zone, style);
     }),
     upkeep: Z.upkeep && upkeepFrame(up, Z.upkeep, style),
-  }), [states, up, ci, ai, first, state, slots, catalog, style, Z]);
+  }), [states, up, ci, ai, first, state, slots, catalog, style, Z, icons]);
   const place = (zone: typeof ZONES.tabs, list: ReturnType<typeof tabsFrame> | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && list && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
