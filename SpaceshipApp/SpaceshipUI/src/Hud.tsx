@@ -8,6 +8,7 @@ import { perfTier } from './host/perfTier';
 import { frameStyleOf } from './settings/frameStyle';
 import { deriveLabel, validateLabel } from './settings/identity';
 import { FrameLayers } from './ui/FrameLayers';
+import { Wallpaper } from './ui/Wallpaper';
 import { Caption } from './ui/Caption';
 import { MissionClock } from './modules/MissionClock';
 import { calendarFeed } from './modules/calendarSource';
@@ -107,6 +108,7 @@ export function Hud() {
   const shown = !hudHidden.value; // the console's OFF tab keeps only the top console
   return (
     <>
+    <Wallpaper />
     {shown && values.Off_Frame !== '1' && <FrameLayers style={frameStyleOf(values)} values={values} />}
     <svg id="hud" viewBox={`0 0 ${canvas.w} ${canvas.h}`} style={{ width: '100vw', height: '100vh', position: 'relative' }}
       preserveAspectRatio="xMidYMid meet">

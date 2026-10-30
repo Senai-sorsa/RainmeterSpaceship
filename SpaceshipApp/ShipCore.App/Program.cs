@@ -458,7 +458,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _logSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_speed?.Last is { } sp) Post(sp); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _logSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_speed?.Last is { } sp) Post(sp); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); _wallKey = "\0"; _wallPaused = null; SyncWallpaper(); ApplyVisibility(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -492,6 +492,7 @@ sealed class Overlay : Form
             var r = await _router.HandleAsync(text);
             if (r.Problem is not null) _log?.WriteLine($"{DateTime.UtcNow:O},REFUSED,{r.Problem}");
             if (r.Reply is not null) _cc?.CoreWebView2.PostWebMessageAsJson(r.Reply);
+            SyncWallpaper(); // a config.set may have changed it; returns at once otherwise
         }
         catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},MESSAGE_ERROR,{e.GetType().Name}"); }
     }
@@ -531,6 +532,7 @@ sealed class Overlay : Form
         var snap = _snapshots.Take();
         var decision = _policy.Decide(snap);
         _lastReason = decision.Reason;
+        PauseWallpaper(snap);
         var covered = decision.Visibility == Visibility.Covered;
         var show = (decision.Visibility == Visibility.Show || covered) && !_locked;
         if (show != Visible) _log?.WriteLine($"{DateTime.UtcNow:O},{(show ? "SHOW" : "HIDE")},{decision.Reason}{(_locked ? " (locked)" : "")} [{snap.Foreground?.ClassName}/{snap.Foreground?.Process}]");
@@ -545,6 +547,45 @@ sealed class Overlay : Form
         }
     }
     bool _covered; // a fullscreen window is in front: shown, but nothing is sampled or animated
+
+    // The live wallpaper (Wallpaper.cs): the chosen file's folder on its own host name, so the page's <video> streams it from disk
+    // with range requests. Only our page can load that host (navigation is locked to UiOrigin). "\0" = not sent to this page yet.
+    const string WallHost = "wallpaper.spaceship.local";
+    string? _wallKey = "\0";
+    bool? _wallPaused;
+
+    void SyncWallpaper()
+    {
+        if (_cc is null) return;
+        var v = _settings?.Get(["WallpaperOn", "WallpaperFile"]);
+        var key = v?.GetValueOrDefault("WallpaperOn") == "1" ? v.GetValueOrDefault("WallpaperFile") ?? "" : null;
+        if (key == _wallKey) return;
+        _wallKey = key;
+        var path = Wallpaper.FilePath(key);
+        if (path is not null && !File.Exists(path)) path = null;
+        try { _cc.CoreWebView2.ClearVirtualHostNameToFolderMapping(WallHost); } catch (Exception e) when (e is ArgumentException or COMException) { /* nothing mapped yet */ }
+        if (path is not null) _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(WallHost, Path.GetDirectoryName(path)!, CoreWebView2HostResourceAccessKind.DenyCors);
+        if (key is not null && path is null) _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_REFUSED,not a local video or picture that exists");
+        Post(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            type = "wallpaper.src",
+            url = path is null ? "" : $"https://{WallHost}/{Uri.EscapeDataString(Path.GetFileName(path))}",
+            video = path is not null && Wallpaper.Videos.Contains(Path.GetExtension(path)),
+        }));
+    }
+
+    // Lively's pause rules: nothing to see behind a maximised or fullscreen window, and (by default) none on battery.
+    void PauseWallpaper(WindowSnapshot snap)
+    {
+        if (_wallKey is null or "\0") return;
+        var v = _settings?.Get(["WallpaperPauseMax", "WallpaperBattery"]);
+        var paused = (v?.GetValueOrDefault("WallpaperPauseMax") != "0" && Wallpaper.Hidden(snap, ToRect(Screen.FromRectangle(_home).WorkingArea)))
+            || (v?.GetValueOrDefault("WallpaperBattery") != "0" && SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Offline);
+        if (paused == _wallPaused) return;
+        _wallPaused = paused;
+        Post($"{{\"type\":\"wallpaper.pause\",\"on\":{(paused ? "true" : "false")}}}");
+    }
+    static ShipCore.Core.Rect ToRect(Rectangle r) => new(r.Left, r.Top, r.Right, r.Bottom);
 
     // WebView2 bug (WebView2Feedback #5668, open): with visual hosting the browser process keeps an alpha-0 layered top-level
     // window the size of ours right above it, and it still hit-tests, so it swallows every click meant for the HUD and the

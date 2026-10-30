@@ -9,7 +9,7 @@ public sealed record VisibilityDecision(Visibility Visibility, string Reason);
 public sealed class VisibilityPolicy
 {
     // The desktop itself and the taskbar are never "a fullscreen app", whatever their bounds say.
-    private static readonly HashSet<string> Shell = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> Shell = new(StringComparer.OrdinalIgnoreCase)
         { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd" };
 
     private readonly HashSet<string> _exam;

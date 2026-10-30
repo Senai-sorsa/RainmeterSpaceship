@@ -73,6 +73,17 @@ add('display', 'Frame', 'normal', [ // the two real keys behind frameStyle
   ['UseShipImage', 'Frame uses picture', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
   ['FrameOff', 'Frame off', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
 ]);
+add('display', 'Wallpaper', 'normal', [
+  ['WallpaperOn', 'Live wallpaper', 'Play a video or picture behind the HUD.', tog, '0', O],
+  // Explorer's "Copy as path" adds quotes; the host drops them and only plays local .mp4/.webm/.m4v/.mov or pictures
+  ['WallpaperFile', 'Wallpaper file', 'Full path of a video (.mp4, .webm) or picture on this PC.', tx('^"?[^\\r\\n"%;#=]{0,240}"?$', 242), '', O],
+  ['WallpaperFit', 'Fit', 'Fill crops the edges, Fit shows the whole picture, Stretch distorts it.', sel('cover|Fill', 'contain|Fit', 'fill|Stretch'), 'cover', O],
+  ['WallpaperDim', 'Dim', 'Darkens the wallpaper so the HUD stands out, in percent.', sl(0, 90, 5), '0', O],
+]);
+add('display', 'Wallpaper', 'advanced', [
+  ['WallpaperPauseMax', 'Pause behind full-size windows', 'Stop playing while a maximised or fullscreen window hides the desktop.', tog, '1', O],
+  ['WallpaperBattery', 'Pause on battery', 'Stop playing while the PC runs on battery.', tog, '1', O],
+]);
 add('display', 'Frame', 'advanced', [
   ['FrameBehindTaskbar', 'Frame behind taskbar', 'Draw the frame under the Windows taskbar.', tog, '1'],
   ['GlassTint', 'Window tint', 'Darkness of the cockpit glass tint.', sl(0, 255, 3), '66'],

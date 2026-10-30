@@ -2973,6 +2973,73 @@
       "default": "0"
     },
     {
+      "key": "WallpaperBattery",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
+      "key": "WallpaperDim",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "slider",
+        "min": 0,
+        "max": 90,
+        "step": 5
+      },
+      "default": "0"
+    },
+    {
+      "key": "WallpaperFile",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "text",
+        "pattern": "^\"?[^\\r\\n\"%;#=]{0,240}\"?$",
+        "max": 242
+      },
+      "default": ""
+    },
+    {
+      "key": "WallpaperFit",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "cover",
+            "label": "Fill"
+          },
+          {
+            "value": "contain",
+            "label": "Fit"
+          },
+          {
+            "value": "fill",
+            "label": "Stretch"
+          }
+        ]
+      },
+      "default": "cover"
+    },
+    {
+      "key": "WallpaperOn",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
+      "key": "WallpaperPauseMax",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
       "key": "WarnBattery",
       "file": "Settings.inc",
       "control": {
