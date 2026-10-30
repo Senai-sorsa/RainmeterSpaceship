@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { feedFrom, jarvisFrame, jarvisLogFrame, logLines, plexus, stateColor, wrap } from '../src/modules/jarvis';
+import { feedFrom, jarvisFrame, jarvisLogFrame, logLines, logScrollMax, plexus, stateColor, wrap } from '../src/modules/jarvis';
 import { styleFrom } from '../src/modules/style';
 
 const st = styleFrom({});
@@ -66,5 +66,16 @@ describe('jarvis log', () => {
     const z = { x: 0, y: 0, w: 1200, h: 616 };
     expect(jarvisLogFrame('', '', false, 'Clover', st, z).length).toBeGreaterThan(0);
     expect(jarvisLogFrame('U|1|hi\n', '', true, 'Clover', st, z).length).toBeGreaterThan(0);
+  });
+
+  it('scrolls back through a long log, clamped to its start', () => {
+    const z = { x: 0, y: 0, w: 1200, h: 616 };
+    const log = Array.from({ length: 30 }, (_, i) => `U|${i}|line ${i}\n`).join('');
+    expect(logScrollMax(log, '', 1200, st)).toBe(40); // 30 messages + 30 gaps - 20 rows
+    const json = (sc: number) => JSON.stringify(jarvisLogFrame(log, '', false, 'Clover', st, z, sc));
+    expect(json(0)).toContain('line 29');
+    expect(json(40)).toContain('line 0');
+    expect(json(40)).not.toContain('line 29');
+    expect(json(999)).toBe(json(40));
   });
 });

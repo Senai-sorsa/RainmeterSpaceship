@@ -4,7 +4,8 @@ import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { scheduler, skinMs } from '../host/scheduler';
 import { transformBox, type Matrix } from '../lib/geometry';
-import { feedFrom, jarvisFrame, jarvisLogFrame, stateColor, type Feed, type JarvisColors } from './jarvis';
+import { host } from '../settings/instance';
+import { feedFrom, jarvisFrame, jarvisLogFrame, logScrollMax, stateColor, type Feed, type JarvisColors } from './jarvis';
 
 const FRAME_MS = skinMs(33); // the Lua orb's Update=33, ~21 fps in Rainmeter
 const sphere = layout.zones.find((z) => z.id === 'C_sphere');
@@ -67,17 +68,32 @@ function Orb({ f, feed, style, cx, cy, opts }: { f: number; feed: Feed; style: S
   );
 }
 
+const LOG_IDLE_MS = 180000; // jarvislog.lua closes after 3 minutes with nothing new and no hover or scroll
+
 /**
- * The conversation log, behind ?module=jarvislog. It reads the log and reply text it is given (the Data files are not
- * wired yet, so it shows the empty state). Placed at the top left of the canvas until a zone is set for it.
+ * The conversation log pop-up (jarvislog.lua): the host's jarvis.log text, newest at the bottom. The wheel scrolls by 3
+ * lines, right-click opens the log file in Notepad, X closes it. Placed at the top left of the canvas, as Overlay\Jarvis.
+ * shortcut: the TYPE box (ask by text) is drawn but not wired; wire it when the host has an ask message.
  */
 export function JarvisLogModule({ style, log = '', live = '', muted = false, assistant = 'Clover', onClose }: {
   style: Style; log?: string; live?: string; muted?: boolean; assistant?: string; onClose?: () => void;
 }) {
-  const W = 1200, s = style.s;
-  const ops = jarvisLogFrame(log, live, muted, assistant, style, { x: 0, y: 0, w: W, h: 616 });
+  const W = 1200, H = 616, s = style.s;
+  const [scroll, setScroll] = useState(0);
+  const [poke, setPoke] = useState(0);
+  useEffect(() => setScroll(0), [log, live]); // new text jumps back to the newest line
+  useEffect(() => {
+    if (!onClose) return;
+    const t = setTimeout(onClose, LOG_IDLE_MS);
+    return () => clearTimeout(t);
+  }, [log, live, poke, onClose]);
+  const max = logScrollMax(log, live, W, style);
+  const ops = jarvisLogFrame(log, live, muted, assistant, style, { x: 0, y: 0, w: W, h: H }, scroll);
   return (
-    <g transform="translate(40 40)" data-module="jarvislog">
+    <g transform="translate(40 40)" data-module="jarvislog" onPointerEnter={() => setPoke((n) => n + 1)}
+      onWheel={(e) => { setScroll((v) => Math.min(Math.max(v - (e.deltaY > 0 ? 1 : -1) * 3, 0), max)); setPoke((n) => n + 1); }}
+      onContextMenu={(e) => { e.preventDefault(); host.send({ type: 'target.open', what: 'jarvislog' }); }}>
+      <rect width={W * s} height={H * s} fill="transparent" data-hit />
       <OpsView ops={ops} name="jarvislog" />
       {/* the X jarvisLogFrame draws at (w-36..w-20, 16..32) */}
       {onClose && <rect x={(W - 44) * s} y={8 * s} width={32 * s} height={32 * s} fill="transparent" data-hit aria-label="Close log"

@@ -994,6 +994,7 @@
  { "name": "target.open taskmgr", "valid": true, "msg": { "type": "target.open", "what": "taskmgr" } },
  { "name": "target.open todo", "valid": true, "msg": { "type": "target.open", "what": "todo" } },
  { "name": "target.open audionext", "valid": true, "msg": { "type": "target.open", "what": "audionext" } },
+ { "name": "target.open jarvislog", "valid": true, "msg": { "type": "target.open", "what": "jarvislog" } },
  { "name": "target.open other program", "valid": false, "msg": { "type": "target.open", "what": "cmd.exe" } },
  { "name": "target.open no what", "valid": false, "msg": { "type": "target.open" } },
  { "name": "llt.set refresh", "valid": true, "msg": { "type": "llt.set", "id": 1, "feature": "refresh", "value": "165" } },

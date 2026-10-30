@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acceptJarvisUpdate, jarvisFeed, jarvisFeedFrom } from '../src/host/jarvisFeed';
+import { acceptJarvisUpdate, jarvisFeed, jarvisFeedFrom, jarvisLog, jarvisLogFrom, jarvisPop } from '../src/host/jarvisFeed';
 
 describe('jarvisFeedFrom', () => {
   // the shape JarvisStatus.ToJson sends (ShipCore.Core.Tests/JarvisStatusTests)
@@ -16,5 +16,24 @@ describe('jarvisFeedFrom', () => {
     acceptJarvisUpdate(ok);
     acceptJarvisUpdate({ ...ok, state: 'bad' });
     expect(jarvisFeed.value).toEqual({ state: 'speaking', level: 0.642 });
+  });
+  it('keeps the pop request', () => {
+    acceptJarvisUpdate({ ...ok, pop: '4 open' });
+    expect(jarvisPop.value).toBe('4 open');
+  });
+});
+
+describe('jarvisLogFrom', () => {
+  // the shape JarvisStatus.LogJson sends
+  const ok = { type: 'jarvis.log', log: 'U|1|hi\nJ|2|yo\n', live: '', muted: true };
+  it('takes the host message', () => expect(jarvisLogFrom(ok)).toEqual({ log: ok.log, live: '', muted: true }));
+  it.each([
+    ['muted as text', { ...ok, muted: '1' }],
+    ['log missing', { ...ok, log: undefined }],
+    ['too long', { ...ok, log: 'x'.repeat(80000) }],
+  ])('refuses %s', (_, m) => expect(jarvisLogFrom(m)).toBeNull());
+  it('is accepted by the same listener', () => {
+    acceptJarvisUpdate(ok);
+    expect(jarvisLog.value.log).toBe(ok.log);
   });
 });

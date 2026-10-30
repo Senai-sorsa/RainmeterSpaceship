@@ -256,12 +256,20 @@ export function logLines(log: string, live: string, width: number): LogLine[] {
 const LOG_ROWS = 20, LOG_RH = 26, LOG_TOP = 66, LX = 40, TX = 150;
 
 /** The log window, newest at the bottom. Scroll and the mic box are not ported; the window shows the last rows. */
-export function jarvisLogFrame(log: string, live: string, muted: boolean, assistant: string, style: Style, zone: Zone): Op[] {
+/** scroll: lines scrolled up from the bottom; clamped here as jarvislog.lua does. */
+export function logScrollMax(log: string, live: string, w: number, style: Style): number {
+  return Math.max(0, logLines(log, live, logWidth(w, style)).length - LOG_ROWS);
+}
+
+const logWidth = (w: number, style: Style) => Math.max(20, Math.floor((w - TX - 90) / (8.6 * style.textSmall * (96 / 72) * 0.6)));
+
+export function jarvisLogFrame(log: string, live: string, muted: boolean, assistant: string, style: Style, zone: Zone, scroll = 0): Op[] {
   const c = new Canvas(zone, style);
   const { w, h } = zone;
   const A1 = style.accent, D = style.dim, T = style.text, W = style.white;
-  const cw = 8.6 * style.textSmall * (96 / 72) * 0.6;
-  const lines = logLines(log, live, Math.max(20, Math.floor((w - TX - 90) / cw)));
+  const lines = logLines(log, live, logWidth(w, style));
+  const n = lines.length, maxScroll = Math.max(0, n - LOG_ROWS);
+  const sc = Math.min(Math.max(scroll, 0), maxScroll);
   c.chamfer(0, 0, w, h, 18, A1, 1.6, 255, 230);
   c.fillRect(0, 0, w, h, [2, 8, 14, 255], 175);
   c.text(LX, 14, assistant.toUpperCase().split('').join('.'), { size: 13, font: style.fontTitle, weight: 700, color: A1 });
@@ -273,7 +281,7 @@ export function jarvisLogFrame(log: string, live: string, muted: boolean, assist
   if (lines.length === 0) {
     c.text(w / 2, h / 2, 'Nothing said yet - click the hologram and talk', { size: 8, align: 'CenterCenter', color: D });
   }
-  lines.slice(-LOG_ROWS).forEach((L, r) => {
+  lines.slice(Math.max(0, n - LOG_ROWS - sc), n - sc).forEach((L, r) => {
     const y = LOG_TOP + r * LOG_RH;
     if (L.text === '') return;
     if (L.first && L.who !== '') {
@@ -282,5 +290,12 @@ export function jarvisLogFrame(log: string, live: string, muted: boolean, assist
     }
     c.text(TX, y, L.text, { size: 8.6, color: L.who === 'U' ? T : L.who === 'S' ? style.warn : W, font: style.fontNum, glow: false });
   });
+  if (maxScroll > 0) {
+    // scroll bar on the right
+    const barH = (h - LOG_TOP - 24) * LOG_ROWS / n;
+    const pos = (h - LOG_TOP - 24 - barH) * (1 - sc / maxScroll);
+    c.line(w - 30, LOG_TOP, w - 30, h - 24, D, 1, 120);
+    c.line(w - 30, LOG_TOP + pos, w - 30, LOG_TOP + pos + barH, A1, 3, 230);
+  }
   return c.flush();
 }

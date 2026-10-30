@@ -19,12 +19,12 @@ import { RightModule } from './modules/RightModule';
 import { DrawerModule } from './modules/DrawerModule';
 import { BootModule } from './modules/BootModule';
 import { JarvisModule, JarvisLogModule } from './modules/JarvisModule';
-import { jarvisFeed } from './host/jarvisFeed';
+import { jarvisFeed, jarvisLog, jarvisPop } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
 import { modulesOn } from './modules/modulesOn';
 import { hiddenZones } from './modules/hidden';
 import { hudHidden } from './modules/overlays';
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 
 const v = (settings as { variables: Record<string, string> }).variables;
 // Skin glow model (lib.lua Canvas:neon, tier 0): outer halo w*GlowWidth*2.1 at GlowAlpha*0.38, glow w*GlowWidth at GlowAlpha, core w.
@@ -75,6 +75,18 @@ export function Hud() {
   const [fit, setFit] = useState(fitOf);
   // the log is a pop-up in the skin (Overlay\Jarvis): closed until asked for; ?module=jarvislog alone opens it for dev
   const [logOpen, setLogOpen] = useState(() => new URLSearchParams(location.search).get('module') === 'jarvislog');
+  // JARVIS's POP <n> open|close (muted speakers, STEALTH, "show me what you said"): the first one after a load is only remembered, as jarvis.lua does
+  const popSeen = useRef<string | null>(null);
+  const pop = jarvisPop.value;
+  useEffect(() => {
+    if (popSeen.current !== null && pop !== popSeen.current) {
+      const act = pop.split(' ').pop();
+      if (act === 'open') setLogOpen(true);
+      else if (act === 'close') setLogOpen(false);
+    }
+    popSeen.current = pop;
+  }, [pop]);
+  const closeLog = useCallback(() => setLogOpen(false), []);
   useEffect(() => {
     const on = () => setFit(fitOf());
     addEventListener('resize', on); // a display-scale or zoom change resizes the CSS viewport
@@ -127,7 +139,8 @@ export function Hud() {
       {shown && jarvisOn && <JarvisModule style={styleFrom(values)} feed={jarvisFeed.value} label={hudLabel(values)}
         orb={{ bright: Number(values.JarvisOrbBright), tint: Number(values.JarvisTint), size: Number(values.JarvisOrbSize),
           cols: { idle: values.JarvisColorIdle, listen: values.JarvisColorListen, speak: values.JarvisColorSpeak } }} onMenu={() => setLogOpen((o) => !o)} />}
-      {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} onClose={() => setLogOpen(false)} />}
+      {jarvisLogOn && logOpen && <JarvisLogModule style={styleFrom(values)} log={jarvisLog.value.log} live={jarvisLog.value.live} muted={jarvisLog.value.muted}
+        assistant={(values.JarvisName ?? '').replace(/[^A-Za-z0-9]/g, '') || 'Clover'} onClose={closeLog} />}
       {shown && clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
     </svg>
     <Caption on={values.CaptionStyle !== '0'} />

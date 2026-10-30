@@ -37,4 +37,24 @@ public class JarvisStatusTests
         Assert.Equal(JarvisStatus.MaxText, m.GetProperty("say").GetString()!.Length);
         Assert.Equal(0, Parse("T 1000\nLEVEL NaN\n", 1000).GetProperty("level").GetDouble());
     }
+
+    [Fact]
+    public void PopAndLog()
+    {
+        Assert.Equal("3 open", Parse("T 1000\nPOP 3 open\n", 1000).GetProperty("pop").GetString());
+        var m = JsonDocument.Parse(JarvisStatus.LogJson("U|1|hi\u0007\nJ|2|yo\n", null, "MUTED 1\n")).RootElement;
+        Assert.Equal("jarvis.log", m.GetProperty("type").GetString());
+        Assert.Equal("U|1|hi\nJ|2|yo\n", m.GetProperty("log").GetString());
+        Assert.Equal("", m.GetProperty("live").GetString());
+        Assert.True(m.GetProperty("muted").GetBoolean());
+        Assert.False(JsonDocument.Parse(JarvisStatus.LogJson(null, null, null)).RootElement.GetProperty("muted").GetBoolean());
+    }
+
+    [Fact]
+    public void TailStartsOnAWholeLine()
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes("U|1|aaaa\nJ|2|bb\n");
+        Assert.Equal("J|2|bb\n", JarvisStatus.Tail(new MemoryStream(bytes), 10));
+        Assert.Equal("U|1|aaaa\nJ|2|bb\n", JarvisStatus.Tail(new MemoryStream(bytes), 100));
+    }
 }

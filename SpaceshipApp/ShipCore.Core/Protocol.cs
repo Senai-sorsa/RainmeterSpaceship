@@ -12,7 +12,7 @@ public static class Protocol
     public static readonly HashSet<string> RefreshKinds = new() { "llt", "upkeep", "dev", "mail", "calendar" };
     // target.open names: each maps to one fixed page or program in the host (Program.OpenTarget), never to text from the UI
     public static readonly HashSet<string> Targets = new() { "taskmgr", "taskperf", "todo", "sound", "display", "power", "mute", "prev", "playpause", "next",
-        "terminal", "powershell", "about", "outlookcal", "gcal", "gmail", "update", "defender", "network", "wifi", "spx", "ollama", "tailscale", "drive", "battery", "audionext" };
+        "terminal", "powershell", "about", "outlookcal", "gcal", "gmail", "update", "defender", "network", "wifi", "spx", "ollama", "tailscale", "drive", "battery", "audionext", "jarvislog" };
 
     public static string? Problem(string json, ConfigSchema schema)
     {

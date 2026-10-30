@@ -173,6 +173,9 @@ sealed class Overlay : Form
     string? _jarvisFile;
     string? _jarvisSent, _jarvisText;
     DateTime _jarvisWrite;
+    // the log pop-up's files (jarvislog.lua): the conversation, the reply being written, and jarvis_env.txt for MUTED
+    readonly (string? Path, DateTime Write, string? Text)[] _logFiles = new (string?, DateTime, string?)[3];
+    string? _logJson, _logSent;
     readonly StatusRunner? _status;
     readonly NetRunner _net;
     readonly TodoRunner _todo;
@@ -195,7 +198,12 @@ sealed class Overlay : Form
 
         var schemaPath = FindUp(Path.Combine("contract", "config-keys.json"));
         var resources = _resources = FindUp(Path.Combine("Skins", "Spaceship", "@Resources"));
-        if (resources is not null) _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
+        if (resources is not null)
+        {
+            _jarvisFile = Path.Combine(resources, "Data", "jarvis.txt");
+            string[] names = ["jarvis_log.txt", "jarvis_live.txt", "jarvis_env.txt"];
+            for (var i = 0; i < 3; i++) _logFiles[i].Path = Path.Combine(resources, "Data", names[i]);
+        }
         if (resources is not null) _calendar = new CalendarRunner(Path.Combine(resources, "Data"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
         if (resources is not null) _mail = new MailRunner(Path.Combine(resources, "Data"), () => Visible, Post);
         if (resources is not null) _status = new StatusRunner(Path.Combine(resources, "Scripts"), () => Visible, Post, m => _log?.WriteLine($"{DateTime.UtcNow:O},{m}"));
@@ -437,7 +445,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
-        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_speed?.Last is { } sp) Post(sp); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
+        _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _logSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_speed?.Last is { } sp) Post(sp); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
         {
@@ -589,9 +597,32 @@ sealed class Overlay : Form
             catch (UnauthorizedAccessException) { _jarvisWrite = default; }
         }
         var json = JarvisStatus.ToJson(_jarvisText, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        if (json == _jarvisSent) return;
-        _jarvisSent = json;
-        _cc.CoreWebView2.PostWebMessageAsJson(json);
+        if (json != _jarvisSent) { _jarvisSent = json; _cc.CoreWebView2.PostWebMessageAsJson(json); }
+        PushJarvisLog();
+    }
+
+    // jarvis.log when the conversation, the live reply or the muted flag changed: one stat per file per tick, a read only on change
+    void PushJarvisLog()
+    {
+        var changed = _logJson is null;
+        for (var i = 0; i < _logFiles.Length; i++)
+        {
+            ref var f = ref _logFiles[i];
+            if (f.Path is null) return;
+            var w = File.GetLastWriteTimeUtc(f.Path);
+            if (w == f.Write) continue;
+            f.Write = w; f.Text = null; changed = true;
+            if (w.Year > 1601) try
+            {
+                using var s = new FileStream(f.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                f.Text = JarvisStatus.Tail(s);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { f.Write = default; } // mid-write: retry next tick
+        }
+        if (changed) _logJson = JarvisStatus.LogJson(_logFiles[0].Text, _logFiles[1].Text, _logFiles[2].Text);
+        if (_logJson == _logSent) return;
+        _logSent = _logJson;
+        Post(_logJson);
     }
 
     void Post(string json) => _cc?.CoreWebView2?.PostWebMessageAsJson(json);
@@ -642,6 +673,7 @@ sealed class Overlay : Form
         if (what == "audionext") { if (!AudioOut.Next()) _log?.WriteLine($"{DateTime.UtcNow:O},OPEN_FAILED,{what}"); return; }
         string target, args = "";
         if (Fixed.TryGetValue(what, out var f)) (target, args) = f;
+        else if (what == "jarvislog" && _logFiles[0].Path is { } logPath) (target, args) = ("notepad.exe", "\"" + logPath + "\""); // jarvislog.lua right-click
         else if (what == "drive")
         {
             // storage.lua / strip.lua: the Drive1 setting's root in Explorer, only when it is a bare drive letter
