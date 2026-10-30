@@ -25,8 +25,10 @@ const ZONES = {
 
 const NO_VIEW: ConsoleView = { armed: null, hudHidden: false, msg: '', msgAt: 0 };
 let lltId = 1;
-// controller.lua Master(): the tier before STEALTH, to go back to. shortcut: kept for this run only (the skin saves MasterPrev), add a key if a restart must keep it
-let masterPrev = -1;
+// controller.lua Master(): the tier before STEALTH, to go back to; kept across restarts in the page's storage, as the skin saves MasterPrev
+const PREV_KEY = 'cspace.masterPrev.v1';
+let masterPrev = (() => { try { const v = Number(localStorage.getItem(PREV_KEY)); return [0, 1, 2].includes(v) && localStorage.getItem(PREV_KEY) !== null ? v : -1; } catch { return -1; } })();
+const savePrev = (v: number) => { masterPrev = v; try { localStorage.setItem(PREV_KEY, String(v)); } catch { /* storage off: this run only */ } };
 
 type TopState = { cpu: GraphState; ram: GraphState; a: GraphState; b: GraphState; battery: BatteryState; alert: AlertState };
 
@@ -79,7 +81,7 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
     else if (it.name === 'perf') store.set('PerfOverride', String(it.value));
     else if (it.name === 'master') {
       if (cfg.perfOverride === 3) store.set('PerfOverride', String(masterPrev));
-      else { masterPrev = cfg.perfOverride; store.set('PerfOverride', '3'); }
+      else { savePrev(cfg.perfOverride); store.set('PerfOverride', '3'); }
     }
   };
   // a click moves a select graph to the next source (right click the previous one); the history starts again
