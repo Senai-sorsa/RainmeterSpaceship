@@ -148,3 +148,15 @@ jarvislog, location, panels, power, slot, alert, sphere, status_block, strip, sy
 Checks (after 11a207a): tsc 0; vitest 50 files / 368 tests; e2e hud.spec 3/3; dotnet test 262 passed (after 9704cf6).
 Not ported: the JARVIS TYPE box (ask by text), the "Play startup sequence" replay menu, edit mode.
 Not verified live (CSpace closed): real llt.exe, speedtest.exe, the IPolicyConfig switch, real JARVIS log files, the targeter tip with real procs.
+
+## 2026-10-29 (cont.) the rest of the skin's clicks
+- 1d567dc JARVIS commands: orb click wakes/cancels, the log's TYPE box asks him, the Control Center's Service buttons
+  (stop, forget, reindex, train). The host writes Data\jarvis_cmd.txt from a fixed verb list (JarvisStatus.CmdLine).
+- cff0bd1 an offline orb click starts the service, JarvisAutoStart=1 starts it ~5 s after the app starts (jarvis.lua
+  StartService): venv pythonw.exe, else pyw.exe, no shell; captions STARTING / NO PYTHON / NO SCRIPT / START FAILED / STOPPED.
+- 520b757 tray: App drawer (CARGO) and Play startup sequence (Common.inc's context menu).
+- fef0773 Scan apps runs Scripts\scan-apps.ps1, and the app scans when Data\StartApps.txt is missing or a day old (controller.lua).
+- 675c348 Edit mode, Presets and Rebuild icons are hidden until they have a host side.
+Checks (after 675c348): tsc 0; vitest 51 files / 370 tests; e2e hud.spec 3/3; dotnet test 266 passed.
+Not ported: edit mode, presets, Rebuild icons (app-icons.ps1), JarvisPython from Settings.inc (not a schema key).
+Not verified live: the JARVIS launch, jarvis.py reading jarvis_cmd.txt, scan-apps.ps1 from the app, the tray items.
