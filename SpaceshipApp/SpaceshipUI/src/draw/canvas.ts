@@ -19,7 +19,9 @@ export type Shape =
   | { kind: 'text'; x: number; y: number; text: string; size: number; align: string; weight: number; font: string; clipW?: number; blur: number }
   // matrix is an SVG feColorMatrix (20 numbers), the stand-in for Rainmeter's ColorMatrix / ImageTint / ImageAlpha
   | { kind: 'image'; x: number; y: number; w: number; h: number; href: string; matrix: number[] };
-export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke };
+/** bloom: set on glow-layer ops on FULL; the view blurs that run of ops by this many device units, so the halo strokes
+ *  fall off like light instead of ending in a hard edge. */
+export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke; bloom?: number };
 
 /** Settings the skin reads from H.init (PerfTier, GlowAlpha, GlowWidth, CoreWhite, HudAlpha, Scale, EditMode, text settings) and its colours. */
 export type Style = {
@@ -29,6 +31,11 @@ export type Style = {
 };
 export type Zone = { x: number; y: number; w: number; h: number };
 export type TextOpts = { size?: number; color?: RGBA; alpha?: number; align?: string; weight?: number; font?: string; glow?: boolean; clip?: number };
+
+/** The app's typeface roles beyond the skin: condensed display faces sit small on their em box, so they draw larger to
+ *  match the cap height of B612 Mono, and they keep the weight the module asks for (the skin's Rainmeter could not).
+ *  Fonts not listed draw exactly as the skin does (regular weight, no scale). */
+export const FONT_SCALE: Record<string, number> = { Rajdhani: 1.14 };
 
 /** Per-channel floor blend (lib.lua H.mix); alpha is always 255. */
 export function mix(c1: RGBA, c2: RGBA, t: number): RGBA {
@@ -214,10 +221,13 @@ export class Canvas {
     const fit = opts.clip !== undefined && font === st.fontNum ? Math.floor(opts.clip / textWidth(st, 'x', base)) : Infinity;
     const shape = {
       kind: 'text' as const, x, y, text: txt.length > fit ? txt.slice(0, Math.max(0, fit - 1)) + '…' : txt, size, align: opts.align ?? 'LeftTop',
-      weight: opts.weight ?? 600, font, clipW: opts.clip, blur: 0,
+      // display faces: small print stays at medium weight under the bold titles, so the rows read title-then-detail
+      weight: FONT_SCALE[font] && base < 8 ? Math.min(opts.weight ?? 600, 500) : opts.weight ?? 600, font, clipW: opts.clip, blur: 0,
     };
     if (st.tier < 2 && st.textGlow > 0 && opts.glow !== false) {
-      this.push('top', { ...shape, blur: st.textGlow }, this.tint(tc, Math.floor((st.textGlowA * (opts.alpha ?? 255)) / 255)));
+      // a heavier face fills its own halo, so its glow is softer (0.55) to keep the letters apart
+      const ga = Math.floor((st.textGlowA * (opts.alpha ?? 255) * (FONT_SCALE[font] ? 0.55 : 1)) / 255);
+      this.push('top', { ...shape, blur: st.textGlow }, this.tint(tc, ga));
     }
     this.push('top', shape, this.tint(fill, opts.alpha ?? fill[3]));
   }
@@ -275,7 +285,10 @@ export class Canvas {
 
   /** Ops in paint order: base, glow, core, top. Edit mode adds the zone outline, which is not scaled. */
   flush(): Op[] {
-    const out = [...this.layers.base, ...this.layers.glow, ...this.layers.core, ...this.layers.top];
+    // FULL: the glow strokes are blurred by about a third of the widest halo, so a line's light fades out softly
+    const st = this.st, bloom = st.tier === 0 ? 1.6 * st.glowW * 0.45 * st.s : 0;
+    const glow = bloom > 0 ? this.layers.glow.map((o) => (o.shape.kind === 'image' ? o : { ...o, bloom })) : this.layers.glow;
+    const out = [...this.layers.base, ...glow, ...this.layers.core, ...this.layers.top];
     if (this.st.edit) {
       const { x, y, w, h } = this.zone, s = this.st.s;
       out.push({ shape: { kind: 'rect', x: x * s, y: y * s, w: w * s, h: h * s, r: 0 }, fill: [255, 200, 0, 18], stroke: { color: [255, 200, 0, 200], width: 2 } });

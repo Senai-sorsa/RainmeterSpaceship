@@ -1,6 +1,7 @@
+import type { JSX } from 'preact';
 import type { Pt } from '../lib/geometry';
 import { css } from '../lib/theme';
-import type { Op } from './canvas';
+import { FONT_SCALE, type Op } from './canvas';
 
 // Draws Canvas ops as SVG. Canvas already scales the shapes to device units, so the caller only wraps the group in the zone matrix.
 
@@ -8,6 +9,7 @@ export const pathD = (pts: Pt[], closed: boolean) => pts.map(([x, y], i) => `${i
 
 /** Rainmeter's FontSize is in points; DirectWrite draws it at 96 DPI, so 1 pt is 4/3 px (svg units are skin pixels). */
 export const PT_PX = 4 / 3;
+
 
 /** Lua alignment such as 'RightCenter' to SVG text-anchor and dominant-baseline. Rainmeter aligns the line box, not the baseline. */
 export function textAlign(align: string): { anchor: string; base: string } {
@@ -18,7 +20,17 @@ export function textAlign(align: string): { anchor: string; base: string } {
 
 /** All ops in order. name keeps clip ids unique when several op lists share one page. */
 export function OpsView({ ops, name }: { ops: Op[]; name: string }) {
-  return <>{ops.map((op, i) => <OpEl key={i} op={op} id={`${name}-${i}`} />)}</>;
+  // a run of bloom ops (the glow layer on FULL) is drawn as one blurred group: one filter pass per module, not per line
+  const out: JSX.Element[] = [];
+  for (let i = 0; i < ops.length; ) {
+    const b = ops[i].bloom;
+    if (!b) { out.push(<OpEl key={i} op={ops[i]} id={`${name}-${i}`} />); i++; continue; }
+    const run: JSX.Element[] = [];
+    const start = i;
+    for (; i < ops.length && ops[i].bloom === b; i++) run.push(<OpEl key={i} op={ops[i]} id={`${name}-${i}`} />);
+    out.push(<g key={`b${start}`} class="bloom" style={{ filter: `blur(${b}px)` }}>{run}</g>);
+  }
+  return <>{out}</>;
 }
 
 function OpEl({ op, id }: { op: Op; id: string }) {
@@ -38,14 +50,14 @@ function OpEl({ op, id }: { op: Op; id: string }) {
       return <rect x={sh.x} y={sh.y} width={sh.w} height={sh.h} rx={sh.r} {...paint} />;
     case 'text': {
       const { anchor, base } = textAlign(sh.align);
-      const px = sh.size * PT_PX;
+      const px = sh.size * PT_PX * (FONT_SCALE[sh.font] ?? 1);
       // the skin's Shadow blur is a Direct2D standard deviation, as CSS blur() takes it. The glow copy is only the blurred
       // halo: drop-shadow would also paint the letters, and two anti-aliased copies make every glyph look bold
       // white-space pre: DirectWrite keeps runs of spaces (the slot's '   LAST  '), SVG would collapse them
       // the skin asks for FontWeight 600/700, but Rainmeter draws its bundled fonts at the regular weight (checked
       // against the user's screenshot of 2026-10-26), so the weight is not applied
       const text = (
-        <text x={sh.x} y={sh.y} font-size={px} font-family={sh.font} font-weight={400} text-anchor={anchor}
+        <text x={sh.x} y={sh.y} font-size={px} font-family={sh.font} font-weight={FONT_SCALE[sh.font] ? sh.weight : 400} text-anchor={anchor}
           dominant-baseline={base} fill={paint.fill}
           style={sh.blur ? { whiteSpace: 'pre', filter: `blur(${sh.blur}px)` } : { whiteSpace: 'pre' }}>
           {sh.text}

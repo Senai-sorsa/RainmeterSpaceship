@@ -108,7 +108,7 @@ add('display', 'Size and text', 'normal', [
 ]);
 add('display', 'Size and text', 'advanced', [
   ['FontTitle', 'Title font', 'Font for titles.', font, 'B612 Mono'],
-  ['FontText', 'Text font', 'Font for body text.', font, 'B612 Mono'],
+  ['FontText', 'Text font', 'Font for body text.', font, 'Rajdhani'],
   ['FontNum', 'Number font', 'Font for numbers.', font, 'B612 Mono'],
   ['TextScaleLarge', 'Large text scale', 'Scale of large text.', sl(0.5, 3, 0.05), '1.45'],
   ['TextScaleSmall', 'Small text scale', 'Scale of small text.', sl(0.5, 3, 0.05), '1.85'],
@@ -202,7 +202,7 @@ add('performance', 'Hardware control', 'advanced', [
 add('assistant', 'Identity', 'normal', [
   ['JarvisName', 'Assistant name', 'The name you call your assistant (letters and digits).', name, 'Jarvis', { opt: 1, w: 'assistant' }],
   ['AssistantLabel', 'Assistant label', 'Text shown on the HUD; empty derives it from the name.', label24, '', { opt: 1, w: 'assistant' }],
-  ['JarvisCallMe', 'Call me', 'What the assistant calls you.', tx('^[A-Za-z0-9. ]{1,24}$', 24), 'Sir', { w: 'you' }],
+  ['JarvisCallMe', 'Call me', 'What the assistant calls you.', tx('^[A-Za-z0-9. ]{1,24}$', 24), 'Mr. Sorsa', { w: 'you' }],
   ['JarvisEnabled', 'Assistant enabled', 'Turn the assistant on or off.', tog, '1'],
   ['JarvisAutoStart', 'Start with HUD', 'Start the assistant when the HUD starts.', tog, '1'],
 ]);

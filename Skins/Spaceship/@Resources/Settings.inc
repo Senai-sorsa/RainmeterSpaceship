@@ -67,7 +67,7 @@ TextGlowAlpha=150
 ; text size multipliers (small HUD labels / larger titles) relative to the authored sizes
 TextScaleSmall=1.85
 TextScaleLarge=1.45
-FontText=B612 Mono
+FontText=Rajdhani
 FontNum=B612 Mono
 FontTitle=B612 Mono
 
