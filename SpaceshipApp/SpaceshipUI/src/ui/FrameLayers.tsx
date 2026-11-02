@@ -60,7 +60,10 @@ function Parts({ names, vars }: { names: string[]; vars: Record<string, string> 
       {shapes.map((s, i) => {
         const id = `fp-${key}-${i}`;
         const fill = typeof s.fill === 'string' ? s.fill : `url(#${id})`;
-        const common = { fill, stroke: s.stroke, 'stroke-width': s.width, 'stroke-linejoin': s.join };
+        // the neon tubes are stacked strokes (halo, glow, core, white core); the wide halo and glow strokes are
+        // blurred so they fall off like light, as the modules' bloom does, instead of ending in hard bands
+        const soft = s.kind === 'path' && fill === 'none' && s.width > 3;
+        const common = { fill, stroke: s.stroke, 'stroke-width': s.width, 'stroke-linejoin': s.join, style: soft ? { filter: `blur(${(s.width * 0.42).toFixed(1)}px)` } : undefined };
         return (
           <g key={i}>
             {typeof s.fill !== 'string' && (
@@ -69,6 +72,12 @@ function Parts({ names, vars }: { names: string[]; vars: Record<string, string> 
               </linearGradient>
             )}
             {s.kind === 'ellipse' ? <ellipse {...s.geo} {...common} /> : s.kind === 'rect' ? <rect {...s.geo} {...common} /> : <path {...s.geo} {...common} />}
+            {glints(s).map(([x, y], j) => (
+              <g key={`g${j}`}>
+                <circle cx={x} cy={y} r={7} fill={s.stroke} opacity={0.35} style={{ filter: 'blur(4px)' }} />
+                <circle cx={x} cy={y} r={2.1} fill="rgb(235 250 255)" />
+              </g>
+            ))}
           </g>
         );
       })}
@@ -96,4 +105,14 @@ function Finish({ accent, mask, glare, hull }: { accent: string; mask: string; g
         background: 'radial-gradient(75% 70% at 50% 45%, transparent 55%, rgb(0 0 0 / .38) 100%)' }} />
     </>
   );
+}
+
+/** White-hot glints at the open ends of a neon tube's core stroke (the opaque ~1.7 wide accent line); none for closed
+ *  paths, fills or the halo/glow strokes. */
+function glints(s: ReturnType<typeof partShapes>[number]): [number, number][] {
+  if (s.kind !== 'path' || s.fill !== 'none' || s.width < 1.2 || s.width > 2.2) return [];
+  const d = String(s.geo.d);
+  if (d.endsWith('Z')) return [];
+  const pts = [...d.matchAll(/[ML]([-\d.]+) ([-\d.]+)/g)].map((m): [number, number] => [Number(m[1]), Number(m[2])]);
+  return pts.length >= 2 ? [pts[0], pts[pts.length - 1]] : [];
 }
