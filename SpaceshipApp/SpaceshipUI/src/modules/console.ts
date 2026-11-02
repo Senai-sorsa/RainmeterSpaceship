@@ -89,6 +89,13 @@ export function consoleFrame(st: ConsoleState, cfg: ConsoleConfig, view: Console
   [...TABS.map((t) => ({ id: t.id, tip: t.tip })), { id: 'OFF', tip: '' }].forEach((t, i) => {
     const x = RX(TABX[i]), y = RY(23), on = i + 1 === active;
     const armed = view.armed === i + 1;
+    // the active mode sits on a soft lit plate with corner ticks, as the category tabs do; faint dividers between tabs
+    if (on) {
+      c.fillRect(x - 30, y - 10, 60, 20, style.accent, 30);
+      c.hairPoly([[x - 30, y - 5], [x - 30, y - 10], [x - 25, y - 10]], style.accent, 230, 1.1);
+      c.hairPoly([[x + 25, y + 10], [x + 30, y + 10], [x + 30, y + 5]], style.accent, 230, 1.1);
+    }
+    if (i > 0) { const xm = (RX(TABX[i - 1]) + x) / 2; c.hair(xm, y - 6, xm, y + 6, style.accent, 1, 60); }
     c.text(x, y, armed ? 'CONFIRM?' : t.id, {
       size: 6.4, weight: 700, align: 'CenterCenter', color: armed ? style.warn : on ? W : [150, 170, 185, 255], alpha: on ? 255 : 200,
     });

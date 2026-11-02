@@ -12,7 +12,7 @@ import { acceptAppsState, acceptNetUpdate, acceptStatusUpdate, acceptTopProcs } 
 export function startPreviewFeed(): void {
   acceptSysInfo({ type: 'sys.info', user: 'pilot', host: 'preview-pc', os: 'Windows 11', cpu: 'SAMPLE CPU 8C', gpu: 'SAMPLE GPU', display: '2560x1600 @240', version: '0.1.0' });
   acceptNetUpdate({ type: 'net.update', ping: 7, lan: '192.168.1.20', wan: '203.0.113.7' });
-  acceptStatusUpdate({ type: 'status.update', kind: 'llt', hybrid: '', power: '', refresh: '', battery: '', dgpu: 'on' });
+  acceptStatusUpdate({ type: 'status.update', kind: 'llt', hybrid: 'on', power: '', refresh: '', battery: '', dgpu: 'on' });
   acceptAppsState({ type: 'apps.state', states: { 'chrome.exe': 2, 'everything.exe': 1 } });
   acceptTopProcs({ type: 'procs.top', top: [{ name: 'chrome', cpu: 4.2, ram: 477_102_080 }] });
   // ?jarvis=<state> shows another orb state; the validator drops anything else
