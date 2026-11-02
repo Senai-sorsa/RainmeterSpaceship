@@ -1,5 +1,6 @@
 import { Canvas, FONT_SCALE, mix, type Op, type Style, type Zone } from '../draw/canvas';
 import type { Pt } from '../lib/geometry';
+import { popupChip, popupClose, popupFrame, popupRule } from '../draw/popup';
 import { parseColor, type RGBA } from '../lib/theme';
 
 // Port of Skins/Spaceship/@Resources/Scripts/jarvis.lua (the centre core) and jarvislog.lua (the log window).
@@ -301,25 +302,14 @@ export function jarvisLogFrame(log: string, live: string, muted: boolean, assist
   const lines = logLines(log, live, logWidth(w, style));
   const n = lines.length, maxScroll = Math.max(0, n - LOG_ROWS);
   const sc = Math.min(Math.max(scroll, 0), maxScroll);
-  // lit glass: a dark body, a header band lit from the top, a hairline frame with bright corner brackets
-  c.fillPoly([[18, 0], [w, 0], [w, h - 18], [w - 18, h], [0, h], [0, 18]], [2, 8, 14, 255], 215);
-  c.fillRect(0, 0, w, 50, A1, 16);
-  c.fillRect(0, 0, w, 3, A1, 30);
-  c.chamfer(0, 0, w, h, 18, A1, 1, 140);
-  c.poly([[0, 46], [0, 18], [18, 0], [70, 0]], A1, 1.8);
-  c.poly([[w - 70, h], [w - 18, h], [w, h - 18], [w, h - 46]], A1, 1.8);
-  c.poly([[w - 40, 0], [w, 0], [w, 26]], A1, 1.4, 200);
-  c.poly([[0, h - 26], [0, h], [40, h]], A1, 1.4, 200);
+  popupFrame(c, style, w, h);
   // header: the name, a channel caption, the TYPE chip (hit box w-330..w-240) and the close chip (w-44..w-12)
   c.text(LX, 14, assistant.toUpperCase().split('').join('.'), { size: 13, font: style.fontTitle, weight: 700, color: W });
   c.text(w - 360, 18, muted ? 'SPEAKERS MUTED  //  TEXT ONLY' : 'COMMS  //  CONVERSATION LOG', { size: 7, align: 'RightTop', color: muted ? style.warn : mix(A1, D, 0.4) });
-  c.chamfer(w - 330, 10, 90, 30, 6, A1, 1, 200, 120);
+  popupChip(c, style, w - 330, 10, 90, 30, true);
   c.text(w - 285, 25, 'TYPE', { size: 7.5, weight: 700, align: 'CenterCenter', color: W });
-  c.chamfer(w - 44, 10, 32, 30, 6, A1, 1, 160);
-  c.line(w - 34, 19, w - 22, 31, A1, 1.4);
-  c.line(w - 22, 19, w - 34, 31, A1, 1.4);
-  c.hair(LX - 10, 50, w - 30, 50, D, 1, 160);
-  c.line(LX - 10, 50, LX + 110, 50, A1, 1.4, 230);
+  popupClose(c, style, w - 44, 10);
+  popupRule(c, style, LX - 10, w - 30, 50);
   // the speaker rail: a faint column rule between the tags and the text
   c.hair(TX - 14, LOG_TOP - 4, TX - 14, h - 24, D, 1, 70);
   if (lines.length === 0) {

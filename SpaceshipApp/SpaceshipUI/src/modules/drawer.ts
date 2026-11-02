@@ -1,5 +1,6 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat, type Catalog } from './apps';
+import { popupClose, popupFrame, popupRule } from '../draw/popup';
 
 // Port of Skins/Spaceship/@Resources/Scripts/drawer.lua: the CARGO HOLD drawer (560 x 560). ALL INSTALLED APPS, then an
 // accordion of every category. Opened from a side slot it shows just that folder. The apps' own icons are drawn when
@@ -38,39 +39,39 @@ export function drawerFrame(cat: Catalog, st: DrawerState, zone: Zone, style: St
   const c = new Canvas(zone, style);
   const { w, h } = zone;
   const A1 = style.accent, D = style.dim, T = style.text;
-  c.chamfer(0, 0, w, h, 18, A1, 1.6, 255, 230);
-  c.fillRect(0, 0, w, h, [2, 8, 14, 255], 170);
+  popupFrame(c, style, w, h, 42);
   const title = focused ? focused.name.toUpperCase() : 'CARGO HOLD';
-  c.text(20, 12, title, { size: title.length > 14 ? 9.5 : 13, font: style.fontTitle, weight: 700, color: A1, clip: w - 190 });
+  c.text(20, 12, title, { size: title.length > 14 ? 9.5 : 13, font: style.fontTitle, weight: 700, color: style.white, clip: w - 190 });
   const count = focused ? focused.apps.length : cat.cats.all.apps.length;
-  c.text(w - 50, 15, focused ? `${count} APPS` : `${count} APPS INSTALLED`, { size: 9, align: 'RightTop', color: D });
-  c.line(20, 42, w - 20, 42, D, 1, 200);
-  c.line(w - 34, 14, w - 18, 30, A1, 1.6);
-  c.line(w - 18, 14, w - 34, 30, A1, 1.6);
+  c.text(w - 56, 17, focused ? `${count} APPS` : `${count} APPS INSTALLED`, { size: 7.2, align: 'RightTop', color: D });
+  popupRule(c, style, 20, w - 20, 42);
+  popupClose(c, style, w - 42, 8); // over the 30 x 30 close hit box at (w-40, 8)
   rows.slice(scroll, scroll + ROWS).forEach((row, i) => {
     const y = TOP + i * RH;
     if (row.kind === 'all') {
       c.hair(20, y + 2, w - 40, y + 2, D, 1, 80);
-      c.text(54, y + 6, 'BACK TO ALL FOLDERS', { size: 9.5, weight: 700, color: A1 });
+      c.text(54, y + RH / 2, 'BACK TO ALL FOLDERS', { size: 7.6, weight: 700, color: A1, align: 'LeftCenter' });
     } else if (row.kind === 'cat') {
       const open = !!st.open[row.cat.id];
       c.fillRect(20, y, w - 40, RH - 3, style.panel, 150);
+      c.fillRect(20, y, w - 40, 1, A1, open ? 120 : 45);
+      c.fillRect(20, y, 2, RH - 3, A1, open ? 255 : 150);
       c.icon(row.cat.icon, 36, y + RH / 2 - 1, 18, A1, 1.2);
       c.poly(open ? [[w - 40, y + 8], [w - 34, y + 15], [w - 28, y + 8]] : [[w - 37, y + 6], [w - 30, y + 12], [w - 37, y + 18]], A1, 1.4);
-      c.text(54, y + 3, row.cat.name, { size: 10.5, font: style.fontText, weight: 700, color: T, clip: 330 });
-      c.text(w - 50, y + 4, `${row.cat.apps.length} APPS`, { size: 9, align: 'RightTop', color: D });
+      c.text(54, y + RH / 2 - 1, row.cat.name, { size: 8.4, font: style.fontText, weight: 700, color: T, clip: 330, align: 'LeftCenter' });
+      c.text(w - 50, y + RH / 2 - 1, `${row.cat.apps.length} APPS`, { size: 7, align: 'RightCenter', color: D });
     } else {
       const app = row.app;
       if (app.missing || !c.appIcon(app.id, 68, y + RH / 2 - 1, 24)) c.icon(app.icon, 68, y + RH / 2 - 1, 16, app.missing ? D : A1, 1.1);
-      c.text(86, y + 4, app.name, { size: 10, color: app.missing ? D : T, clip: 280 });
-      c.text(w - 50, y + 5, app.missing ? 'NOT FOUND' : app.short, { size: 8.5, align: 'RightTop', color: app.missing ? style.warn : D });
+      c.text(86, y + RH / 2 - 1, app.name, { size: 8.2, color: app.missing ? D : T, clip: 280, align: 'LeftCenter' });
+      c.text(w - 50, y + RH / 2 - 1, app.missing ? 'NOT FOUND' : app.short, { size: 6.8, align: 'RightCenter', color: app.missing ? style.warn : D });
       c.hair(60, y + RH - 2, w - 40, y + RH - 2, D, 1, 50);
     }
   });
   if (rows.length > ROWS) {
     const frac = scroll / (rows.length - ROWS);
-    c.line(w - 12, TOP, w - 12, TOP + ROWS * RH, D, 1, 120);
-    c.fillRect(w - 15, TOP + frac * (ROWS * RH - 40), 6, 40, A1, 200);
+    c.hair(w - 12, TOP, w - 12, TOP + ROWS * RH, D, 1, 110);
+    c.line(w - 12, TOP + frac * (ROWS * RH - 40), w - 12, TOP + frac * (ROWS * RH - 40) + 40, A1, 2.4, 230);
   }
   return c.flush();
 }

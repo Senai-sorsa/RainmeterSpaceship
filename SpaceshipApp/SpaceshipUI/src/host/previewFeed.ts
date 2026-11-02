@@ -1,6 +1,7 @@
 import { acceptSystemMetrics } from './systemMetrics';
 import { acceptSysInfo } from './sysInfo';
 import { acceptJarvisUpdate } from './jarvisFeed';
+import { drawerOpen } from '../modules/overlays';
 import { acceptAppsState, acceptNetUpdate, acceptStatusUpdate, acceptTopProcs } from './statusFeed';
 
 // Browser preview only (?preview=1 with no WebView2 host): made-up host messages, sent through the same validators as the
@@ -18,6 +19,9 @@ export function startPreviewFeed(): void {
   // ?jarvislog=demo fills the conversation log with made-up lines, for screenshot checks of the pop-up
   if (new URLSearchParams(globalThis.location?.search).get('jarvislog') === 'demo') acceptJarvisUpdate({ type: 'jarvis.log', muted: false, live: '',
     log: 'U|1|What is on my calendar today?\nJ|2|You have a team sync now, a dentist appointment at a quarter to seven, and the launch review on Thursday.\nU|3|Set a timer for ten minutes.\nJ|4|Timer set for ten minutes.\nS|5|Microphone was busy; retried once.\nU|6|How warm is the GPU?\nJ|7|Sixty-one degrees, well within its limits. The fans are at forty percent.\n' });
+  // ?drawer=1 opens the CARGO drawer (?drawer=<folder id> opens on that folder), for screenshot checks
+  const dr = new URLSearchParams(globalThis.location?.search).get('drawer');
+  if (dr) drawerOpen.value = dr === '1' ? {} : { focus: dr };
   let seq = 0;
   const tick = () => {
     seq += 1;
