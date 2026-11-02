@@ -226,8 +226,18 @@ export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone,
   // name and status label at the bottom left of the hologram's zone (lb is that corner; the zone's own corner without it)
   const [lx, ly] = lb ?? [0, zone.h];
   const labelCol = state === 'listening' ? mix(col, W, 0.35) : state === 'offline' ? mix(col, W, 0.2) : W;
-  if (name) c.text(lx + 8, ly - 26, name, { size: 5, weight: 700, align: 'LeftBottom', color: mix(A1, W, 0.3) });
-  c.text(lx + 8, ly - 12, feed.note || LABEL[state], { size: 4.4, weight: 700, align: 'LeftBottom', color: labelCol, glow: false });
+  // a callout: name and state over a rule, joined to the orb's ring by a leader line ending in a dot
+  if (name) c.text(lx + 8, ly - 28, name, { size: 5.6, weight: 700, align: 'LeftBottom', color: mix(A1, W, 0.3) });
+  c.dot(lx + 11, ly - 15.5, 2.2, col, dim ? 120 : 230);
+  c.text(lx + 17, ly - 11, feed.note || LABEL[state], { size: 4.4, weight: 600, align: 'LeftBottom', color: labelCol, glow: false });
+  const ruleY = ly - 6, ruleX1 = lx + 92, ra = (128 * Math.PI) / 180, rr = 205;
+  const [tx, ty] = [cx + rr * Math.cos(ra), cy + rr * Math.sin(ra)];
+  c.hair(lx + 8, ruleY, ruleX1, ruleY, A1, 0.9, 200);
+  c.hair(lx + 8, ruleY - 3, lx + 8, ruleY + 1, A1, 1, 200);
+  if (tx > ruleX1) {
+    c.hairPoly([[ruleX1, ruleY], [ruleX1 + Math.min(18, tx - ruleX1), ruleY], [tx, ty]], A1, dim ? 80 : 180, 0.9);
+    c.dot(tx, ty, 1.8, rc, dim ? 110 : 220);
+  }
   return c.flush();
 }
 
