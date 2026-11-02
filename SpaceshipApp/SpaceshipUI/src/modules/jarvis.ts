@@ -1,4 +1,4 @@
-import { Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, FONT_SCALE, mix, type Op, type Style, type Zone } from '../draw/canvas';
 import type { Pt } from '../lib/geometry';
 import { parseColor, type RGBA } from '../lib/theme';
 
@@ -291,7 +291,8 @@ export function logScrollMax(log: string, live: string, w: number, style: Style)
   return Math.max(0, logLines(log, live, logWidth(w, style)).length - LOG_ROWS);
 }
 
-const logWidth = (w: number, style: Style) => Math.max(20, Math.floor((w - TX - 90) / (8.6 * style.textSmall * (96 / 72) * 0.6)));
+// characters per line: 0.6 em for a monospaced face; the proportional display faces average narrower (0.5 em incl. scale)
+const logWidth = (w: number, style: Style) => Math.max(20, Math.floor((w - TX - 90) / (8.6 * style.textSmall * (96 / 72) * (FONT_SCALE[style.fontText] ? 0.5 : 0.6))));
 
 export function jarvisLogFrame(log: string, live: string, muted: boolean, assistant: string, style: Style, zone: Zone, scroll = 0): Op[] {
   const c = new Canvas(zone, style);
@@ -300,25 +301,40 @@ export function jarvisLogFrame(log: string, live: string, muted: boolean, assist
   const lines = logLines(log, live, logWidth(w, style));
   const n = lines.length, maxScroll = Math.max(0, n - LOG_ROWS);
   const sc = Math.min(Math.max(scroll, 0), maxScroll);
-  c.chamfer(0, 0, w, h, 18, A1, 1.6, 255, 230);
-  c.fillRect(0, 0, w, h, [2, 8, 14, 255], 175);
-  c.text(LX, 14, assistant.toUpperCase().split('').join('.'), { size: 13, font: style.fontTitle, weight: 700, color: A1 });
-  c.text(w - 64, 18, muted ? 'SPEAKERS MUTED - TEXT ONLY' : 'CONVERSATION LOG', { size: 7.5, align: 'RightTop', color: muted ? A1 : D });
-  c.line(LX - 10, 50, w - 30, 50, D, 1, 200);
-  c.line(w - 36, 16, w - 20, 32, A1, 1.6);
-  c.line(w - 20, 16, w - 36, 32, A1, 1.6);
-  c.text(w - 250, 18, 'TYPE', { size: 7.5, weight: 700, align: 'RightTop', color: A1 });
+  // lit glass: a dark body, a header band lit from the top, a hairline frame with bright corner brackets
+  c.fillPoly([[18, 0], [w, 0], [w, h - 18], [w - 18, h], [0, h], [0, 18]], [2, 8, 14, 255], 215);
+  c.fillRect(0, 0, w, 50, A1, 16);
+  c.fillRect(0, 0, w, 3, A1, 30);
+  c.chamfer(0, 0, w, h, 18, A1, 1, 140);
+  c.poly([[0, 46], [0, 18], [18, 0], [70, 0]], A1, 1.8);
+  c.poly([[w - 70, h], [w - 18, h], [w, h - 18], [w, h - 46]], A1, 1.8);
+  c.poly([[w - 40, 0], [w, 0], [w, 26]], A1, 1.4, 200);
+  c.poly([[0, h - 26], [0, h], [40, h]], A1, 1.4, 200);
+  // header: the name, a channel caption, the TYPE chip (hit box w-330..w-240) and the close chip (w-44..w-12)
+  c.text(LX, 14, assistant.toUpperCase().split('').join('.'), { size: 13, font: style.fontTitle, weight: 700, color: W });
+  c.text(w - 360, 18, muted ? 'SPEAKERS MUTED  //  TEXT ONLY' : 'COMMS  //  CONVERSATION LOG', { size: 7, align: 'RightTop', color: muted ? style.warn : mix(A1, D, 0.4) });
+  c.chamfer(w - 330, 10, 90, 30, 6, A1, 1, 200, 120);
+  c.text(w - 285, 25, 'TYPE', { size: 7.5, weight: 700, align: 'CenterCenter', color: W });
+  c.chamfer(w - 44, 10, 32, 30, 6, A1, 1, 160);
+  c.line(w - 34, 19, w - 22, 31, A1, 1.4);
+  c.line(w - 22, 19, w - 34, 31, A1, 1.4);
+  c.hair(LX - 10, 50, w - 30, 50, D, 1, 160);
+  c.line(LX - 10, 50, LX + 110, 50, A1, 1.4, 230);
+  // the speaker rail: a faint column rule between the tags and the text
+  c.hair(TX - 14, LOG_TOP - 4, TX - 14, h - 24, D, 1, 70);
   if (lines.length === 0) {
-    c.text(w / 2, h / 2, 'Nothing said yet - click the hologram and talk', { size: 8, align: 'CenterCenter', color: D });
+    c.text(w / 2, h / 2, 'Nothing said yet - click the hologram and talk', { size: 8, align: 'CenterCenter', color: mix(A1, D, 0.5) });
   }
   lines.slice(Math.max(0, n - LOG_ROWS - sc), n - sc).forEach((L, r) => {
     const y = LOG_TOP + r * LOG_RH;
     if (L.text === '') return;
     if (L.first && L.who !== '') {
       const tag = L.who === 'U' ? 'YOU' : L.who === 'S' ? 'SYSTEM' : assistant.toUpperCase();
-      c.text(LX, y, tag, { size: 7.2, weight: 700, color: L.who === 'U' ? D : L.who === 'S' ? style.warn : A1, glow: false });
+      const tc = L.who === 'U' ? mix(A1, D, 0.5) : L.who === 'S' ? style.warn : A1;
+      c.text(LX, y, tag, { size: 7.2, weight: 700, color: tc, glow: false });
+      c.dot(TX - 14, y + 9, 2, tc, 220); // the turn's mark on the rail
     }
-    c.text(TX, y, L.text, { size: 8.6, color: L.who === 'U' ? T : L.who === 'S' ? style.warn : W, font: style.fontNum, glow: false });
+    c.text(TX, y, L.text, { size: 8.6, color: L.who === 'U' ? T : L.who === 'S' ? style.warn : W, glow: false });
   });
   if (maxScroll > 0) {
     // scroll bar on the right

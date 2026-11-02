@@ -15,6 +15,9 @@ export function startPreviewFeed(): void {
   acceptTopProcs({ type: 'procs.top', top: [{ name: 'chrome', cpu: 4.2, ram: 477_102_080 }] });
   // ?jarvis=<state> shows another orb state; the validator drops anything else
   acceptJarvisUpdate({ type: 'jarvis.update', state: new URLSearchParams(globalThis.location?.search).get('jarvis') ?? 'idle', level: 0, say: '', err: '' });
+  // ?jarvislog=demo fills the conversation log with made-up lines, for screenshot checks of the pop-up
+  if (new URLSearchParams(globalThis.location?.search).get('jarvislog') === 'demo') acceptJarvisUpdate({ type: 'jarvis.log', muted: false, live: '',
+    log: 'U|1|What is on my calendar today?\nJ|2|You have a team sync now, a dentist appointment at a quarter to seven, and the launch review on Thursday.\nU|3|Set a timer for ten minutes.\nJ|4|Timer set for ten minutes.\nS|5|Microphone was busy; retried once.\nU|6|How warm is the GPU?\nJ|7|Sixty-one degrees, well within its limits. The fans are at forty percent.\n' });
   let seq = 0;
   const tick = () => {
     seq += 1;
