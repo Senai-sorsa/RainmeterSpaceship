@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bootFrame, bootRows, bootTimeline, bootVerdict, scanY } from '../src/modules/boot';
+import { bootFrame, bootRows, bootTimeline, bootVerdict, flicker, ringProgress } from '../src/modules/boot';
 import { clampScroll, drawerFrame, drawerRows, drawerState, ROWS } from '../src/modules/drawer';
 import { fakeCatalog } from '../src/modules/appsSource';
 import { styleFrom } from '../src/modules/style';
@@ -17,9 +17,16 @@ describe('boot overlay', () => {
     expect(tl.fade).toBeLessThan(tl.done);
   });
 
-  it('the scanner sweeps, then stops', () => {
-    expect(scanY(2, canvas.h)).not.toBeNull();
-    expect(scanY(31, canvas.h)).toBeNull();
+  it('the ignition ring draws itself once, from nothing to closed, before the check starts', () => {
+    expect(ringProgress(0)).toBe(0);
+    expect(ringProgress(20)).toBeGreaterThan(0);
+    expect(ringProgress(20)).toBeLessThan(1);
+    expect(ringProgress(34)).toBe(1);
+    expect(ringProgress(34)).toBeLessThanOrEqual(bootTimeline().c0);
+  });
+
+  it('elements enter with a short flicker, then hold steady', () => {
+    expect([9, 10, 11, 12, 13].map((f) => flicker(f, 10))).toEqual([0, 0.55, 0.15, 0.8, 1]);
   });
 
   it('unknown readings are shown as -- and are not faults', () => {
@@ -40,7 +47,7 @@ describe('boot overlay', () => {
     expect(bootVerdict(bootRows({ cpu: 10, mem: 20, onAc: true, bat: 90 }))).toEqual({ text: 'NO FAULTS, 3 NOT FED', warn: false });
   });
 
-  it('a frame draws the scanner, then the check box and verdict once due', () => {
+  it('a frame draws the ignition, then the check panel and verdict once due', () => {
     const tl = bootTimeline();
     const rows = bootRows({ cpu: 10, mem: 20, onAc: true, bat: 90 });
     expect(bootFrame(5, rows, tl, canvas, st).length).toBeGreaterThan(0);

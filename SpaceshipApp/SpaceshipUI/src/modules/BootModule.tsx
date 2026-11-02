@@ -12,9 +12,16 @@ const tl = bootTimeline();
  * Start-up sequence, behind ?module=boot. It runs once from mount (about 2.7 s) and then renders nothing. The system
  * check reads the host once, when the check starts.
  */
+// ?bootat=<frame> in a plain browser holds the sequence on one frame, for screenshot checks (headless runs few animation frames)
+const hold = (() => {
+  const v = Number(new URLSearchParams(globalThis.location?.search).get('bootat'));
+  return Number.isFinite(v) && v > 0 && !(globalThis as { chrome?: { webview?: unknown } }).chrome?.webview ? v : null;
+})();
+
 export function BootModule({ style }: { style: Style }) {
-  const [f, setF] = useState(0);
+  const [f, setF] = useState(hold ?? 0);
   useEffect(() => {
+    if (hold !== null) return;
     let n = 0;
     const stop = scheduler.every(FRAME_MS, () => {
       n += 1;
