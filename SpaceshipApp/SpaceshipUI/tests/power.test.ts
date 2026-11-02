@@ -12,21 +12,23 @@ const st: Style = {
 };
 const zone = { x: 0, y: 0, w: 100, h: 20 };
 const textOf = (op: { shape: unknown }) => (op.shape as { text: string }).text;
+// the hot segment is the 2.6-wide stroke in the highlight colour (the track and its ticks are thinner)
+const hotOf = (ops: { stroke?: { width: number } }[]) => ops.filter((o) => o.stroke?.width === 2.6);
 
 describe('power draw (power.lua)', () => {
   it('with no reading: no hot segment, a W readout, and the HWiNFO hint', () => {
     const f = powerFrame({}, zone, st);
     expect(f.watts).toBe(0);
     expect(f.tip).toBe('Power draw needs HWiNFO: Control Center > SENSORS > DETECT');
-    expect(f.ops.map(textOf).filter(Boolean)).toEqual(['P', 'W']);
-    expect(f.ops.length).toBe(4); // rail, end tick, P, W
+    expect(f.ops.map(textOf).filter(Boolean)).toEqual(['P', '--W']);
+    expect(hotOf(f.ops)).toHaveLength(0);
   });
 
   it('CPU plus GPU sets the hot segment: 100 W is 0.625 of the 160 W scale', () => {
     const f = powerFrame({ cpu: 40, gpu: 60 }, zone, st);
     expect(f.watts).toBe(100);
     expect(f.tip).toBe('CPU 40 W, GPU 60 W');
-    const hot = f.ops[1];
+    const [hot] = hotOf(f.ops) as typeof f.ops;
     expect(hot.stroke?.color).toEqual([255, 105, 135, 255]);
     expect(hot.stroke?.width).toBe(2.6);
     const pts = (hot.shape as { pts: number[][] }).pts;
@@ -39,7 +41,7 @@ describe('power draw (power.lua)', () => {
     expect(f.watts).toBe(0);
     expect(f.tip).toBe('CPU -- W, GPU 0 W');
     expect(f.ops.map(textOf).filter(Boolean)).toEqual(['P', '0W']);
-    expect(f.ops.length).toBe(4); // no hot segment at 0
+    expect(hotOf(f.ops)).toHaveLength(0); // no hot segment at 0
   });
 
   it('falls back to battery discharge when no sensor reads', () => {
@@ -56,7 +58,7 @@ describe('power draw (power.lua)', () => {
 
   it('clamps the bar at 160 W', () => {
     const f = powerFrame({ cpu: 400 }, zone, st);
-    const pts = (f.ops[1].shape as { pts: number[][] }).pts;
+    const pts = ((hotOf(f.ops)[0] as (typeof f.ops)[number]).shape as unknown as { pts: number[][] }).pts;
     expect(pts[1][0]).toBe(74);
     expect(f.ops.map(textOf).filter(Boolean)).toEqual(['P', '400W']);
   });
