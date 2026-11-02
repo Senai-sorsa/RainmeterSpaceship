@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { effect } from '@preact/signals';
 import './tokens.css';
 import './ui/ui.css';
+import './ui/finish.css';
 import settings from './generated/settings.json';
 import { themeVars } from './lib/theme';
 import { DEFS, host, store } from './settings/instance';
