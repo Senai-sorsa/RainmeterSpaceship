@@ -1,5 +1,7 @@
 # Phase 6 to-do (revised 2026-10-14; details and acceptance criteria in tasks/plan.md "Task breakdown")
 
+> **Status 2026-11-02 (checked against git):** all Phase 6 code is committed. M1, meaning match, T1-T3 are in a74b235; T11 (6j timing log) is in aa3a48d. The "NOT committed" notes below are out of date. What's still open: the live test and the measure-only items T12-14. The note on line 8 about the live copy dates from 2026-10-14.
+
 Gates for every task:
 - test_jarvis OK under py -3 and the venv (`TZ=ABC+12`, run on a scratch copy).
 - `check_route.py` shows no new differences.

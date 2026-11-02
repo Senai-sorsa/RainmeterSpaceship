@@ -1,6 +1,8 @@
 # JARVIS improvement plan (2026-10-30) - DRAFT, awaiting the user's approval
 
-Nothing here is built. Gemini's report was checked against the code; most of its "top fixes" already exist.
+> **Status 2026-11-02:** J0 done; J2, J3 committed in f3a69b0; J4 and J5 closed with no change; J7 (supervisor) and the Phase 10 answers committed in ce42b3e. Open: J6 (needs the user's recordings) and the live test. The "not committed" notes below are out of date.
+
+Originally: nothing here was built. Gemini's report was checked against the code; most of its "top fixes" already exist.
 Labels: **[M]** measured, **[C]** confirmed in code, **[E]** estimate, **[?]** unknown / needs measuring.
 
 ## 1. What the investigation found

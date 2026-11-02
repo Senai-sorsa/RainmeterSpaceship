@@ -119,6 +119,10 @@ CURRENT STATE (updated end of the 2026-10-16 "Phase 9" session; READ THIS FIRST)
     NEXT: PHASE 10 (personality and voice): its FIRST step is telling the user and getting their hand-review.
   PHASE 10 STATUS (2026-10-17): SLICE 1 BUILT, tested with fakes only, NOT live, not pushed. Plan: tasks/phase10-slice1-plan.md.
   NEXT AFTER PHASE 10 (2026-10-20): PHASE 10B (live-test fixes, planned only, nothing built; before Phase 11, line ~3776).
+  CORRECTION 2026-11-02 (checked against git): PHASE 10B IS BUILT except W2 (Hey Clover model) and the user-run G1
+    measurement. Commit bdfb8fb (2026-10-20, checkpoint) has W1, W3, T1-T6, G2 (idle frame skip), U1, U2, U4, U5, X1;
+    U3 was later covered by J2 (f3a69b0). test_jarvis OK with fakes in the f3a69b0 run. NOT live-tested. The branch
+    feature/standalone-host is pushed to origin; not merged to main. Phase 6 items were committed in a74b235, c33d37f, aa3a48d.
   PHASE 10 SLICE 2 (2026-10-17): BUILT checkpoints A-D (moods, serious topics, apology rule, auto-remember, promises, room silence, speakable text, pronounce.txt, voice speed, privacy mode, Control Center rows). Fakes only; NOT live, not pushed. Defaults: JarvisLearn auto, JarvisRoomAsk 0, JarvisSeriousTopics 1, JarvisTalkLess 0, JarvisPrivacy 0, JarvisVoiceSpeed 1.0.
   NOT DONE / STAGE 2: prompt_cases.txt + runner + model comparison (T10), temporary moods, streaming voice, voice training, speaker detection, Hey Clover model, headphone-softer voice (J4), NAME text input in Control Center. Unverified: Lua parse (jarvis.lua, control.lua), real-model behaviour, voices by ear.
     Done: persona.txt loader (Jarvis\persona.txt, built-in fallback per section), new minimal system text, four moods

@@ -194,3 +194,9 @@ Not verified live: the JARVIS launch, jarvis.py reading jarvis_cmd.txt, scan-app
 **Standing rules (also in CLAUDE.md files and memory).** Read `CLAUDE-READ-BEFORE-RUNNING-ANYTHING.md` before any test/script (fake first, dry run first, no real destructive calls). Don't push, publish, run live, run/install the installer, enable autostart, run `Switch-HudHost.ps1 -Apply`, or bypass Smart App Control without an explicit yes. Never `git add .`; name files; no weights/logs/secrets. Commit messages end `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. JARVIS tone work (Phase 10) needs the user's hand-review. Kill chord Ctrl+Alt+Shift+1. Ponytail mode on.
 
 **Likely next steps (the user decides).** (1) Push/publish approval, then a live check of everything marked unverified; (2) the J-plan remainder in `tasks/jarvis-improvement-plan.md` (J0-J7, J2/J3 done); (3) Phase 10 slice 2 (`tasks/phase10-slice2-plan.md`); (4) extend Notices to more sources; (5) battery baseline + efficiency pass.
+
+## 2026-11-02 status correction (docs only)
+- The 2026-10-30 handoff says "NOT pushed": `feature/standalone-host` is now on origin (0 ahead). It is still not merged to `main` (153 commits ahead) and still NOT run live.
+- `App Icons/` and the CLAUDE.md backup were committed in 84d4c44.
+- Stale notes corrected: JARVIS-Repair-Plan.txt (Phase 10B is built except W2/G1, bdfb8fb), tasks/todo.md (Phase 6 is all committed), tasks/jarvis-improvement-plan.md (J7 and the Phase 10 answers are in ce42b3e).
+- Next by the user's word: the visual overhaul of the CSpace HUD (plan to follow). The combined live test is deferred.
