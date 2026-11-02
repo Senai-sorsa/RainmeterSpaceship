@@ -10,6 +10,10 @@
   --chamfer-6: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   --chamfer-4: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
 }
+/* DOM pop-ups: the shared .label (B612 Mono, .3em tracking) reads as letters floating apart; small caps in the text
+   face instead. :where keeps it at class weight so every specific label rule below still wins. */
+:where(.cc, .wiz, .notices, .help) .label { font: 700 12px/1.25 Rajdhani, sans-serif; letter-spacing: .12em; }
+
 /* the browser-only Settings button was inheriting the page's serif */
 .cc-open { font: 700 12px/1 Rajdhani, sans-serif; letter-spacing: .14em; border-color: var(--line-hi); }
 
@@ -98,3 +102,45 @@ html .cc-resets .cc-btn { min-height: 26px; font-size: 11px; letter-spacing: .1e
   box-shadow: -20px 0 40px rgb(0 0 0 / .45); font: 500 14px/1.45 Rajdhani, sans-serif; }
 .help-head { border-bottom-color: var(--line); }
 .help-title { font: 700 13px/1 Rajdhani, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+
+/* ---- kit panel (wizard modules, notices, About, Help) ---- */
+.hp { font: var(--ui-font); border-color: var(--line);
+  background: linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+.hp::before, .hp::after { width: 16px; height: 16px; filter: drop-shadow(0 0 3px var(--accent)); }
+.hp-head { border-bottom-color: var(--line); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent); }
+.hp-index { font: 600 11px/1 'B612 Mono', monospace; color: var(--line-hi); letter-spacing: .1em; }
+.hp-title { font: 700 16px/1 Rajdhani, sans-serif; letter-spacing: .16em; color: var(--white); text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent); }
+.pill { font: 700 10px/1.5 Rajdhani, sans-serif; letter-spacing: .14em; border-color: var(--line); clip-path: var(--chamfer-4);
+  background: rgb(0 0 0 / .3); }
+.pill-linked { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+
+/* ---- pre-flight wizard ---- */
+.wiz { font: var(--ui-font);
+  background:
+    radial-gradient(60% 50% at 12% 18%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    radial-gradient(80% 60% at 70% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 60%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 2.5%, transparent) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, rgb(4 14 24), rgb(1 5 10)); }
+.wiz-h { font: 700 24px/1 Rajdhani, sans-serif; letter-spacing: .24em; color: var(--white); text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 65%, transparent); }
+.wiz-bay .wiz-intro { font: 500 14px/1.45 Rajdhani, sans-serif; color: color-mix(in srgb, var(--text) 85%, transparent); }
+.wiz-bay .label { color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+html .wiz-mod { font: 700 16px/1 Rajdhani, sans-serif; letter-spacing: .14em; border: 1px solid var(--line); border-left: 2px solid var(--line-hi);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), rgb(0 0 0 / .25)); clip-path: var(--chamfer-6); }
+html .wiz-mod:hover { border-color: var(--line-hi); color: var(--white); }
+html .wiz-mod[aria-current='step'] { color: var(--white); border-color: var(--accent); box-shadow: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 24%, transparent), color-mix(in srgb, var(--accent) 6%, transparent)); }
+html .wiz-mod .hp-index { color: color-mix(in srgb, var(--accent) 60%, transparent); }
+html .wiz-primary { color: var(--white); border-color: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 34%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
+  text-shadow: 0 0 8px var(--accent); }
+html .wiz-launch { min-height: 44px; font-size: 15px; letter-spacing: .22em; }
+.wiz-link { font: 600 14px/1 Rajdhani, sans-serif; color: color-mix(in srgb, var(--text) 75%, transparent); text-underline-offset: 3px; }
+.wiz-link:hover { color: var(--white); }
+.wiz-about textarea { font: 500 15px/1.4 Rajdhani, sans-serif; }
+.wiz-preview b { text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+.wiz-panel .wiz-foot { border-top-color: var(--line); }
+
+/* ---- notices: small glass cards stacked bottom-right ---- */
+.notices .hp { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 40%, transparent), 0 10px 30px rgb(0 0 0 / .45); }
+.notice p { font: 500 14px/1.4 Rajdhani, sans-serif; }
