@@ -76,7 +76,7 @@ function quickButtons(st: ConsoleState, cfg: ConsoleConfig) {
     { label: 'dGPU', light: st.dgpu, tip: `RTX 5070: ${st.dgpu === 'on' ? 'present / powered' : st.dgpu === 'off' ? 'off (ECO mode)' : 'unknown'}`, on: false },
     { label: 'CARGO', tip: undefined, on: false },
     { label: 'MASTER', tip: 'Kill switch: STEALTH / restore', on: tierOv === 3 },
-    { label: 'CFG', tip: 'Control Center: modules, layout, theme, apps, sensors, presets', on: false },
+    { label: 'CFG', tip: 'Control Center (settings)', on: false },
   ];
 }
 
