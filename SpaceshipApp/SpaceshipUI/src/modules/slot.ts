@@ -28,6 +28,13 @@ export function slotRowFrame(input: SlotInput, zone: Zone, st: Style): Op[] {
   const scol = status.color === 'good' ? st.good : status.color === 'warn' ? st.warn : status.color === 'bg' ? mix(st.accent, st.dim, 0.35) : st.white;
   const icol = app && !app.missing ? st.accent : st.dim;
   const ix = MX(0.14), iy = Y(0.46);
+  // glass plate under the row, bounded by the stepped underline: a faint body and a brighter band along the rule,
+  // so the row reads as a lit panel instead of text floating on the hull
+  const rule: [number, number][] = [[MX(0.005), Y(0.98)], [MX(0.327), Y(0.935)], [MX(0.362), Y(0.84)], [MX(0.96), Y(0.83)]];
+  c.fillPoly([[MX(0.26), Y(0.02)], [MX(0.96), Y(0.02)], rule[3], rule[2], [MX(0.26), Y(0.86)]], st.panel, 70);
+  c.fillPoly([rule[2], rule[3], [MX(0.96), Y(0.7)], [MX(0.362), Y(0.71)]], st.accent, 14);
+  c.hair(MX(0.26), Y(0.02), MX(0.5), Y(0.02), st.accent, 0.8, 90);
+  c.hair(MX(0.26), Y(0.02), MX(0.26), Y(0.14), st.accent, 0.8, 90);
   if (isCat) {
     // folder emblem: a chamfered frame with corner ticks around the category icon
     const s2 = h * 0.4;
@@ -35,8 +42,15 @@ export function slotRowFrame(input: SlotInput, zone: Zone, st: Style): Op[] {
     c.line(ix - s2 - 5, iy - s2 * 0.5, ix - s2 - 5, iy + s2 * 0.5, st.accent, 1.2, 160);
     c.line(ix + s2 + 5, iy - s2 * 0.5, ix + s2 + 5, iy + s2 * 0.5, st.accent, 1.2, 160);
     c.icon(cat.icon || 'folder', ix, iy, s2 * 1.05, st.accent, 1.6);
-  } else if (app && !c.appIcon(app.id, ix, iy, h * 0.66)) {
-    c.icon(app.icon, ix, iy, h * 0.6, icol, 1.7);
+  } else {
+    // app emblem: a thin ring with four ticks, the same footprint as the folder frame
+    const r = h * 0.42;
+    c.circle(ix, iy, r, icol, 0.9, 120);
+    for (const a of [45, 135, 225, 315]) {
+      const k = Math.PI / 180 * a;
+      c.hair(ix + Math.cos(k) * (r - 2), iy + Math.sin(k) * (r - 2), ix + Math.cos(k) * (r + 4), iy + Math.sin(k) * (r + 4), icol, 1, 170);
+    }
+    if (app && !c.appIcon(app.id, ix, iy, h * 0.56)) c.icon(app.icon, ix, iy, h * 0.5, icol, 1.7);
   }
   const LA = mirror ? 'RightCenter' : 'LeftCenter', RA = mirror ? 'LeftCenter' : 'RightCenter';
   const title = isCat ? cat.name : app ? app.name : 'UNASSIGNED';
@@ -56,6 +70,9 @@ export function slotRowFrame(input: SlotInput, zone: Zone, st: Style): Op[] {
   c.poly([[hx - 6 * cd, Y(0.72) - 6], [hx, Y(0.72)], [hx - 6 * cd, Y(0.72) + 6]], st.accent, 1.5);
   if (isCat) c.poly([[hx - 12 * cd, Y(0.72) - 6], [hx - 6 * cd, Y(0.72)], [hx - 12 * cd, Y(0.72) + 6]], st.accent, 1.2, 160);
   // stepped underline (reference weapon rows)
-  c.poly([[MX(0.005), Y(0.98)], [MX(0.327), Y(0.935)], [MX(0.362), Y(0.84)], [MX(0.96), Y(0.83)]], st.accent, 1.4);
+  c.poly(rule, st.accent, 1.4);
+  // a faint second rule under the first and ticks at the step, the way instrument panels double their edges
+  c.hairPoly(rule.map(([x, y]) => [x, y + 3.5]), st.accent, 70, 0.8);
+  for (let i = 1; i <= 4; i++) c.hair(rule[2][0] + (rule[3][0] - rule[2][0]) * i * 0.18, Y(0.84) + 2, rule[2][0] + (rule[3][0] - rule[2][0]) * i * 0.18, Y(0.84) + 5, st.accent, 0.8, 90);
   return c.flush();
 }
