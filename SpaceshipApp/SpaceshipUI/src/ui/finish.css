@@ -154,3 +154,7 @@ html .wiz-launch { min-height: 44px; font-size: 15px; letter-spacing: .22em; }
   text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent); animation: hud-fade .12s ease-out; }
 :root[data-reduce-motion="1"] .hud-caption { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hud-caption { animation: none; } }
+
+/* ---- System tab: About and Help sit in the same 640px column as the setting groups ---- */
+.cc-pane > .hp { max-width: 640px; margin: 12px auto 0; box-sizing: border-box; }
+.cc-pane .about-body small, .cc-pane .helpc small { font: 500 13px/1.4 Rajdhani, sans-serif; color: color-mix(in srgb, var(--text) 80%, transparent); }
