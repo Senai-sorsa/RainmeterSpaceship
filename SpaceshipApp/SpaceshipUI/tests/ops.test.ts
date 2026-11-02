@@ -35,11 +35,11 @@ describe('text as Rainmeter draws it', () => {
     expect(el.props.style.filter).toBe('blur(4px)'); // the halo alone; drop-shadow would paint the letters a second time
   });
 
-  it('the mission clock draws the empty state in the number font, like location.lua', () => {
+  it('the mission clock draws the empty state in the text face (the number face mis-spaces times)', () => {
     const st = styleFrom({});
     const ops = clockFrame({ ok: false, calendars: 0, errors: 0, events: [] }, 0, { x: 0, y: 0, w: 400, h: 100, matrix: [1, 0, 0, 1, 0, 0] }, st);
     const texts = ops.flatMap((o) => (o.shape.kind === 'text' && !o.shape.blur ? [[o.shape.text, o.shape.font]] : []));
-    expect(texts).toEqual([['SETUP', 'B612 Mono'], ['CONTROL CENTER > DATA', 'Oxanium']]);
+    expect(texts).toEqual([['SETUP', 'Oxanium'], ['CONTROL CENTER > DATA', 'Oxanium']]); // both in the text face
   });
 });
 

@@ -30,12 +30,20 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   const X = (rx: number) => w - (rx - 34) * SXR;
   const Y = (ry: number) => (ry - 220) * SYR;
   const A1 = st.accent, W = st.white, D = st.dim;
+  const lyp = (rx: number, base: number) => base - (10 / 196 - 4 / 187) * (rx - 34) * SYR;
+  // the same faint plate as the mission clock, mirrored
+  c.fillPoly([[X(40), Y(231)], [X(226), Y(231)], [X(222), lyp(222, h - 13)], [X(35), lyp(35, h - 13)]], st.panel, 60);
+  c.fillPoly([[X(40), Y(231)], [X(226), Y(231)], [X(226), Y(234)], [X(40), Y(234)]], A1, 22);
   c.line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220);
   c.dot(X(40), Y(228), 3, A1); c.dot(X(226), Y(228), 3, A1);
   // emblem: ring with three Wi-Fi arcs, lit up to the level, and the speed-test box
   const gx = X(100), gy = Y(256);
   const wifi = input.wifi ?? 0;
   c.circle(gx, gy, 40, W, 1, 90);
+  for (let i = 0; i < 24; i++) {
+    const a = (i * 15 * Math.PI) / 180, r1 = i % 6 === 0 ? 46 : 43.5;
+    c.hair(gx + 41.5 * Math.cos(a), gy + 41.5 * Math.sin(a), gx + r1 * Math.cos(a), gy + r1 * Math.sin(a), A1, 1, i % 6 === 0 ? 170 : 90);
+  }
   for (let i = 1; i <= 3; i++) {
     const lit = wifi >= i * 30;
     c.arc(gx, gy + 12, 9 + i * 8, 225, 315, lit ? W : D, 1.6, lit ? 255 : 120);
@@ -57,7 +65,8 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   rows.forEach(([label, value, col], i) => {
     const y = Y(ys[i]);
     c.text(X(151), y, label, { size: 6.2, weight: 700, align: 'LeftCenter', color: col });
-    c.text(X(157), y, value, { size: 5.6, weight: 700, align: 'RightCenter', color: col, font: st.fontNum, clip: X(157) - X(224) });
+    // addresses in the text face: the number face gives each dot a full cell ("XXX. XXX. X. XX")
+    c.text(X(157), y, value, { size: 5.6, weight: 700, align: 'RightCenter', color: col, font: i === 0 ? st.fontNum : st.fontText, clip: X(157) - X(224) });
   });
   // MBPS row: up and down with arrows
   const y = Y(ys[3]);

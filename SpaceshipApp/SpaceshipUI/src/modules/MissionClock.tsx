@@ -19,6 +19,10 @@ const ROW_Y = [242, 253, 264];
 /** Draw ops of location.lua Update: the top rule with its end dots, three when + title rows and the two slanted base rules. */
 export function clockFrame(state: CalState, now: number, zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st), A1 = st.accent;
+  const ly = (rx: number, base: number) => base - (10 / 196 - 4 / 187) * (rx - 34) * SYR;
+  // a faint glass plate between the top rule and the base rails, lit along its top edge
+  c.fillPoly([[X(40), Y(231)], [X(226), Y(231)], [X(222), ly(222, zone.h - 13)], [X(35), ly(35, zone.h - 13)]], st.panel, 60);
+  c.fillPoly([[X(40), Y(231)], [X(226), Y(231)], [X(226), Y(234)], [X(40), Y(234)]], A1, 22);
   c.line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220);
   c.dot(X(40), Y(228), 3, A1); c.dot(X(226), Y(228), 3, A1);
   const lvl = firstLevel(state, now);
@@ -28,10 +32,12 @@ export function clockFrame(state: CalState, now: number, zone: Zone, st: Style):
     : [{ ...emptyText(state), lc: A1, tc: st.dim }];
   shown.forEach((r, i) => {
     const y = Y(ROW_Y[i]);
-    c.text(X(80), y, r.when, { size: 5.4, weight: 700, align: 'RightCenter', color: r.lc, font: st.fontNum });
+    // a short bar in the row's colour marks each row; the when column is words and times, so it uses the text face
+    // (the number face spaces "7:12" as "7: 12")
+    c.fillRect(X(37), y - 4, 2.4, 8, r.lc, i === 0 ? 230 : 140);
+    c.text(X(80), y, r.when, { size: 5.4, weight: 700, align: 'RightCenter', color: r.lc });
     c.text(X(84), y, r.title, { size: 5.4, weight: 700, align: 'LeftCenter', color: r.tc, clip: X(228) - X(84) });
   });
-  const ly = (rx: number, base: number) => base - (10 / 196 - 4 / 187) * (rx - 34) * SYR;
   c.line(X(35), ly(35, zone.h - 9), X(222), ly(222, zone.h - 9), A1, 1.3, 220);
   c.line(X(35), ly(35, zone.h - 2.5), X(222), ly(222, zone.h - 2.5), A1, 1, 160);
   return c.flush();
