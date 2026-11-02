@@ -17,17 +17,17 @@ type TextShape = Extract<Shape, { kind: 'text' }>;
 const texts = (ops: Op[]): TextShape[] => ops.map((o) => o.shape).filter((s): s is TextShape => s.kind === 'text');
 
 describe('graph labels and readout (graph.lua)', () => {
-  it('splits the label into two ghosted lines at the first space', () => {
+  it('the label is one line, the source name as sources.lua spells it', () => {
     const f = graphFrame(graphState('cpu'), { mCPU: 10 }, zone, st, 'fixed');
-    const t = texts(f.ops);
-    expect(t[0].text).toBe('CPU');
-    expect(t[1].text).toBe('LOAD');
-    expect(texts(graphFrame(graphState('disk'), {}, zone, st, 'fixed').ops)[1].text).toBe('I/O');
+    expect(texts(f.ops)[0].text).toBe('CPU LOAD');
+    expect(texts(graphFrame(graphState('disk'), {}, zone, st, 'fixed').ops)[0].text).toBe(SOURCES.disk.label);
   });
 
-  it('readout is the source text, and the value is the last number', () => {
+  it('readout is the source text split into a large number and a small unit, and the value is the last number', () => {
     const f = graphFrame(graphState('cpu'), { mCPU: 42.4 }, zone, st, 'fixed');
-    expect(texts(f.ops).at(-1)?.text).toBe('42%');
+    const [, num, unit] = texts(f.ops);
+    expect([num.text, unit.text]).toEqual(['42', '%']);
+    expect(num.size).toBeGreaterThan(unit.size * 2);
     expect(f.value).toBe(42.4);
   });
 
