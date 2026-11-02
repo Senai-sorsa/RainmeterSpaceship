@@ -28,11 +28,10 @@ export function Caption({ on = true }: { on?: boolean }) {
     return () => { clearTimeout(timer); document.removeEventListener('pointerover', onOver); setShown(null); };
   }, [on]);
   if (!shown) return null;
+  // only the placement is inline; the look is .hud-caption in finish.css
   const box = {
     position: 'fixed', left: `clamp(8px, ${shown.x}px, calc(100vw - 8px))`, top: `${shown.y}px`,
-    transform: `translate(-50%, ${shown.above ? '-100%' : '0'})`, maxWidth: 'calc(100vw - 16px)', padding: '4px 10px',
-    background: 'rgba(2,14,22,.85)', border: '1px solid var(--accent, currentColor)', clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)',
-    color: 'var(--text)', font: "700 13px 'B612 Mono', monospace", textTransform: 'uppercase', pointerEvents: 'none', whiteSpace: 'pre',
+    transform: `translate(-50%, ${shown.above ? '-100%' : '0'})`, maxWidth: 'calc(100vw - 16px)', pointerEvents: 'none', whiteSpace: 'pre',
   } as const;
-  return <div id="hud-caption" role="status" style={box}>{shown.text}</div>;
+  return <div id="hud-caption" class="hud-caption" role="status" style={box}>{shown.text}</div>;
 }
