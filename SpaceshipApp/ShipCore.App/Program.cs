@@ -152,6 +152,10 @@ sealed class Overlay : Form
     string? _topSent;
     readonly SystemSampler _sampler;
     readonly System.Windows.Forms.Timer _metricsTimer = new() { Interval = 1000 };
+    // audio.spectrum for the audio ring, ~20 a second; it posts only while sound plays (AudioSpectrumFeed), so a quiet
+    // machine costs one cheap timer tick and no page work
+    readonly System.Windows.Forms.Timer _audioTimer = new() { Interval = 50 };
+    readonly AudioSpectrumFeed _audioFeed = new();
     long _metricsSeq;
     readonly VisibilityPolicy _policy;
     readonly Win32Snapshots _snapshots;
@@ -306,6 +310,8 @@ sealed class Overlay : Form
         _perf.Start();
         _metricsTimer.Tick += (_, _) => PushMetrics();
         _metricsTimer.Start();
+        _audioTimer.Tick += (_, _) => PushAudio();
+        _audioTimer.Start();
         _cursor.Tick += (_, _) => FollowCursor();
         _cursor.Start();
         _jarvis.Start();
@@ -340,7 +346,7 @@ sealed class Overlay : Form
     {
         base.OnVisibleChanged(e);
         // the per-frame timers do nothing while hidden, so they don't wake the CPU then (30 + 5 + 1 wakeups a second)
-        _cursor.Enabled = _jarvisTimer.Enabled = _metricsTimer.Enabled = Visible && _running && !_covered;
+        _cursor.Enabled = _jarvisTimer.Enabled = _metricsTimer.Enabled = _audioTimer.Enabled = Visible && _running && !_covered;
         if (_covered) _loopback.Stop();
         if (_cc is null || !_running) return;
         _cc.IsVisible = Visible;
@@ -697,6 +703,14 @@ sealed class Overlay : Form
             if (settings.GetValueOrDefault("Off_CenterTarget") != "1") PushTopProcs();
         }
         catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},METRICS_FAILED,{e.GetType().Name},{e.TargetSite?.DeclaringType?.Name}.{e.TargetSite?.Name}"); }
+    }
+
+    // The audio ring's fast feed: the loopback's newest bands, only while the HUD is shown and sound is playing.
+    void PushAudio()
+    {
+        if (_cc?.CoreWebView2 is null || !Visible) return;
+        try { if (_audioFeed.Next(_loopback.Latest) is { } json) _cc.CoreWebView2.PostWebMessageAsJson(json); }
+        catch (Exception e) { _log?.WriteLine($"{DateTime.UtcNow:O},AUDIO_FAILED,{e.GetType().Name}"); }
     }
 
     // The loopback runs only while the HUD is shown (OnVisibleChanged stops it) and the bottom audio is on.
@@ -1060,7 +1074,7 @@ sealed class Overlay : Form
         _openWait?.Unregister(null);
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
-        _visibility.Stop(); _rescan.Stop(); _perf.Stop(); _metricsTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _mail?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _rescan.Stop(); _perf.Stop(); _metricsTimer.Stop(); _audioTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _mail?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.

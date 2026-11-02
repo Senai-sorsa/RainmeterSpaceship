@@ -2,6 +2,7 @@ import { acceptSystemMetrics } from './systemMetrics';
 import { acceptSysInfo } from './sysInfo';
 import { acceptJarvisUpdate } from './jarvisFeed';
 import { drawerOpen } from '../modules/overlays';
+import { acceptAudioSpectrum } from './audioFeed';
 import { acceptAppsState, acceptNetUpdate, acceptStatusUpdate, acceptTopProcs } from './statusFeed';
 
 // Browser preview only (?preview=1 with no WebView2 host): made-up host messages, sent through the same validators as the
@@ -22,6 +23,18 @@ export function startPreviewFeed(): void {
   // ?drawer=1 opens the CARGO drawer (?drawer=<folder id> opens on that folder), for screenshot checks
   const dr = new URLSearchParams(globalThis.location?.search).get('drawer');
   if (dr) drawerOpen.value = dr === '1' ? {} : { focus: dr };
+  // ?audio=demo plays a made-up 24-band spectrum at 20 frames a second (a kick, a bass line, hats), for checking the ring
+  if (new URLSearchParams(globalThis.location?.search).get('audio') === 'demo') {
+    let t = 0;
+    setInterval(() => {
+      t += 1;
+      const kick = Math.max(0, 1 - (t % 10) / 4), hat = t % 5 === 0 ? 1 : 0.3;
+      acceptAudioSpectrum({ type: 'audio.spectrum', bands: Array.from({ length: 24 }, (_, i) => {
+        const bass = i < 5 ? 0.45 + 0.5 * kick * (1 - i / 5) : 0, mid = i >= 5 && i < 16 ? 0.35 + 0.25 * Math.sin(t / 7 + i) : 0, top = i >= 16 ? 0.2 + 0.35 * hat * (i / 24) : 0;
+        return Math.min(1, Math.max(0, bass + mid + top));
+      }) });
+    }, 50);
+  }
   let seq = 0;
   const tick = () => {
     seq += 1;

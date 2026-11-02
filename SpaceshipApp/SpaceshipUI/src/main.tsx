@@ -1,3 +1,4 @@
+import { acceptAudioSpectrum } from './host/audioFeed';
 import { render } from 'preact';
 import { effect } from '@preact/signals';
 import './tokens.css';
@@ -47,6 +48,7 @@ host.onMessage(acceptTodoUpdate);
 host.onMessage(acceptAppsState);
 host.onMessage(acceptTopProcs);
 host.onMessage(acceptIconsList);
+host.onMessage(acceptAudioSpectrum);
 startPerfTier(systemMetrics, store.values);
 if (host instanceof WebView2Host) startHitRegions(host, document, scheduler); // the browser and the mock have no click-through
 // in the app the desktop wallpaper shows through like the skin; tokens.css's black stays as the stand-in in a browser

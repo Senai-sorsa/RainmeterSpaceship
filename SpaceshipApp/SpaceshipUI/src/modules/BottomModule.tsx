@@ -8,6 +8,7 @@ import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { sysInfo } from '../host/sysInfo';
 import { netStatus } from '../host/statusFeed';
 import { AUDIO_HITS, audioFrame, audioState, type AudioState } from './audio';
+import { audioSpectrum } from '../host/audioFeed';
 import { HitRect } from './hit';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
 import { type Readings } from './readings';
@@ -50,8 +51,12 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   const ops = useMemo(() => ({
     sl: Z.stripL && stripLeftFrame(r, Z.stripL, style),
     sr: Z.stripR && stripRightFrame(r, Z.stripR, style),
-    au: style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50), vol, m?.audioDevice ?? undefined),
   }), [r, Z, style]);
+  // the audio ring follows the host's fast audio.spectrum (~20 a second while sound plays) on its own, so a spectrum
+  // frame redraws only the ring, not the strips
+  const fast = audioSpectrum.value;
+  const au = useMemo(() => (style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50), vol, m?.audioDevice ?? undefined, fast)),
+    [r, fast, Z, style]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({
     pl: Z.panelL && panelLeftFrame(leftRows(now, r, info, style.hi), Z.panelL, style),
@@ -84,7 +89,7 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   return (
     <>
       {Z.storage && <DialModule zone={Z.storage} style={style} setter={dialSetter} sel0={DIAL_SEL} />}
-      {place(Z.audio, ops.au, 'au', 'audio', audioHits)}
+      {place(Z.audio, au, 'au', 'audio', audioHits)}
       {/* the skin's OnClick handlers (panels.lua, strip.lua), as fixed host targets */}
       {place(Z.panelL, panels.pl, 'pl', 'panel-left', Z.panelL && <HitRect zone={Z.panelL} s={style.s} label="Calendar" on={{ click: open('outlookcal') }} />)}
       {place(Z.panelR, panels.pr, 'pr', 'panel-right', Z.panelR && (

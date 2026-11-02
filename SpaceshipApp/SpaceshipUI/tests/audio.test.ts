@@ -1,23 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { audioState, deviceLabel, follow, readout, ringLevels, volumeAngle } from '../src/modules/audio';
+import { ATTACK, RELEASE, audioState, deviceLabel, follow, readout, ringLevels, volumeAngle } from '../src/modules/audio';
 
 describe('audio followers', () => {
-  it('moves the bands halfway to the new level each step and resets the quiet count on sound', () => {
+  it('attacks fast and releases slowly, and resets the quiet count on sound', () => {
     const s = audioState();
-    follow(s, { mBand0: 1, mRMS: 0.5 }, 1, false);
-    expect(s.sm[0]).toBeCloseTo(0.5);
-    expect(s.rmsS).toBeCloseTo(0.2);
-    follow(s, {}, 1, false);
+    follow(s, { mBand0: 1 }, 1, false);
+    expect(s.sm).toHaveLength(1);                 // the band count follows the host
+    expect(s.sm[0]).toBeCloseTo(ATTACK);
+    expect(s.rmsS).toBeCloseTo(ATTACK);
+    follow(s, { mBand0: 0 }, 1, false);
+    expect(s.sm[0]).toBeCloseTo(ATTACK * (1 - RELEASE));
     expect(s.quiet).toBe(1);
-    follow(s, { mRMS: 0.5 }, 1, false);
+    follow(s, { mBand0: 0.5 }, 1, false);
     expect(s.quiet).toBe(0);
   });
 
-  it('zeroes the levels while disabled', () => {
+  it('the fast feed wins over the once-a-second metrics bands', () => {
+    const s = audioState();
+    follow(s, { mBand0: 1 }, 1, false, [0, 0, 1]);
+    expect(s.sm).toHaveLength(3);
+    expect(s.sm[0]).toBe(0);
+    expect(s.sm[2]).toBeCloseTo(ATTACK);
+  });
+
+  it('lets the levels fall while disabled, keeping the shape', () => {
     const s = audioState();
     s.sm[0] = 1;
-    follow(s, { mBand0: 1, mRMS: 1 }, 1, true);
-    expect(s.sm[0]).toBeCloseTo(0.5);
+    follow(s, { mBand0: 1 }, 1, true);
+    expect(s.sm[0]).toBeCloseTo(1 - RELEASE);
     expect(s.rmsS).toBe(0);
   });
 });

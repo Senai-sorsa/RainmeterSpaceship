@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { audioFrame, audioState } from '../src/modules/audio';
+import { audioFrame, audioState, ATTACK, RELEASE } from '../src/modules/audio';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from '../src/modules/panels';
 import { stripLeftFrame, stripRightFrame } from '../src/modules/strip';
 import { storageFrame } from '../src/modules/storage';
@@ -49,8 +49,8 @@ describe('bottom frames', () => {
     const s = audioState();
     const ops = audioFrame(s, full, zone, st, 0);
     expect(ops.length).toBeGreaterThan(0);
-    expect(s.sm[0]).toBeCloseTo(0.15);
+    expect(s.sm[0]).toBeCloseTo(0.3 * ATTACK);                  // fast attack toward mBand0
     audioFrame(s, {}, zone, st, 1, 50, 'Speakers (Realtek)');
-    expect(s.sm[0]).toBeCloseTo(0.075);
+    expect(s.sm[0]).toBeCloseTo(0.3 * ATTACK * (1 - RELEASE));   // slow release with no new bands
   });
 });

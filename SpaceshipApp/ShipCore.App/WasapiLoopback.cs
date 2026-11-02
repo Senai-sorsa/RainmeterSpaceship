@@ -6,7 +6,7 @@ using ShipCore.Core;
 // Only 32-bit float mix formats are read; anything else reports unavailable and the spectrum stays null.
 sealed class WasapiLoopback : ISpectrumSource, IDisposable
 {
-    const int Bands = 16, Block = 1024;
+    const int Bands = 24, Block = 1024;
     const uint AUDCLNT_SHAREMODE_SHARED = 0, AUDCLNT_STREAMFLAGS_LOOPBACK = 0x00020000, AUDCLNT_BUFFERFLAGS_SILENT = 0x2;
     const int CLSCTX_ALL = 23, eRender = 0, eConsole = 0, WAVE_FORMAT_IEEE_FLOAT = 3, WAVE_FORMAT_EXTENSIBLE = 0xFFFE;
     static readonly Guid AudioClientIid = new("1CB9AD4C-DBFA-4C32-B178-C2F568A703B2");
@@ -61,7 +61,7 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
     private volatile bool _running;
     private double[]? _latest;
 
-    /// <summary>The newest spectrum (16 bands, 0 to 1), or null before the first block or when capture is not running.</summary>
+    /// <summary>The newest spectrum (24 bands, 0 to 1), or null before the first block or when capture is not running.</summary>
     public double[]? Latest => Volatile.Read(ref _latest);
 
     /// <returns>true when capture started. False when there is no output device or its format is not float: the spectrum stays null.</returns>
@@ -142,9 +142,9 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
                     block[filled++] = sum / channels;
                     if (filled == Block)
                     {
-                        // the page gets one frame a second, so at most 4 spectra a second are worth computing
+                        // the audio ring gets audio.spectrum about 20 times a second, so at most 20 spectra a second are computed
                         var now = Environment.TickCount64;
-                        if (now - computedAt >= 250) { computedAt = now; Volatile.Write(ref _latest, SpectrumBands.Compute(block, rate, Bands)); }
+                        if (now - computedAt >= 50) { computedAt = now; Volatile.Write(ref _latest, SpectrumBands.Compute(block, rate, Bands)); }
                         filled = 0;
                     }
                 }

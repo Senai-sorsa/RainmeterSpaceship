@@ -24,16 +24,32 @@ export const audioState = (): AudioState => ({ sm: new Array<number>(NB).fill(0)
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-/** One smoothing step per redraw. `every` is the frame step since the last redraw; `disabled` zeroes the levels. */
-export function follow(s: AudioState, r: Readings, every: number, disabled: boolean): void {
-  const rms = disabled ? 0 : clamp(val(r, 'mRMS'), 0, 1);
-  const peak = disabled ? 0 : clamp(val(r, 'mPeak'), 0, 1);
-  s.rmsS = s.rmsS * 0.6 + rms * 0.4;
-  s.peakS = Math.max(peak, s.peakS * 0.85);
+/** The bands to follow: the fast feed when given, else system.metrics' mBand0..n (as many as the host sent). */
+function bandsOf(r: Readings, fast: number[] | null | undefined): number[] {
+  if (fast && fast.length) return fast;
+  const out: number[] = [];
+  for (let i = 0; i < 64 && r[`mBand${i}`] !== undefined; i++) out.push(val(r, `mBand${i}`));
+  return out;
+}
+
+/** Visualizer smoothing, per band: a fast attack so beats land at once, a slow release so the shape stays readable. */
+export const ATTACK = 0.7, RELEASE = 0.16;
+
+/** One smoothing step per redraw. `every` is the frame step since the last redraw; `disabled` zeroes the levels.
+ *  `fast` is the host's audio.spectrum bands (about 20 a second); without it the once-a-second metrics bands are used. */
+export function follow(s: AudioState, r: Readings, every: number, disabled: boolean, fast?: number[] | null): void {
+  const bands = disabled ? [] : bandsOf(r, fast).map((v) => clamp(v, 0, 1));
+  // the band count follows the host (16 or 24 so far); an empty or disabled frame keeps the shape and lets it fall
+  if (bands.length && s.sm.length !== bands.length) s.sm = new Array<number>(bands.length).fill(0);
+  const n = s.sm.length;
+  const rms = bands.length ? bands.reduce((a, b) => a + b, 0) / bands.length : 0;
+  const peak = bands.length ? Math.max(...bands) : 0;
+  s.rmsS += (rms - s.rmsS) * (rms > s.rmsS ? ATTACK : RELEASE);
+  s.peakS = Math.max(peak, s.peakS * 0.9);
   s.quiet = rms < 0.01 ? s.quiet + every : 0;
-  for (let i = 0; i < NB; i++) {
-    const v = disabled ? 0 : clamp(val(r, `mBand${i}`), 0, 1);
-    s.sm[i] = s.sm[i] * 0.5 + v * 0.5;
+  for (let i = 0; i < n; i++) {
+    const v = bands[i] ?? 0;
+    s.sm[i] += (v - s.sm[i]) * (v > s.sm[i] ? ATTACK : RELEASE);
   }
 }
 
@@ -44,9 +60,9 @@ export function ringLevels(s: AudioState, idle: boolean, frame: number): number[
   for (let k = 0; k < NS; k++) {
     let u = (k / NS) * 2;
     if (u > 1) u = 2 - u;
-    const f = u * (NB - 1);
-    const i0 = Math.floor(f), i1 = Math.min(NB - 1, i0 + 1);
-    raw[k] = Math.sqrt(clamp(s.sm[i0] * (1 - (f - i0)) + s.sm[i1] * (f - i0), 0, 1));
+    const nb = s.sm.length, f = u * (nb - 1);
+    const i0 = Math.floor(f), i1 = Math.min(nb - 1, i0 + 1);
+    raw[k] = clamp(s.sm[i0] * (1 - (f - i0)) + s.sm[i1] * (f - i0), 0, 1); // the bands are already in dB
   }
   // a wide gaussian window turns the spectrum into gentle rounded swells
   const soft: number[] = [];
@@ -62,7 +78,8 @@ export function ringLevels(s: AudioState, idle: boolean, frame: number): number[
   const mean = soft.reduce((a, b) => a + b, 0) / NS;
   s.breath += (clamp(mean * 1.4 + s.rmsS * 1.2, 0, 1) - s.breath) * 0.35;
   return soft.map((x, k) =>
-    idle ? 0.12 + 0.04 * Math.sin((k / NS) * 2 * Math.PI * 3 + frame * 0.05) : 0.7 * s.breath + 0.3 * x);
+    // the shape of the spectrum leads; the overall loudness only lifts the whole ring a little
+    idle ? 0.12 + 0.04 * Math.sin((k / NS) * 2 * Math.PI * 3 + frame * 0.05) : 0.35 * s.breath + 0.65 * x);
 }
 
 /** End angle in degrees of the volume arc: sweeps from DASH_A0 by the volume share, scaled by the spin-up (0..1). */
@@ -86,8 +103,8 @@ export type AudioFrame = Op[];
  * The audio zone: pulse ring, volume dash arc, readout and device. Advances the followers once per call (one per host reading).
  * vol is 0..100, or negative for muted; undefined means the host has no volume yet and the dial shows --.
  */
-export function audioFrame(s: AudioState, r: Readings, zone: Zone, st: Style, frame: number, vol?: number, dev?: string): AudioFrame {
-  follow(s, r, 1, st.tier >= 3);
+export function audioFrame(s: AudioState, r: Readings, zone: Zone, st: Style, frame: number, vol?: number, dev?: string, fast?: number[] | null): AudioFrame {
+  follow(s, r, 1, st.tier >= 3, fast);
   const c = new Canvas(zone, st);
   const A1 = st.accent, W = st.white, D = st.dim, RED = st.hi;
   const muted = vol !== undefined && vol < 0;
