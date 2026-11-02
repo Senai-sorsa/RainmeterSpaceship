@@ -251,7 +251,7 @@ sealed class Overlay : Form
         _snapshots = new Win32Snapshots(() => _home, () => _browserPid);
         _life = new Lifecycle(Stop, () => Restart(false));
 
-        var menu = new ContextMenuStrip();
+        var menu = new ContextMenuStrip { Renderer = new HudMenuRenderer(), ForeColor = HudMenuRenderer.Text, ShowImageMargin = false };
         // the Control Center lives in the page; the tray (or a double-click on the icon) asks the page to open it
         void OpenControl(string? cat = null) { if (_running) Post(cat is null ? "{\"type\":\"control.open\"}" : $"{{\"type\":\"control.open\",\"cat\":\"{cat}\"}}"); }
         menu.Items.Add("Control panel", null, (_, _) => OpenControl());
@@ -262,6 +262,7 @@ sealed class Overlay : Form
         _tray.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) OpenControl(); };
         // a second launch signals this event (pool thread); the panel opens on the UI thread
         _openWait = ThreadPool.RegisterWaitForSingleObject(openControl, (_, _) => { if (IsHandleCreated) BeginInvoke(() => { if (!_running) { _hostState?.SetStopped(false); Start(); } OpenControl(); }); }, null, -1, false);
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Start", null, (_, _) => { _hostState?.SetStopped(false); Start(); });
         menu.Items.Add("Stop", null, (_, _) => { _hostState?.SetStopped(true); Stop(); });
         // Rainmeter's Refresh: a fresh page with the restart budget reset
@@ -273,6 +274,7 @@ sealed class Overlay : Form
             auto.Click += (_, _) => { _autostart.Disable(); menu.Items.Remove(auto); };
             menu.Items.Add(auto);
         }
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Help", null, (_, _) => OpenControl("system"));
         menu.Items.Add("About CSpace", null, (_, _) => OpenControl("system"));
         menu.Items.Add(new ToolStripMenuItem($"Kill switch: {KillChord.Label}") { Enabled = false });
@@ -282,6 +284,7 @@ sealed class Overlay : Form
             $"Logs: {Path.Combine(Path.GetTempPath(), "spaceship-app")}",
             "CSpace diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("Open log folder", null, (_, _) => Process.Start("explorer.exe", Path.Combine(Path.GetTempPath(), "spaceship-app"))?.Dispose());
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, _) => Quit());
         _tray.Icon = AppIcon(); _tray.Text = $"CSpace {AppVersion()}"; _tray.ContextMenuStrip = menu; _tray.Visible = true;
         if (!hotkeyRegistered) _tray.ShowBalloonTip(5000, "Spaceship", $"{KillChord.Label} is taken by another app, so the kill switch is off.", ToolTipIcon.Warning);
@@ -1233,3 +1236,31 @@ sealed class Overlay : Form
         (function loop(){f++;const now=performance.now();if(now-t>=1000){chrome.webview.postMessage(String(f*1000/(now-t)));f=0;t=now}requestAnimationFrame(loop)})()</script>
         """;
 }
+
+/// <summary>The tray menu in the HUD's colours: dark glass, a thin accent border, an accent-tinted highlight, dim separators.
+/// Colours only; the items and their order are the same.</summary>
+sealed class HudMenuRenderer() : ToolStripProfessionalRenderer(new HudMenuColors())
+{
+    public static readonly Color Back = Color.FromArgb(6, 16, 26), Text = Color.FromArgb(200, 238, 255), Accent = Color.FromArgb(0, 210, 255);
+    protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+    {
+        e.TextColor = !e.Item.Enabled ? Color.FromArgb(90, 130, 150) : e.Item.Selected ? Color.White : Text;
+        base.OnRenderItemText(e);
+    }
+    sealed class HudMenuColors : ProfessionalColorTable
+    {
+        static readonly Color Hi = Color.FromArgb(0, 70, 92), Edge = Color.FromArgb(0, 120, 150);
+        public override Color ToolStripDropDownBackground => Back;
+        public override Color ImageMarginGradientBegin => Back;
+        public override Color ImageMarginGradientMiddle => Back;
+        public override Color ImageMarginGradientEnd => Back;
+        public override Color MenuBorder => Edge;
+        public override Color MenuItemBorder => Accent;
+        public override Color MenuItemSelected => Hi;
+        public override Color MenuItemSelectedGradientBegin => Hi;
+        public override Color MenuItemSelectedGradientEnd => Hi;
+        public override Color SeparatorDark => Color.FromArgb(0, 60, 80);
+        public override Color SeparatorLight => Back;
+    }
+}
+

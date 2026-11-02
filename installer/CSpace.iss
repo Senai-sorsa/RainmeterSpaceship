@@ -21,7 +21,7 @@ SetupIconFile={#Root}\SpaceshipApp\ShipCore.App\Assets\cspace.ico
 UninstallDisplayIcon={app}\CSpace.exe
 Compression=lzma2
 SolidCompression=yes
-WizardStyle=modern
+WizardStyle=modern dark
 DisableProgramGroupPage=yes
 CloseApplications=yes
 

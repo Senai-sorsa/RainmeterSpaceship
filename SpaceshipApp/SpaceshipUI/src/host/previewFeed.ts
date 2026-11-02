@@ -3,6 +3,7 @@ import { acceptSysInfo } from './sysInfo';
 import { acceptJarvisUpdate } from './jarvisFeed';
 import { drawerOpen } from '../modules/overlays';
 import { acceptAudioSpectrum } from './audioFeed';
+import { acceptNotice } from './notices';
 import { acceptAppsState, acceptNetUpdate, acceptStatusUpdate, acceptTopProcs } from './statusFeed';
 
 // Browser preview only (?preview=1 with no WebView2 host): made-up host messages, sent through the same validators as the
@@ -23,6 +24,11 @@ export function startPreviewFeed(): void {
   // ?drawer=1 opens the CARGO drawer (?drawer=<folder id> opens on that folder), for screenshot checks
   const dr = new URLSearchParams(globalThis.location?.search).get('drawer');
   if (dr) drawerOpen.value = dr === '1' ? {} : { focus: dr };
+  // ?notices=demo shows one warning and one error card, for screenshot checks
+  if (new URLSearchParams(globalThis.location?.search).get('notices') === 'demo') {
+    acceptNotice({ type: 'notice', source: 'apps', level: 'warn', text: 'Blender did not start: the file was moved or uninstalled.' });
+    acceptNotice({ type: 'notice', source: 'jarvis', level: 'error', text: 'JARVIS has no Python: set JarvisPython or run Setup-Jarvis.ps1.' });
+  }
   // ?audio=demo plays a made-up 24-band spectrum at 20 frames a second (a kick, a bass line, hats), for checking the ring
   if (new URLSearchParams(globalThis.location?.search).get('audio') === 'demo') {
     let t = 0;
