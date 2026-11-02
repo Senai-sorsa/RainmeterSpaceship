@@ -79,6 +79,16 @@ export function schematicFrame(app: App | undefined, cat: Cat | undefined, runni
   const sz = Math.min(zone.w, zone.h) * 0.94;
   if (app) {
     const col = app.missing ? st.dim : mix(st.accent, st.white, 0.45);
+    // instrument dressing, as the reference wireframes have: a faint dashed targeting ring behind the craft, rulers on
+    // the left and bottom of the bracket box, and a small caption in the box's lower left
+    const hb = sz * 0.5, top = cy - hb * 0.92, bot = cy + hb * 0.92, left = cx - hb, right = cx + hb;
+    c.dashArc(cx, cy, sz * 0.47, 0, 360, st.accent, 0.8, 60, 5, 9, true);
+    for (let i = 0; i <= 10; i++) {
+      const y = top + ((bot - top) * i) / 10, x = left + ((right - left) * i) / 10, major = i % 5 === 0;
+      c.hair(left - 7, y, left - (major ? 15 : 11), y, st.accent, 1, major ? 140 : 70);
+      c.hair(x, bot + 7, x, bot + (major ? 15 : 11), st.accent, 1, major ? 140 : 70);
+    }
+    c.text(left + 16, bot - 6, `${(app.short || app.name).toUpperCase()} // SCHEMATIC`, { size: 3.6, weight: 600, align: 'LeftBottom', color: mix(st.accent, st.dim, 0.3), alpha: 210, glow: false, clip: right - left - 32 });
     c.icon(app.icon, cx, cy, sz, col, 1.6);
     c.icon(app.icon, cx + 3, cy - 3, sz * 0.97, st.white, 0.7, 60);
     const h2 = sz * 0.5;
