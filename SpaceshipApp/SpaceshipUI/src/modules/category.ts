@@ -58,7 +58,15 @@ export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st:
   for (let t = 0; t < vis; t++) {
     const i = state.first + t;
     const on = i === state.sel;
-    c.text(x, h / 2, labels[t], { size, weight: 700, align: 'LeftCenter', color: on ? st.accent : [175, 190, 200, 255], alpha: on ? 255 : 210, font: st.fontNum });
+    // the pick sits on a soft lit plate with corner ticks; the others are split by faint dividers
+    if (on) {
+      const px = x - 6, pw = widths[t] + 12, py = h / 2 - 8, ph = 16;
+      c.fillRect(px, py, pw, ph, st.accent, 34);
+      c.hairPoly([[px, py + 4], [px, py], [px + 4, py]], st.accent, 230, 1.2);
+      c.hairPoly([[px + pw - 4, py + ph], [px + pw, py + ph], [px + pw, py + ph - 4]], st.accent, 230, 1.2);
+    }
+    c.text(x, h / 2, labels[t], { size, weight: 700, align: 'LeftCenter', color: on ? st.white : [175, 190, 200, 255], alpha: on ? 255 : 210, font: st.fontNum });
+    if (t < vis - 1) c.hair(x + widths[t] + gap / 2, h / 2 - 5, x + widths[t] + gap / 2, h / 2 + 5, st.accent, 1, 70);
     x += widths[t] + gap;
   }
   return c.flush();
@@ -108,8 +116,11 @@ export function dotsFrame(count: number, index: number, zone: Zone, st: Style): 
   const step = zone.w / n;
   for (let i = 1; i <= n; i++) {
     const x = step * (i - 0.5), dy = zone.h * 0.21;
-    if (i === index) c.dot(x, dy, 4, st.accent);
-    else c.dot(x, dy, 3, [170, 185, 195, 255], 150);
+    // segment pips: a short dash per page, the current one longer, brighter and lit
+    if (i === index) {
+      c.fillRect(x - 9, dy - 1.6, 18, 3.2, st.accent, 255);
+      c.halo(x, dy, 3, st.accent, 50);
+    } else c.fillRect(x - 4, dy - 1, 8, 2, [170, 185, 195, 255], 120);
   }
   return c.flush();
 }
