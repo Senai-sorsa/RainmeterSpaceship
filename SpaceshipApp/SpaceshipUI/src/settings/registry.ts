@@ -50,7 +50,7 @@ add('display', 'Theme', 'normal', [
   ['ColorAccent', 'Accent colour', 'Main HUD colour (r,g,b).', col, '0,210,255', { w: 'look' }],
   ['ColorWarn', 'Warning colour', 'Colour for warnings such as a low battery.', col, '255,130,40'],
   ['GlowAlpha', 'Glow strength', 'How strongly the neon lines glow.', sl(0, 160, 4), '76'],
-  ['ReduceMotion', 'Reduce motion', 'Turns off the Control Center and setup animations and fades. The HUD itself keeps running.', tog, '0', { opt: 1 }],
+  ['ReduceMotion', 'Reduce motion', 'Stops Control Center and setup animations. The HUD keeps running.', tog, '0', { opt: 1 }],
 ]);
 add('display', 'Theme', 'advanced', [
   ['ColorDim', 'Dim colour', 'Colour for inactive lines and labels.', col, '0,110,150'],
@@ -61,12 +61,12 @@ add('display', 'Theme', 'advanced', [
   ['ColorWhite', 'White colour', 'The near-white used for bright details.', col, '215,240,255'],
   ['ColorPanel', 'Panel colour', 'Panel fill as r,g,b,a.', col, '0,30,45,90'],
   ['CoreWhite', 'Hot cores', 'How white-hot the line cores are (1 = white).', sl(0, 1, 0.1), '0.3'],
-  ['BloomEngine', 'Glow engine', 'Canvas: one soft light layer, lighter on the GPU. SVG: the old blur on each glowing part.', sel('canvas|Canvas', 'svg|SVG'), 'canvas', O],
-  ['LensFx', 'Glass and lens', 'Smudges on the windows catch the HUD light; a faint reflection of the HUD in the glass.', tog, '1', O],
-  ['DepthHaze', 'Depth haze', 'The hologram out in the windscreen glows softer than the dash, as if further away.', tog, '1', O],
-  ['ScreenBezel', 'Screen bezels', 'A dark recess and a faint lip round each display, so the readouts sit in the hull.', tog, '1', O],
-  ['StateLight', 'Orb light', 'The orb lights the hull a little more while JARVIS listens or speaks.', tog, '1', O],
-  ['HullRender', 'Rendered hull', 'Use the 3D-rendered cockpit shell with real light from the screens.', tog, '0', O],
+  ['BloomEngine', 'Glow engine', 'Canvas: one soft light layer, easier on the GPU. SVG: per-part blur.', sel('canvas|Canvas', 'svg|SVG'), 'canvas', O],
+  ['LensFx', 'Glass and lens', 'Window smudges catch the HUD light, with a faint glass reflection.', tog, '1', O],
+  ['DepthHaze', 'Depth haze', 'Windscreen holograms glow softer than the dash, as if further off.', tog, '1', O],
+  ['ScreenBezel', 'Screen bezels', 'A dark recess and faint lip round each display.', tog, '1', O],
+  ['StateLight', 'Orb light', 'The orb lights the hull more while JARVIS listens or speaks.', tog, '1', O],
+  ['HullRender', 'Rendered hull', 'Use the 3D-rendered cockpit shell, lit by the screens.', tog, '0', O],
   ['GlowWidth', 'Glow width', 'Width of the neon glow in pixels.', sl(1, 8, 0.1), '3.0'],
   ['TextGlow', 'Text glow', 'Size of the glow behind text in pixels.', sl(0, 12, 1), '4'],
   ['TextGlowAlpha', 'Text glow strength', 'Opacity of the text glow.', sl(0, 255, 5), '150'],
@@ -81,16 +81,16 @@ add('display', 'Frame', 'normal', [ // the two real keys behind frameStyle
   ['FrameOff', 'Frame off', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
 ]);
 add('display', 'Wallpaper', 'normal', [
-  ['WallpaperOn', 'Live wallpaper', 'Play a video or picture behind the HUD. Off shows your Windows (or Lively) wallpaper instead.', tog, '0', O],
+  ['WallpaperOn', 'Live wallpaper', 'Play a video or picture behind the HUD. Off: your own wallpaper.', tog, '0', O],
   // Explorer's "Copy as path" adds quotes; the host drops them and only plays local .mp4/.webm/.m4v/.mov or pictures
   ['WallpaperFile', 'Wallpaper file', 'Full path of a video (.mp4, .webm) or picture on this PC.', tx('^"?[^\\r\\n"%;#=]{0,240}"?$', 242), '', O],
-  ['WallpaperFit', 'Fit', 'Fill crops the edges, Fit shows the whole picture, Stretch distorts it.', sel('cover|Fill', 'contain|Fit', 'fill|Stretch'), 'cover', O],
+  ['WallpaperFit', 'Fit', 'Fill crops the edges, Fit shows it all, Stretch distorts.', sel('cover|Fill', 'contain|Fit', 'fill|Stretch'), 'cover', O],
   // the host re-encodes a video once (Windows' hardware encoder) into a smaller cached copy; pictures are always shown as they are
-  ['WallpaperQuality', 'Quality', 'A smaller copy, made once, plays lighter on the GPU; Original plays the file as it is.', sel('max|Original', 'screen|Match this screen', '1440|1440p', '1080|1080p', '720|720p'), 'max', O],
+  ['WallpaperQuality', 'Quality', 'Smaller copy (made once) is lighter on the GPU; Original plays as is.', sel('max|Original', 'screen|Match this screen', '1440|1440p', '1080|1080p', '720|720p'), 'max', O],
   ['WallpaperDim', 'Dim', 'Darkens the wallpaper so the HUD stands out, in percent.', sl(0, 90, 5), '0', O],
 ]);
 add('display', 'Wallpaper', 'advanced', [
-  ['WallpaperPauseMax', 'Pause behind full-size windows', 'Stop playing while a maximised or fullscreen window hides the desktop.', tog, '1', O],
+  ['WallpaperPauseMax', 'Pause behind full-size windows', 'Pause while a maximised or fullscreen window hides the desktop.', tog, '1', O],
   ['WallpaperBattery', 'Pause on battery', 'Stop playing while the PC runs on battery.', tog, '1', O],
 ]);
 add('display', 'Frame', 'advanced', [
@@ -182,7 +182,7 @@ add('performance', 'Tier', 'normal', [
   ['PerfOverride', 'Tier mode', 'Force a tier, or leave on Auto.', sel('-1|Auto', '0|Full', '1|Lite', '2|Low', '3|Stealth'), '0'],
 ]);
 add('performance', 'Battery', 'normal', [
-  ['PowerSaver', 'Battery saver', 'On battery, checks for mail, calendars and updates run four times less often.', tog, '1', { opt: 1 }],
+  ['PowerSaver', 'Battery saver', 'On battery, mail, calendar and update checks run 4x less often.', tog, '1', { opt: 1 }],
 ]);
 add('performance', 'Tier', 'advanced', [
   ['TierLite', 'Lite above', 'GPU percent where Lite starts.', sl(10, 95, 5), '50'],
