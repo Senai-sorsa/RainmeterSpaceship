@@ -177,7 +177,7 @@ def emission(name, strength):
 
 
 # ---- geometry
-metal = principled("gunmetal", (0.06, 0.065, 0.072), 1.0, 0.38, noise=True, seams=True)
+metal = principled("gunmetal", (0.06, 0.065, 0.072), 1.0, 0.38, noise=True, seams=False)
 corner_mat = principled("corner", (0.025, 0.03, 0.036), 0.9, 0.3)
 neutral = principled("neutral", (0.8, 0.8, 0.8), 0.0, 0.6, ao=False)
 hull = plate("hull", [(-300, -300), (CW + 300, -300), (CW + 300, CH + 300), (-300, CH + 300)], L["windows"], mat=metal)
