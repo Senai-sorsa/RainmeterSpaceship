@@ -21,5 +21,6 @@ export function railFill(c: Canvas, st: Style, x0: number, xv: number, y: number
   if (xv - x0 < 0.5) return;
   c.gradRect(x0, y - 3, xv - x0, 6, { kind: 'linear', x1: x0, y1: 0, x2: xv, y2: 0,
     stops: [[0, [col[0], col[1], col[2], 30]], [0.7, [col[0], col[1], col[2], 120]], [1, [col[0], col[1], col[2], 200]]] }, 1);
+  c.hotDot(xv, y, 2.2, col, 90);
   c.line(xv, y - 3, xv, y + 3, heat(st, col, 1), 1.2, 230);
 }

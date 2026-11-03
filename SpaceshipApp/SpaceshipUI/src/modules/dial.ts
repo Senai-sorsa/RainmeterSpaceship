@@ -100,6 +100,7 @@ export function dialFrame(inp: DialInput, zone: Zone, st: Style, sel = 1, note =
   }
   if (avail) {
     const ar = (va * Math.PI) / 180;
+    c.hotDot(CX + R_VAL * Math.cos(ar), CY + R_VAL * Math.sin(ar), 3.4, A1);
     c.dot(CX + R_VAL * Math.cos(ar), CY + R_VAL * Math.sin(ar), 3.4, W);
   }
   // inner thin ring with three gaps

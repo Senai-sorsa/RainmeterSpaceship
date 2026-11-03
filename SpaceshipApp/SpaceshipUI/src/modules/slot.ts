@@ -78,6 +78,7 @@ export function slotRowFrame(input: SlotInput, zone: Zone, st: Style): Op[] {
     // status lamp (K10): a small filled pill with a white-hot core, not a dot
     const lx = MX(0.30) + (mirror ? 6 : -6);
     c.halo(lx, Y(0.5), 2.2, scol, 50);
+    if (status.color === 'good') c.hotDot(lx, Y(0.5), 2.4, scol, 80);
     c.fillRect(lx - 1.7, Y(0.5) - 4, 3.4, 8, scol, 230, 1.7);
     c.fillRect(lx - 0.6, Y(0.5) - 2.6, 1.2, 5.2, heat(st, scol, 1), 220, 0.6);
   }

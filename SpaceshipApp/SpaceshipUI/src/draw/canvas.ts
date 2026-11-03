@@ -95,6 +95,8 @@ export function arcPts(cx: number, cy: number, rx: number, ry: number, a0: numbe
 
 export class Canvas {
   private readonly layers: Record<Layer, Op[]> = { base: [], glow: [], core: [], top: [] };
+  /** K5: the wide second bloom for the few hottest things; FULL only, drawn first in the glow layer */
+  private readonly hotOps: Op[] = [];
 
   constructor(private readonly zone: Zone, private readonly st: Style) {}
 
@@ -329,6 +331,25 @@ export class Canvas {
     this.push('base', poly(pts, true), undefined, undefined, { grad });
   }
 
+  /** Wide soft bloom (K5) around one of the hottest things in a cluster (a live value, an active key, the orb's rings):
+   *  a broad faint stroke the view blurs about three times wider than the normal glow. FULL only. */
+  hot(pts: Pt[], col: RGBA, w = 2, alpha = 120, closed = false) {
+    const st = this.st;
+    if (st.tier !== 0 || st.glowA <= 0 || pts.length < 2) return;
+    const before = this.layers.glow.length;
+    this.push('glow', poly(pts, closed), undefined, { color: this.tint(col, Math.floor((st.glowA * 0.5 * alpha) / 255)), width: w * st.glowW * 2.6 });
+    this.hotOps.push(...this.layers.glow.splice(before));
+  }
+
+  /** K5 for a round light (a lamp, a leading dot): a broad faint disc under the wide bloom. FULL only. */
+  hotDot(cx: number, cy: number, r: number, col: RGBA, alpha = 110) {
+    const st = this.st;
+    if (st.tier !== 0 || st.glowA <= 0) return;
+    const before = this.layers.glow.length;
+    this.push('glow', { kind: 'ellipse', cx, cy, rx: r * 3, ry: r * 3 }, this.tint(col, Math.floor((st.glowA * 0.6 * alpha) / 255)));
+    this.hotOps.push(...this.layers.glow.splice(before));
+  }
+
   /** The screen texture (K4) over a lit shape, on FULL and LITE only. */
   texture(pts: Pt[]) {
     if (this.st.tier >= 2 || pts.length < 3) return;
@@ -374,6 +395,8 @@ export class Canvas {
     // FULL: the glow strokes are blurred by about a third of the widest halo, so a line's light fades out softly
     const st = this.st, bloom = st.tier === 0 ? 1.6 * st.glowW * 0.45 * st.s : 0;
     const glow = bloom > 0 ? this.layers.glow.map((o) => (o.shape.kind === 'image' ? o : { ...o, bloom })) : this.layers.glow;
+    // the hot bloom: one wider blurred group ahead of the normal glow (only recorded on FULL, where bloom > 0)
+    if (bloom > 0 && this.hotOps.length) glow.unshift(...this.hotOps.map((o) => ({ ...o, bloom: bloom * 3 })));
     const out = [...this.layers.base, ...glow, ...this.layers.core, ...this.layers.top];
     if (this.st.edit) {
       const { x, y, w, h } = this.zone, s = this.st.s;

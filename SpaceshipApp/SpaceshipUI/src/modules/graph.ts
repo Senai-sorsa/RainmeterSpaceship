@@ -56,6 +56,7 @@ export function graphFrame(state: GraphState, r: Readings, zone: Zone, st: Style
     const [lx, ly] = pts[pts.length - 1];
     c.hair(lx, ly, lx, gy1, col, 0.6, 90);
     // the newest sample burns white-hot (K3)
+    c.hotDot(lx, ly, 2, col);
     c.dot(lx, ly, 2, heat(st, col, 1), 240);
   }
   // label: one small line, dim, so the number leads

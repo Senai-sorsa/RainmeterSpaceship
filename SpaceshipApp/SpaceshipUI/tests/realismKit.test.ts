@@ -144,3 +144,27 @@ describe('R3 adoption: rows and blocks', async () => {
     expect(ops.some((o) => o.pattern)).toBe(false);
   });
 });
+
+describe('R5: hot bloom (K5) and hull spill (K6)', async () => {
+  const { spillBackground } = await import('../src/ui/spill');
+  it('hot bloom is FULL only, blurred about three times wider than the glow, and grouped ahead of it', () => {
+    const full = new Canvas(zone, style({ tier: 0 }));
+    full.line(0, 0, 10, 0, ACCENT, 2);
+    full.hotDot(5, 5, 2, ACCENT);
+    const ops = full.flush(), blooms = ops.filter((o) => o.bloom).map((o) => o.bloom!);
+    expect(ops[0].bloom).toBeCloseTo(Math.max(...blooms));
+    expect(Math.max(...blooms) / Math.min(...blooms)).toBeCloseTo(3);
+    for (const t of [1, 2, 3]) {
+      const c = new Canvas(zone, style({ tier: t }));
+      c.hotDot(5, 5, 2, ACCENT); c.hot([[0, 0], [9, 9]], ACCENT);
+      expect(c.flush()).toHaveLength(0);
+    }
+  });
+  it('spill: one pool per lit feature, none for hidden zones, none on LOW and STEALTH', () => {
+    const all = spillBackground('rgb(0,210,255)', 0);
+    expect(all.split('radial-gradient').length - 1).toBe(11);
+    expect(spillBackground('rgb(0,210,255)', 1, 'C_sphere,B_audio').split('radial-gradient').length - 1).toBe(9);
+    expect(spillBackground('rgb(0,210,255)', 2)).toBe('');
+    expect(spillBackground('rgb(0,210,255)', 3)).toBe('');
+  });
+});

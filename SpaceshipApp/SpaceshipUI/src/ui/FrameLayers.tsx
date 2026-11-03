@@ -3,6 +3,8 @@ import parts from '../generated/frameparts.json';
 import { useMemo } from 'preact/hooks';
 import type { FrameStyle } from '../settings/frameStyle';
 import { partShapes } from './frameParts';
+import { spillBackground } from './spill';
+import { hiddenZones } from '../modules/hidden';
 
 const urls = import.meta.glob('../generated/frame/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const url = (name: string) => urls[`../generated/frame/${(manifest as Record<string, string>)[name]}`];
@@ -41,7 +43,8 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {img(pic ? 'ship' : 'hull', hull, { filter: bright })}
       {tint(pic ? 'mist_pic' : 'mist', alpha(n(values, 'MistAlpha', 255)), 'alpha', accent)}
       {!pic && img('corners', hull, { filter: bright })}
-      {!pic && <Finish accent={accent} mask={url('window_mask')} glare={alpha(n(values, 'GlassGlare', 12) * 21)} hull={hull} />}
+      {!pic && <Finish accent={accent} mask={url('window_mask')} glare={alpha(n(values, 'GlassGlare', 12) * 21)} hull={hull}
+        spill={spillBackground(accent, n(values, 'PerfTier', 0), hiddenZones(values))} />}
       <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />
     </div>
   );
@@ -90,7 +93,7 @@ function Parts({ names, vars }: { names: string[]; vars: Record<string, string> 
  * glass (window_mask, white = glass), the console's light falling on the lower hull, and a vignette that darkens the
  * hull towards the screen edges but never the windows, so the desktop behind them keeps its colours.
  */
-function Finish({ accent, mask, glare, hull }: { accent: string; mask: string; glare: number; hull: number }) {
+function Finish({ accent, mask, glare, hull, spill }: { accent: string; mask: string; glare: number; hull: number; spill: string }) {
   const glass = { maskImage: `url(${mask})`, maskSize: '100% 100%', maskMode: 'luminance', WebkitMaskImage: `url(${mask})`, WebkitMaskSize: '100% 100%' } as const;
   // the hull: everything except the glass (a full layer minus the window mask)
   const notGlass = { maskImage: `linear-gradient(#000, #000), url(${mask})`, maskSize: '100% 100%', maskMode: 'alpha, luminance', maskComposite: 'exclude',
@@ -101,6 +104,8 @@ function Finish({ accent, mask, glare, hull }: { accent: string; mask: string; g
         background: 'linear-gradient(112deg, transparent 18%, rgb(255 255 255 / .045) 27%, transparent 34%, transparent 58%, rgb(255 255 255 / .03) 64%, transparent 69%), linear-gradient(180deg, rgb(255 255 255 / .035), transparent 40%)' }} />
       <div class="frame-layer" data-layer="bounce" style={{ ...fill, ...notGlass, opacity: hull, mixBlendMode: 'screen',
         background: `radial-gradient(38% 30% at 50% 74%, color-mix(in srgb, ${accent} 16%, transparent), transparent 70%), radial-gradient(70% 22% at 50% 100%, color-mix(in srgb, ${accent} 9%, transparent), transparent 75%)` }} />
+      {/* K6: the lit screens' light on the hull around them (static; never on the glass) */}
+      {spill && <div class="frame-layer" data-layer="spill" style={{ ...fill, ...notGlass, opacity: hull, mixBlendMode: 'screen', background: spill }} />}
       <div class="frame-layer" data-layer="vignette" style={{ ...fill, ...notGlass, opacity: hull,
         background: 'radial-gradient(75% 70% at 50% 45%, transparent 55%, rgb(0 0 0 / .38) 100%)' }} />
     </>
