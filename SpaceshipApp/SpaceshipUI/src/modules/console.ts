@@ -1,4 +1,5 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
+import { litKey } from '../draw/plate';
 import type { ActionDef } from '../actions/gate';
 
 // Port of Skins/Spaceship/@Resources/Scripts/console.lua: the top console with the GPU-mode tabs and the quick settings.
@@ -91,7 +92,7 @@ export function consoleFrame(st: ConsoleState, cfg: ConsoleConfig, view: Console
     const armed = view.armed === i + 1;
     // the active mode sits on a soft lit plate with corner ticks, as the category tabs do; faint dividers between tabs
     if (on) {
-      c.fillRect(x - 30, y - 10, 60, 20, style.accent, 30);
+      litKey(c, style, x - 30, y - 10, 60, 20);
       c.hairPoly([[x - 30, y - 5], [x - 30, y - 10], [x - 25, y - 10]], style.accent, 230, 1.1);
       c.hairPoly([[x + 25, y + 10], [x + 30, y + 10], [x + 30, y + 5]], style.accent, 230, 1.1);
     }

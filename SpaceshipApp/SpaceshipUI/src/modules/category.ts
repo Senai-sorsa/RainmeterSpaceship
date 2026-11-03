@@ -1,5 +1,6 @@
-import { arcPts, Canvas, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
+import { arcPts, Canvas, heat, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat, type Catalog } from './apps';
+import { litKey } from '../draw/plate';
 
 // Port of Skins/Spaceship/@Resources/Scripts/category.lua: the tab rail (zone 1), the wireframe schematic of the
 // selected app (zone 2) and the page dots (zone 3). The scan line is drawn once and swept by CSS (scanFrame).
@@ -61,7 +62,7 @@ export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st:
     // the pick sits on a soft lit plate with corner ticks; the others are split by faint dividers
     if (on) {
       const px = x - 6, pw = widths[t] + 12, py = h / 2 - 8, ph = 16;
-      c.fillRect(px, py, pw, ph, st.accent, 34);
+      litKey(c, st, px, py, pw, ph);
       c.hairPoly([[px, py + 4], [px, py], [px + 4, py]], st.accent, 230, 1.2);
       c.hairPoly([[px + pw - 4, py + ph], [px + pw, py + ph], [px + pw, py + ph - 4]], st.accent, 230, 1.2);
     }
@@ -135,7 +136,10 @@ export function dotsFrame(count: number, index: number, zone: Zone, st: Style): 
     const x = step * (i - 0.5), dy = zone.h * 0.21;
     // segment pips: a short dash per page, the current one longer, brighter and lit
     if (i === index) {
+      // the current page is a lit cell: a hot core in a bright pip, with the wide bloom on FULL
+      c.hot([[x - 8, dy], [x + 8, dy]], st.accent, 1.6, 120);
       c.fillRect(x - 9, dy - 1.6, 18, 3.2, st.accent, 255);
+      c.fillRect(x - 6, dy - 0.6, 12, 1.2, heat(st, st.accent, 1), 255);
       c.halo(x, dy, 3, st.accent, 50);
     } else c.fillRect(x - 4, dy - 1, 8, 2, [170, 185, 195, 255], 120);
   }

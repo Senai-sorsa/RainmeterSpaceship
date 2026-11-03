@@ -45,6 +45,7 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {!pic && img('corners', hull, { filter: bright })}
       {!pic && <Finish accent={accent} mask={url('window_mask')} glare={alpha(n(values, 'GlassGlare', 12) * 21)} hull={hull}
         spill={spillBackground(accent, n(values, 'PerfTier', 0), hiddenZones(values))} />}
+      {!pic && n(values, 'PerfTier', 0) < 2 && <TrimSpill vars={vars} mask={url('window_mask')} hull={hull} />}
       <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />
     </div>
   );
@@ -96,8 +97,7 @@ function Parts({ names, vars }: { names: string[]; vars: Record<string, string> 
 function Finish({ accent, mask, glare, hull, spill }: { accent: string; mask: string; glare: number; hull: number; spill: string }) {
   const glass = { maskImage: `url(${mask})`, maskSize: '100% 100%', maskMode: 'luminance', WebkitMaskImage: `url(${mask})`, WebkitMaskSize: '100% 100%' } as const;
   // the hull: everything except the glass (a full layer minus the window mask)
-  const notGlass = { maskImage: `linear-gradient(#000, #000), url(${mask})`, maskSize: '100% 100%', maskMode: 'alpha, luminance', maskComposite: 'exclude',
-    WebkitMaskImage: `linear-gradient(#000, #000), url(${mask})`, WebkitMaskSize: '100% 100%', WebkitMaskComposite: 'xor' } as const;
+  const notGlass = notGlassMask(mask);
   return (
     <>
       <div class="frame-layer" data-layer="sheen" style={{ ...fill, ...glass, opacity: Math.min(1, 0.5 + glare),
@@ -109,6 +109,30 @@ function Finish({ accent, mask, glare, hull, spill }: { accent: string; mask: st
       <div class="frame-layer" data-layer="vignette" style={{ ...fill, ...notGlass, opacity: hull,
         background: 'radial-gradient(75% 70% at 50% 45%, transparent 55%, rgb(0 0 0 / .38) 100%)' }} />
     </>
+  );
+}
+
+/** The hull: everything except the glass (a full layer minus the window mask, white = glass). */
+function notGlassMask(mask: string) {
+  return { maskImage: `linear-gradient(#000, #000), url(${mask})`, maskSize: '100% 100%', maskMode: 'alpha, luminance', maskComposite: 'exclude',
+    WebkitMaskImage: `linear-gradient(#000, #000), url(${mask})`, WebkitMaskSize: '100% 100%', WebkitMaskComposite: 'xor' } as const;
+}
+
+/** K6 along the trim: the Decor tubes' core lines again as one wide, blurred, faint stroke group in screen blend, masked
+ *  to the hull, so the trim reads as a lit inlay throwing light on the plating around it. Static; one blur for the group. */
+function TrimSpill({ vars, mask, hull }: { vars: Record<string, string>; mask: string; hull: number }) {
+  const deps = ['ColorAccent', 'GlowAlpha', 'GlowWidth', 'CoreWhite'].map((k) => vars[k]);
+  const cores = useMemo(() => (PARTS['Decor.inc'] ?? []).flatMap(([, sec]) => partShapes(sec, vars))
+    .filter((s) => s.kind === 'path' && s.fill === 'none' && s.width >= 1.2 && s.width <= 2.2), deps);
+  if (!cores.length) return null;
+  return (
+    <div class="frame-layer" data-layer="trimspill" style={{ ...fill, ...notGlassMask(mask), opacity: hull * 0.5, mixBlendMode: 'screen' }}>
+      <svg viewBox="0 0 2560 1600" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+        <g style={{ filter: 'blur(14px)' }} opacity={0.22}>
+          {cores.map((s, i) => <path key={i} d={String(s.geo.d)} fill="none" stroke={s.stroke} stroke-width={26} stroke-linejoin="round" />)}
+        </g>
+      </svg>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import type { Pt } from '../lib/geometry';
 import type { RGBA } from '../lib/theme';
-import type { Canvas, Style } from './canvas';
+import { heat, type Canvas, type Style } from './canvas';
 
 /** A block's glass plate as a lit display (K2): light coming down from the top rule and falling off towards the base
  *  rails, the screen texture, and a brighter band just under the rule. quad runs top-left, top-right, bottom-right,
@@ -17,4 +17,13 @@ export function litPlate(c: Canvas, st: Style, quad: Pt[], top: number, bottom: 
 export function rowBand(c: Canvas, x0: number, x1: number, y: number, h: number, col: RGBA, a = 55) {
   c.gradRect(Math.min(x0, x1), y - h / 2, Math.abs(x1 - x0), h, { kind: 'linear', x1: x0, y1: 0, x2: x1, y2: 0,
     stops: [[0, [col[0], col[1], col[2], a]], [0.5, [col[0], col[1], col[2], Math.floor(a * 0.35)]], [1, [col[0], col[1], col[2], 0]]] });
+}
+
+/** A lit key (K1 + K3 + K5): the selected tab or mode as a small plate lit from its bottom edge, a white-hot line on that
+ *  edge and, on FULL, a wide soft bloom along it. */
+export function litKey(c: Canvas, st: Style, x: number, y: number, w: number, h: number, col: RGBA = st.accent) {
+  const [r, g, b] = col, hh = heat(st, col, 0.8);
+  c.gradRect(x, y, w, h, { kind: 'linear', x1: 0, y1: y + h, x2: 0, y2: y, stops: [[0, [r, g, b, 95]], [0.5, [r, g, b, 42]], [1, [r, g, b, 14]]] });
+  c.hot([[x + 2, y + h], [x + w - 2, y + h]], col, 2, 120);
+  c.hair(x + 1, y + h - 0.5, x + w - 1, y + h - 0.5, hh, 1.2, 230);
 }
