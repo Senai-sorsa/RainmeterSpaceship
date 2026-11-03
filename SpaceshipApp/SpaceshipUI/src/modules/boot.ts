@@ -1,4 +1,4 @@
-import { Canvas, type Op, type Style } from '../draw/canvas';
+import { arcPts, Canvas, heat, type Op, type Style } from '../draw/canvas';
 import { skinMs } from '../host/scheduler';
 import type { RGBA } from '../lib/theme';
 import { popupFrame } from '../draw/popup';
@@ -99,7 +99,18 @@ export function bootFrame(f: number, rows: CheckRow[], tl: Timeline, canvas: { w
   c.circle(CX, CY, R, A1, 0.8, 50 * dimK);
   if (p > 0) {
     const a0 = -90, a1 = -90 + 360 * p;
-    c.arc(CX, CY, R, a0, a1, A1, 2.2, 240 * dimK);
+    // an emitter glow fills the ring as it draws (K11), and the arc is a filled band (K10) from a dim tail to a
+    // white-hot head, the head's last stretch in the wide bloom (K5)
+    const [ar, ag, ab] = A1, hh = heat(st, A1, 1), k = dimK;
+    c.gradPoly(arcPts(CX, CY, R - 4, R - 4, 0, 360, 48), { kind: 'radial', cx: CX, cy: CY, r: R - 4,
+      stops: [[0, [ar, ag, ab, Math.floor(26 * p * k)]], [0.7, [ar, ag, ab, Math.floor(10 * p * k)]], [1, [ar, ag, ab, 0]]] });
+    c.arc(CX, CY, R, a0, a1, A1, 2.2, 150 * k);
+    if (a1 - a0 > 2) {
+      const ta = Math.max(a0, a1 - 120), [t0] = arcPts(CX, CY, R, R, ta, ta, 1), [t1] = arcPts(CX, CY, R, R, a1, a1, 1);
+      c.gradPoly([...arcPts(CX, CY, R + 1.8, R + 1.8, ta, a1, 16), ...arcPts(CX, CY, R - 1.8, R - 1.8, a1, ta, 16)], { kind: 'linear', x1: t0[0], y1: t0[1], x2: t1[0], y2: t1[1],
+        stops: [[0, [ar, ag, ab, Math.floor(60 * k)]], [1, [hh[0], hh[1], hh[2], Math.floor(255 * k)]]] });
+      if (!checking) c.hot(arcPts(CX, CY, R, R, Math.max(a0, a1 - 40), a1, 8), A1, 3, 140);
+    }
     if (p < 1) { const ah = (a1 * Math.PI) / 180; c.dot(CX + R * Math.cos(ah), CY + R * Math.sin(ah), 4, W, 255 * dimK); }
   }
   // dashed counter-ring, turning the other way
@@ -122,9 +133,11 @@ export function bootFrame(f: number, rows: CheckRow[], tl: Timeline, canvas: { w
     const pct = Math.min(100, Math.max(0, Math.round(((f - 26) / Math.max(1, tl.c0 - 6 - 26)) * 100)));
     const done = pct >= 100;
     say(CX - 120, CY + 34, done ? 'ONLINE' : 'INITIALIZING', 'LeftCenter', done ? st.good : st.text, 11, 255 * fp * dimK);
-    say(CX + 120, CY + 34, `${pct}%`, 'RightCenter', W, 11, 255 * fp * dimK, st.fontNum);
+    say(CX + 120, CY + 34, `${pct}%`, 'RightCenter', heat(st, A1, 1), 11, 255 * fp * dimK, st.fontNum);
     c.fillRect(CX - 120, CY + 52, 240, 3, A1, 50 * fp * dimK);
-    c.fillRect(CX - 120, CY + 52, 240 * pct / 100, 3, done ? st.good : A1, 240 * fp * dimK);
+    const bc = done ? st.good : A1, bw = 240 * pct / 100;
+    if (bw > 0.5) c.gradRect(CX - 120, CY + 51, bw, 5, { kind: 'linear', x1: CX - 120, y1: 0, x2: CX - 120 + bw, y2: 0,
+      stops: [[0, [bc[0], bc[1], bc[2], Math.floor(70 * fp * dimK)]], [1, [bc[0], bc[1], bc[2], Math.floor(250 * fp * dimK)]]] });
   }
 
   // the system check panel
