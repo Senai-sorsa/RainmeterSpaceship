@@ -187,6 +187,23 @@ if C# changed. Visual check with `tools/visual-check` (crops + contact sheets). 
 | **R11 Imperfection** | K7 fringe + K9 shimmer, FULL only, subtle. | Text legibility unchanged at 100 % and 150 % scale; reduced motion turns K9 off. |
 | **R12 Tier + perf pass + live check** | Verify LITE/LOW/STEALTH; final measurements; with the user's OK a live WebView2 check over the real wallpaper. | §7 budget met; user signs off. |
 
+### Status (2026-11-02, second session)
+R1-R11 built and committed on `feature/visual-overhaul` (one commit per slice; not pushed). R12: tier pass done (below);
+the live WebView2 GPU/VRAM run and the user's live sign-off are still open (user: "dont run it yet").
+Left out on purpose: K8 depth haze (extra blur groups; measure live GPU first), the K11 hologram breathe (a new idle
+animation), an outer glow on the Control Center (needs a wrapper element), log row bands (wrapped text gets noisy).
+Tier pass (DOM counts on the full preview with `?audio=demo`, PerfOverride 0-3):
+
+| Tier | gradient fills | texture fills | bloom groups | shimmer | spill / trimspill | text elements |
+|---|---|---|---|---|---|---|
+| FULL | 65 | 29 | 45 | 4 | yes / yes | 252 |
+| LITE | 65 | 29 | 0 | 0 | yes / yes | 244 |
+| LOW | 52 | 0 | 0 | 0 | no / no | 137 |
+| STEALTH | 50 | 0 | 0 | 0 | no / no | 134 |
+
+LOW and STEALTH keep the static gradient fills (K1/K10 are "all tiers" in section 4; same paint cost as the solid fills
+they replaced). If those tiers must look exactly as before, gate `gradRect`/`gradPoly` to a solid fill on tier >= 2.
+
 ## 7. Validation and performance budget
 - Visual: crops per feature before/after, plus one `sheet.cjs` contact sheet per slice (cheap on tokens).
 - Comparison: put our crop next to the matching reference image (`pair.cjs`) — MAIN-REFRENCE for the cockpit,
