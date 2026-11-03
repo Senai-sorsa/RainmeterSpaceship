@@ -109,3 +109,24 @@ describe('backlit display (K2) by tier', () => {
     expect(body.shape.kind === 'poly' && body.shape.pts.length).toBe(6);
   });
 });
+
+describe('R2 adoption: telemetry cells and rails', async () => {
+  const { graphFrame, graphState } = await import('../src/modules/graph');
+  const { powerFrame } = await import('../src/modules/power');
+  it('a telemetry cell sits on a lit display and its history area is a gradient that fades to the floor', () => {
+    const g = graphState('cpu');
+    let ops: Op[] = [];
+    for (const v of [10, 40, 60]) ops = graphFrame(g, { mCPU: v } as never, { x: 0, y: 0, w: 120, h: 40 }, style({ tier: 0 }), 'fixed').ops;
+    expect(ops.some((o) => o.pattern === HUD_SCAN)).toBe(true);
+    const area = ops.filter((o) => o.grad && o.shape.kind === 'poly' && o.grad.kind === 'linear' && o.grad.y2 > o.grad.y1);
+    const fades = area.find((o) => o.grad!.stops[0][1][3] > o.grad!.stops[o.grad!.stops.length - 1][1][3] && o.grad!.stops[0][1][0] === ACCENT[0]);
+    expect(fades).toBeDefined();
+  });
+  it('the rail fill is a gradient bar that ends at the value, brightest at its leading end', () => {
+    const ops = powerFrame({ cpu: 40, gpu: 60 }, { x: 0, y: 0, w: 100, h: 20 }, style({ tier: 0 })).ops;
+    const bar = ops.find((o) => o.grad && o.shape.kind === 'rect' && o.grad.kind === 'linear' && o.grad.x2 > o.grad.x1)!;
+    expect(bar.shape.kind === 'rect' && bar.shape.x + bar.shape.w).toBeCloseTo(22 + 52 * 0.625);
+    const st = bar.grad!.stops;
+    expect(st[st.length - 1][1][3]).toBeGreaterThan(st[0][1][3]);
+  });
+});

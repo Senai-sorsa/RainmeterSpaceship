@@ -1,5 +1,5 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
-import { railTrack } from '../draw/gauge';
+import { railFill, railTrack } from '../draw/gauge';
 import { duration, type Readings, val } from './readings';
 
 // Port of Skins/Spaceship/@Resources/Scripts/battery.lua: the PWR bar in the top right, with the time to the charge
@@ -53,7 +53,9 @@ export function batteryFrame(r: Readings, zone: Zone, st: Style, state: BatteryS
   c.text(0, y, 'PWR', { size: 8.5, weight: 700, align: 'LeftCenter', color: st.white });
   railTrack(c, st, x0, x1, y);
   const low = !ac && pct <= warn;
-  c.line(x0, y, x0 + ((x1 - x0) * pct) / 100, y, low ? st.alert : ac ? st.good : st.hi, 2.6);
+  const bar = low ? st.alert : ac ? st.good : st.hi, xp = x0 + ((x1 - x0) * pct) / 100;
+  railFill(c, st, x0, xp, y, bar);
+  c.line(x0, y, xp, y, bar, 2.6);
   const lx = x0 + ((x1 - x0) * limit) / 100;
   c.line(lx, y - 6, lx, y + 3, st.white, 1.2, 200);
   c.text(x0, 0, `${Math.trunc(pct)}%  ${status}`, { size: 4.8, weight: 700, align: 'LeftTop', color: st.white, alpha: 210, clip: (x1 - x0) * 0.7 });

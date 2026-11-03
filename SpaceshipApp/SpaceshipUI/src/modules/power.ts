@@ -1,5 +1,5 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
-import { railTrack } from '../draw/gauge';
+import { railFill, railTrack } from '../draw/gauge';
 
 // Port of Skins/Spaceship/@Resources/Scripts/power.lua: the power draw in the top-left bar. Sensor values come in as plain
 // numbers (undefined when there is no reading). The frame is returned, not drawn, and the click (TopModule.tsx) opens the Control Center in place of a Rainmeter config.
@@ -26,7 +26,7 @@ export function powerFrame(inp: PowerInput, zone: Zone, st: Style): PowerFrame {
   // letter, thin rail, hot segment, end tick, readout
   c.text(0, y, 'P', { size: 8.5, weight: 700, align: 'LeftCenter', color: st.white });
   railTrack(c, st, x0, x1, y);
-  if (v > 0) c.line(x0, y, xv, y, st.hi, 2.6);
+  if (v > 0) { railFill(c, st, x0, xv, y, st.hi); c.line(x0, y, xv, y, st.hi, 2.6); }
   c.line(xv, y - 6, xv, y + 2, st.white, 1.3);
   c.text(zone.w, y, w !== undefined ? `${w.toFixed(0)}W` : '--W', { size: 8.5, weight: 700, align: 'RightCenter', color: w !== undefined ? st.white : st.dim });
   const tip = w !== undefined ? `CPU ${fmt(inp.cpu)} W, GPU ${fmt(inp.gpu)} W` : HWINFO_HINT;
