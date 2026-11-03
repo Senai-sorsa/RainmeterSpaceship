@@ -14,7 +14,7 @@ test.beforeEach(({ page }) => page.addInitScript(done));
 test('rendered has hull and corners; picture has the ship image and no corners; none has no frame layers', async ({ page }) => {
   await page.goto('/?host=mock');
   // polled: on a cold dev server the first render can land after a one-shot read
-  await expect.poll(() => layers(page)).toEqual(['glass_fx', 'scan', 'shade', 'hull', 'mist', 'corners', 'sheen', 'bounce', 'spill', 'vignette', 'trimspill', 'grain']); // rendered gets the lighting finish (spill: K6, FULL and LITE; grain: H2c)
+  await expect.poll(() => layers(page)).toEqual(['glass_fx', 'scan', 'shade', 'hull', 'mist', 'corners', 'sheen', 'bounce', 'spill', 'orblight', 'vignette', 'trimspill', 'grain']); // rendered gets the lighting finish (spill: K6, FULL and LITE; orblight: FULL; grain: H2c)
   await page.screenshot({ path: 'artifacts/frame-rendered.png' });
   await choose(page, 'picture');
   expect(await layers(page)).toEqual(['glass_pic', 'glass_fx_pic', 'scan_pic', 'shade', 'ship', 'mist_pic']);
@@ -35,4 +35,28 @@ test('the chosen frame survives a reload and every layer image loads', async ({ 
     expect(m, u).not.toBeNull();
     expect((await page.request.get(m![1])).status()).toBe(200);
   }
+});
+
+// UI-handoff 12 #9: the orb's light on the hull follows JARVIS's state (listening or speaking), by opacity only; FULL only
+const orb = (page: Page) => page.locator('.frame [data-layer=orblight]');
+const cfg = (c: Record<string, string>) => (j: string) => localStorage.setItem('mockhost.v1', JSON.stringify({ config: JSON.parse(j), setupDone: true, aboutMe: '' }));
+test('the orb lights the hull while JARVIS speaks, not while idle', async ({ page }) => {
+  await page.goto('/?preview=1&module=all&jarvis=speaking');
+  await expect(orb(page)).toHaveAttribute('data-on', '1');
+  await expect.poll(() => orb(page).evaluate((e) => Number(getComputedStyle(e).opacity))).toBeGreaterThan(0.5);
+  await page.goto('/?preview=1&module=all&jarvis=idle');
+  await expect(orb(page)).toHaveAttribute('data-on', '0');
+  await expect.poll(() => orb(page).evaluate((e) => Number(getComputedStyle(e).opacity))).toBe(0);
+});
+test('no orb light on LITE or with StateLight=0', async ({ page }) => {
+  await page.addInitScript(cfg({}), JSON.stringify({ PerfOverride: '1' }));
+  await page.goto('/?preview=1&module=all&jarvis=speaking');
+  await expect(page.locator('.frame [data-layer=spill]')).toHaveCount(1);
+  await expect(orb(page)).toHaveCount(0);
+});
+test('StateLight=0 drops the orb light', async ({ page }) => {
+  await page.addInitScript(cfg({}), JSON.stringify({ StateLight: '0' }));
+  await page.goto('/?preview=1&module=all&jarvis=speaking');
+  await expect(page.locator('.frame [data-layer=spill]')).toHaveCount(1);
+  await expect(orb(page)).toHaveCount(0);
 });

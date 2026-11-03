@@ -69,6 +69,8 @@ LensFx=1
 DepthHaze=1
 ; screen bezels: a dark recess and a faint lip round each display (FULL and LITE)
 ScreenBezel=1
+; orb light: the orb lights the hull a little more while JARVIS listens or speaks (FULL only)
+StateLight=1
 ; text glow: blur radius (px, 0 = off) and strength
 TextGlow=4
 TextGlowAlpha=150

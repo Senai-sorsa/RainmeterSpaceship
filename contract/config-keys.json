@@ -2770,6 +2770,14 @@
       "default": "ship.png"
     },
     {
+      "key": "StateLight",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
       "key": "TextGlow",
       "file": "Settings.inc",
       "control": {

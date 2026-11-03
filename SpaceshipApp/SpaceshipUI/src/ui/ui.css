@@ -105,6 +105,7 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .row-help { animation: hud-fade .12s ease-out; }
 /* a HUD pop-up powers on like a screen (realism kit K9): a short on-off-on flicker, once when it opens, opacity only */
 .power-on { animation: power-on .18s steps(1, end); }
+.frame-layer[data-layer="orblight"] { transition: opacity .25s ease-out; } /* the orb's light follows JARVIS's state */
 /* K9: a readout whose value changed flickers on once (FULL tier only; the ops carry the class) */
 .shimmer { animation: shimmer .12s steps(1, end); }
 @keyframes shimmer { 0% { opacity: .3; } 33% { opacity: 1; } 66% { opacity: .45; } }
@@ -116,10 +117,12 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 @keyframes hud-sweep { from { opacity: 1; transform: translateY(-100%); } to { opacity: 0; transform: translateY(250%); } }
 @media (prefers-reduced-motion: reduce) {
   .scan, .cc, .cc::after, .wiz, .help, .row-help, .power-on, .shimmer { animation: none; }
+  .frame-layer[data-layer="orblight"] { transition: none; }
   * { transition: none !important; }
 }
 /* the Reduce motion setting: the same, without waiting for the OS flag */
 :root[data-reduce-motion="1"] .scan, :root[data-reduce-motion="1"] .cc, :root[data-reduce-motion="1"] .cc::after, :root[data-reduce-motion="1"] .wiz, :root[data-reduce-motion="1"] .help, :root[data-reduce-motion="1"] .row-help, :root[data-reduce-motion="1"] .power-on, :root[data-reduce-motion="1"] .shimmer { animation: none; }
+:root[data-reduce-motion="1"] .frame-layer[data-layer="orblight"] { transition: none; }
 :root[data-reduce-motion="1"] * { transition: none !important; }
 /* the skin's typed-input boxes (Control.ini mInput / mAsk) use Rajdhani */
 .ctl-text { font: 600 15px/1 Rajdhani, sans-serif; }

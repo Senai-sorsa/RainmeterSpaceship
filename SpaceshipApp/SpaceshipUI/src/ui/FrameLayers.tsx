@@ -3,7 +3,8 @@ import parts from '../generated/frameparts.json';
 import { useMemo } from 'preact/hooks';
 import type { FrameStyle } from '../settings/frameStyle';
 import { partShapes } from './frameParts';
-import { spillBackground } from './spill';
+import { orbLightBackground, spillBackground } from './spill';
+import { jarvisFeed } from '../host/jarvisFeed';
 import { hiddenZones } from '../modules/hidden';
 import grainUrl from '../assets/lens/bluenoise.png?url';
 
@@ -45,7 +46,8 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {tint(pic ? 'mist_pic' : 'mist', alpha(n(values, 'MistAlpha', 255)), 'alpha', accent)}
       {!pic && img('corners', hull, { filter: bright })}
       {!pic && <Finish accent={accent} mask={url('window_mask')} glare={alpha(n(values, 'GlassGlare', 12) * 21)} hull={hull}
-        spill={spillBackground(accent, n(values, 'PerfTier', 0), hiddenZones(values))} />}
+        spill={spillBackground(accent, n(values, 'PerfTier', 0), hiddenZones(values))}
+        orb={n(values, 'PerfTier', 0) === 0 && values.StateLight !== '0' && !hiddenZones(values).split(',').includes('C_sphere')} />}
       {!pic && n(values, 'PerfTier', 0) < 2 && <TrimSpill vars={vars} mask={url('window_mask')} hull={hull} />}
       {!pic && n(values, 'PerfTier', 0) < 2 && <Grain mask={url('window_mask')} hull={hull} />}
       <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />
@@ -96,7 +98,7 @@ function Parts({ names, vars }: { names: string[]; vars: Record<string, string> 
  * glass (window_mask, white = glass), the console's light falling on the lower hull, and a vignette that darkens the
  * hull towards the screen edges but never the windows, so the desktop behind them keeps its colours.
  */
-function Finish({ accent, mask, glare, hull, spill }: { accent: string; mask: string; glare: number; hull: number; spill: string }) {
+function Finish({ accent, mask, glare, hull, spill, orb = false }: { accent: string; mask: string; glare: number; hull: number; spill: string; orb?: boolean }) {
   const glass = { maskImage: `url(${mask})`, maskSize: '100% 100%', maskMode: 'luminance', WebkitMaskImage: `url(${mask})`, WebkitMaskSize: '100% 100%' } as const;
   // the hull: everything except the glass (a full layer minus the window mask)
   const notGlass = notGlassMask(mask);
@@ -108,10 +110,21 @@ function Finish({ accent, mask, glare, hull, spill }: { accent: string; mask: st
         background: `radial-gradient(38% 30% at 50% 74%, color-mix(in srgb, ${accent} 16%, transparent), transparent 70%), radial-gradient(70% 22% at 50% 100%, color-mix(in srgb, ${accent} 9%, transparent), transparent 75%)` }} />
       {/* K6: the lit screens' light on the hull around them (static; never on the glass) */}
       {spill && <div class="frame-layer" data-layer="spill" style={{ ...fill, ...notGlass, opacity: hull, mixBlendMode: 'screen', background: spill }} />}
+      {orb && <OrbLight accent={accent} notGlass={notGlass} hull={hull} />}
       <div class="frame-layer" data-layer="vignette" style={{ ...fill, ...notGlass, opacity: hull,
         background: 'radial-gradient(75% 70% at 50% 45%, transparent 55%, rgb(0 0 0 / .38) 100%)' }} />
     </>
   );
+}
+
+/** UI-handoff 12 #9: light that follows state. The orb throws more light on the hull while JARVIS listens or speaks: one
+ *  static pool whose opacity changes with the state (a few times a minute, a short CSS fade; never the level, never a
+ *  blur). FULL only; setting StateLight. */
+function OrbLight({ accent, notGlass, hull }: { accent: string; notGlass: ReturnType<typeof notGlassMask>; hull: number }) {
+  const st = jarvisFeed.value.state;
+  const on = st === 'speaking' || st === 'listening';
+  return <div class="frame-layer" data-layer="orblight" data-on={on ? '1' : '0'}
+    style={{ ...fill, ...notGlass, opacity: on ? hull : 0, mixBlendMode: 'screen', background: orbLightBackground(accent) }} />;
 }
 
 /** The hull: everything except the glass (a full layer minus the window mask, white = glass). */
