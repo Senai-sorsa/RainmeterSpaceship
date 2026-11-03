@@ -8,7 +8,8 @@ from .actions import BT_GENERIC, MEDIA_KEYS, bt_devices, bt_link, bt_names, pick
 from .audio import mic_volume, speakers_mute
 from .base import set_setting
 from .mic import pick_mic
-from .mood import FIXED_LINES, act_mood, command as mood_command, timed as mood_timed, timed_line
+from .mood import act_mood, command as mood_command, timed as mood_timed, timed_line
+from .reply.fixed import CANT, CANT_LINE, CLAIM_LINE, NEAR_MISS   # noqa: F401  (re-exported: routing.CLAIM_LINE etc.)
 from .base import NAME, log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
@@ -188,7 +189,6 @@ ACTION_TABLE = {
 }
 ACTIONS = {name: a.run for name, a in ACTION_TABLE.items()}    # the callers' and tests' name for the handlers
 
-NEAR_MISS = "Could you say that again?"
 # things on other devices: he only controls this PC. Said plainly; for an alarm / timer / reminder he offers the PC.
 OTHER_DEVICE = re.compile(r"\b(?:(?:on|in|to|for|from|into|through|via) (?:my |the |your )?|(?:my|the) )"
                           r"(?P<dev>phone|iphone|android|ipad|tablet|smart ?watch|watch|tv|television|smart tv|car|truck|"
@@ -196,7 +196,6 @@ OTHER_DEVICE = re.compile(r"\b(?:(?:on|in|to|for|from|into|through|via) (?:my |t
 OTHER_DEVICE_VERB = re.compile(r"(?:set|turn|put|play|start|stop|pause|open|lock|unlock|call|text|ring|change|switch|make|"
                                r"dim|raise|lower|find|locate|send|schedule|add)\b")
 
-CLAIM_LINE = "I didn't catch that as a command, so nothing changed. Say it again, like: set an alarm for 7 AM."
 # a chat answer that says something was done: nothing runs on the chat path, so it cannot be true
 # S2-8: any "I did it" / "it is now on" about a setting, the PC or an app; "I'll dim it" promises the same lie
 CLAIM = re.compile(r"\b(?:alarm|timer|reminder|volume)s? (?:is |has been |was )?(?:set|added|changed|now|snoozed)\b|"
@@ -211,7 +210,6 @@ CLAIM = re.compile(r"\b(?:alarm|timer|reminder|volume)s? (?:is |has been |was )?
                    r"disabled|dimmed|brighter|darker|connected|disconnected|set to|lowered|raised|increased|decreased|"
                    r"reduced|changed|adjusted|turned (?:on|off|up|down)|locked|restarting|shutting down|going to sleep)\b)|"
                    r"^(?:done|all set)\b", re.I)
-CANT = "I can't do that yet."
 # S2-8 capability table, the part not built yet: a request for one is said by code before the model (it would answer
 # "done"). What IS built: ACTIONS, the reminder / volume / media lanes. Phase 7-0 folds both into one action table.
 UNBUILT_CAPS = {
@@ -324,8 +322,7 @@ CANT_PROMISE = re.compile(r"\bI(?:['’]ll| will| am going to|'m going to) (?:no
                           # "I can inform your professor" / "I can forward a message" (2026-11-03): he has no way to
                           r"\bI can (?:forward|send|inform|notify|email|e-mail|text|message|call|phone|order|book|buy|pay|"
                           r"post|record)\b", re.I)
-CANT_LINE = "I can't do that from here, sir."
-FIXED_LINES.update({CLAIM_LINE, CANT_LINE})                  # polish passes them through unchanged
+# CANT_LINE, CLAIM_LINE: reply/fixed.py (pass-through lines: polish leaves them unchanged)
 
 
 def no_claims(sentences, collected):

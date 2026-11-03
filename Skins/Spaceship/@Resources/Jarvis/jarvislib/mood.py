@@ -6,6 +6,7 @@ import re
 import time
 from . import quiet
 from .base import log, setting
+from .reply.fixed import CRISIS_LINE, FIXED_LINES, NO_READING   # noqa: F401  (re-exported: mood.CRISIS_LINE etc.)
 
 # C1/C7: a plain word list. Tech phrases that only look serious are removed from the text first.
 SERIOUS = re.compile(
@@ -219,8 +220,6 @@ def promise(reply):
 CRISIS = re.compile(r"\b(?:kill(?:ing)? myself|suicid\w*|end (?:it all|my life)|take my (?:own )?life|want to die|"
                     r"wanna die|better off dead|hurt(?:ing)? myself|self[- ]?harm|cut(?:ting)? myself|"
                     r"don'?t want to (?:live|be alive|wake up))\b", re.I)
-CRISIS_LINE = ("Mr. Sorsa, I'm really sorry you're feeling this way. Please call or text 988 right now, the Suicide and "
-               "Crisis Lifeline, or reach out to someone you trust. You don't have to go through this alone.")
 FILLER = re.compile(r"(?:is there anything else|how (?:can|may) I (?:help|assist)|what can I (?:do|help) (?:for|with)|"
                     r"let me know if|feel free to|don'?t hesitate|I'?m (?:here|happy|glad) to (?:help|assist)|"
                     r"I'?d be (?:happy|glad) to help)", re.I)
@@ -251,7 +250,7 @@ OFFER_SENT = re.compile(r"(?:would you like me to|do you want me to|shall i|shou
 DANGLING = re.compile(r"^(?:however|but|that said|still|although),?\s+", re.I)
 
 
-FIXED_LINES = set()                    # replacement lines written by code (routing adds its own): polish leaves them alone
+# FIXED_LINES (imported above, derived in reply/fixed.py): replacement lines written by code; polish leaves them alone
 
 
 def polish(sentences, collected, cap=None, serious=True):
@@ -338,8 +337,7 @@ SYSTEMISH = re.compile(r"\b(?:cpu|gpu|processor|graphics|memory|ram|vram|battery
                        r"ping|latency|download|upload|volume|brightness)\b", re.I)
 STATUSY = re.compile(r"\b(?:your|my|i'?m|i am|currently|right now|at the moment|is at|are at|running at|operating at|"
                      r"sitting at|reads?)\b", re.I)
-NO_READING = "I don't have that reading right now, sir."
-FIXED_LINES.add(NO_READING)
+# NO_READING: reply/fixed.py (a pass-through line)
 
 
 def ungrounded(sentence, known):

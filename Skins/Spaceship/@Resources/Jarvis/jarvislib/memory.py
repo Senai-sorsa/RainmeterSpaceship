@@ -11,12 +11,12 @@ from .llm import chat_json, pick_model
 from .meaning import MEANING_TALK, STAMP, meaning
 from .notes import STOP
 from .reminders import when
+from .reply.fixed import MEMORY_BAD, NO_TALK, TOPICS_BAD   # noqa: F401  (re-exported: memory.MEMORY_BAD etc.)
 
 
 # "remember that my dentist is on Fridays": one fact a line in Data\jarvis_memory.txt, added to every prompt.
 # Plain text on this PC and sent only to the local model, but he reads it out when asked: no passwords in it.
 MEMORY_FILE = os.path.join(DATA, "jarvis_memory.txt")
-MEMORY_BAD = "I can't read my memory file, so I left it alone."
 
 
 def load_memory():
@@ -186,8 +186,7 @@ def recall(text):
 EARLIER = "\nFROM EARLIER TALKS (only if it helps; don't bring it up otherwise):\n"
 
 
-TOPICS_BAD = "I can't read my topic memory, so I left it alone."
-NO_TALK = "I don't remember us talking about that."
+# TOPICS_BAD, NO_TALK: reply/fixed.py
 
 
 def topics_about(x):

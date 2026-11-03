@@ -267,7 +267,7 @@ def lane_of(kind, blocks):
 LIVE_FACT = re.compile(r"(?:weather (?:like|today|tonight|tomorrow|now|outside|forecast|in)|(?:the )?(?:weather )?forecast|"
                        r"is it (?:raining|snowing|cold|hot|sunny) |(?:any|latest|today'?s|breaking|the) news|headlines|"
                        r"(?:stock|share|bitcoin|crypto) price|exchange rate|who won (?:the )?(?:game|match|election))", re.I)
-LIVE_FACT_LINE = "I can't look that up yet."
+from .reply.fixed import LIVE_FACT_LINE  # noqa: E402,F401  (re-exported: prompt.LIVE_FACT_LINE)
 
 
 # B2 (2026-11-03): things he has no way to do (payments, bookings, messages to other people, printing, accounts, other devices,

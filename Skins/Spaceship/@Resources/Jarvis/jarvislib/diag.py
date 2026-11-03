@@ -12,6 +12,7 @@ from .base import LAST_ERR, MEMORYSTATUSEX, NO_WINDOW, SYSTEM_POWER_STATUS, WAKE
 from .calc import clock, unit
 from .gpu import gpu
 from .reminders import load_reminders, span
+from .reply.fixed import COULDNT   # noqa: F401  (re-exported: diag.COULDNT)
 
 
 # the HWiNFO sensors the HUD shows: Settings.inc key (the sensor's number, -1 = not mapped), spoken name, unit
@@ -278,7 +279,7 @@ def summary(snap):
 NEEDS = {"cpu": ("processes",), "memory": ("processes",), "gpu": ("processes",), "disk": ("processes",), "storage": (),
          "fan": ("processes",), "crash": ("logs",), "net": ("network",), "sound": (),
          "wrong": ("processes", "logs", "network", "system"), "lasterr": ()}
-COULDNT = "I couldn't read that."
+# COULDNT: reply/fixed.py
 
 
 def drives():

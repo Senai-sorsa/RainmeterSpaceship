@@ -62,6 +62,16 @@ Open, not fixed: offers ("Would you like me to..."); room talk with "you"/"?" in
 (user's S2-10 rule); 8B sometimes ignores HUD data (said "no unread emails" with 4 unread).
 
 ## 6. Log (newest first)
+- 2026-11-03 i (REFACTOR phase 1, settings table, commit fe3b017). User: do all phases, check and commit myself, no per-phase check-ins.
+  Work happens in a git worktree `C:\Users\Senai\RainmeterSpaceship-refactor` (branch refactor/jarvis-pipeline); the live checkout
+  stays on branch `jarvis-live` (= phase 0 commit), so the running HUD never sees a half-done phase. Nothing is merged into main.
+  Gate script: session scratchpad `gate.sh` (mirror of the worktree code + live Settings/Data copies, TZ=ABC+12).
+  Added `jarvislib/config.py` (DEFAULTS: 65 keys, RAW_READS for the two deliberate "" reads) and `tests/test_settings_schema.py`
+  (static: every setting()/on()/_num()/PAUSES/settings().get read uses a table key with the table default; no unused key) +
+  `tests/run_all.py`. Call sites NOT rewritten on purpose: test_jarvis.py fakes `setting` per module (`_mic.setting`, `_on.setting`),
+  a `conf()` indirection would bypass those fakes; the move waits for injected fakes (phase 8). Mutation check: wrong default,
+  missing key and unused key each fail the test. Gate: venv + py -3 test_jarvis OK, host_pipe failed: 0, tests: OK, golden routes 0/834,
+  replies 0/2512 diffs. Semi-live not re-run: no runtime module imports config.py (no behaviour can change).
 - 2026-11-03 h (REFACTOR phase 0, branch `refactor/jarvis-pipeline`, plan `tasks/jarvis-refactor-plan-2026-11-03.md`):
   User answers to plan section 12: branch + merge phase by phase; tests/ restructure OK; log text may change if the `route:` prefix stays;
   phases in the recommended order (0,1,2,3, then 5/6, then 4, then 7-9); legacy `JarvisVoiceSmooth=0` path: decide at phase 3.
