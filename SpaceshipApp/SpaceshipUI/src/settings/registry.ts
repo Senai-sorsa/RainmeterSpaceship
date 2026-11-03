@@ -85,7 +85,7 @@ add('display', 'Wallpaper', 'normal', [
   ['WallpaperFile', 'Wallpaper file', 'Full path of a video (.mp4, .webm) or picture on this PC.', tx('^"?[^\\r\\n"%;#=]{0,240}"?$', 242), '', O],
   ['WallpaperFit', 'Fit', 'Fill crops the edges, Fit shows the whole picture, Stretch distorts it.', sel('cover|Fill', 'contain|Fit', 'fill|Stretch'), 'cover', O],
   // the host re-encodes a video once (Windows' hardware encoder) into a smaller cached copy; pictures are always shown as they are
-  ['WallpaperQuality', 'Quality', 'A smaller copy of the video plays lighter on the GPU. Made once, the first time; Original plays the file as it is.', sel('max|Original', 'screen|Match this screen', '1440|1440p', '1080|1080p', '720|720p'), 'max', O],
+  ['WallpaperQuality', 'Quality', 'A smaller copy, made once, plays lighter on the GPU; Original plays the file as it is.', sel('max|Original', 'screen|Match this screen', '1440|1440p', '1080|1080p', '720|720p'), 'max', O],
   ['WallpaperDim', 'Dim', 'Darkens the wallpaper so the HUD stands out, in percent.', sl(0, 90, 5), '0', O],
 ]);
 add('display', 'Wallpaper', 'advanced', [
