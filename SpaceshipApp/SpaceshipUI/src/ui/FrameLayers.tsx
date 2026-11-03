@@ -5,6 +5,7 @@ import type { FrameStyle } from '../settings/frameStyle';
 import { partShapes } from './frameParts';
 import { spillBackground } from './spill';
 import { hiddenZones } from '../modules/hidden';
+import grainUrl from '../assets/lens/bluenoise.png?url';
 
 const urls = import.meta.glob('../generated/frame/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const url = (name: string) => urls[`../generated/frame/${(manifest as Record<string, string>)[name]}`];
@@ -46,6 +47,7 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {!pic && <Finish accent={accent} mask={url('window_mask')} glare={alpha(n(values, 'GlassGlare', 12) * 21)} hull={hull}
         spill={spillBackground(accent, n(values, 'PerfTier', 0), hiddenZones(values))} />}
       {!pic && n(values, 'PerfTier', 0) < 2 && <TrimSpill vars={vars} mask={url('window_mask')} hull={hull} />}
+      {!pic && n(values, 'PerfTier', 0) < 2 && <Grain mask={url('window_mask')} hull={hull} />}
       <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />
     </div>
   );
@@ -144,4 +146,12 @@ function glints(s: ReturnType<typeof partShapes>[number]): [number, number][] {
   if (d.endsWith('Z')) return [];
   const pts = [...d.matchAll(/[ML]([-\d.]+) ([-\d.]+)/g)].map((m): [number, number] => [Number(m[1]), Number(m[2])]);
   return pts.length >= 2 ? [pts[0], pts[pts.length - 1]] : [];
+}
+
+/** H2c: blue-noise grain on the hull (FULL and LITE). Soft-light at a few percent breaks the 8-bit steps in the dark
+ *  gradients (spill pools, hull falloff) and gives the metal a film texture; never on the window glass. */
+export const GRAIN = 0.07;
+function Grain({ mask, hull }: { mask: string; hull: number }) {
+  return <div class="frame-layer" data-layer="grain" style={{ ...fill, ...notGlassMask(mask), opacity: GRAIN * hull, mixBlendMode: 'soft-light',
+    backgroundImage: `url(${grainUrl})`, backgroundSize: '128px 128px', backgroundRepeat: 'repeat' }} />;
 }

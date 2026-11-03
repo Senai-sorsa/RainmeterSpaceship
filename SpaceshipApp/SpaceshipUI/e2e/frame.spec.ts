@@ -14,7 +14,7 @@ test.beforeEach(({ page }) => page.addInitScript(done));
 test('rendered has hull and corners; picture has the ship image and no corners; none has no frame layers', async ({ page }) => {
   await page.goto('/?host=mock');
   // polled: on a cold dev server the first render can land after a one-shot read
-  await expect.poll(() => layers(page)).toEqual(['glass_fx', 'scan', 'shade', 'hull', 'mist', 'corners', 'sheen', 'bounce', 'spill', 'vignette', 'trimspill']); // rendered gets the lighting finish (spill: K6, FULL and LITE)
+  await expect.poll(() => layers(page)).toEqual(['glass_fx', 'scan', 'shade', 'hull', 'mist', 'corners', 'sheen', 'bounce', 'spill', 'vignette', 'trimspill', 'grain']); // rendered gets the lighting finish (spill: K6, FULL and LITE; grain: H2c)
   await page.screenshot({ path: 'artifacts/frame-rendered.png' });
   await choose(page, 'picture');
   expect(await layers(page)).toEqual(['glass_pic', 'glass_fx_pic', 'scan_pic', 'shade', 'ship', 'mist_pic']);
