@@ -178,3 +178,19 @@ describe('paintOps keeps the SVG look (final review)', () => {
     expect(dashes).toEqual([[3, 5], []]);
   });
 });
+
+describe('paintOps rounded rects (deferred minor)', () => {
+  it('glows a rounded rect with rounded corners, as the SVG rx draws it', () => {
+    const { ctx, calls } = fakeCtx();
+    const r: Op = { shape: { kind: 'rect', x: 2, y: 3, w: 40, h: 10, r: 4 }, fill: COL };
+    paintOps(ctx, [{ ops: [r], ctm: ID }], 1);
+    expect(calls.find((c) => c[0] === 'roundRect')).toEqual(['roundRect', 2, 3, 40, 10, 4]);
+    expect(calls.some((c) => c[0] === 'rect')).toBe(false);
+  });
+  it('keeps square rects on rect()', () => {
+    const { ctx, calls } = fakeCtx();
+    paintOps(ctx, [{ ops: [{ shape: { kind: 'rect', x: 0, y: 0, w: 5, h: 5, r: 0 }, fill: COL }], ctm: ID }], 1);
+    expect(calls.some((c) => c[0] === 'rect')).toBe(true);
+    expect(calls.some((c) => c[0] === 'roundRect')).toBe(false);
+  });
+});

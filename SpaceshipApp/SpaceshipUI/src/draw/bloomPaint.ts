@@ -7,7 +7,7 @@ import { PT_PX, textAlign } from './ops';
 // so the tests run them on a recording fake.
 
 export type Ctx2D = Pick<CanvasRenderingContext2D, 'setTransform' | 'beginPath' | 'moveTo' | 'lineTo' | 'closePath' | 'ellipse'
-  | 'rect' | 'fill' | 'stroke' | 'fillText' | 'save' | 'restore' | 'drawImage' | 'clearRect' | 'clip' | 'setLineDash'> & {
+  | 'rect' | 'roundRect' | 'fill' | 'stroke' | 'fillText' | 'save' | 'restore' | 'drawImage' | 'clearRect' | 'clip' | 'setLineDash'> & {
   fillStyle: unknown; strokeStyle: unknown; lineWidth: number; font: string; textAlign: CanvasTextAlign;
   textBaseline: CanvasTextBaseline; globalAlpha: number; globalCompositeOperation: GlobalCompositeOperation; filter: string;
   lineCap: CanvasLineCap; lineJoin: CanvasLineJoin;
@@ -61,6 +61,7 @@ function paintOp(ctx: Ctx2D, op: Op) {
     sh.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     if (sh.closed) ctx.closePath();
   } else if (sh.kind === 'ellipse') ctx.ellipse(sh.cx, sh.cy, Math.abs(sh.rx), Math.abs(sh.ry), 0, 0, Math.PI * 2);
+  else if (sh.r > 0) ctx.roundRect(sh.x, sh.y, sh.w, sh.h, sh.r); // the SVG rx: the glow keeps the rounded corners
   else ctx.rect(sh.x, sh.y, sh.w, sh.h);
   if (fill) { ctx.fillStyle = css(fill); ctx.fill(); }
   if (op.stroke) {
