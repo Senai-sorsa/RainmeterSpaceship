@@ -503,3 +503,15 @@ Commits (revert each with `git revert <sha>`): `dfeedcf` Task 8 (scene + passes)
 - **Default not flipped.** To approve: set `HullRender=1` in Settings.inc and registry.ts, `npm run gen`, `UPDATE_CONTRACT=1 npx vitest run tests/contract.test.ts`.
 - **Rollback:** `HullRender=0` (default) or `git revert 009faba ba4dba6 dfeedcf`.
 - **Open:** the hull and seams are a first pass (brick-grid seams are arbitrary); check on the real wallpaper. A stray folder `C:\Skins\` from a first Blender draft (relative-path bug, fixed) may still exist: delete it by hand (the safety check blocked me).
+
+## 16. UI clean-up session (2026-11-03) - branch `chore/ui-cleanup` (off `feature/hull-curve`)
+Gates after every slice (all green at the tip): `npx tsc --noEmit -p .`, `npx vitest run` (60 files, 450 tests), `npx vite build`, `npx playwright test` (68/68), `py -3 -I tools/test_render_frame.py`, `tools/test_export_ui_assets.py`, `tools/contract_check.py` (all exit 0).
+Commits (revert each with `git revert <sha>`):
+- `fb9eeda` e2e: the idle-light test waits for state, not a fixed 3 s. Before: `playwright test` x3 = 68/68 each, no flake seen; the 3 s sleep was the one latent flake. The other `waitForTimeout` calls are rate-measurement windows and stay.
+- `4d225d0` tests: `HullRender` 0/unset never gives a curve table and never bends; removed the unused `val` import. `tsc --noUnusedLocals --noUnusedParameters` found only that and `consoleIntent`'s unused `view` param (public signature, kept).
+- `1fcff97` hints: the 12 longest setting hints (67-93 chars) condensed to about 50-68. The other 150 are <= 57 chars.
+- `fc9ea15` contrast (user OK'd): `ColorDim` 0,110,150 -> 0,140,185. Computed: dim text was 2.9-3.7:1 on the darkest panels, now 4.3-5.2:1 (text/accent/warn/white were already >= 6.6:1). Not changed: `lib.lua` fallback and the `control.lua` CYAN preset still carry the old value. Rainmeter's skin reads the same `Settings.inc`, so its dim also brightens.
+- `e99180a` render (user OK'd): hull seams dropped (`seams=False`), hull + corners re-rendered (31 s, GPU idle). Alpha identical, IoU 0.9936.
+Checked, no commit: list 8 console/network: `?preview=1&module=all`, 60 s, with `HullRender` 0 and 1: 0 warnings/errors, 0 failed requests, all hull/light PNGs served.
+Skipped: 5 (`st.warn` list: sites are `canvas.ts:88-89` gauge ramp, `boot.ts:155,164`, `category.ts:112`, `dial.ts:124`, `MissionClock.tsx:29`, `slot.ts:28,75`, `sphere.ts:42`, `strip.ts:37,39`, `sysinfo.ts:54,61`, `upkeep.ts:31`; no colour change without approval); 6 K7 fringe (user: keep); 7 pop-ups unification and the Control Center glow wrapper (ASK, not asked this session); 10 `.gitattributes` (user: skip, coordinate with the JARVIS session); 11 `C:\Skins\` still exists, delete by hand.
+For the Live Test: dim-text contrast was computed from token maths, not pixel crops; verify at 100 % and 150 % on the real wallpaper. Note: another session has an uncommitted edit to `tools/contract_check.py` (not staged here).
