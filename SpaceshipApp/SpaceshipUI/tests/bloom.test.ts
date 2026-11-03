@@ -156,3 +156,25 @@ describe('TileCache rate cap', () => {
     expect(built).toEqual([0, 100]);
   });
 });
+
+describe('paintOps keeps the SVG look (final review)', () => {
+  it('clips clipped text to its box, as the SVG does', () => {
+    const { ctx, calls } = fakeCtx();
+    const t: Op = { shape: { kind: 'text', x: 10, y: 20, text: 'DENTIST APPOINTMENT AND A LONG NAME', size: 8, align: 'LeftCenter', weight: 600, font: 'Rajdhani', blur: 4, clipW: 50 }, fill: COL };
+    paintOps(ctx, [{ ops: [t], ctm: ID }], 1);
+    const names = calls.map((c) => c[0]);
+    expect(names).toContain('clip');
+    expect(names.indexOf('clip')).toBeLessThan(names.indexOf('fillText'));
+    const r = calls.find((c) => c[0] === 'rect')!;
+    expect(r[1]).toBe(10);
+    expect(r[3]).toBe(50);
+    expect(names.lastIndexOf('restore')).toBeGreaterThan(names.indexOf('fillText'));
+  });
+  it('draws dashed glow dashed', () => {
+    const { ctx, calls } = fakeCtx();
+    const d: Op = { shape: { kind: 'poly', pts: [[0, 0], [40, 0]], closed: false }, stroke: { color: COL, width: 2, dash: [3, 5] } };
+    paintOps(ctx, [{ ops: [d, poly], ctm: ID }], 1);
+    const dashes = calls.filter((c) => c[0] === 'setLineDash').map((c) => c[1]);
+    expect(dashes).toEqual([[3, 5], []]);
+  });
+});

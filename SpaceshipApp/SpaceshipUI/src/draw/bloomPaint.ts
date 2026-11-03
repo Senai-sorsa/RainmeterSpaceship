@@ -7,7 +7,7 @@ import { PT_PX, textAlign } from './ops';
 // so the tests run them on a recording fake.
 
 export type Ctx2D = Pick<CanvasRenderingContext2D, 'setTransform' | 'beginPath' | 'moveTo' | 'lineTo' | 'closePath' | 'ellipse'
-  | 'rect' | 'fill' | 'stroke' | 'fillText' | 'save' | 'restore' | 'drawImage' | 'clearRect'> & {
+  | 'rect' | 'fill' | 'stroke' | 'fillText' | 'save' | 'restore' | 'drawImage' | 'clearRect' | 'clip' | 'setLineDash'> & {
   fillStyle: unknown; strokeStyle: unknown; lineWidth: number; font: string; textAlign: CanvasTextAlign;
   textBaseline: CanvasTextBaseline; globalAlpha: number; globalCompositeOperation: GlobalCompositeOperation; filter: string;
   lineCap: CanvasLineCap; lineJoin: CanvasLineJoin;
@@ -45,7 +45,15 @@ function paintOp(ctx: Ctx2D, op: Op) {
     ctx.textAlign = ANCHOR[anchor];
     ctx.textBaseline = BASE[base];
     ctx.fillStyle = css(fill);
+    if (sh.clipW === undefined) { ctx.fillText(sh.text, sh.x, sh.y); return; }
+    // the same box as the SVG clip-path (ops.tsx): from the anchor, back for right-aligned and centred text
+    const left = anchor === 'end' ? sh.x - sh.clipW : anchor === 'middle' ? sh.x - sh.clipW / 2 : sh.x;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left, sh.y - px, sh.clipW, px * 2);
+    ctx.clip();
     ctx.fillText(sh.text, sh.x, sh.y);
+    ctx.restore();
     return;
   }
   ctx.beginPath();
@@ -55,7 +63,11 @@ function paintOp(ctx: Ctx2D, op: Op) {
   } else if (sh.kind === 'ellipse') ctx.ellipse(sh.cx, sh.cy, Math.abs(sh.rx), Math.abs(sh.ry), 0, 0, Math.PI * 2);
   else ctx.rect(sh.x, sh.y, sh.w, sh.h);
   if (fill) { ctx.fillStyle = css(fill); ctx.fill(); }
-  if (op.stroke) { ctx.strokeStyle = css(op.stroke.color); ctx.lineWidth = op.stroke.width; ctx.stroke(); }
+  if (op.stroke) {
+    ctx.strokeStyle = css(op.stroke.color);
+    ctx.lineWidth = op.stroke.width;
+    if (op.stroke.dash) { ctx.setLineDash(op.stroke.dash); ctx.stroke(); ctx.setLineDash([]); } else ctx.stroke();
+  }
 }
 
 /** The stacked blur: src drawn three times onto dst, each pass wider and fainter (BLOOM_STACK). */

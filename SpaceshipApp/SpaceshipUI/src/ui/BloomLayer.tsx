@@ -5,7 +5,7 @@ import { BLOOM_STACK, entryBounds, TILE_MS, GLASS_MS, GLASS_SCALE, paintGlass, p
 import dirtUrl from '../assets/lens/dirt.png?url';
 
 // The one light canvas (tasks/hyperrealism-plan.md Task 3): the glow ops every OpsView anchor posts, drawn at a quarter of
-// the CSS resolution, blurred at three radii and stretched over the HUD in screen blend. Each anchor's light is a cached
+// the CSS resolution, blurred at three radii and stretched over the HUD (normal blend, Task 4). Each anchor's light is a cached
 // tile (Task 4): only an anchor whose ops or position changed is painted and blurred again; a frame is then just one
 // drawImage per tile. It draws only when the light changes (one frame at most), on resize and once the fonts are ready.
 export const SCALE = 0.25;
