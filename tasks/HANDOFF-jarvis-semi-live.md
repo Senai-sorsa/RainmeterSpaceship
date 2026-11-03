@@ -62,6 +62,27 @@ Open, not fixed: offers ("Would you like me to..."); room talk with "you"/"?" in
 (user's S2-10 rule); 8B sometimes ignores HUD data (said "no unread emails" with 4 unread).
 
 ## 6. Log (newest first)
+- 2026-11-03 h (REFACTOR phase 0, branch `refactor/jarvis-pipeline`, plan `tasks/jarvis-refactor-plan-2026-11-03.md`):
+  User answers to plan section 12: branch + merge phase by phase; tests/ restructure OK; log text may change if the `route:` prefix stays;
+  phases in the recommended order (0,1,2,3, then 5/6, then 4, then 7-9); legacy `JarvisVoiceSmooth=0` path: decide at phase 3.
+  Live test of voice/B1/B2/B10 NOT confirmed done (user said "do as you recommend"); phase 0 changes no product code, so it went ahead.
+  Commit 5fa6e3d on the branch = the uncommitted g/f work as the known starting point (JARVIS files, tools, task docs only).
+  Session start block for later phases: plan section 10. Phase 0 added (no product code touched):
+  `tools/golden_common.py` (sandbox: semi_live guards, temp RES, frozen clock 2026-11-03 15:00 at TZ=ABC+12, model calls trip),
+  `tools/golden_routes.py` -> `tests/golden/route_corpus.txt` (540 phrases from the 3 banks + test_jarvis literals + AI_PROMPT examples,
+  + 294 seeded ASR variants) and `routes.jsonl` (route, fix_route, ask_ai, understand, directed x2, level_fix, percent_follow, crisis,
+  no_ability, LIVE_FACT, logs). `tools/golden_replies.py` -> `reply_corpus.jsonl` (28 trigger lines + 600 seeded replies from
+  semi-live-results) and `replies.jsonl` (exchange() chain, 4 configs: smooth 1/0 x cap3/serious). `tools/inventory.py` -> `inventory.md`.
+  Results: routes 834 phrases, 34 AI rereads asked (faked), 0 model calls, 0 tripwires, `--check` 0 diffs (2nd run, new process).
+  Replies 2512 replays, 0 tripwires, `--check` 0 diffs; filters seen acting: reading 36, promise 24, claim 12, hope 4.
+  Inventory: 59 module-level mutable state names, 46 UPPER tables, 82 setting()/on() sites (59 keys), 2 keys with different defaults
+  (JarvisKokoroVoice '' vs 'bm_lewis'; JarvisSilence '' vs '1.0': phase 1 must keep today's live behaviour), 32 canned strings,
+  443 `j.X =` fakes (81 names), 28 Thread sites, 30 jarvislib import lines in jarvis.py.
+  Gate (scratch mirror, TZ=ABC+12): venv test_jarvis OK (91 s), py -3 test_jarvis OK (88 s), test_host_pipe failed: 0.
+  Semi-live 8B seed 7 baseline, run 12:3x local: main 42, fresh 27 (re-run 31), persona 17; tripwires 0; first sentence p50 0.39-0.41 s.
+  NOISE: same code, same seed, back to back: fresh 27 vs 31 (2 held-out better, 2 worse). Log g numbers (36/16/16) were another clock
+  window (prompt has the real time), so gates compare only with a baseline from the same session, tolerance about +-5 per bank.
+  3B baseline NOT run (phase 1 is 8B only per plan section 4; run 3B before phase 2). Real Data\jarvis.log untouched by the golden tools.
 - 2026-11-03 g (pre-live-test finish, NOT committed): JarvisVoiceSmooth now defaults to ON in code (`player.SMOOTH_DEFAULT = "1"`;
   Settings.inc untouched; `JarvisVoiceSmooth=0` in Settings.inc restores the old stream-per-chunk path). B10/B11: `reply_line` no longer
   logs/remembers a fixed line that was stopped before a word got out; the other stale-turn paths were audited and already guarded (busy lock +
