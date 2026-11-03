@@ -1,6 +1,6 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import { type RGBA } from '../lib/theme';
-import { type Readings, val } from './readings';
+import { type Readings } from './readings';
 import { bytes } from './sources';
 
 // Port of Skins/Spaceship/@Resources/Scripts/storage.lua: the drive screen with the C: and D: fill bars and the
