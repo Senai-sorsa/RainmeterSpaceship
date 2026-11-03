@@ -71,6 +71,31 @@ you rely on a detail.
   - Wizard Launch below 1100 px.
   - The `control-center.spec.ts:95` "failed write" test prints a progress line that looks like a failure; it is not one.
 
+## 2b. Session 2 (2026-11-03, autonomous run): what was added
+Commits on `main`, oldest first (all gates green after each: tsc clean, vitest, playwright, vite build):
+
+| Commit | §12 item | What | Switch |
+|---|---|---|---|
+| d98b87c | #30 | Light canvas draws rounded rects with `roundRect` | — |
+| 64958b7 | #19 | **Music ring motion fixed.** Cause: smoothing was per redraw, and after the host's one quiet frame the ring fell one step per metrics tick (~10 s of visible jumps); metrics ticks also added an extra step during music. Now: time-based attack/release (same values at 20 Hz), one step per spectrum frame, 20 Hz release ticks until rest (~1.6 s, then 0 Hz), peak meter holds 400 ms then falls with gravity, idle ripple cross-fades in. | git revert |
+| e0c461f | #7 (K8) | Depth haze: the centre hologram (sphere/target/hud) light tile uses `HAZE_STACK` (same radii, weight moved to wide passes, fainter core): no extra blur cost. With JARVIS on, the orb takes the centre and stays near (it is the focus), so haze shows only with JARVIS off. | `DepthHaze` |
+| ad75c7a | #11 | Screen bezels: dark recess + faint lip round every `Canvas.screen()` (graphs, strip cells, sysinfo box), FULL+LITE | `ScreenBezel` |
+| a634db6 | #34 | Scroll-memory e2e waits for state (End scrolls smoothly) | — |
+| a4fdec8 | #29 | Anchors re-read `getScreenCTM` only when `placeKey()` (viewport, viewBox, ancestor transforms) changes or on resize: 65 reads/s idle -> ~0. Assumes no anchor under a CSS transform animation (e2e guards `.scan`). | git revert |
+| f7a7bd8 | #9 | Orb light: a static pool on the hull at C_sphere fades in (0.25 s) while JARVIS listens/speaks; state only, no blur; FULL | `StateLight` |
+| 7c5d3e1 | #21 | Lens settles last: grain + glass off during the boot, fade in over 0.9 s after it (instant hide, fade reveal); none under reduced motion | `BootAnim=0` |
+| 8abb325 | #22 | Pop-ups (log, drawer, boot check) share the bezel via `Canvas.bezel()` | `ScreenBezel` |
+| 80443ec | #24 | Hint audit: only `WallpaperQuality` was over 100 chars; condensed. Hover tips already terse. | — |
+
+New settings (Settings.inc + registry, Display > Theme, advanced; contract regenerated): `DepthHaze`, `ScreenBezel`, `StateLight` (all default 1).
+Headless CPU vs 3d13728 (3 interleaved rounds, medians): idle +2.6 %, music +0.1 % (plan §D). Live GPU still not measured.
+
+Tried and dropped: **glare streak (#10)** on the orb. Inside the orb it is invisible; strong enough to see beside it, it read as a flat grey bar, not optics. Reverted, nothing committed.
+Audited, no change needed: **motion language (#20)**: all UI transitions are 120-250 ms ease-out/steps, scans linear, no bounce, all in both reduced-motion blocks; the 0.5 s Control Center sweep and the 0.9 s lens settle are deliberate.
+Findings for the user (ASK, colour change): **contrast (#27)**: ColorDim (0,110,150) on the darkest panel is 3.27:1, under WCAG AA 4.5:1 for small text; (0,138,188) gives 4.77:1. Text/Accent/White pass (10-16:1).
+Not built: Blender Tasks 8-10 (the user allowed Blender, then asked to finish up; only inputs were read: `ref_layout.py` windows/bezels, Decor core paths as `P<n>` LineTo strings in `Skins/Spaceship/Frame/Parts/Decor.inc`), #12 pixel grid (HUD_SCAN already covers it), #13/#15/#17 (low value or need real data), #16 hologram breathe (measure first).
+Known flaky (not reproduced in 15 repeats): wizard "stacks below 1100px".
+
 ## 3. What the hyperreal work built (commits on `main`, oldest first)
 | Commit | Plan task | What |
 |---|---|---|
