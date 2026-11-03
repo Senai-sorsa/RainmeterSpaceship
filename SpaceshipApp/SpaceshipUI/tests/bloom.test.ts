@@ -140,3 +140,19 @@ describe('glass layer (Task 6)', () => {
     expect(seen.globalAlpha?.at(-1)).toBe(1);
   });
 });
+
+describe('TileCache rate cap', () => {
+  it('keeps a tile rebuilt less than minMs ago and reports the wait', async () => {
+    const { TileCache } = await import('../src/draw/bloomPaint');
+    let now = 0;
+    const built: number[] = [];
+    const cache = new TileCache(() => { built.push(now); return {}; }, 100, () => now);
+    const e = (x: number) => new Map([['a', { ops: [poly], ctm: { ...ID, e: x } }]]);
+    expect(cache.update(e(1))).toBe(0);
+    now = 40;
+    expect(cache.update(e(2))).toBe(60); // too soon: old tile kept, retry in 60 ms
+    now = 100;
+    expect(cache.update(e(3))).toBe(0);
+    expect(built).toEqual([0, 100]);
+  });
+});

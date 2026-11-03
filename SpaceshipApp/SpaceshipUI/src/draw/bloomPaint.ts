@@ -96,26 +96,41 @@ export function entryBounds(e: BloomEntry, scale: number, pad: number, cw: numbe
 }
 
 /** One cached light tile per anchor (Chrome: blur what changes, reuse what does not). An entry object is replaced by the
- *  bus only when its ops or CTM change, so object identity says whether a tile must be rebuilt. */
+ *  bus only when its ops or CTM change, so object identity says whether a tile must be rebuilt. minMs caps how often one
+ *  tile is re-blurred (the audio ring changes 20 times a second; its glow at 10 is indistinguishable under the crisp
+ *  lines): update() keeps the old tile and returns how many ms until a retry is due (0 = nothing waiting). */
 export class TileCache<T> {
-  readonly tiles = new Map<string, { entry: BloomEntry; tile: T }>();
-  constructor(private readonly make: (key: string, e: BloomEntry) => T) {}
-  update(entries: ReadonlyMap<string, BloomEntry>) {
+  readonly tiles = new Map<string, { entry: BloomEntry; tile: T; at: number }>();
+  constructor(private readonly make: (key: string, e: BloomEntry) => T, private readonly minMs = 0,
+    private readonly clock: () => number = () => performance.now()) {}
+  update(entries: ReadonlyMap<string, BloomEntry>): number {
     for (const k of [...this.tiles.keys()]) if (!entries.has(k)) this.tiles.delete(k);
+    const now = this.clock();
+    let wait = 0;
     for (const [k, e] of entries) {
       const t = this.tiles.get(k);
-      if (!t || t.entry !== e) this.tiles.set(k, { entry: e, tile: this.make(k, e) });
+      if (t && t.entry === e) continue;
+      if (t && now - t.at < this.minMs) { const w = t.at + this.minMs - now; wait = wait ? Math.min(wait, w) : w; continue; }
+      this.tiles.set(k, { entry: e, tile: this.make(k, e), at: now });
     }
+    return wait;
   }
 }
+
+/** The light tiles' rebuild cap (TileCache minMs). */
+export const TILE_MS = 100;
 
 /** Glass (Task 6): how faint the HUD's reflection is, how much larger than the HUD (a second surface a bit nearer), and
  *  how soft (light-canvas px; no text shape survives in it). LENS_SPREAD: the light scattered across the lens, which is
  *  what lights the dirt - wide, so a smudge glows near any bright part of the HUD, not only on top of it. */
 export const GHOST_ALPHA = 0.07;
 export const GHOST_SCALE = 1.035;
-export const GHOST_BLUR = 4;
-export const LENS_SPREAD = 14;
+export const GHOST_BLUR = 2;
+export const LENS_SPREAD = 7;
+/** The glass is painted at half the light canvas size (so the blurs above are in those px) and at most every GLASS_MS:
+ *  the lens glow drifts slowly to the eye, the HUD light under it does not need to (Task 13 measurement). */
+export const GLASS_SCALE = 0.5;
+export const GLASS_MS = 250;
 
 /** The lens's own light: the HUD light spread wide, times the dirt mask (smudges show only near bright parts), then a
  *  faint, soft, slightly enlarged ghost of the light (its reflection in the glass). */
@@ -124,8 +139,8 @@ export function paintGlass(ctx: Ctx2D, bloom: CanvasImageSource, dirt: CanvasIma
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
   ctx.filter = `blur(${LENS_SPREAD}px)`;
-  ctx.drawImage(bloom, 0, 0);
-  ctx.drawImage(bloom, 0, 0); // twice: the spread light is faint, the dirt needs it at full strength
+  ctx.drawImage(bloom, 0, 0, w, h);
+  ctx.drawImage(bloom, 0, 0, w, h); // twice: the spread light is faint, the dirt needs it at full strength
   ctx.filter = 'none';
   ctx.globalCompositeOperation = 'destination-in';
   ctx.drawImage(dirt, 0, 0, w, h);

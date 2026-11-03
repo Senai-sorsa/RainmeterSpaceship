@@ -93,3 +93,38 @@ test('no glass layer on LITE', async ({ page }) => {
   await expect(page.locator('canvas.bloom-layer')).toHaveCount(1);
   await expect(page.locator('canvas.glass-layer')).toHaveCount(0);
 });
+
+// Task 13: which of the new layers each tier gets. FULL: light + glass + grain; LITE: grain only (the light canvas stays
+// mounted but draws nothing); LOW and STEALTH: none.
+for (const [tier, want] of [['0', { light: true, glass: true, grain: true }], ['1', { light: false, glass: false, grain: true }],
+  ['2', { light: false, glass: false, grain: false }], ['3', { light: false, glass: false, grain: false }]] as const) {
+  test(`tier ${tier} layers`, async ({ page }) => {
+    await open(page, { PerfOverride: tier });
+    await expect(page.locator('canvas.bloom-layer')).toHaveAttribute('data-mode', want.light ? 'canvas' : 'off');
+    await expect(page.locator('canvas.glass-layer')).toHaveCount(want.glass ? 1 : 0);
+    await expect(page.locator('.frame [data-layer=grain]')).toHaveCount(want.grain ? 1 : 0);
+  });
+}
+
+test('the glass repaints at most 4 times a second, at half the light canvas size', async ({ page }) => {
+  await page.addInitScript(boot(), '{}');
+  await page.goto('/?preview=1&module=all&audio=demo');
+  await expect.poll(() => page.evaluate(() => (window as { __glassDraws?: number }).__glassDraws ?? 0)).toBeGreaterThan(0);
+  const a = await page.evaluate(() => (window as { __glassDraws?: number }).__glassDraws ?? 0);
+  await page.waitForTimeout(3000);
+  const b = await page.evaluate(() => (window as { __glassDraws?: number }).__glassDraws ?? 0);
+  expect(b - a).toBeLessThanOrEqual(13);
+  const [lw, gw] = await page.evaluate(() => [document.querySelector<HTMLCanvasElement>('canvas.bloom-layer')!.width, document.querySelector<HTMLCanvasElement>('canvas.glass-layer')!.width]);
+  expect(gw).toBe(Math.ceil(lw / 2));
+});
+
+test('a fast anchor (the audio ring with music) is re-blurred at most 10 times a second', async ({ page }) => {
+  await page.addInitScript(boot(), '{}');
+  await page.goto('/?preview=1&module=all&audio=demo');
+  type B = { __bloomBuiltBy?: Record<string, number> };
+  const au = () => page.evaluate(() => Object.entries((window as B).__bloomBuiltBy ?? {}).filter(([k]) => k.startsWith('au#')).reduce((s, [, n]) => s + n, 0));
+  await expect.poll(au).toBeGreaterThan(0);
+  const a = await au();
+  await page.waitForTimeout(3000);
+  expect(await au() - a).toBeLessThanOrEqual(33);
+});

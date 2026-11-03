@@ -1,7 +1,7 @@
 import { effect } from '@preact/signals';
 import { useEffect, useRef } from 'preact/hooks';
 import { bloomEntries, type BloomEntry } from '../draw/bloomBus';
-import { BLOOM_STACK, entryBounds, paintGlass, paintOps, stackBlur, TileCache, type Box, type Ctx2D } from '../draw/bloomPaint';
+import { BLOOM_STACK, entryBounds, TILE_MS, GLASS_MS, GLASS_SCALE, paintGlass, paintOps, stackBlur, TileCache, type Box, type Ctx2D } from '../draw/bloomPaint';
 import dirtUrl from '../assets/lens/dirt.png?url';
 
 // The one light canvas (tasks/hyperrealism-plan.md Task 3): the glow ops every OpsView anchor posts, drawn at a quarter of
@@ -10,7 +10,7 @@ import dirtUrl from '../assets/lens/dirt.png?url';
 // drawImage per tile. It draws only when the light changes (one frame at most), on resize and once the fonts are ready.
 export const SCALE = 0.25;
 
-type Dev = { __bloomLast?: Record<string, BloomEntry['ctm']>; __bloomDraws?: number; __bloomTileBuilds?: number; __bloomBuiltBy?: Record<string, number> };
+type Dev = { __glassDraws?: number; __bloomLast?: Record<string, BloomEntry['ctm']>; __bloomDraws?: number; __bloomTileBuilds?: number; __bloomBuiltBy?: Record<string, number> };
 type Tile = { box: Box; canvas: HTMLCanvasElement } | null;
 const ctx2d = (c: HTMLCanvasElement) => c.getContext('2d') as unknown as Ctx2D | null;
 
@@ -49,35 +49,49 @@ export function BloomLayer({ mode, baseRadius, lens = false }: { mode: 'canvas' 
       if (dev) { dev.__bloomTileBuilds = (dev.__bloomTileBuilds ?? 0) + 1; const by = (dev.__bloomBuiltBy ??= {}); by[_k] = (by[_k] ?? 0) + 1; }
       return { box, canvas };
     };
-    let cache = new TileCache<Tile>(build);
-    let queued = 0;
+    let cache = new TileCache<Tile>(build, TILE_MS);
+    let queued = 0, retry = 0;
     const draw = () => {
       queued = 0;
       const w = Math.ceil(innerWidth * SCALE), h = Math.ceil(innerHeight * SCALE);
-      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; cache = new TileCache<Tile>(build); }
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; cache = new TileCache<Tile>(build, TILE_MS); }
       const out = ctx2d(cv);
       if (!out) return;
       const entries = mode === 'canvas' ? bloomEntries.value : new Map<string, BloomEntry>();
-      cache.update(entries);
+      const wait = cache.update(entries);
+      if (wait && !retry) retry = window.setTimeout(() => { retry = 0; schedule(); }, wait); // the trailing rebuild
       out.clearRect(0, 0, w, h);
       for (const { tile } of cache.tiles.values()) if (tile) out.drawImage(tile.canvas, tile.box.x, tile.box.y);
-      if (glass && dirtReady) {
-        if (glass.width !== w || glass.height !== h) { glass.width = w; glass.height = h; }
-        const g = ctx2d(glass);
-        if (g) paintGlass(g, cv, dirt, w, h);
-      }
+      paintGlassSoon();
       if (dev) {
         dev.__bloomLast = Object.fromEntries([...entries].map(([k, e]) => [k, e.ctm]));
         dev.__bloomDraws = (dev.__bloomDraws ?? 0) + 1;
       }
+    };
+    // the glass follows the light at most every GLASS_MS (a trailing repaint catches the last change)
+    let glassAt = -Infinity, glassTimer = 0;
+    const paintGlassNow = () => {
+      glassTimer = 0;
+      if (!glass || !dirtReady) return;
+      glassAt = performance.now();
+      const gw = Math.ceil(cv.width * GLASS_SCALE), gh = Math.ceil(cv.height * GLASS_SCALE);
+      if (glass.width !== gw || glass.height !== gh) { glass.width = gw; glass.height = gh; }
+      const g = ctx2d(glass);
+      if (g) paintGlass(g, cv, dirt, gw, gh);
+      if (dev) dev.__glassDraws = (dev.__glassDraws ?? 0) + 1;
+    };
+    const paintGlassSoon = () => {
+      if (!glass || glassTimer) return;
+      const wait = glassAt + GLASS_MS - performance.now();
+      if (wait <= 0) paintGlassNow(); else glassTimer = window.setTimeout(paintGlassNow, wait);
     };
     const schedule = () => { if (!queued) queued = requestAnimationFrame(draw); };
     const stop = effect(() => { void bloomEntries.value; schedule(); });
     // a resize re-posts every anchor (new CTMs), and the new canvas size drops the cache
     addEventListener('resize', schedule);
     // the fonts arriving changes every text's light: rebuild all tiles once
-    document.fonts?.ready.then(() => { cache = new TileCache<Tile>(build); schedule(); });
-    return () => { stop(); removeEventListener('resize', schedule); if (queued) cancelAnimationFrame(queued); };
+    document.fonts?.ready.then(() => { cache = new TileCache<Tile>(build, TILE_MS); schedule(); });
+    return () => { stop(); removeEventListener('resize', schedule); if (queued) cancelAnimationFrame(queued); if (glassTimer) clearTimeout(glassTimer); if (retry) clearTimeout(retry); };
   }, [mode, baseRadius, glassOn]);
   return (
     <>

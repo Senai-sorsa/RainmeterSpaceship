@@ -372,6 +372,8 @@ Rollback: each task is one commit (`git revert <sha>`). Runtime switches: `Bloom
 | 2026-11-02 | H0 | — (the §0 row stands; Task 4 does the svg/canvas A/B in one sitting) | not run (the user told the runner "dont run it yet") | Task 1 Step 1: no live run without the user's word |
 | 2026-11-02 | H1 first cut (no cache) | svg 158.9/161.9; canvas 187.5/193.8; music: svg 155.2/163.6, canvas 209.9/198.8 | not run | canvas redrew all 33 light sources ~11x/s; over budget |
 | 2026-11-02 | H1 tuned (tile cache + equal-ops skip + normal blend), interleaved x3 | svg 152.0/158.0/146.0 (median 152); canvas+screen 137.0/140.9/178.1 (median 140.9); canvas normal 119.4/130.7/127.3 (median 127.3) | not run | idle rebuilds only for real changes (orb ~10/s, graphs ~2/s); about 16 % under svg; machine noise is +-20 points between rounds |
+| 2026-11-02 | H2 (light + glass + grain), interleaved x3 | idle: svg 128.1/118.1/118.8, new 142.7/154.1/150.7; music: svg 120.9/115.9/131.4, new 178.1/180.9/154.2 | not run | over budget: the glass layer ran two wide blurs on every light redraw |
+| 2026-11-03 | H2 tuned (glass at half size, <= 4/s; tiles re-blurred <= 10/s), interleaved x3 | idle: svg 137.4/134.7/132.8 (median 134.7), new 139.3/138.5/139.3 (median 139.3, +3.4 %); music: svg 133.0/129.6/142.9 (median 133.0), new 145.8/142.4/164.8 (median 145.8, +9.6 %) | not run | within the +10 % headless budget; music is at the edge |
 
 ## §E Sources
 - FrostKiwi, "Video Game Blurs (and how the best one works)": box/Gaussian/separable, downsampling, Kawase, dual Kawase, stacked blurs (Kawase 2004, Jimenez 2014), ARM 2015, KDE: https://blog.frost.kiwi/dual-kawase/
