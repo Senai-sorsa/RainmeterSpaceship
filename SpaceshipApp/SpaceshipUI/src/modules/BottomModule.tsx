@@ -7,7 +7,7 @@ import { scheduler } from '../host/scheduler';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { sysInfo } from '../host/sysInfo';
 import { netStatus } from '../host/statusFeed';
-import { AUDIO_HITS, audioFrame, audioState, type AudioState } from './audio';
+import { AUDIO_HITS, audioFrame, audioState, FRAME_MS, settled, type AudioState } from './audio';
 import { audioSpectrum } from '../host/audioFeed';
 import { HitRect } from './hit';
 import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
@@ -55,8 +55,23 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
   // the audio ring follows the host's fast audio.spectrum (~20 a second while sound plays) on its own, so a spectrum
   // frame redraws only the ring, not the strips
   const fast = audioSpectrum.value;
-  const au = useMemo(() => (style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50), vol, m?.audioDevice ?? undefined, fast)),
-    [r, fast, Z, style]);
+  // the host sends one quiet frame when the sound stops, then nothing: release ticks at the feed's rate carry the ring down
+  // to rest (it used to fall one step a second, on the metrics tick), then stop, so an idle HUD stays at 0 Hz
+  const [release, setRelease] = useState(0);
+  const seenRelease = useRef(0);
+  useEffect(() => {
+    let stop = () => {};
+    const wait = setTimeout(() => {
+      stop = scheduler.every(FRAME_MS, () => { if (settled(audio.current)) stop(); else setRelease((n) => n + 1); });
+    }, FRAME_MS * 3);
+    return () => { clearTimeout(wait); stop(); };
+  }, [fast]);
+  const au = useMemo(() => {
+    const decay = release !== seenRelease.current;
+    seenRelease.current = release;
+    return style.tier >= 3 ? undefined : Z.audio && audioFrame(audio.current, r, Z.audio, style, Math.floor(Date.now() / 50), vol, m?.audioDevice ?? undefined, fast,
+      performance.now(), decay);
+  }, [r, fast, Z, style, release]);
   // the panels read the clock, so they redraw every second
   const panels = useMemo(() => ({
     pl: Z.panelL && panelLeftFrame(leftRows(now, r, info, style.hi), Z.panelL, style),

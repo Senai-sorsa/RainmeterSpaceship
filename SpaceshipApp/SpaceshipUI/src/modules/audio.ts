@@ -18,9 +18,13 @@ const R_DASH = 70 * K, R_TICK = 78 * K, R_SWEEP = 58 * K, R_RING1 = 50 * K, R_RI
 const WEDGE = [-26, 26];
 const VIOLET: RGBA = [150, 100, 255, 255];
 
-export type AudioState = { sm: number[]; rmsS: number; peakS: number; breath: number; quiet: number };
+/** at: the clock of the last step (-1 before the first); dt: ms the last call stepped (0 = no step, so the breath holds);
+ *  lastFast: the spectrum frame already followed; peakV/peakAge: the held peak and how long it has been held. */
+export type AudioState = { sm: number[]; rmsS: number; peakS: number; breath: number; quiet: number;
+  at: number; dt: number; lastFast: number[] | null; peakV: number; peakAge: number };
 
-export const audioState = (): AudioState => ({ sm: new Array<number>(NB).fill(0), rmsS: 0, peakS: 0, breath: 0, quiet: 0 });
+export const audioState = (): AudioState => ({ sm: new Array<number>(NB).fill(0), rmsS: 0, peakS: 0, breath: 0, quiet: 0,
+  at: -1, dt: FRAME_MS, lastFast: null, peakV: 0, peakAge: 0 });
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -32,26 +36,49 @@ function bandsOf(r: Readings, fast: number[] | null | undefined): number[] {
   return out;
 }
 
-/** Visualizer smoothing, per band: a fast attack so beats land at once, a slow release so the shape stays readable. */
-export const ATTACK = 0.7, RELEASE = 0.16;
+/** Visualizer smoothing, per band: a fast attack so beats land at once, a slow release so the shape stays readable.
+ *  Both are the share of the gap closed in one FRAME_MS (the 20 Hz feed); a step of another length closes
+ *  1 - (1 - k)^(dt / FRAME_MS), so the motion follows time, not how often the HUD happens to redraw (attack ~40 ms,
+ *  release ~280 ms, the range music visualizers use). */
+export const ATTACK = 0.7, RELEASE = 0.16, FRAME_MS = 50;
+/** The red peak meter holds its top for PEAK_HOLD_MS, then falls with gravity (PEAK_G in levels per s^2), as hardware
+ *  peak meters do, instead of shrinking by a fixed share per redraw. */
+export const PEAK_HOLD_MS = 400, PEAK_G = 6;
+const BREATH = 0.35, REST = 0.004;
+const share = (k: number, dt: number) => 1 - Math.pow(1 - k, dt / FRAME_MS);
 
-/** One smoothing step per redraw. `every` is the frame step since the last redraw; `disabled` zeroes the levels.
- *  `fast` is the host's audio.spectrum bands (about 20 a second); without it the once-a-second metrics bands are used. */
-export function follow(s: AudioState, r: Readings, every: number, disabled: boolean, fast?: number[] | null): void {
+/** One smoothing step. `every` is the frame step since the last redraw; `disabled` gives no input, so the levels fall.
+ *  `fast` is the host's audio.spectrum bands (about 20 a second); without it the once-a-second metrics bands are used.
+ *  A fast frame already followed is not followed again (a metrics tick redraws with the same frame). `now` is the
+ *  clock in ms; without it each step counts as one FRAME_MS. */
+export function follow(s: AudioState, r: Readings, every: number, disabled: boolean, fast?: number[] | null, now?: number): void {
+  if (!disabled && fast && fast.length && fast === s.lastFast) { s.dt = 0; return; }
+  if (!disabled && fast && fast.length) s.lastFast = fast;
+  const dt = now === undefined || s.at < 0 ? FRAME_MS : clamp(now - s.at, 0, 250);
+  if (now !== undefined) s.at = now;
+  s.dt = dt;
+  const up = share(ATTACK, dt), down = share(RELEASE, dt);
   const bands = disabled ? [] : bandsOf(r, fast).map((v) => clamp(v, 0, 1));
   // the band count follows the host (16 or 24 so far); an empty or disabled frame keeps the shape and lets it fall
   if (bands.length && s.sm.length !== bands.length) s.sm = new Array<number>(bands.length).fill(0);
   const n = s.sm.length;
   const rms = bands.length ? bands.reduce((a, b) => a + b, 0) / bands.length : 0;
   const peak = bands.length ? Math.max(...bands) : 0;
-  s.rmsS += (rms - s.rmsS) * (rms > s.rmsS ? ATTACK : RELEASE);
-  s.peakS = Math.max(peak, s.peakS * 0.9);
+  s.rmsS += (rms - s.rmsS) * (rms > s.rmsS ? up : down);
+  if (peak >= s.peakS) { s.peakS = s.peakV = peak; s.peakAge = 0; } else {
+    s.peakAge += dt;
+    const t = Math.max(0, s.peakAge - PEAK_HOLD_MS) / 1000;
+    s.peakS = Math.max(peak, s.peakV - 0.5 * PEAK_G * t * t);
+  }
   s.quiet = rms < 0.01 ? s.quiet + every : 0;
   for (let i = 0; i < n; i++) {
     const v = bands[i] ?? 0;
-    s.sm[i] += (v - s.sm[i]) * (v > s.sm[i] ? ATTACK : RELEASE);
+    s.sm[i] += (v - s.sm[i]) * (v > s.sm[i] ? up : down);
   }
 }
+
+/** True once every level has fallen to rest: nothing would move on another step. */
+export const settled = (s: AudioState) => s.rmsS < REST && s.peakS < REST && s.breath < REST && s.sm.every((v) => v < REST);
 
 /** Spoke tip levels 0..1 for the pulse ring. Moves the breath toward the loudness; idle gives a slow ripple. */
 export function ringLevels(s: AudioState, idle: boolean, frame: number): number[] {
@@ -76,10 +103,13 @@ export function ringLevels(s: AudioState, idle: boolean, frame: number): number[
     soft[k] = acc / wsum;
   }
   const mean = soft.reduce((a, b) => a + b, 0) / NS;
-  s.breath += (clamp(mean * 1.4 + s.rmsS * 1.2, 0, 1) - s.breath) * 0.35;
+  // the breath moves only on a real step (s.dt), at the same rate whatever the redraw rate
+  s.breath += (clamp(mean * 1.4 + s.rmsS * 1.2, 0, 1) - s.breath) * share(BREATH, s.dt);
+  // quiet music fades into the idle ripple over a band of loudness instead of snapping to it at one threshold
+  const live = idle ? 0 : clamp((s.rmsS - 0.01) / 0.03, 0, 1);
   return soft.map((x, k) =>
     // the shape of the spectrum leads; the overall loudness only lifts the whole ring a little
-    idle ? 0.12 + 0.04 * Math.sin((k / NS) * 2 * Math.PI * 3 + frame * 0.05) : 0.35 * s.breath + 0.65 * x);
+    (1 - live) * (0.12 + 0.04 * Math.sin((k / NS) * 2 * Math.PI * 3 + frame * 0.05)) + live * (0.35 * s.breath + 0.65 * x));
 }
 
 /** End angle in degrees of the volume arc: sweeps from DASH_A0 by the volume share, scaled by the spin-up (0..1). */
@@ -103,8 +133,10 @@ export type AudioFrame = Op[];
  * The audio zone: pulse ring, volume dash arc, readout and device. Advances the followers once per call (one per host reading).
  * vol is 0..100, or negative for muted; undefined means the host has no volume yet and the dial shows --.
  */
-export function audioFrame(s: AudioState, r: Readings, zone: Zone, st: Style, frame: number, vol?: number, dev?: string, fast?: number[] | null): AudioFrame {
-  follow(s, r, 1, st.tier >= 3, fast);
+export function audioFrame(s: AudioState, r: Readings, zone: Zone, st: Style, frame: number, vol?: number, dev?: string, fast?: number[] | null,
+  now?: number, decay = false): AudioFrame {
+  // decay: a release tick after the host's last (quiet) frame, so the ring keeps falling to rest at the feed's rate
+  follow(s, r, 1, st.tier >= 3 || decay, fast, now);
   const c = new Canvas(zone, st);
   const A1 = st.accent, W = st.white, D = st.dim, RED = st.hi;
   const muted = vol !== undefined && vol < 0;
@@ -130,8 +162,8 @@ export function audioFrame(s: AudioState, r: Readings, zone: Zone, st: Style, fr
   for (let q = 0; q < 4; q++) c.arc(CX, CY, R_RING1, q * 90 + 12, q * 90 + 78, A1, 1.5, 220);
   c.arc(CX, CY, R_RING2, 200, 340, W, 1.3, 190); c.arc(CX, CY, R_RING2, 20, 160, W, 1.3, 190);
   // pulse ring: 96 spokes in eight paths, cyan at the top left blending to violet at the bottom right
-  // shortcut: idle is a quiet loudness follower, not the Lua's exact idle test
-  const lv = ringLevels(s, s.rmsS < 0.02 || st.tier >= 3, frame);
+  // shortcut: idle is a quiet loudness follower, not the Lua's exact idle test (ringLevels fades into it)
+  const lv = ringLevels(s, st.tier >= 3, frame);
   const tips = lv.map((x) => R_W0 + 2 + x * (R_W1 - R_W0 - 2));
   for (let q = 0; q < 8; q++) {
     const pts: Pt[] = [];
