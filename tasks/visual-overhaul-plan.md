@@ -42,6 +42,7 @@ Preview switches for screenshot checks (plain browser only): `?preview=1&module=
 `?drawer=1|<folder>`, `?bootat=<frame>`, `?audio=demo`, `?jarvis=<state>`, `?panel=control`.
 
 ## Next
+0. **Realism pass (line art to real HUD screens): see `tasks/line-art-realism-plan.md`** (full plan, references, kit).
 1. Second comparison round against `Refrences-Art/` and online FUI work (glints and micro-detail on focal elements,
    one sparing warm accent).
 2. Hover hints: condense, remove only the obvious ones (user's answer 2026-11-02).
