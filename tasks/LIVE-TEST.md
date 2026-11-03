@@ -18,15 +18,17 @@ anything that kills or restarts the user's real HUD or Rainmeter, colour changes
 - `main`: light canvas (bloom), lens (glass + grain), depth haze, screen bezels, music motion, orb light, boot settle.
 - `feature/hull-render` (3 commits + docs): the `HullRender` setting, Blender-rendered hull and light passes.
 - `feature/hull-curve` (stacked on it): barrel-bowed windscreen edges and `Canvas` zone-bend support (`curve.json` `zones` is empty).
+- `chore/ui-cleanup` (stacked on it, 6 commits, handoff §16): the UI clean-up. Changes to verify: a latent-flake fix in `e2e/bloom.spec.ts`; tests for the `HullRender=0` no-bend gate; 12 shorter setting hints; `ColorDim` 0,110,150 -> 0,140,185 (also in `Settings.inc`, so the Rainmeter skin's dim changes); the hull re-rendered without the brick-grid seams (`hull.png`, `corners.png`).
 
-Test the **tip of `feature/hull-curve`** (it contains everything) and compare against `main` for CPU. Make fixes on a new branch (`fix/live-test`).
+Test the **tip of `chore/ui-cleanup`** (it contains everything) and compare against `main` for CPU. Make fixes on a new branch (`fix/live-test`) off that tip. Nothing is merged or pushed; merging into `main` waits for the user's OK after this test.
+Known: `tools/contract_check.py` may show an uncommitted edit from another session; leave it, never stage it. `C:\Skins\` is a stray folder the user deletes by hand.
 
 ## 2. Automatic checks (the session runs these itself)
 Run from `SpaceshipApp/SpaceshipUI` unless noted. Record exact commands and results (§6).
 
 | # | Check | How | Pass |
 |---|---|---|---|
-| A1 | Types, unit, e2e, build | `npx tsc --noEmit -p .`, `npx vitest run`, `npx playwright test`, `npx vite build` | all green (last: 448 unit, 68 e2e) |
+| A1 | Types, unit, e2e, build | `npx tsc --noEmit -p .`, `npx vitest run`, `npx playwright test`, `npx vite build` | all green (last: 450 unit, 68 e2e) |
 | A2 | Python | from the repo root: `py -3 -I tools/test_render_frame.py`, `tools/test_export_ui_assets.py`, `tools/test_lens_assets.py`, `tools/contract_check.py`, `tools/export_ui_assets.py --check` | all ok |
 | A3 | Flaky tests | run `npx playwright test` 3 times; list any test that fails once | none flaky, or fixed to wait for state, not time (handoff §12 item 34) |
 | A4 | Every tier x HullRender | PerfOverride 0-3 with `HullRender` 0 and 1 via the mock host; list `.frame [data-layer]` and count `g.bloom` | FULL = bloom + glass + grain (+ light passes if HullRender); LITE = grain + static art; LOW and STEALTH = none of the new layers |
@@ -41,6 +43,20 @@ Run from `SpaceshipApp/SpaceshipUI` unless noted. Record exact commands and resu
 | A13 | Hit boxes | `e2e/hud.spec.ts` and the hit-region tests pass with `HullRender=1` (add the config if a spec has none) | unchanged |
 | A14 | Render pass sanity | numpy on `Images/Render/*.png`: sizes, hull alpha vs `window_mask.png` IoU >= 0.985, light passes not clipped (share of 255 under 5 %) | ok |
 | A15 | Visual pair | `tools/visual-check/proto.cjs` old vs `HullRender=1`, then `crop.cjs` on: orb + sphere, top console, a side panel, bottom strip, the windscreen edges; compare to `Refrences-Art/MAIN-REFRENCE-try_to_capture_curvness.jpg` and `images (5).jpg` with `pair.cjs` | list what differs; if a material or light is clearly off, fix it in `tools/blender/cockpit_scene.py` and re-render with `--only` |
+
+### 2b. Checks for the UI clean-up (`chore/ui-cleanup`)
+| # | Check | How | Pass |
+|---|---|---|---|
+| C1 | Dim colour agrees everywhere | grep `ColorDim` default in `Settings.inc`, `src/lib/theme.ts`, `src/settings/registry.ts`, `src/tokens.css`, `contract/config-keys.json`; `UPDATE_CONTRACT` must not be needed | all `0,140,185`; contract test ok |
+| C2 | Dim-text contrast from pixels | crops (`tools/visual-check/crop.cjs`) of the dimmest labels on the darkest panels at 100 % and 150 %; contrast of text pixels vs the panel behind; token maths gave 5.2:1 on panel-over-black, 4.6:1 on the hull, 4.3:1 on a lighter backdrop | >= 4.5:1 on the darkest panels; list any lighter-backdrop miss (needs user) |
+| C3 | Dim lines not too bright | `?preview=1&module=all` crops of inactive lines, grids and graph baselines, before (`main`) vs after | still clearly dimmer than the accent; no line competes with live data; else needs user |
+| C4 | Theme paths still consistent | change `ColorDim` live through the mock host (A6 method); apply the CYAN preset in the Control Center | the dim follows; note that the CYAN preset (`control.lua`) still carries `0,110,150` (decide with the user) |
+| C5 | Hints | extract the 3rd field of every row in `registry.ts`; longest hint; open the tooltip for the 12 changed ones (`WallpaperOn`, `ReduceMotion`, `BloomEngine`, `LensFx`, `WallpaperQuality`, `ScreenBezel`, `DepthHaze`, `PowerSaver`, `WallpaperFit`, `WallpaperPauseMax`, `StateLight`, `HullRender`) | none over 68 characters; each fits in at most 2 tooltip lines at 280 px, and no meaning was lost |
+| C6 | Hull without seams | numpy on `Images/Render/hull.png` and `corners.png`: size 2560x1600, alpha IoU vs `window_mask.png` (A14), mean RGB about 24.8 (was 24.3), no clipping; crop of a hull strut | no visible grid line; silhouette unchanged |
+| C7 | `HullRender=0` never bends | `npx vitest run tests/curve.test.ts` (8 tests); with `HullRender=0` the frame shows no `render_*` or `light_*` layer | pass |
+| C8 | Flake check | `npx playwright test` three times, then `npx playwright test e2e/bloom.spec.ts` three times | all 68/68 and 18/18; any failure of "idle light is not re-blurred" is a regression of `fb9eeda` |
+| C9 | Rainmeter skin still loads | reload the skin (user's Rainmeter; ask first, do not restart it yourself) or parse `Settings.inc` with `tools/contract_check.py`; `Images/*.png` diff vs `main` (A5) | loads; only `Images/Render/` changed |
+| C10 | Console and network with the new render | A12 with `HullRender=1`, 60 s | 0 warnings; the new hashed `render_hull` and `render_corners` load |
 
 ## 3. Measurements (the session does them; the user need not)
 - **Headless CPU, interleaved A/B, 3 rounds, medians:** `main` vs the tip, idle and `?audio=demo` music, `HullRender` 0 and 1.
@@ -66,6 +82,9 @@ Not on its own: moving features, new dependencies, changing the `HullRender` def
 4. Music ball motion (frames from `tools/visual-check/burst.cjs`).
 5. WebView2 occlusion after a fullscreen game or sleep/resume: does the light canvas redraw? Say exactly what to do, then read the result from the console or a screenshot.
 6. LITE on battery (`BatteryMinTier`).
+7. The new dim blue (`0,140,185`) on the real wallpaper in the HUD and in the Rainmeter skin: readable but not too bright? If not, a middle value is `0,125,170`; change it in the same five places as C1, then `npm run gen` and `UPDATE_CONTRACT=1 npx vitest run tests/contract.test.ts`.
+8. The hull without seams (`HullRender=1`): does the plain gunmetal look right, or should panel lines follow the layout?
+9. The open clean-up questions (handoff §16): the doubtful `st.warn` uses, and pop-ups / Control Center glow.
 
 ## 6. Report format
 Append a dated section to `tasks/UI-handoff.md` and give a short chat summary. For each check: ID, command or method, observed result, verdict
