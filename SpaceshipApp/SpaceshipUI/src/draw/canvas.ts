@@ -21,7 +21,29 @@ export type Shape =
   | { kind: 'image'; x: number; y: number; w: number; h: number; href: string; matrix: number[] };
 /** bloom: set on glow-layer ops on FULL; the view blurs that run of ops by this many device units, so the halo strokes
  *  fall off like light instead of ending in a hard edge. */
-export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke; bloom?: number };
+export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke; bloom?: number; grad?: Grad; pattern?: string };
+/** A gradient fill (realism kit K1): offsets 0..1 with their colours. Coordinates are zone units in Canvas calls and
+ *  device units in ops (userSpaceOnUse), so a gradient skews with its zone. When an op has grad it wins over fill. */
+export type GradStop = [number, RGBA];
+export type Grad =
+  | { kind: 'linear'; x1: number; y1: number; x2: number; y2: number; stops: GradStop[] }
+  | { kind: 'radial'; cx: number; cy: number; r: number; stops: GradStop[] };
+/** The shared screen texture (K4), defined once by HudDefs in ops.tsx. */
+export const HUD_SCAN = 'hud-scan';
+export type ScreenOpts = {
+  /** body colour; defaults to the accent */
+  col?: RGBA;
+  /** the edge the backlight sits at: brightest there, falling off across the panel */
+  from?: 'top' | 'bottom' | 'left' | 'right';
+  /** corner cut in zone units (top-left and bottom-right, as chamfer draws them); 0 = square */
+  cut?: number;
+  /** backlight strength 0..1 (default 0.5) */
+  lit?: number;
+  /** screen texture on FULL and LITE (default true) */
+  texture?: boolean;
+  /** soft outer glow on FULL (default true) */
+  glow?: boolean;
+};
 
 /** Settings the skin reads from H.init (PerfTier, GlowAlpha, GlowWidth, CoreWhite, HudAlpha, Scale, EditMode, text settings) and its colours. */
 export type Style = {
@@ -41,6 +63,14 @@ export const FONT_SCALE: Record<string, number> = { Rajdhani: 1.14 };
 export function mix(c1: RGBA, c2: RGBA, t: number): RGBA {
   const k = Math.min(1, Math.max(0, t));
   return [0, 1, 2].map((i) => Math.floor(c1[i] + (c2[i] - c1[i]) * k)).concat(255) as RGBA;
+}
+
+/** Hot-core colour ramp (K3): a bright core burns towards white and keeps a trace of its hue, more so the hotter it is
+ *  (k 0..1 maps to 55..75 % white). CoreWhite 0 means the user wants no white cores, so the colour is kept. */
+export function heat(st: Style, col: RGBA, k = 0.5): RGBA {
+  if (st.coreWhite <= 0) return [col[0], col[1], col[2], col[3]];
+  const c = mix(col, st.white, 0.55 + 0.2 * Math.min(1, Math.max(0, k)));
+  return [c[0], c[1], c[2], col[3]];
 }
 
 /** Value colour: accent below 0.7, blending to warn, then to alert (lib.lua H.ramp). */
@@ -80,10 +110,22 @@ export class Canvas {
     }
   }
 
-  private push(layer: Layer, shape: Shape, fill?: RGBA, stroke?: Stroke) {
+  private push(layer: Layer, shape: Shape, fill?: RGBA, stroke?: Stroke, paint?: { grad?: Grad; pattern?: string }) {
     const s = this.st.s;
     const dev = stroke && { color: stroke.color, width: stroke.width * s, dash: stroke.dash && ([stroke.dash[0] * s, stroke.dash[1] * s] as [number, number]) };
-    this.layers[layer].push({ shape: this.scaled(shape), fill, stroke: dev });
+    const op: Op = { shape: this.scaled(shape), fill, stroke: dev };
+    if (paint?.grad) op.grad = this.scaledGrad(paint.grad);
+    if (paint?.pattern) op.pattern = paint.pattern;
+    this.layers[layer].push(op);
+  }
+
+  /** A gradient to device units, its stop colours through HudAlpha. */
+  private scaledGrad(g: Grad): Grad {
+    const { s } = this.st, { x, y } = this.zone;
+    const stops = g.stops.map(([o, c]) => [Math.min(1, Math.max(0, o)), this.tint(c, c[3])] as GradStop);
+    return g.kind === 'linear'
+      ? { kind: 'linear', x1: (x + g.x1) * s, y1: (y + g.y1) * s, x2: (x + g.x2) * s, y2: (y + g.y2) * s, stops }
+      : { kind: 'radial', cx: (x + g.cx) * s, cy: (y + g.cy) * s, r: g.r * s, stops };
   }
 
   /** HudAlpha scales every colour once, as H.rgba does. */
@@ -276,6 +318,44 @@ export class Canvas {
     this.push('base', { kind: 'image', x: cx - w / 2, y: cy - h / 2, w, h, href, matrix: [r, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, a, 0] });
   }
 
+  /** Rectangle filled with a gradient (K1), under everything else. */
+  gradRect(x: number, y: number, w: number, h: number, grad: Grad, r = 0) {
+    this.push('base', { kind: 'rect', x, y, w, h, r }, undefined, undefined, { grad });
+  }
+
+  /** Polygon filled with a gradient (K1), under everything else. */
+  gradPoly(pts: Pt[], grad: Grad) {
+    if (pts.length < 3) return;
+    this.push('base', poly(pts, true), undefined, undefined, { grad });
+  }
+
+  /** Backlit display (K2): a glass body lit from one edge, the screen texture, a faint inner border, a bright line along
+   *  the lit edge and, on FULL, a soft glow beyond the outline. Graphics drawn afterwards sit on it. LITE drops the glow;
+   *  LOW and STEALTH get the flat body and the inner border only (no gradient, texture or glow). */
+  screen(x: number, y: number, w: number, h: number, opts: ScreenOpts = {}) {
+    const st = this.st, col = opts.col ?? st.accent, lit = Math.min(1, Math.max(0, opts.lit ?? 0.5));
+    const c = Math.min(opts.cut ?? 0, w / 2, h / 2), from = opts.from ?? 'top';
+    const box = (i: number): Pt[] => {
+      const [x0, y0, x1, y1, k] = [x + i, y + i, x + w - i, y + h - i, Math.max(0, c - i * 0.6)];
+      return k > 0 ? [[x0 + k, y0], [x1, y0], [x1, y1 - k], [x1 - k, y1], [x0, y1], [x0, y0 + k]] : [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    };
+    const body = box(0);
+    if (st.tier >= 2) {
+      this.fillPoly(body, col, Math.floor(26 * lit));
+    } else {
+      // the gradient runs from the lit edge across the panel
+      const [x1, y1, x2, y2] = from === 'top' ? [x, y, x, y + h] : from === 'bottom' ? [x, y + h, x, y] : from === 'left' ? [x, y, x + w, y] : [x + w, y, x, y];
+      this.gradPoly(body, { kind: 'linear', x1, y1, x2, y2, stops: [[0, alpha(col, 70 * lit)], [0.45, alpha(col, 30 * lit)], [1, alpha(st.panel, 40)]] });
+      if (opts.texture !== false) this.push('base', poly(body, true), undefined, undefined, { pattern: HUD_SCAN });
+      if (st.tier === 0 && opts.glow !== false && st.glowA > 0) {
+        this.push('glow', poly(body, true), undefined, { color: this.tint(col, Math.floor(st.glowA * 0.6 * lit)), width: 3 * st.glowW });
+      }
+      const [ex1, ey1, ex2, ey2] = from === 'top' ? [x + c, y, x + w, y] : from === 'bottom' ? [x, y + h, x + w - c, y + h] : from === 'left' ? [x, y + c, x, y + h] : [x + w, y, x + w, y + h - c];
+      this.push('base', poly([[ex1, ey1], [ex2, ey2]]), undefined, { color: this.tint(heat(st, col, lit), Math.floor(120 + 110 * lit)), width: 1 });
+    }
+    this.push('base', poly(box(1.5), true), undefined, { color: this.tint(col, 77), width: 1 });
+  }
+
   /** Panel outline with chamfered corners, optionally filled with the panel colour. */
   chamfer(x: number, y: number, w: number, h: number, c: number, col: RGBA, lw?: number, alpha?: number, fillAlpha?: number) {
     const pts: Pt[] = [[x + c, y], [x + w, y], [x + w, y + h - c], [x + w - c, y + h], [x, y + h], [x, y + c]];
@@ -295,6 +375,10 @@ export class Canvas {
     }
     return out;
   }
+}
+
+function alpha(c: RGBA, a: number): RGBA {
+  return [c[0], c[1], c[2], Math.max(0, Math.min(255, Math.floor(a)))];
 }
 
 function poly(pts: Pt[], closed = false): Shape {

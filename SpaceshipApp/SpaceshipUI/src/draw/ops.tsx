@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import type { Pt } from '../lib/geometry';
 import { css } from '../lib/theme';
-import { FONT_SCALE, type Op } from './canvas';
+import { FONT_SCALE, HUD_SCAN, type Grad, type Op } from './canvas';
 
 // Draws Canvas ops as SVG. Canvas already scales the shapes to device units, so the caller only wraps the group in the zone matrix.
 
@@ -16,6 +16,26 @@ export function textAlign(align: string): { anchor: string; base: string } {
   const anchor = align.startsWith('Right') ? 'end' : align.startsWith('Center') ? 'middle' : 'start';
   const base = align.endsWith('Center') ? 'central' : align.endsWith('Bottom') ? 'text-after-edge' : 'text-before-edge';
   return { anchor, base };
+}
+
+/** Shared paint servers for the HUD svg, defined once (K4): a faint horizontal scan texture for display glass.
+ *  Static (no animation); its lines are 1 unit every 3 svg units at 4.5 % white so text on top stays crisp. */
+export function HudDefs() {
+  return (
+    <defs>
+      <pattern id={HUD_SCAN} patternUnits="userSpaceOnUse" width="3" height="3">
+        <rect x="0" y="0" width="3" height="1" fill="rgb(255,255,255)" fill-opacity="0.045" />
+      </pattern>
+    </defs>
+  );
+}
+
+/** One gradient element for an op (userSpaceOnUse: its coordinates are the op's device units). */
+function GradDef({ g, id }: { g: Grad; id: string }) {
+  const stops = g.stops.map(([o, c], i) => <stop key={i} offset={o} stop-color={`rgb(${c[0]},${c[1]},${c[2]})`} stop-opacity={c[3] / 255} />);
+  return g.kind === 'linear'
+    ? <linearGradient id={id} gradientUnits="userSpaceOnUse" x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2}>{stops}</linearGradient>
+    : <radialGradient id={id} gradientUnits="userSpaceOnUse" cx={g.cx} cy={g.cy} r={g.r}>{stops}</radialGradient>;
 }
 
 /** All ops in order. name keeps clip ids unique when several op lists share one page. */
@@ -34,8 +54,15 @@ export function OpsView({ ops, name }: { ops: Op[]; name: string }) {
 }
 
 function OpEl({ op, id }: { op: Op; id: string }) {
+  // plain ops return the svg element itself (no wrapper), exactly as before the gradient fills existed
+  if (op.grad) return <><defs><GradDef g={op.grad} id={`gr-${id}`} /></defs>{Shape({ op, id, fill: `url(#gr-${id})` })}</>;
+  if (op.pattern) return Shape({ op, id, fill: `url(#${op.pattern})` });
+  return Shape({ op, id });
+}
+
+function Shape({ op, id, fill }: { op: Op; id: string; fill?: string }) {
   const paint = {
-    fill: op.fill ? css(op.fill) : 'none',
+    fill: fill ?? (op.fill ? css(op.fill) : 'none'),
     stroke: op.stroke ? css(op.stroke.color) : undefined,
     'stroke-width': op.stroke?.width,
     'stroke-dasharray': op.stroke?.dash?.join(' '),

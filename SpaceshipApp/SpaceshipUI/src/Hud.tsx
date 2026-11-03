@@ -22,6 +22,7 @@ import { BootModule } from './modules/BootModule';
 import { JarvisModule, JarvisLogModule } from './modules/JarvisModule';
 import { jarvisFeed, jarvisLog, jarvisPop } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
+import { HudDefs } from './draw/ops';
 import { modulesOn } from './modules/modulesOn';
 import { hiddenZones } from './modules/hidden';
 import { bootReplays, hudHidden } from './modules/overlays';
@@ -112,6 +113,7 @@ export function Hud() {
     {shown && values.Off_Frame !== '1' && <FrameLayers style={frameStyleOf(values)} values={values} />}
     <svg id="hud" viewBox={`0 0 ${canvas.w} ${canvas.h}`} style={{ width: '100vw', height: '100vh', position: 'relative' }}
       preserveAspectRatio="xMidYMid meet">
+      <HudDefs />
       {debug && (
         <g id="debug-overlay" data-debug="1">
           <rect x={sa.inset} y={sa.inset} width={canvas.w - 2 * sa.inset} height={canvas.h - 2 * sa.inset - taskbar.height}

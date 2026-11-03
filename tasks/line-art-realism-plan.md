@@ -173,8 +173,8 @@ if C# changed. Visual check with `tools/visual-check` (crops + contact sheets). 
 
 | Slice | Content | Acceptance |
 |---|---|---|
-| **R0 Baseline** | Measure: headless CPU (`hold.cjs`+`cpu.ps1`) and, with the user's OK, a **live WebView2 run** with GPU % / VRAM (Task Manager or `nvidia-smi`) for 60 s idle and with music. Save before-screenshots of every feature (crops, one contact sheet). | Numbers recorded in this file §7; before sheet saved outside the repo. |
-| **R1 Engine kit A** | K1 gradients, K2 `screen()`, K3 heat ramp, K4 texture pattern. Unit tests for the new op shapes and for `heat()`. No module uses them yet except one demo in `?panel=kit` or a test page. | Tests pass; demo renders; no visual change elsewhere. |
+| **R0 Baseline** (headless done 2026-11-02; live GPU run still open) | Measure: headless CPU (`hold.cjs`+`cpu.ps1`) and, with the user's OK, a **live WebView2 run** with GPU % / VRAM (Task Manager or `nvidia-smi`) for 60 s idle and with music. Save before-screenshots of every feature (crops, one contact sheet). | Numbers recorded in this file §7; before sheet saved outside the repo. |
+| **R1 Engine kit A** (done 2026-11-02: `Op.grad`/`Op.pattern` are separate fields so `Op.fill` stays RGBA for existing code; `Canvas.gradRect/gradPoly/screen`, `heat()`, `HudDefs` with `#hud-scan`; tests `tests/realismKit.test.ts`) | K1 gradients, K2 `screen()`, K3 heat ramp, K4 texture pattern. Unit tests for the new op shapes and for `heat()`. No module uses them yet except one demo in `?panel=kit` or a test page. | Tests pass; demo renders; no visual change elsewhere. |
 | **R2 Telemetry + rails** | Features 5 and 11 adopt K2/K3/K10. | Each cell reads as a lit screen in the crop; numbers still crisp; tests updated by behaviour, not op counts. |
 | **R3 Rows + blocks** | Features 4 and 6. | Same. |
 | **R4 Dials + strip + side panels** | Features 8, 9, 10. | Same; audio ring still moves smoothly (`burst.cjs`). |
@@ -199,6 +199,15 @@ if C# changed. Visual check with `tools/visual-check` (crops + contact sheets). 
   opacity/transform; nothing animates while idle except existing loops.
 - Tests: assert behaviour (which op is the hot segment, which text is shown) not op counts or draw order — several
   tests were rewritten this way already (`tests/power.test.ts`, `tests/graph.test.ts`).
+### Measurements (append one line per check)
+| Date | When | Headless CPU (`hold.cjs` + `cpu.ps1 15`) | Live GPU % / VRAM | Notes |
+|---|---|---|---|---|
+| 2026-11-02 | R0 baseline | 118.4 %, 119.4 % of one core | not run (needs the user's OK) | before frames: `C:\Users\Senai\cspace-visual-baseline\R0` (full, audio, drawer, boot 10/45/110, `sweep/`, `sheet-main.png`) |
+| 2026-11-02 | after R1 | 119.2 % | not run | no HUD element uses the kit yet (DOM: 0 gradient / 0 texture fills); kit demo `?panel=kit` → `cspace-visual-baseline\R1\kit.png` |
+
+Note for pixel diffs: two captures of the same code differ by ~130k pixels (animation and the preview feed), so compare
+crops by eye or check the DOM, not whole-frame pixel counts.
+
 - C#: `dotnet test` may be blocked by Smart App Control (0x800711C7); do not bypass it. Mirror pure maths in JS if needed.
 
 ## 8. Risks and rollback
