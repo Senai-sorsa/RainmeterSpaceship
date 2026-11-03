@@ -5,6 +5,7 @@ import type { FrameStyle } from '../settings/frameStyle';
 import { partShapes } from './frameParts';
 import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
+import { bootRunning } from './settle';
 import { hiddenZones } from '../modules/hidden';
 import grainUrl from '../assets/lens/bluenoise.png?url';
 
@@ -165,6 +166,7 @@ function glints(s: ReturnType<typeof partShapes>[number]): [number, number][] {
  *  gradients (spill pools, hull falloff) and gives the metal a film texture; never on the window glass. */
 export const GRAIN = 0.07;
 function Grain({ mask, hull }: { mask: string; hull: number }) {
-  return <div class="frame-layer" data-layer="grain" style={{ ...fill, ...notGlassMask(mask), opacity: GRAIN * hull, mixBlendMode: 'soft-light',
+  const settled = !bootRunning.value; // #21: off during the start-up sequence, then it fades in (ui.css)
+  return <div class="frame-layer" data-layer="grain" data-settled={settled ? '1' : '0'} style={{ ...fill, ...notGlassMask(mask), opacity: settled ? GRAIN * hull : 0, mixBlendMode: 'soft-light',
     backgroundImage: `url(${grainUrl})`, backgroundSize: '128px 128px', backgroundRepeat: 'repeat' }} />;
 }

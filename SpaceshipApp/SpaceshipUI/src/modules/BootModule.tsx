@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { scheduler } from '../host/scheduler';
 import { bootFrame, bootRows, bootTimeline, FRAME_MS } from './boot';
+import { bootRunning } from '../ui/settle';
 
 const tl = bootTimeline();
 
@@ -20,13 +21,15 @@ const hold = (() => {
 
 export function BootModule({ style }: { style: Style }) {
   const [f, setF] = useState(hold ?? 0);
+  // the lens waits for the sequence (set before the first paint, so it never shows and then fades out)
+  useLayoutEffect(() => { bootRunning.value = true; return () => { bootRunning.value = false; }; }, []);
   useEffect(() => {
     if (hold !== null) return;
     let n = 0;
     const stop = scheduler.every(FRAME_MS, () => {
       n += 1;
       setF(n);
-      if (n >= tl.done) stop();
+      if (n >= tl.done) { stop(); bootRunning.value = false; }
     });
     return stop;
   }, []);

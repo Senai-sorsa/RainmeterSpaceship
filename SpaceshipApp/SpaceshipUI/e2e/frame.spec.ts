@@ -60,3 +60,24 @@ test('StateLight=0 drops the orb light', async ({ page }) => {
   await expect(page.locator('.frame [data-layer=spill]')).toHaveCount(1);
   await expect(orb(page)).toHaveCount(0);
 });
+
+// UI-handoff 12 #21: the lens (grain, glass) settles last - off while the start-up sequence plays, then fades in
+test('grain and glass wait for the boot sequence, then fade in', async ({ page }) => {
+  await page.goto('/?preview=1&module=all,boot'); // a fresh tab: the boot plays (no cspace.booted)
+  const op = (sel: string) => page.locator(sel).evaluate((e) => Number(getComputedStyle(e).opacity));
+  await expect(page.locator('.frame [data-layer=grain]')).toHaveAttribute('data-settled', '0');
+  expect(await op('.frame [data-layer=grain]')).toBe(0);
+  await expect(page.locator('.frame [data-layer=grain]')).toHaveAttribute('data-settled', '1', { timeout: 15_000 });
+  await expect.poll(() => op('.frame [data-layer=grain]'), { timeout: 5_000 }).toBeGreaterThan(0);
+  await expect.poll(() => op('canvas.glass-layer'), { timeout: 5_000 }).toBe(1);
+});
+test('reduced motion: the orb light and the lens settle do not animate', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => sessionStorage.setItem('cspace.booted', '1'));
+  await page.goto('/?preview=1&module=all&jarvis=speaking');
+  const dur = (sel: string) => page.locator(sel).evaluate((e) => getComputedStyle(e).transitionDuration);
+  await expect(page.locator('.frame [data-layer=grain]')).toHaveAttribute('data-settled', '1');
+  expect(await dur('.frame [data-layer=grain]')).toBe('0s');
+  expect(await dur('canvas.glass-layer')).toBe('0s');
+  expect(await dur('.frame [data-layer=orblight]')).toBe('0s');
+});

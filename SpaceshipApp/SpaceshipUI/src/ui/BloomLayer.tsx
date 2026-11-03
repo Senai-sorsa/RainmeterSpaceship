@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { bloomEntries, type BloomEntry } from '../draw/bloomBus';
 import { BLOOM_STACK, entryBounds, TILE_MS, GLASS_MS, GLASS_SCALE, paintGlass, paintOps, paintTile, TileCache, type Box, type Ctx2D } from '../draw/bloomPaint';
 import dirtUrl from '../assets/lens/dirt.png?url';
+import { bootRunning } from './settle';
 
 // The one light canvas (tasks/hyperrealism-plan.md Task 3): the glow ops every OpsView anchor posts, drawn at a quarter of
 // the CSS resolution, blurred at three radii and stretched over the HUD (normal blend, Task 4). Each anchor's light is a cached
@@ -98,7 +99,8 @@ export function BloomLayer({ mode, baseRadius, lens = false, haze = false }: { m
   return (
     <>
       <canvas ref={ref} class="bloom-layer" data-mode={mode} aria-hidden="true" />
-      {glassOn && <canvas ref={glassRef} class="glass-layer" aria-hidden="true" />}
+      {glassOn && <canvas ref={glassRef} class="glass-layer" aria-hidden="true" data-settled={bootRunning.value ? '0' : '1'}
+        style={bootRunning.value ? { opacity: 0 } : undefined} />}
     </>
   );
 }
