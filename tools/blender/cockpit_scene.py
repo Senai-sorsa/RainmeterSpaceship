@@ -123,7 +123,7 @@ def principled(name, base, metal, rough, noise=False, seams=False, ao=True):
         br.inputs["Row Height"].default_value = 0.55
         br.inputs["Color1"].default_value = (1, 1, 1, 1)
         br.inputs["Color2"].default_value = (0.93, 0.93, 0.93, 1)
-        br.inputs["Mortar"].default_value = (0.55, 0.55, 0.55, 1)
+        br.inputs["Mortar"].default_value = (0.75, 0.75, 0.75, 1)
         tc = n.new("ShaderNodeTexCoord")
         m.node_tree.links.new(tc.outputs["Object"], br.inputs["Vector"])
         last = mul(last, br.outputs["Color"])
@@ -214,8 +214,8 @@ E_ORB.append(orb)
 # ---- keys, camera, world
 sun_key = bpy.data.objects.new("key", bpy.data.lights.new("key", "SUN"))
 sun_rim = bpy.data.objects.new("rim", bpy.data.lights.new("rim", "SUN"))
-for s, rot, col, e in ((sun_key, (math.radians(38), 0, math.radians(-35)), (0.85, 0.93, 1.0), 4.0),
-                       (sun_rim, (math.radians(62), 0, math.radians(140)), (1.0, 0.72, 0.5), 0.9)):
+for s, rot, col, e in ((sun_key, (math.radians(38), 0, math.radians(-35)), (0.85, 0.93, 1.0), 2.4),
+                       (sun_rim, (math.radians(62), 0, math.radians(140)), (1.0, 0.72, 0.5), 0.6)):
     bpy.context.collection.objects.link(s)
     s.rotation_euler = rot
     s.data.color, s.data.energy, s.data.angle = col, e, math.radians(2.5)
@@ -280,8 +280,8 @@ def render(name, objs, color_mode, transparent, world_v, exposure=0.0, neutral_h
 
 base = [hull, *struts, *bez_hull]
 passes = {
-    "hull": lambda: render("hull", base + [sun_key, sun_rim], "RGBA", True, 1.0),
-    "corners": lambda: render("corners", [*bez_corner, sun_key, sun_rim], "RGBA", True, 1.0),
+    "hull": lambda: render("hull", base + [sun_key, sun_rim], "RGBA", True, 0.22),
+    "corners": lambda: render("corners", [*bez_corner, sun_key, sun_rim], "RGBA", True, 0.22),
     "light_screens": lambda: render("light_screens", base + E_SCREENS, "BW", False, 0, neutral_hull=True),
     "light_trim": lambda: render("light_trim", base + E_TRIM, "BW", False, 0, neutral_hull=True),
     "light_orb": lambda: render("light_orb", base + E_ORB, "BW", False, 0, neutral_hull=True),

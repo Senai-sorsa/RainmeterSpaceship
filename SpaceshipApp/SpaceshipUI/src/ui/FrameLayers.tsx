@@ -57,10 +57,10 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
         spill={lit ? '' : spillBackground(accent, tier, hiddenZones(values))}
         orb={!lit && tier === 0 && values.StateLight !== '0' && !hiddenZones(values).split(',').includes('C_sphere')} />}
       {lit && <>
-        {tint('light_screens', 0.9 * hull, 'luminance', accent, screen)}
-        {tint('light_trim', hull * 0.8, 'luminance', accent, screen)}
+        {tint('light_screens', 0.5 * hull, 'luminance', accent, screen)}
+        {tint('light_trim', hull * 0.45, 'luminance', accent, screen)}
         <OrbPass tint={tint} values={values} accent={accent} hull={hull} />
-        {tint('glass_reflect', 0.25, 'luminance', 'rgb(235 245 255)', screen)}
+        {tint('glass_reflect', 0.2, 'luminance', 'rgb(235 245 255)', screen)}
       </>}
       {!pic && tier < 2 && !lit && <TrimSpill vars={vars} mask={url('window_mask')} hull={hull} />}
       {!pic && n(values, 'PerfTier', 0) < 2 && <Grain mask={url('window_mask')} hull={hull} />}
@@ -148,7 +148,7 @@ function OrbPass({ tint, values, accent, hull }: { tint: (name: string, a: numbe
   const key = st === 'listening' ? 'JarvisColorListen' : st === 'speaking' ? 'JarvisColorSpeak' : 'JarvisColorIdle';
   const c = String(values[key] ?? '').trim();
   const bg = c ? `rgb(${c.split(',').slice(0, 3).map((x) => Math.min(255, Math.max(0, Number(x) || 0))).join(',')})` : accent;
-  return tint('light_orb', (st === 'listening' || st === 'speaking' ? 0.9 : 0.35) * hull, 'luminance', bg, { mixBlendMode: 'screen' });
+  return tint('light_orb', (st === 'listening' || st === 'speaking' ? 0.6 : 0.25) * hull, 'luminance', bg, { mixBlendMode: 'screen' });
 }
 
 /** The hull: everything except the glass (a full layer minus the window mask, white = glass). */
