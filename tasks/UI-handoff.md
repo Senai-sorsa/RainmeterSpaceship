@@ -22,7 +22,7 @@ you rely on a detail.
   - `tasks/phase10-slice2-todo.md`
   - the `.gitignore` edits
   - **Why:** another session owns these files and usually has them uncommitted in the working tree. Never stage them, never stash them, and never run a checkout that would rewrite them.
-- **No Blender yet** (user, 2026-11-03: the GPU and memory are busy). Tasks 8-10 of the hyperrealism plan wait for the user's go.
+- **Blender shell render built 2026-11-03 on branch `feature/hull-render`** (see §2c). Task 10 skipped (straight bezel).
 - **Permission (user, 2026-11-03):** "Run anything and everything you want - just dont interfere with stuff related to JARVIS." This covers tests, the dev server, headless browsers and the measurement scripts. A live run of the real app and the GPU script `tools/gpu_baseline.ps1` were not done in that session. Running them is now allowed, but the GPU is busy, so measure when it is idle, or ask first.
 - Keep the base frame and the layout; do not move features. The goal is realism and finish, not a redesign (memory `visual-overhaul-direction`).
 - Make one commit per slice and stage explicit paths. Never use `git add .`. End commit messages with:
@@ -492,3 +492,14 @@ Each item says what, why and how, cheapest first. Ask the user before building a
 | Launching or screenshotting the app | the `run` skill, or the `tools/visual-check` scripts against the dev server on port 5199 | crops, contact sheets, bursts |
 | Blender scene (Task 8) | Context7 for the `bpy` docs; plain Python; TDD for `tools/test_render_frame.py` | renders checked by tests (size, window alpha IoU ≥ 0.995) |
 | Any host or IPC change | `security-review` | model output must never authorise OS actions |
+
+## 2c. Blender shell render (hyperrealism plan Tasks 8-9; Task 10 skipped) - branch `feature/hull-render`, 2026-11-03
+Commits (revert each with `git revert <sha>`): `dfeedcf` Task 8 (scene + passes), `ba4dba6` Task 9 (`HullRender`), `009faba` tuning (darker hull, softer tints).
+- **Task 8:** `tools/ref_layout_json.py` -> `tools/frame_src/layout_polys.json` (the folder is gitignored; the two JSONs were added with `git add -f`). `tools/blender/cockpit_scene.py` renders six PNGs into `Skins/Spaceship/@Resources/Images/Render/` (hull, corners, light_screens, light_trim, light_orb, glass_reflect), one Cycles render per pass, orthographic camera, vertical-wall extrusion so the silhouette stays exact. Command (run from the repo root, about 2 min on the RTX):
+  `"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup -P tools/blender/cockpit_scene.py -- --layout tools/frame_src/layout_polys.json --curve tools/frame_src/curve.json --out Skins/Spaceship/@Resources/Images/Render --samples 256` (`--only hull,corners` for some passes, `--percent 25 --samples 16` for drafts). Light passes are rendered on a neutral diffuse hull, so they can be tinted live. Tuning knobs: `K_SCREEN`, trim/orb emission strengths, world strength (0.22) and sun strengths in the script. Blender's relative `--out` resolves against the drive root when no .blend is loaded; the script now resolves it to an absolute path.
+- **Test:** `py -3 -I tools/test_render_frame.py` (size, hull alpha vs window_mask IoU 0.998, grayscale light passes, curve.json).
+- **Task 9:** setting `HullRender` (default **0**, both Settings.inc and registry). With 1: FULL swaps hull+corners for the render and adds `light_screens`/`light_trim` (accent), `light_orb` (live JARVIS state colour, brighter while listening or speaking) and `glass_reflect`, all `mix-blend-mode: screen`; spill, trim spill and the CSS orb light are not drawn. LITE: render art plus today's CSS spill. LOW/STEALTH: static hull swap only. Export adds `RENDER_IMAGES` and `src/generated/curve.json`.
+- **Task 10 skipped:** `curve.json` `edgeSag` stays 0 (the render's bezels are the same straight polygons), so there is no curve to follow; `bendFor`/warp would be dead code. The cylinder radius (5200) only shapes the shading.
+- **Default not flipped.** To approve: set `HullRender=1` in Settings.inc and registry.ts, `npm run gen`, `UPDATE_CONTRACT=1 npx vitest run tests/contract.test.ts`.
+- **Rollback:** `HullRender=0` (default) or `git revert 009faba ba4dba6 dfeedcf`.
+- **Open:** the hull and seams are a first pass (brick-grid seams are arbitrary); check on the real wallpaper. A stray folder `C:\Skins\` from a first Blender draft (relative-path bug, fixed) may still exist: delete it by hand (the safety check blocked me).
