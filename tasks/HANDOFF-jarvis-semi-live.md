@@ -62,6 +62,47 @@ Open, not fixed: offers ("Would you like me to..."); room talk with "you"/"?" in
 (user's S2-10 rule); 8B sometimes ignores HUD data (said "no unread emails" with 4 unread).
 
 ## 6. Log (newest first)
+- 2026-11-03 g (pre-live-test finish, NOT committed): JarvisVoiceSmooth now defaults to ON in code (`player.SMOOTH_DEFAULT = "1"`;
+  Settings.inc untouched; `JarvisVoiceSmooth=0` in Settings.inc restores the old stream-per-chunk path). B10/B11: `reply_line` no longer
+  logs/remembers a fixed line that was stopped before a word got out; the other stale-turn paths were audited and already guarded (busy lock +
+  cancel checks after listen, transcribe, model read, ask_yes). New `tools/voice_ab.py`; A/B WAVs (5 voices x speeds 0.92/0.96/1.0 x 3 lines)
+  in the session scratchpad `voice-ab\` for the user to listen to. Refactor plan written: `tasks/jarvis-refactor-plan-2026-11-03.md` (do not start before the live test).
+  Semi-live seed 7, current code (cost; before in brackets): 8B main 36 (43), fresh 16 (32), persona 16 (14); 3B main 56 (85), fresh 36 (41),
+  persona 32 (28). Tripwires 0. First sentence p50 8B 0.33-0.43 s (0.28-0.30). Persona rises are within run noise (no persona edits made yet).
+  Tests: test_jarvis OK (venv + py -3), test_host_pipe failed: 0 (scratch mirror, TZ=ABC+12).
+  NOT DONE (needs the live test first or the user's call): persona edits A1/A2/A3/A7 (bank + baseline ready), S3 choice of voice/speed by ear,
+  V13, B3/B4/B8 models, B5-B9. Live check list: first word latency, no gap/click between chunks, "stop" and barge-in cut within a block, headphone
+  level, pop-up typing, fillers join the reply, WASAPI falls back if the device is busy (log line "player: WASAPI not available").
+- 2026-11-03 f (finish-up session, NOT committed, stopped here on the user's word; continue from "Next"):
+  DONE: P0 persona bank `tools/make_persona_cases.py` -> `semi_live_persona.jsonl` (29 cases, held out; separate file so the main/fresh
+  baselines stay comparable) + scorer flags OVERJOKE / DRAMA / PROACTIVE_CLAIM / NO_DRY (only where a case sets expect.dry / readout).
+  Baseline persona cost (seed 7): llama3.1:8b 14 (NO_DRY 7, OFFER 2, PROACTIVE_CLAIM 1), llama3.2:3b 28.
+  V S0: `tools/voice_cases.txt` (28 lines) + `tools/voice_gaps.py` (silent, offline). Baseline (old way, CPU Kokoro): 52 chunks, mid-clause seam
+  silence median 256 ms, clause 275, sentence 418; first chunk 4.5 words.
+  V S1 `jarvislib/player.py` (new): persistent stream, WASAPI shared/low-latency/auto-convert with automatic fallback, trim -45 dB + 10 ms fade,
+  chosen pauses (cont 25 / clause 150 / sentence 300 / hesitate 350 ms), idle close 1.5 s, warm-up. Silent real-device smoke: WASAPI open 48 ms +
+  first write 26 ms, device latency 0.025 s vs default API 49 + 75 ms, 0.182 s; second clip in the same stream has no open cost; bad device ->
+  fallback works.  S2 (speech.py): clause-aware first chunk (>=4 words, >=3 left in the sentence, never before "sir", no weak/number ending,
+  cap 9 words), long sentences split at a comma, short pieces merged (V8), "..." hesitation, V14 one voice after a fallback, V15 warm voice
+  after idle unload, fillers through the player, B11 only words that got out count as said. After (GPU Kokoro): 47 chunks, mid seams 13 -> 4
+  (median 65 ms), clause 190, sentence 340; first chunk 6.2 words (about +0.05-0.1 s, not measured live).
+  Everything is behind JarvisVoiceSmooth (code default 0; Settings.inc untouched). New code defaults: JarvisWasapi 1, JarvisPause*, JarvisTrimDb,
+  JarvisFadeMs, JarvisIdleClose. Skipped: V13 high-pass/limiter, paragraph pause (no paragraph info), crossfade overlap (fade + 25 ms instead).
+  B1: mood.miscounted() (no/other unread count, no events/to-dos/apps against data) -> NO_READING; S2-10 room-talk rule left unchanged on
+  purpose (it is the user's design: "?"/you = for him). B2: prompt.no_ability() fixed lines (payments, bookings, travel, meetings, messages/calls,
+  subscriptions, print, TV/lights, named music app), hooked in jarvis.py for chat kind with no HUD blocks.
+  Tests: test_jarvis OK (venv + py -3) and test_host_pipe failed: 0 after the last edit, scratch mirror, TZ=ABC+12 (earlier gate
+  before them: host_pipe failed: 0). Semi-live 8B/3B main+fresh NOT re-run yet (B1/B2/persona changes touch replies).
+  NEXT: re-run the gate (venv + py -3 + host_pipe) and both semi-live banks for B1/B2; B10 stale-turn guard; persona edits A1/A2/A3/A7
+  (judge on the persona bank, both models); S3 voice A/B WAVs (speed 0.92/0.96/1.0, voices) for the user to listen; optional B3/B4/B8.
+  Voice scratch outputs: scratchpad wav-ab\ (old/new WAVs from voice_gaps), wav-baseline\.
+- 2026-11-03 e (final fixes, not committed): routing.py OTHER_DEVICE: "Set my alarm on my phone" -> "I can't reach your
+  phone from here. I can set that on this PC, though."; other device commands (TV, car, watch, iPad...) -> "...I only
+  control this PC." NEAR_MISS reworded to "Could you say that again?".
+  mood.py OFFER_SENT: a trailing "Would you like me to...?" sentence is cut in polish() (a lone offer and real questions
+  stay). Tests added in test_jarvis.py (route + polish). test_jarvis OK (venv + py -3), test_host_pipe failed: 0
+  (scratch copy, TZ=ABC+12). Semi-live 8B seed 7: fresh 32 -> 32 (OFFER 4 -> 1, one TOO_LONG noise), cantdo/command/
+  unclear (main) cost 8, 0 tripwires. 3B not run (no model-output change besides the offer cut).
 - 2026-11-03 d (FINAL for this session): user: "finish up, log everything, commit, live only into CSpace".
   Final numbers (round 8, current code, seed 7; NO_SIR no longer counted):
   | Model | main (221) | fresh (121) | clean main | first sentence p50 |

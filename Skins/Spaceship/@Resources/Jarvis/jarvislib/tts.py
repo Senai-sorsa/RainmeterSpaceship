@@ -16,6 +16,7 @@ from .hearing import _cuda_dlls
 # if even that fails the words go to the pop-up - he never just goes silent.
 _engines = {}               # loaded voices, by path
 _voice_dev = [None]         # "cuda" or "cpu": where the Kokoro voice runs
+last_source = [""]          # who made the last clip: "neural" (Kokoro/Piper) or "windows" (the fallback voice)
 _voice_gpu_off = [0.0]      # after a GPU failure of the voice: the CPU until then
 _broken = {}                # voice file -> when it may be tried again (a missing or unsupported file: never)
 _kokoro_last = [None]       # the Kokoro voice last used (logged whenever it changes)
@@ -201,8 +202,12 @@ def resolve_voice(voice):
     return voice
 
 
-def synth_audio(text):
-    """Text -> (samples float32, sample_rate), or None if no voice could speak it."""
+def synth_audio(text, force_windows=False):
+    """Text -> (samples float32, sample_rate), or None if no voice could speak it. force_windows: the Windows voice, no matter
+    what (the smooth player keeps a reply in ONE voice once the neural voice has failed in it)."""
+    if force_windows:
+        last_source[0] = "windows"
+        return _windows(text)
     voice = setting("JarvisVoice", "").strip().strip('"')
     if voice:
         voice = resolve_voice(os.path.join(RES, voice))        # a relative path is relative to @Resources
@@ -222,6 +227,7 @@ def synth_audio(text):
                 try:
                     out = (_kokoro if "kokoro" in os.path.basename(voice).lower() else _piper)(voice, text)
                     if out is not None:
+                        last_source[0] = "neural"
                         return out
                     break
                 except Exception as e:
@@ -229,4 +235,5 @@ def synth_audio(text):
                     if not again:
                         problem(f"Voice failed twice ({type(e).__name__}) - the Windows voice for a minute", popup=False)
                         _broken[voice] = time.time() + 60
+    last_source[0] = "windows"
     return _windows(text)

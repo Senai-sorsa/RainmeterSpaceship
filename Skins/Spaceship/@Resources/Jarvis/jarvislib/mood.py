@@ -246,6 +246,8 @@ def chat_cap(mood, adds):
 
 
 SORSA_CALL = re.compile(r",\s*Mr\.? Sorsa(?=\s*[.!?,])|^Mr\.? Sorsa,\s*")   # "Mr. Sorsa" said TO you, not about you
+# a trailing offer ("Would you like me to suggest a playlist?"): he does nothing on the chat path, so it is only filler
+OFFER_SENT = re.compile(r"(?:would you like me to|do you want me to|shall i|should i|want me to)\b[^?]*\?[\x22\x27)]*$", re.I)
 DANGLING = re.compile(r"^(?:however|but|that said|still|although),?\s+", re.I)
 
 
@@ -291,6 +293,8 @@ def polish(sentences, collected, cap=None, serious=True):
                 if cut != s and re.search(r"\w", cut):
                     s = cut[:1].upper() + cut[1:]
             whole = start and ended(s)
+            if whole and out and OFFER_SENT.match(s):          # never the whole answer: a lone offer is kept
+                continue
             if whole and FILLER.search(s) and len(s.split()) <= 12:
                 held = held or s                               # kept only if nothing else comes
                 continue
@@ -349,10 +353,48 @@ def ungrounded(sentence, known):
     return False
 
 
+# B1 (2026-11-03): the 8B said "no unread emails" with 4 unread. A sentence that claims NOTHING (or another count) about mail, the
+# calendar, the to-dos or the open apps while the data it was given says otherwise is replaced by the same fixed line.
+_NUMW = {"zero": 0, "no": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+         "ten": 10, "eleven": 11, "twelve": 12}
+_MAIL_WORD = r"(?:e-?mails?|mail|messages?)"
+NONE_CLAIMS = {
+    "mail": re.compile(rf"\b(?:no|zero|0)\s+(?:new\s+|unread\s+)*{_MAIL_WORD}\b|\b(?:don'?t|do not)\s+have\s+any\s+(?:new\s+|unread\s+)*{_MAIL_WORD}\b|"
+                       r"\b(?:inbox|mailbox)\s+(?:is|looks)\s+(?:empty|clear)\b|\bnothing\s+(?:new\s+)?in\s+(?:your\s+)?(?:inbox|mail)\b", re.I),
+    "events": re.compile(r"\bno\s+(?:upcoming\s+)?(?:events|meetings|appointments)\b|\bcalendar\s+(?:is|looks)\s+(?:empty|clear|free)\b|"
+                         r"\bnothing\s+(?:on|in)\s+your\s+calendar\b", re.I),
+    "todos": re.compile(r"\bno\s+(?:open\s+|pending\s+|remaining\s+|outstanding\s+)*(?:tasks|to-?dos|items)\b|"
+                        r"\bnothing\s+(?:left\s+)?on\s+your\s+(?:to-?do|list)\b|\bto-?do list\s+is\s+(?:empty|clear)\b", re.I),
+    "apps": re.compile(r"\b(?:no|zero)\s+(?:apps?|applications?|programs?|windows)\s+(?:are\s+)?(?:open|running)\b|"
+                       r"\b(?:all\s+)?(?:your\s+)?(?:apps?|applications?|programs?)\s+(?:are\s+)?(?:closed|not running)\b", re.I),
+}
+DATA_LINES = {"events": "Upcoming calendar events:", "todos": "Open to-dos:", "apps": "Open apps:"}
+MAIL_COUNT = re.compile(rf"\b(\d+|{'|'.join(w for w in _NUMW if w != 'no')})\s+(?:new\s+|unread\s+)+{_MAIL_WORD}\b", re.I)
+
+
+def miscounted(sentence, known):
+    """A claim that there is nothing (or a different unread count) where the data says otherwise. Without a data line there is
+    nothing to check against, so nothing is flagged."""
+    known = known or ""
+    unread = re.search(r"Unread Gmail: (\d+)", known)
+    if unread:
+        if NONE_CLAIMS["mail"].search(sentence) and int(unread.group(1)) > 0 and not MAIL_COUNT.search(sentence):
+            return True
+        for m in MAIL_COUNT.finditer(sentence):
+            n = m.group(1).lower()
+            said = int(n) if n.isdigit() else _NUMW.get(n, -1)
+            if said != int(unread.group(1)):
+                return True
+    for key, line in DATA_LINES.items():
+        if line in known and NONE_CLAIMS[key].search(sentence):
+            return True
+    return False
+
+
 def grounded(sentences, collected, known):
     """The answer as spoken: a made-up reading is replaced by NO_READING and the answer ends there."""
     for s in sentences:
-        if ungrounded(s, known):
+        if ungrounded(s, known) or miscounted(s, known):
             log("chat answer gave a reading that is not in its data - replaced")
             collected[:] = [NO_READING]
             yield NO_READING

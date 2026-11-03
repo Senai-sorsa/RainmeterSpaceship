@@ -93,7 +93,7 @@ from jarvislib.routing import (ACTION_TABLE, ACTIONS, AI_CUES, AI_NOT, AI_PROMPT
     CMD_WORDS, FILLER, KEEP, NEAR_MISS, ORDINALS, PHRASES, REFER, SOUNDALIKE, UNBUILT, UNBUILT_ASK, UNBUILT_CAPS,
     _words, as_said, ask_ai, fix_route, for_me, holds_words, interpret, no_claims, pick_last, route, strip_name, tidy)
 from jarvislib.prompt import (ABOUT_ME, ASKING, BLOCKS, BLOCK_EXAMPLES, BRIEFING, INFO_PROMPT, MOODS, SYSTEM,
-    about_me, context, info_blocks, lane_of, mood_key, no_data, system_prompt, wants)
+    about_me, context, info_blocks, lane_of, mood_key, no_ability, no_data, system_prompt, wants)
 
 def load_meaning():
     try:
@@ -156,6 +156,7 @@ def run_action(action, target, pending=None):
 
 def reply_line(text, quiet):
     """Speak (or show) a short fixed reply and log it."""
+    before_me = recent["me"]
     recent["me"] = text
     filler_done()
     if quiet:
@@ -164,7 +165,10 @@ def reply_line(text, quiet):
         time.sleep(min(3.0, 0.06 * len(text)))
         live("")
     else:
-        speak_all([text])
+        spoke = speak_all([text])
+        if cancel.is_set() and not spoke:                      # B10/B11: stopped before a word got out: not said, so not logged
+            recent["me"] = before_me
+            return
     convo_add("J", text)                                       # after: while spoken, the live line types it
 
 
@@ -1091,7 +1095,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         blocks = info_blocks(text) if kind == "chat" else set()
         lane = way["lane"] = lane_of(kind, blocks)
-        empty = no_data(text, blocks)
+        empty = no_data(text, blocks) or (no_ability(text) if kind == "chat" and not blocks else None)   # B2: can't-do requests, said by code
         if empty:                                              # no data, no model
             fixed(empty)
             return

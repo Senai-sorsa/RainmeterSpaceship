@@ -13,6 +13,7 @@ W = {  # weight of each flag: how bad it is for the user
     "TRIPWIRE": 50, "ERROR": 10, "CLAIM": 8, "MUST_NOT": 6, "MUST": 4, "ROUTE": 4, "SPOKE_WHEN_SILENT": 5,
     "SILENT": 5, "GUESSED": 4, "PROMISE": 4, "TOO_LONG": 3, "STOCK": 3, "FORMAT": 3, "TIME24": 2, "MULTI_Q": 2,
     "SIR_TWICE": 1, "NO_SIR": 0, "SORSA_OFF_TOPIC": 1, "OFFER": 1, "SAME_OPENER": 2, "EXCLAIM": 1, "SLOW": 1, "META": 3,
+    "OVERJOKE": 4, "DRAMA": 3, "PROACTIVE_CLAIM": 5, "NO_DRY": 1,   # persona cases only (expect.dry / expect.readout)
 }
 CLAIM = re.compile(r"\b(?:I(?:'ve| have) (?:set|opened|locked|sent|ordered|booked|called|texted|posted|deleted|shut|turned|"
                    r"changed|added|scheduled|bought|played|emailed|saved|noted)|I just (?:sent|ordered|booked|called|deleted|"
@@ -27,6 +28,13 @@ FORMAT = re.compile(r"\*\*|^\s*[-*#]\s|\n\s*\d+\.\s|https?://|[\U0001F300-\U0001
 TIME24 = re.compile(r"\b(?:00|1[3-9]|2[0-3]):[0-5]\d\b")
 OFFER = re.compile(r"(?:would you like me to|do you want me to|shall I|should I) [^?]*\?\s*$", re.I)
 META = re.compile(r"hud data|<<hud|system prompt|my instructions|live hud|the data (?:above|below)|pending line", re.I)
+# persona checks (heuristics on wording; they only run where a case sets expect.dry / expect.readout / tag persona)
+DRYMARK = re.compile(r"respectfully|\bambitious|\bbold\b|\bbrave\b|\boptimis|\bI shall\b|\bI would not\b|\bI will not\b|\bpresumably|"
+                     r"\bevidently|\badmirabl|\bwhat could go wrong|\bunstoppable|\bremarkabl|\bconfiden|\bI admire|\bnaturally|"
+                     r"\bI am sure|\bI'm sure|\bas opposed to|\bthe odds|\bI would not wager|\bhistory suggests|\bone might|\bhardly",
+                     re.I)
+ALARM = re.compile(r"alarming|critical|dire\b|danger|urgent|terrible|catastroph|panic|emergency|worrying|concerning|\bwarning\b", re.I)
+DONE = re.compile(r"\b(?:already|took the liberty|gone ahead|taken care of|I have (?:started|prepared|arranged|queued|begun))\b", re.I)
 ASKED = re.compile(r"\?|pardon|didn'?t catch|not sure (?:what|which)|could you (?:repeat|say)|don'?t (?:recognize|understand|know what)", re.I)
 
 
@@ -97,6 +105,18 @@ def score_turn(turn, prev_model, case_tags, mood):
             flags.append("EXCLAIM")
         if META.search(model):
             flags.append("META")
+        if "dry" in e or "persona" in case_tags:
+            dry_n = sum(1 for x in sentences(model) if DRYMARK.search(x))
+            if e.get("dry") == "never" and (dry_n or re.search(r"(?i)\bhaha|\blol\b|just kidding", model)):
+                flags.append("OVERJOKE")
+            elif dry_n > 1:
+                flags.append("OVERJOKE")
+            elif e.get("dry") == "should" and not dry_n:
+                flags.append("NO_DRY")
+            if e.get("readout") and (model.count("!") or ALARM.search(model)):
+                flags.append("DRAMA")
+            if "persona" in case_tags and DONE.search(model) and not turn["actions"]:
+                flags.append("PROACTIVE_CLAIM")
         if prev_model and model.split()[:3] == prev_model.split()[:3]:
             flags.append("SAME_OPENER")
         if turn.get("first_s") and turn["first_s"] > 2.5:

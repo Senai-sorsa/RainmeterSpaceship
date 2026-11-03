@@ -270,6 +270,41 @@ LIVE_FACT = re.compile(r"(?:weather (?:like|today|tonight|tomorrow|now|outside|f
 LIVE_FACT_LINE = "I can't look that up yet."
 
 
+# B2 (2026-11-03): things he has no way to do (payments, bookings, messages to other people, printing, accounts, other devices,
+# one named music app): a calm fixed line from code, said at once, instead of a model guess ("Pardon sir, what did you say?"
+# or "I'm sorry sir, I don't have the ability to..."). Only at the START of the request, so "what is a payment" and
+# "remind me to book a table" are untouched. Every line says what he CAN do where there is something.
+_LEAD = r"^(?:(?:please|hey|okay|ok|can you|could you|would you|will you|i need you to|i want you to|go ahead and)[,.]?\s+)*"
+NO_ABILITY = [
+    (re.compile(r"\b(?:venmo|paypal|zelle|cash ?app|apple pay|google pay)\b|" + _LEAD + r"(?:pay|transfer|wire)\b.*\b(?:dollars?|bucks|euros?|\d)", re.I),
+     "I can't handle payments from here, sir."),
+    (re.compile(_LEAD + r"(?:find|search for|look for|get me|show me)\b.*\b(?:flights?|hotels?|airbnb|plane tickets?)\b", re.I),
+     "I can't search for travel from here, sir."),
+    (re.compile(_LEAD + r"(?:book|reserve|order|buy|purchase)\s+(?:me |us |for \w+ )?(?:a|an|the|my|some|two|three|four|\d+|tickets?|food|pizza|coffee|lunch|dinner)\b", re.I),
+     "I can't book or order anything from here, sir. I only control this PC."),
+    (re.compile(_LEAD + r"(?:schedule|set up|arrange|plan)\s+(?:a |an |the )?(?:meeting|appointment|call|lunch|dinner|interview)\b", re.I),
+     "I can't schedule meetings with other people from here, sir. I can set a reminder, though."),
+    (re.compile(_LEAD + r"(?:(?:message|text(?! (?:size|messages?)\b)|dm|whatsapp|e-?mail|facetime|phone|ring)\b|call\s+(?!me\b|you\b|it\b|this\b|that\b))\s*\w", re.I),
+     "I can't send messages or place calls from here, sir."),
+    (re.compile(r"\b(?:cancel|renew|upgrade|downgrade|manage)\s+(?:my |the )?(?:netflix|hulu|disney\+?|prime|subscription|membership|account|plan)\b", re.I),
+     "I can't manage accounts or subscriptions from here, sir."),
+    (re.compile(_LEAD + r"(?:print|fax)\b", re.I), "I can't print from here, sir."),
+    (re.compile(_LEAD + r"(?:turn|switch)\s+(?:on|off)\s+(?:the |my )?(?:\w+ ?room )?(?:tv|television|lights?|lamp|fan|heater|thermostat)\b", re.I),
+     "I can't reach that from here, sir. I only control this PC."),
+    (re.compile(_LEAD + r"(?:play|put on|start)\b.*\b(?:on|in|with|using) (?:apple music|amazon music|youtube music|tidal|pandora|deezer)\b", re.I),
+     "I can't start music in that app, sir. I can pause, skip or change the volume."),
+]
+
+
+def no_ability(text):
+    """The fixed line for a request he cannot do, or None. Lower-case text with the name already stripped is not needed."""
+    t = (text or "").strip()
+    for rx, line in NO_ABILITY:
+        if rx.search(t):
+            return line
+    return None
+
+
 def no_data(text, blocks):
     """L10: a fixed reply when everything asked about is empty, so the model never fills the gap. None: data to use."""
     if not blocks and LIVE_FACT.search(text + " "):

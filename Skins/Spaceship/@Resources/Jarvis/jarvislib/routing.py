@@ -188,7 +188,14 @@ ACTION_TABLE = {
 }
 ACTIONS = {name: a.run for name, a in ACTION_TABLE.items()}    # the callers' and tests' name for the handlers
 
-NEAR_MISS = "I heard a command but couldn't work it out. Try: set a timer for one minute."
+NEAR_MISS = "Could you say that again?"
+# things on other devices: he only controls this PC. Said plainly; for an alarm / timer / reminder he offers the PC.
+OTHER_DEVICE = re.compile(r"\b(?:(?:on|in|to|for|from|into|through|via) (?:my |the |your )?|(?:my|the) )"
+                          r"(?P<dev>phone|iphone|android|ipad|tablet|smart ?watch|watch|tv|television|smart tv|car|truck|"
+                          r"alexa|echo|google home|smart speaker|fridge|oven|thermostat)(?: please| now)?$")
+OTHER_DEVICE_VERB = re.compile(r"(?:set|turn|put|play|start|stop|pause|open|lock|unlock|call|text|ring|change|switch|make|"
+                               r"dim|raise|lower|find|locate|send|schedule|add)\b")
+
 CLAIM_LINE = "I didn't catch that as a command, so nothing changed. Say it again, like: set an alarm for 7 AM."
 # a chat answer that says something was done: nothing runs on the chat path, so it cannot be true
 # S2-8: any "I did it" / "it is now on" about a setting, the PC or an app; "I'll dim it" promises the same lie
@@ -432,6 +439,13 @@ def _route_rest(text, named, t, whole, cmd):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
         return ("end", None, None, None)                       # T1: he drops it and says nothing (jarvis.py: control)
+    dev = OTHER_DEVICE.search(cmd) if OTHER_DEVICE_VERB.match(cmd) else None
+    if dev:                                                    # "set my alarm on my phone": not reachable, and not "couldn't work it out"
+        noun = {"tv": "TV", "ipad": "iPad", "iphone": "iPhone", "smart tv": "smart TV"}.get(dev.group("dev"), dev.group("dev"))
+        what = "your " + noun if "my " in dev.group(0) or "your " in dev.group(0) else "the " + noun
+        if re.match(r"(?:set|add|schedule)\b.*\b(?:alarm|timer|reminder)", cmd):
+            return ("say", None, None, f"I can't reach {what} from here. I can set that on this PC, though.")
+        return ("say", None, None, f"I can't reach {what} from here. I only control this PC.")
     tm = mood_timed(cmd)
     if tm:                                                     # Slice 3: "be serious for ten minutes" (this session only)
         return ("say", "mood_for", tm, timed_line(*tm))       # started by command_reply: route() also only classifies

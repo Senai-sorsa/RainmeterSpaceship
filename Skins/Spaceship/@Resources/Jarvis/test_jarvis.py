@@ -44,6 +44,12 @@ class Everywhere:
 
 
 j = Everywhere(jarvis)
+import jarvislib.player as _player0
+CODE_SMOOTH_DEFAULT = _player0.SMOOTH_DEFAULT
+_player0.SMOOTH_DEFAULT = "0"          # the code default is smooth ON; the older speech tests below describe the old path, so they ask for it
+REAL_REPLY_LINE = jarvis.reply_line
+REAL_PREPARE_FILLERS = jarvis.prepare_fillers
+REAL_SENTENCES_FROM = jarvis.sentences_from   # later tests fake j.sentences_from; the smooth-chunking tests need the real one
 REAL_CONTEXT = j.context      # later tests fake j.context; the privacy test needs the real one
 real_convo_add = jarvis.convo_add                                 # faked further down; the BUG-05 test needs the real one
 j.DUCK_FILE = os.path.join(tempfile.mkdtemp(), "duck.txt")       # never the real Data folder
@@ -1974,6 +1980,15 @@ for text in ("Change the screen colour to blue.", "set the volume to 30 decibels
     assert j.route(text) == ("say", None, None, j.NEAR_MISS), (text, j.route(text))
 assert j.tidy("un mute") == "unmute" and j.tidy("blue tooth") == "bluetooth" and j.tidy("screen shot") == "screenshot"      # EDGE-06
 assert j.tidy("change the volume from 20 to 60") == "set the volume to 60" and j.tidy("set brightness from 20 to forty") == "set the brightness to forty"   # EDGE-05
+# 2026-11-03 final fixes: things on other devices are said plainly (not "couldn't work it out"); alarms offer the PC
+for text, want in (("Set my alarm on my phone.", "I can't reach your phone from here. I can set that on this PC, though."),
+                   ("set a timer on my watch", "I can't reach your watch from here. I can set that on this PC, though."),
+                   ("turn off the TV", "I can't reach the TV from here. I only control this PC."),
+                   ("lock my car", "I can't reach your car from here. I only control this PC."),
+                   ("play music on my phone", "I can't reach your phone from here. I only control this PC.")):
+    assert j.route(text) == ("say", None, None, want), (text, j.route(text))
+assert j.route("set an alarm for 7 am")[0] == "remind" and j.route("what is on my phone")[0] == "chat"      # real ones untouched
+assert "work it out" not in j.NEAR_MISS and j.route("set my volume to")[3] == j.NEAR_MISS
 # S2-8: a request for something not built is said plainly by code, before the model (it said "done" for brightness)
 for text in ("unpair my headphones", "turn off wifi", 
              "change my wallpaper", "hibernate", "sign out", "log me off"):
@@ -4292,6 +4307,13 @@ for s in ("I can't send emails, sir.", "I can tell you a joke.", "I can explain 
 # round 5: "sir" once inside a sentence; "Mr. Sorsa" as an address only on serious turns; no reply opens with "However,"
 o, _ = _pol(["I'm designed to assist Senai Sorsa, sir, and Siri is a general AI assistant, sir."])
 assert o == ["I'm designed to assist Senai Sorsa, sir, and Siri is a general AI assistant."], o
+# 2026-11-03: a trailing "Would you like me to...?" offer is cut; a lone offer, and a real question to him, stay
+o = list(MD.polish(iter(["You've been up late, sir.", "Would you like me to suggest a playlist?"]), [], 3))
+assert o == ["You've been up late, sir."], o
+o = list(MD.polish(iter(["Should I turn it down?"]), [], 3))
+assert o == ["Should I turn it down?"], o
+o = list(MD.polish(iter(["Pardon, sir.", "Which one did you mean?"]), [], 3))
+assert o == ["Pardon, sir.", "Which one did you mean?"], o
 o = list(MD.polish(iter(["Yes, it is late, Mr. Sorsa.", "Mr. Sorsa, get some rest."]), [], 3, serious=False))
 assert o == ["Yes, it is late, sir.", "Get some rest."], o
 o = list(MD.polish(iter(["I'm sorry to hear that, Mr. Sorsa."]), [], 3, serious=True))
@@ -4344,5 +4366,381 @@ j.last_turn = j.time.time()
 assert len(j.active("How tall is it?")) == 2
 assert len(j.active("What do you think about pineapple on a pizza?")) == 0, "an unrelated longer question files the talk"
 j.history[:] = []
+
+# ---- JarvisVoiceSmooth: persistent stream, trim/fade, chosen pauses, clause-aware chunks (fake sounddevice, no real audio)
+import numpy as np
+import jarvislib.player as PL
+import jarvislib.speech as SP
+_keep = dict(setting=j.setting, play=j.play_samples, synth=j.synth_audio, S=j.S, live=j.live, muted=j.muted, filler_done=j.filler_done)
+_smooth = {"JarvisVoiceSmooth": "1"}
+j.setting = lambda name, default="": _smooth.get(name, default)
+assert PL.smooth_on() and PL.pause_ms("sentence") == 300 and PL.pause_ms("clause") == 150 and PL.pause_ms("cont") == 25
+_smooth["JarvisPauseSentence"] = "420"
+assert PL.pause_ms("sentence") == 420
+del _smooth["JarvisPauseSentence"]
+j.setting = lambda name, default="": default
+assert not PL.smooth_on()                                     # no setting + the test's old-path default
+assert CODE_SMOOTH_DEFAULT == "1"                             # the shipped default: smooth on
+j.setting = lambda name, default="": _smooth.get(name, default)
+
+# boundary kinds
+assert PL.boundary("Good morning, sir.") == "sentence" and PL.boundary("Is that so?") == "sentence"
+assert PL.boundary("You have three meetings today,") == "clause" and PL.boundary("The time is") == "cont" and PL.boundary("") == "cont"
+
+# trim: the quiet ends go (a 20 ms margin stays), the sound is intact; fade: same length, ends at zero, never louder than 1
+_r = 24000
+_tone = (0.3 * np.sin(np.linspace(0, 200 * np.pi, 4800))).astype(np.float32)
+_clip = np.concatenate([np.zeros(2400, np.float32), _tone, np.zeros(7200, np.float32)])
+_t = PL.trim(_clip, _r)
+assert abs(len(_t) - (4800 + 2 * int(_r * 0.02))) <= 8 and abs(_t).max() <= 0.3 + 1e-6, len(_t)
+assert len(PL.trim(np.zeros(500, np.float32), _r)) == 500      # all quiet: left alone
+_f = PL.fade(_tone, _r)
+assert len(_f) == len(_tone) and abs(_f[0]) < 1e-6 and abs(_f[-1]) < 1e-6 and abs(_f).max() <= 0.3 + 1e-6
+assert len(PL.prepare(_clip, _r)) == len(_t)
+
+
+class _FakeSD:
+    """A sounddevice with a recording OutputStream. `wasapi_fails`: the WASAPI open raises, the default one works."""
+    def __init__(self, wasapi_fails=False, no_wasapi=False):
+        self.opened, self.writes, self.events, self.wasapi_fails, self.no_wasapi = [], [], [], wasapi_fails, no_wasapi
+        fake = self
+
+        class WasapiSettings:
+            def __init__(self, auto_convert=False):
+                self.auto_convert = auto_convert
+
+        class OutputStream:
+            def __init__(self, samplerate=None, channels=None, dtype=None, device=None, latency=None, extra_settings=None):
+                if extra_settings is not None and fake.wasapi_fails:
+                    raise RuntimeError("wasapi unavailable")
+                self.id = len(fake.opened)
+                fake.opened.append(dict(rate=samplerate, ch=channels, device=device, wasapi=extra_settings is not None, latency=latency))
+                fake.events.append(("open", self.id))
+
+            def start(self):
+                fake.events.append(("start", self.id))
+
+            def write(self, a):
+                fake.writes.append((self.id, len(a), float(np.abs(a).max()) if len(a) else 0.0))
+                fake.events.append(("w", self.id))
+                if fake.on_write:
+                    fake.on_write(len(fake.writes))
+
+            def __enter__(self):
+                fake.events.append(("start", self.id))
+                return self
+
+            def __exit__(self, *a):
+                fake.events.append(("close", self.id))
+
+            def stop(self):
+                fake.events.append(("stop", self.id))
+
+            def abort(self):
+                fake.events.append(("abort", self.id))
+
+            def close(self):
+                fake.events.append(("close", self.id))
+        self.WasapiSettings, self.OutputStream, self.on_write = WasapiSettings, OutputStream, None
+
+    def query_hostapis(self):
+        return [{"name": "MME", "default_output_device": 3}] + ([] if self.no_wasapi else [{"name": "Windows WASAPI", "default_output_device": 8}])
+
+
+_real_sd2 = sys.modules.get("sounddevice")
+_far, _real_far = [], j.far_add
+j.far_add = lambda a, rate: _far.append(len(a))
+j.S = _S()
+
+
+def _fresh_player(**kw):
+    sd = _FakeSD(**kw)
+    sys.modules["sounddevice"] = sd
+    PL.player.close()
+    return sd
+
+
+# one stream for three clips; WASAPI, auto-convert, low latency; the lead silence and the clip in 40 ms blocks
+sd = _fresh_player()
+_tone2 = (0.2 * np.sin(np.linspace(0, 400 * np.pi, 24000))).astype(np.float32)        # 1 s
+_prog = []
+for lead in (0, 300, 150):
+    PL.player.play(_tone2, 24000, _prog.append, lead)
+assert len(sd.opened) == 1 and sd.opened[0] == dict(rate=24000, ch=1, device=8, wasapi=True, latency="low"), sd.opened
+assert PL.player.api == "wasapi" and [e for e in sd.events if e[0] == "close"] == []      # still open between the clips
+_zero = [w for w in sd.writes if w[2] == 0.0]
+assert sum(w[1] for w in _zero) == int(24000 * 0.300) + int(24000 * 0.150), sum(w[1] for w in _zero)   # the chosen pauses, as silence in the stream
+assert _prog and _prog[-1] == 1.0 and _far, (_prog[-3:], len(_far))
+# the rate changes (a chime, the Windows voice): the stream is reopened, not mixed up
+PL.player.play(_tone2[:2000], 16000, None, 0)
+assert len(sd.opened) == 2 and sd.opened[1]["rate"] == 16000
+# idle: closed after JarvisIdleClose seconds without a write
+_smooth["JarvisIdleClose"] = "0.3"
+PL.player.play(_tone2[:2000], 16000, None, 0)
+threading.Event().wait(0.7)              # (j.time.sleep is faked by earlier tests)
+assert PL.player.out is None and ("close", 1) in sd.events, sd.events[-4:]
+del _smooth["JarvisIdleClose"]
+
+# WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same
+sd = _fresh_player(wasapi_fails=True)
+PL.player.play(_tone2[:2000], 24000, None, 0)
+assert len(sd.opened) == 1 and not sd.opened[0]["wasapi"] and PL.player.api == "default"
+sd = _fresh_player(no_wasapi=True)
+PL.player.play(_tone2[:2000], 24000, None, 0)
+assert len(sd.opened) == 1 and not sd.opened[0]["wasapi"]
+_smooth["JarvisWasapi"] = "0"                                  # switched off in the settings
+sd = _fresh_player()
+PL.player.play(_tone2[:2000], 24000, None, 0)
+assert not sd.opened[0]["wasapi"]
+del _smooth["JarvisWasapi"]
+
+# stop / barge-in: aborts within one block (the write after the one that set cancel), the stream is dropped and the next clip re-opens it
+sd = _fresh_player()
+sd.on_write = lambda n: j.cancel.set() if n == 3 else None
+_nw = len(sd.writes)
+PL.player.play(_tone2, 24000, None, 0)
+assert len(sd.writes) == 3 and ("abort", 0) in sd.events and PL.player.out is None, (len(sd.writes), sd.events[-3:])
+j.cancel.clear()
+sd.on_write = None
+PL.player.play(_tone2[:2000], 24000, None, 0)
+assert len(sd.opened) == 2
+# cancelled during the lead pause: nothing of the clip is written
+sd = _fresh_player()
+sd.on_write = lambda n: j.cancel.set() if n == 2 else None
+PL.player.play(_tone2, 24000, None, 500)
+assert all(w[2] == 0.0 for w in sd.writes) and ("abort", 0) in sd.events
+j.cancel.clear()
+# a stream that breaks mid-clip: the error is raised (the caller falls back), the stream is dropped
+sd = _fresh_player()
+sd.on_write = lambda n: (_ for _ in ()).throw(OSError("device lost")) if n == 2 else None
+try:
+    PL.player.play(_tone2, 24000, None, 0)
+    raise AssertionError("no error")
+except OSError:
+    pass
+assert PL.player.out is None
+PL.player.close()
+
+# play_samples: smooth + lead_ms = the player; without lead_ms (chimes, dings) = the old stream per call, never the player
+sd = _fresh_player()
+j.setting = lambda name, default="": _smooth.get(name, default)
+real_play_samples(_tone2[:4800], 24000, None, 0)
+assert PL.player.out is not None and sd.opened[0]["wasapi"]
+PL.player.close()
+n0 = len(sd.opened)
+real_play_samples(_tone2[:4800], 24000)
+assert len(sd.opened) == n0 + 1 and not sd.opened[-1]["wasapi"] and PL.player.out is None   # old path: its own stream, closed after
+_smooth["JarvisVoiceSmooth"] = "0"
+real_play_samples(_tone2[:4800], 24000, None, 0)               # switch off: even with a lead the old path
+assert PL.player.out is None
+_smooth["JarvisVoiceSmooth"] = "1"
+PL.player.close()
+
+# ---- chunking: first chunk at a clause, no orphan, never before "sir", no cut inside numbers/Mr., long sentences split at a comma
+def _stream(text, step=4):
+    return [text[i:i + step] for i in range(0, len(text), step)]
+
+
+def _chunks(text, **kw):
+    return list(REAL_SENTENCES_FROM(iter(_stream(text)), []))
+
+
+_c = _chunks("You have three meetings today, and the first is at nine.")
+assert _c == ["You have three meetings today,", "and the first is at nine."], _c
+assert _chunks("Good morning, sir. The time is 1:48 AM.") == ["Good morning, sir.", "The time is 1:48 AM."]
+assert _chunks("Your meeting is at nine, sir.") == ["Your meeting is at nine, sir."]               # a cut would leave an orphan "sir."
+_c = _chunks("It is quite late, sir, and you have an early class tomorrow, so rest.")
+assert _c[0] == "It is quite late, sir," and _c[1].startswith("and you"), _c                       # never "late, | sir"
+_c = _chunks("Your physics quiz is at 3:30 PM, Mr. Sorsa, and the study group meets tomorrow at 9.")
+assert _c[0] == "Your physics quiz is at 3:30 PM, Mr. Sorsa,", _c
+_c = _chunks("The population is 1,000,000 people in total, according to the census.")
+assert all(not x.endswith(("1,", "000,")) for x in _c), _c
+assert _chunks("Certainly.") == ["Certainly."] and _chunks("Certainly") == ["Certainly"]
+_c = _chunks("Light from the Sun takes about eight minutes and twenty seconds to reach us.")
+assert not _c[0].endswith(("and", "twenty", "eight")) and " ".join(_c) == "Light from the Sun takes about eight minutes and twenty seconds to reach us.", _c
+_long = ("The reactor splits heavy atoms into lighter ones, which releases a great deal of heat, and that heat boils water into "
+         "steam, which then spins a turbine connected to a generator that makes the electricity you use.")
+_c = _chunks(_long + " Done.")
+assert " ".join(_c) == _long + " Done." and all(len(x.split()) <= 25 for x in _c) and len(_c) >= 3, _c
+assert SP.split_long("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen "
+                     "eighteen nineteen twenty twentyone twentytwo twentythree twentyfour twentyfive twentysix.") == [
+    "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen "
+    "twenty twentyone twentytwo twentythree twentyfour twentyfive twentysix."], "no comma: left whole"
+# the chunks are the same words, in order, whatever the streaming step
+_t = "Of course, sir, though I should mention that the battery is at 12 percent. Anything else?"
+for step in (1, 3, 7, 50):
+    assert " ".join(REAL_SENTENCES_FROM(iter(_stream(_t, step)), [])).replace("  ", " ") == _t, step
+_smooth["JarvisFirstWords"] = "0"                              # no early start: whole sentences only
+assert _chunks("You have three meetings today, and the first is at nine.") == ["You have three meetings today, and the first is at nine."]
+del _smooth["JarvisFirstWords"]
+_smooth["JarvisVoiceSmooth"] = "0"                             # off: the old 5-word start, untouched
+assert _chunks("You have three meetings today, and the first is at nine.")[0] == "You have three meetings today,"
+_smooth["JarvisVoiceSmooth"] = "1"
+
+# merge of short pieces (V8), the hesitation split (V11)
+assert SP.plan_chunks(["Good morning, sir,", "Yes.", "You have two.", "Both are at nine and ten tomorrow morning."]) == [
+    "Good morning, sir,", "Yes. You have two. Both are at nine and ten tomorrow morning."]
+assert SP.plan_chunks(["One.", "Two."]) == ["One.", "Two."] and SP.plan_chunks([]) == []
+assert SP.hesitation_parts("Well... I suppose so.") == [("Well...", "Well", "hesitate"), ("I suppose so.", "I suppose so.", None)]
+assert SP.hesitation_parts("Just this.") == [("Just this.", "Just this.", None)] and SP.hesitation_parts("Hmm...")[0][2] is None
+
+# ---- speak_all in smooth mode: leads by boundary, short pieces merged, B11 honest "spoken", one voice after a fallback
+_words = []
+j.muted, j.live, j.filler_done = (lambda: False), _words.append, (lambda: None)
+PL.player.warm = lambda *a, **k: None                          # the speak_all tests below do not open the fake device on a thread
+_plays = []
+j.play_samples = lambda a, rate, progress=None, lead=None: (_plays.append((a, lead)), progress and progress(1.0))
+j.synth_audio = lambda text, force_windows=False: (text, 24000)
+sd = _fresh_player()
+_spoken = within(5, real_speak_all, iter(["You have three meetings today,", "and the first is at nine.", "Yes.", "Done.", "Really, sir?"]))
+assert [p[0] for p in _plays] == ["You have three meetings today,", "and the first is at nine.", "Yes. Done. Really, sir?"], _plays
+assert _plays[0][1] == 0 and 120 <= _plays[1][1] <= 150 and 250 <= _plays[2][1] <= 300, _plays   # none first; 150 after a comma; 300 after a sentence (minus waiting)
+assert _spoken == "You have three meetings today, and the first is at nine. Yes. Done. Really, sir?"
+_plays.clear()
+j.synth_audio = lambda text, force_windows=False: (threading.Event().wait(0.05), (text, 24000))[1]       # a slow synth: waiting counts toward the pause
+within(5, real_speak_all, iter(["Hello there, sir.", "How are you today?"]))
+assert _plays[0][1] == 0 and 200 <= _plays[1][1] <= 260, _plays
+# the pause the text asks for: "..." = a hesitation, two clips
+_plays.clear()
+j.synth_audio = lambda text, force_windows=False: (text, 24000)
+_sp = within(5, real_speak_all, iter(["Well... I suppose so."]))
+assert [p[0] for p in _plays] == ["Well", "I suppose so."] and 300 <= _plays[1][1] <= 350 and _sp == "Well... I suppose so.", (_plays, _sp)
+# B11: talked over half way through a clip: only the words that got out are kept (none if it never started)
+_plays.clear()
+j.cancel.clear()
+
+
+def _half(a, rate, progress=None, lead=None):
+    _plays.append(a)
+    progress(0.5)
+    j.cancel.set()
+
+
+j.play_samples = _half
+_sp = within(5, real_speak_all, iter(["one two three four five six seven eight.", "second piece."]))
+assert _sp == "one two three four" and _plays == ["one two three four five six seven eight."], (_sp, _plays)
+j.cancel.clear()
+j.play_samples = lambda a, rate, progress=None, lead=None: (_plays.append(a), j.cancel.set())     # never reported any progress: whole clip kept
+_plays.clear()
+assert within(5, real_speak_all, iter(["one two three four.", "second."])) == "" and _plays == ["one two three four."]
+j.cancel.clear()
+# the neural voice fails in the middle of a reply: the rest stays in ONE voice (the Windows one), no swapping per sentence
+_plays.clear()
+j.play_samples = lambda a, rate, progress=None, lead=None: _plays.append(a)
+_calls = []
+
+
+def _flaky(text, force_windows=False):
+    _calls.append((text, force_windows))
+    if len(_calls) == 2:
+        j._tts.last_source[0] = "windows"
+    elif len(_calls) == 1:
+        j._tts.last_source[0] = "neural"
+    return (text, 24000)
+
+
+j.synth_audio = _flaky
+within(5, real_speak_all, iter(["The first sentence is right here, sir.", "The second sentence is right here, sir.", "The third sentence is right here, sir.", "The fourth sentence is right here, sir."]))
+assert [c[1] for c in _calls] == [False, False, True, True], _calls
+# JarvisVoiceSmooth=0 hands play_samples exactly what it always got (no lead) and the old 5-word chunks
+_smooth["JarvisVoiceSmooth"] = "0"
+_args = []
+j.play_samples = lambda *a: _args.append(a)
+j.synth_audio = lambda text: (text, 1)
+within(5, real_speak_all, iter(["one two", "three"]))
+assert [len(a) for a in _args] == [3, 3] and _args[0][0] == "one two", _args
+_smooth["JarvisVoiceSmooth"] = "1"
+# a filler goes through the player too (smooth), the old way otherwise
+_args.clear()
+j.play_samples = lambda *a: _args.append(a)
+j._filler_audio["done"] = ("pcm", 24000)
+j.filler("done", False)
+j._filler_thread[0].join(2)
+assert _args == [("pcm", 24000, None, 0)], _args
+_smooth["JarvisVoiceSmooth"] = "0"
+_args.clear()
+j.filler("done", False)
+j._filler_thread[0].join(2)
+assert _args == [("pcm", 24000)], _args
+
+# the warm-up opens the stream once, before the first clip; the clip then uses it
+del PL.player.warm
+sd = _fresh_player()
+PL.player.warm()
+assert len(sd.opened) == 1 and sd.opened[0]["rate"] == 24000
+PL.player.play(_tone2[:2000], 24000, None, 0)
+assert len(sd.opened) == 1
+
+# V15: after the idle unload (no engine loaded) a turn's prepare_fillers loads the voice with a tiny sentence; nothing to do when it is loaded
+_smooth["JarvisVoiceSmooth"] = "1"
+_calls.clear()
+j.synth_audio = lambda text, force_windows=False: (_calls.append(text), (text, 24000))[1]
+j._filler_voice[0] = j.setting("JarvisVoice", "") + "|" + j.setting("JarvisKokoroVoice", "") + "|" + str(j.voice_rate())
+_engines_before = dict(j._engines)
+j._engines.clear()
+REAL_PREPARE_FILLERS()
+assert _calls == ["Ready."], _calls
+j._engines["x"] = object()
+_calls.clear()
+REAL_PREPARE_FILLERS()
+assert _calls == [], _calls
+j._engines.clear()
+j._engines.update(_engines_before)
+
+# restore
+PL.player.close()
+if _real_sd2 is None:
+    sys.modules.pop("sounddevice", None)
+else:
+    sys.modules["sounddevice"] = _real_sd2
+j.cancel.clear()
+j.setting, j.play_samples, j.synth_audio, j.S, j.live, j.muted, j.filler_done = (_keep[k] for k in ("setting", "play", "synth", "S", "live", "muted", "filler_done"))
+j.far_add = _real_far
+
+# B1: a claim of "nothing" (or another unread count) against data that says otherwise is replaced; without data it is left alone
+_hud = ("Unread Gmail: 4\n<<hud-data>>Open to-dos: a; b<</hud-data>>\n<<hud-data>>Upcoming calendar events: x<</hud-data>>\n"
+        "<<hud-data>>Open apps: Chrome<</hud-data>>")
+for _bad in ("You have no unread emails, sir.", "Your inbox is empty, sir.", "You don't have any new messages.", "You have 3 unread emails, sir.",
+             "You have two new emails.", "There are no tasks left on your list.", "Nothing on your calendar this week.",
+             "All your applications are closed, sir.", "You have no open to-dos."):
+    assert MD.miscounted(_bad, _hud), _bad
+for _ok in ("Yes, sir, you have four unread emails.", "You have 4 unread emails.", "No, I can't send emails, sir.",
+            "You have three tasks remaining, sir.", "Chrome is open, sir.", "The weather is fine."):
+    assert not MD.miscounted(_ok, _hud), _ok
+assert not MD.miscounted("You have no unread emails, sir.", "no data here") and not MD.miscounted("You have no tasks.", "Unread Gmail: 4")
+assert not MD.miscounted("You have no unread emails, sir.", "Unread Gmail: 0")
+_col = []
+assert list(MD.grounded(iter(["You have no unread emails, sir."]), _col, _hud)) == [MD.NO_READING] and _col == [MD.NO_READING]
+assert list(MD.grounded(iter(["You have four unread emails, sir."]), [], _hud)) == ["You have four unread emails, sir."]
+
+# B2: requests he cannot do get a calm fixed line from code (start of the request only; ordinary talk is not caught)
+import jarvislib.prompt as PR
+for _ask, _line in (("Schedule a meeting with my advisor.", "I can't schedule meetings with other people from here, sir. I can set a reminder, though."),
+                    ("Book a table for two at 7.", "I can't book or order anything from here, sir. I only control this PC."),
+                    ("Venmo Alex twenty dollars.", "I can't handle payments from here, sir."),
+                    ("Hey, can you message my group chat that I'm late?", "I can't send messages or place calls from here, sir."),
+                    ("Call my mom.", "I can't send messages or place calls from here, sir."),
+                    ("Turn off the living room TV.", "I can't reach that from here, sir. I only control this PC."),
+                    ("Find cheap flights to Houston.", "I can't search for travel from here, sir."),
+                    ("Cancel my Netflix subscription.", "I can't manage accounts or subscriptions from here, sir."),
+                    ("Print my lab report.", "I can't print from here, sir."),
+                    ("Play my workout playlist on Apple Music.", "I can't start music in that app, sir. I can pause, skip or change the volume.")):
+    assert PR.no_ability(_ask) == _line, (_ask, PR.no_ability(_ask))
+for _chat in ("Emails from Professor Lim?", "Book recommendations for rockets?", "What is a payment?", "Call me Mr. Sorsa.", "Order of operations?",
+              "Remind me to book a table.", "Text size?", "Tell me about the flights to Mars.", "Pay attention.", "What's the weather?", "Tell me a joke."):
+    assert PR.no_ability(_chat) is None, _chat
+
+# B10/B11: a fixed line that was stopped before a word got out is neither remembered as said nor added to the talk
+_keep3 = (j.speak_all, j.convo_add, j.filler_done, j.recent["me"])
+_ca = []
+j.recent["me"] = "old line"
+j.speak_all, j.convo_add, j.filler_done = (lambda s, *a: (j.cancel.set(), "")[1]), (lambda *a: _ca.append(a)), (lambda: None)
+REAL_REPLY_LINE("Late result.", False)
+assert j.recent["me"] == "old line" and _ca == [], (j.recent["me"], _ca)
+j.cancel.clear()
+j.speak_all = lambda s, *a: "Late result."
+REAL_REPLY_LINE("Late result.", False)
+assert j.recent["me"] == "Late result." and len(_ca) == 1
+j.speak_all, j.convo_add, j.filler_done, j.recent["me"] = _keep3
 
 print("test_jarvis: OK")
