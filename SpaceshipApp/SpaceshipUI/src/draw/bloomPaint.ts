@@ -22,12 +22,13 @@ const ANCHOR: Record<string, CanvasTextAlign> = { start: 'left', middle: 'center
 /** A gradient or pattern fill falls back to its brightest-looking stop: the glow only needs the colour. */
 const fillOf = (op: Op) => op.fill ?? op.grad?.stops.at(-1)?.[1];
 
-/** Draws every entry's ops; scale is canvas px per CSS px (0.25 for the quarter-res canvas). Images are skipped. */
-export function paintOps(ctx: Ctx2D, entries: Iterable<BloomEntry>, scale: number) {
+/** Draws every entry's ops; scale is canvas px per CSS px (0.25 for the quarter-res canvas); dx/dy shift the result
+ *  (a tile's origin). Images are skipped. */
+export function paintOps(ctx: Ctx2D, entries: Iterable<BloomEntry>, scale: number, dx = 0, dy = 0) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (const { ops, ctm } of entries) {
-    ctx.setTransform(ctm.a * scale, ctm.b * scale, ctm.c * scale, ctm.d * scale, ctm.e * scale, ctm.f * scale);
+    ctx.setTransform(ctm.a * scale, ctm.b * scale, ctm.c * scale, ctm.d * scale, ctm.e * scale - dx, ctm.f * scale - dy);
     for (const op of ops) paintOp(ctx, op);
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -66,4 +67,44 @@ export function stackBlur(dst: Ctx2D, src: CanvasImageSource, baseRadius: number
   }
   dst.filter = 'none';
   dst.globalAlpha = 1;
+}
+
+export type Box = { x: number; y: number; w: number; h: number };
+
+/** The canvas-px box an entry's light can reach: its ops through ctm x scale, padded by pad (the widest blur), clamped to
+ *  the canvas. null when it is off the canvas. Text is boxed by its font size and length (generous: light only). */
+export function entryBounds(e: BloomEntry, scale: number, pad: number, cw: number, ch: number): Box | null {
+  const { a, b, c, d, e: tx, f: ty } = e.ctm;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x: number, y: number) => {
+    const X = (a * x + c * y + tx) * scale, Y = (b * x + d * y + ty) * scale;
+    x0 = Math.min(x0, X); y0 = Math.min(y0, Y); x1 = Math.max(x1, X); y1 = Math.max(y1, Y);
+  };
+  for (const { shape: s } of e.ops) {
+    if (s.kind === 'poly') s.pts.forEach(([x, y]) => add(x, y));
+    else if (s.kind === 'ellipse') { add(s.cx - s.rx, s.cy - s.ry); add(s.cx + s.rx, s.cy + s.ry); add(s.cx - s.rx, s.cy + s.ry); add(s.cx + s.rx, s.cy - s.ry); }
+    else if (s.kind === 'rect') { add(s.x, s.y); add(s.x + s.w, s.y + s.h); add(s.x, s.y + s.h); add(s.x + s.w, s.y); }
+    else if (s.kind === 'text') {
+      const px = s.size * PT_PX * (FONT_SCALE[s.font] ?? 1), len = px * s.text.length * 0.75;
+      add(s.x - len, s.y - px); add(s.x + len, s.y + px);
+    }
+  }
+  if (x0 === Infinity) return null;
+  const bx = Math.max(0, Math.floor(x0 - pad)), by = Math.max(0, Math.floor(y0 - pad));
+  const ex = Math.min(cw, Math.ceil(x1 + pad)), ey = Math.min(ch, Math.ceil(y1 + pad));
+  return ex > bx && ey > by ? { x: bx, y: by, w: ex - bx, h: ey - by } : null;
+}
+
+/** One cached light tile per anchor (Chrome: blur what changes, reuse what does not). An entry object is replaced by the
+ *  bus only when its ops or CTM change, so object identity says whether a tile must be rebuilt. */
+export class TileCache<T> {
+  readonly tiles = new Map<string, { entry: BloomEntry; tile: T }>();
+  constructor(private readonly make: (key: string, e: BloomEntry) => T) {}
+  update(entries: ReadonlyMap<string, BloomEntry>) {
+    for (const k of [...this.tiles.keys()]) if (!entries.has(k)) this.tiles.delete(k);
+    for (const [k, e] of entries) {
+      const t = this.tiles.get(k);
+      if (!t || t.entry !== e) this.tiles.set(k, { entry: e, tile: this.make(k, e) });
+    }
+  }
 }

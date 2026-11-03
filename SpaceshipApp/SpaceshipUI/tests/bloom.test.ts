@@ -95,3 +95,26 @@ describe('bloomMode', () => {
     expect(bloomMode(3, {})).toBe('off');
   });
 });
+
+describe('light tiles (Task 4: cache each anchor\'s blurred light, rebuild only what changed)', () => {
+  it('entryBounds covers the ops in canvas px, padded and clamped to the canvas', async () => {
+    const { entryBounds } = await import('../src/draw/bloomPaint');
+    const e = { ops: [poly], ctm: { a: 2, b: 0, c: 0, d: 2, e: 100, f: 40 } };
+    // poly spans x 0..10, y 0..5 -> css 100..120, 40..50 -> canvas (x0.25) 25..30, 10..12.5; pad 4
+    expect(entryBounds(e, 0.25, 4, 400, 300)).toEqual({ x: 21, y: 6, w: 13, h: 11 });
+    expect(entryBounds({ ops: [poly], ctm: { a: 1, b: 0, c: 0, d: 1, e: -50, f: -50 } }, 1, 2, 400, 300)).toBeNull();
+  });
+  it('TileCache rebuilds only new or changed entries and drops removed ones', async () => {
+    const { TileCache } = await import('../src/draw/bloomPaint');
+    const built: string[] = [];
+    const cache = new TileCache((key) => { built.push(key); return { key }; });
+    const a = { ops: [poly], ctm: ID }, b = { ops: [poly], ctm: { ...ID, e: 5 } };
+    cache.update(new Map([['a', a], ['b', b]]));
+    cache.update(new Map([['a', a], ['b', b]]));
+    expect(built).toEqual(['a', 'b']);
+    cache.update(new Map([['a', a], ['b', { ...b }]]));
+    expect(built).toEqual(['a', 'b', 'b']);
+    cache.update(new Map([['b', b]]));
+    expect([...cache.tiles.keys()]).toEqual(['b']);
+  });
+});

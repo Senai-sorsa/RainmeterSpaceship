@@ -63,3 +63,17 @@ test('fonts ready triggers a redraw', async ({ page }) => {
   await page.evaluate(() => document.fonts.ready);
   await expect.poll(() => page.evaluate(() => (window as W).__bloomDraws ?? 0)).toBeGreaterThanOrEqual(2);
 });
+
+test('idle light is not re-blurred when nothing changed', async ({ page }) => {
+  await open(page);
+  await page.waitForTimeout(3000);
+  type B = { __bloomBuiltBy?: Record<string, number> };
+  const snap = () => page.evaluate(() => ({ ...(window as B).__bloomBuiltBy }));
+  const a = await snap();
+  await page.waitForTimeout(3000);
+  const b = await snap();
+  // the console, power rail and tabs redraw on a timer tick with equal ops: their tiles must not be rebuilt for that
+  const still = Object.keys(b).filter((k) => ['cs', 'pw', 'tabs'].includes(k.split('#')[0]));
+  expect(still.length).toBeGreaterThanOrEqual(3); // cs, pw and both sides' tabs
+  expect(still.filter((k) => b[k] !== a[k])).toEqual([]);
+});

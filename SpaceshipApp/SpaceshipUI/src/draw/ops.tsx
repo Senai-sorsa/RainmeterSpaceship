@@ -52,8 +52,13 @@ export function BloomAnchor({ id, ops }: { id: string; ops: Op[] }) {
   const key = useRef('');
   if (!key.current) key.current = `${id}#${++anchorSeq}`;
   // the frame builders memoise their ops, so the same op objects mean nothing changed: keep the old array (no redraw)
+  // (some rebuild equal ops on a timer tick: equal content keeps the old array too, so the light tile is not re-blurred)
   const last = useRef<Op[]>([]);
-  if (ops.length !== last.current.length || ops.some((o, i) => o !== last.current[i])) last.current = ops;
+  const json = useRef('');
+  if (ops.length !== last.current.length || ops.some((o, i) => o !== last.current[i])) {
+    const j = JSON.stringify(ops);
+    if (j !== json.current) { last.current = ops; json.current = j; }
+  }
   const list = last.current;
   useLayoutEffect(() => {
     const post = () => { const m = ref.current?.getScreenCTM(); if (m) postBloom(key.current, { ops: list, ctm: m }); };

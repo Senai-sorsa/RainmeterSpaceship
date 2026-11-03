@@ -370,6 +370,8 @@ Rollback: each task is one commit (`git revert <sha>`). Runtime switches: `Bloom
 |---|---|---|---|---|
 | 2026-11-02 | §0 before (runner's R11 row) | 122.2, 121.8, 119.5 % (median 121.8) | not run | runner's last row; tier pass: FULL 45 bloom groups, LITE/LOW/STEALTH 0 |
 | 2026-11-02 | H0 | — (the §0 row stands; Task 4 does the svg/canvas A/B in one sitting) | not run (the user told the runner "dont run it yet") | Task 1 Step 1: no live run without the user's word |
+| 2026-11-02 | H1 first cut (no cache) | svg 158.9/161.9; canvas 187.5/193.8; music: svg 155.2/163.6, canvas 209.9/198.8 | not run | canvas redrew all 33 light sources ~11x/s; over budget |
+| 2026-11-02 | H1 tuned (tile cache + equal-ops skip + normal blend), interleaved x3 | svg 152.0/158.0/146.0 (median 152); canvas+screen 137.0/140.9/178.1 (median 140.9); canvas normal 119.4/130.7/127.3 (median 127.3) | not run | idle rebuilds only for real changes (orb ~10/s, graphs ~2/s); about 16 % under svg; machine noise is +-20 points between rounds |
 
 ## §E Sources
 - FrostKiwi, "Video Game Blurs (and how the best one works)": box/Gaussian/separable, downsampling, Kawase, dual Kawase, stacked blurs (Kawase 2004, Jimenez 2014), ARM 2015, KDE: https://blog.frost.kiwi/dual-kawase/
