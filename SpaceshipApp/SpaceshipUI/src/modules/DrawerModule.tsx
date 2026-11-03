@@ -42,7 +42,7 @@ export function DrawerModule({ style, catalog = catalogFeed.value }: { style: St
   };
   return (
     <g transform={`matrix(${zone.matrix.join(' ')})`} data-module="drawer" onMouseMove={poke}>
-      <OpsView ops={ops} name="drawer" />
+      <g class="power-on"><OpsView ops={ops} name="drawer" /></g>
       {/* the panel takes the wheel and swallows clicks between rows, as the skin's Bounds meter does */}
       <HitRect zone={zone} s={style.s} label="CARGO hold" on={{ wheel: scrollBy }} />
       <HitRect zone={zone} s={style.s} box={{ x: zone.w - 40, y: 8, w: 30, h: 30 }} label="Close" on={{ click: close, wheel: scrollBy }} />

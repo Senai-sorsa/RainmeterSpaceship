@@ -1,6 +1,6 @@
 import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat, type Catalog } from './apps';
-import { popupClose, popupFrame, popupRule } from '../draw/popup';
+import { popupClose, popupFrame, popupRowBand, popupRule } from '../draw/popup';
 
 // Port of Skins/Spaceship/@Resources/Scripts/drawer.lua: the CARGO HOLD drawer (560 x 560). ALL INSTALLED APPS, then an
 // accordion of every category. Opened from a side slot it shows just that folder. The apps' own icons are drawn when
@@ -54,6 +54,7 @@ export function drawerFrame(cat: Catalog, st: DrawerState, zone: Zone, style: St
     } else if (row.kind === 'cat') {
       const open = !!st.open[row.cat.id];
       c.fillRect(20, y, w - 40, RH - 3, style.panel, 150);
+      if (open) popupRowBand(c, style, 20, y, w - 40, RH - 3, i, true); // the open folder is the lit row
       c.fillRect(20, y, w - 40, 1, A1, open ? 120 : 45);
       c.fillRect(20, y, 2, RH - 3, A1, open ? 255 : 150);
       c.icon(row.cat.icon, 36, y + RH / 2 - 1, 18, A1, 1.2);
@@ -62,6 +63,7 @@ export function drawerFrame(cat: Catalog, st: DrawerState, zone: Zone, style: St
       c.text(w - 50, y + RH / 2 - 1, `${row.cat.apps.length} APPS`, { size: 7, align: 'RightCenter', color: D });
     } else {
       const app = row.app;
+      popupRowBand(c, style, 60, y, w - 100, RH - 2, i);
       if (app.missing || !c.appIcon(app.id, 68, y + RH / 2 - 1, 24)) c.icon(app.icon, 68, y + RH / 2 - 1, 16, app.missing ? D : A1, 1.1);
       c.text(86, y + RH / 2 - 1, app.name, { size: 8.2, color: app.missing ? D : T, clip: 280, align: 'LeftCenter' });
       c.text(w - 50, y + RH / 2 - 1, app.missing ? 'NOT FOUND' : app.short, { size: 6.8, align: 'RightCenter', color: app.missing ? style.warn : D });

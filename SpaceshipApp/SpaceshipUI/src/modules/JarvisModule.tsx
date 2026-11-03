@@ -117,7 +117,7 @@ export function JarvisLogModule({ style, log = '', live = '', muted = false, ass
       onWheel={(e) => { setScroll((v) => Math.min(Math.max(v - (e.deltaY > 0 ? 1 : -1) * 3, 0), max)); setPoke((n) => n + 1); }}
       onContextMenu={(e) => { e.preventDefault(); host.send({ type: 'target.open', what: 'jarvislog' }); }}>
       <rect width={W * s} height={H * s} fill="transparent" data-hit />
-      <OpsView ops={ops} name="jarvislog" />
+      <g class="power-on"><OpsView ops={ops} name="jarvislog" /></g>
       {/* the X jarvisLogFrame draws at (w-36..w-20, 16..32) */}
       {onClose && <rect x={(W - 44) * s} y={8 * s} width={32 * s} height={32 * s} fill="transparent" data-hit aria-label="Close log"
         style={{ cursor: 'pointer' }} onClick={onClose} />}
