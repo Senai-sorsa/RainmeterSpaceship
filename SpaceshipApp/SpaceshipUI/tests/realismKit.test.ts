@@ -168,3 +168,30 @@ describe('R5: hot bloom (K5) and hull spill (K6)', async () => {
     expect(spillBackground('rgb(0,210,255)', 3)).toBe('');
   });
 });
+
+describe('R11: fringe (K7) and shimmer (K9)', () => {
+  const texts = (ops: Op[]) => ops.filter((o) => o.shape.kind === 'text' && !(o.shape as { blur: number }).blur);
+  it('large text on FULL gets a faint red copy left and blue copy right, under the letters; LITE and small text do not', () => {
+    const c = new Canvas(zone, style({ tier: 0, s: 2 }));
+    c.text(50, 10, '42', { size: 15 });
+    const [r, b, main] = texts(c.flush());
+    expect(r.shape.kind === 'text' && r.shape.x).toBeCloseTo(99.4); // 0.6 device px left of 100
+    expect(b.shape.kind === 'text' && b.shape.x).toBeCloseTo(100.6);
+    expect(r.fill![0]).toBeGreaterThan(r.fill![2]);
+    expect(b.fill![2]).toBeGreaterThan(b.fill![0]);
+    expect(r.fill![3]).toBeLessThan(50);
+    expect(main.shape.kind === 'text' && main.shape.x).toBe(100);
+    const lite = new Canvas(zone, style({ tier: 1 })); lite.text(0, 0, '42', { size: 15 });
+    expect(texts(lite.flush())).toHaveLength(1);
+    const small = new Canvas(zone, style({ tier: 0 })); small.text(0, 0, 'cpu', { size: 8 });
+    expect(texts(small.flush())).toHaveLength(1);
+  });
+  it('a shimmer readout carries its value key on FULL only, and the view remounts it when the value changes', () => {
+    const draw = (tier: number, v: string) => { const c = new Canvas(zone, style({ tier })); c.text(0, 0, v, { size: 6, shimmer: v }); return c.flush(); };
+    expect(draw(0, '44%').every((o) => o.shimmer === '44%')).toBe(true);
+    expect(draw(1, '44%').some((o) => o.shimmer)).toBe(false);
+    const keyOf = (v: string) => OpsView({ ops: draw(0, v), name: 's' }).props.children.map((e: { key: string }) => e.key);
+    expect(keyOf('44%')).not.toEqual(keyOf('45%'));
+    expect(OpsView({ ops: draw(0, '44%'), name: 's' }).props.children[0].props.class).toBe('shimmer');
+  });
+});

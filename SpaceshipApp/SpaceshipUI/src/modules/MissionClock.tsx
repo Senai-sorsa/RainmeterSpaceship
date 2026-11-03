@@ -38,7 +38,7 @@ export function clockFrame(state: CalState, now: number, zone: Zone, st: Style):
     if (i === 0) rowBand(c, X(37), X(228), y, 10, r.lc);
     c.fillRect(X(37), y - 4, 2.4, 8, r.lc, i === 0 ? 230 : 140);
     c.text(X(80), y, r.when, { size: 5.4, weight: 700, align: 'RightCenter', color: r.lc });
-    c.text(X(84), y, r.title, { size: 5.4, weight: 700, align: 'LeftCenter', color: r.tc, clip: X(228) - X(84) });
+    c.text(X(84), y, r.title, { size: 5.4, weight: 700, align: 'LeftCenter', color: r.tc, clip: X(228) - X(84), shimmer: i === 0 ? r.title : undefined });
   });
   c.line(X(35), ly(35, zone.h - 9), X(222), ly(222, zone.h - 9), A1, 1.3, 220);
   c.line(X(35), ly(35, zone.h - 2.5), X(222), ly(222, zone.h - 2.5), A1, 1, 160);

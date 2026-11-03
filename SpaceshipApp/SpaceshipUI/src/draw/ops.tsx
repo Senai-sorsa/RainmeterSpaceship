@@ -44,7 +44,8 @@ export function OpsView({ ops, name }: { ops: Op[]; name: string }) {
   const out: JSX.Element[] = [];
   for (let i = 0; i < ops.length; ) {
     const b = ops[i].bloom;
-    if (!b) { out.push(<OpEl key={i} op={ops[i]} id={`${name}-${i}`} />); i++; continue; }
+    // a shimmer op is keyed by its value, so a new value mounts a new element and its CSS flicker plays once
+    if (!b) { const sh = ops[i].shimmer; out.push(sh === undefined ? <OpEl key={i} op={ops[i]} id={`${name}-${i}`} /> : <g key={`${i}~${sh}`} class="shimmer"><OpEl op={ops[i]} id={`${name}-${i}`} /></g>); i++; continue; }
     const run: JSX.Element[] = [];
     const start = i;
     for (; i < ops.length && ops[i].bloom === b; i++) run.push(<OpEl key={i} op={ops[i]} id={`${name}-${i}`} />);

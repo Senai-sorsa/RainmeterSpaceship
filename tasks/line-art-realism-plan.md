@@ -208,6 +208,7 @@ if C# changed. Visual check with `tools/visual-check` (crops + contact sheets). 
 | 2026-11-02 | after R5 | 116.0 %, 116.3 % | not run | K5 hot bloom + K6 spill layer; K8 depth haze deferred (needs per-group blur: measure live GPU first) |
 | 2026-11-02 | after R6 | 128.9, 116.0, 114.4, 118.9, 118.8 % (median 118.8) | not run | orb segments: one extra hot-bloom group per frame on FULL; hologram breathe (K11) left out: it would be a new idle animation |
 | 2026-11-02 | after R7 | 122.9, 117.3, 119.3 % (median 119.3) | not run | lit keys + trim spill layer (one static 14 px blur group) |
+| 2026-11-02 | after R11 | 122.2, 121.8, 119.5 % (median 121.8; about +3 points over baseline, budget +10 %) | not run | fringe on text >= 13 (FULL); shimmer on battery readout and next calendar event |
 
 Note for pixel diffs: two captures of the same code differ by ~130k pixels (animation and the preview feed), so compare
 crops by eye or check the DOM, not whole-frame pixel counts.

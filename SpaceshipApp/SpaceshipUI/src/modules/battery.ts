@@ -58,6 +58,6 @@ export function batteryFrame(r: Readings, zone: Zone, st: Style, state: BatteryS
   c.line(x0, y, xp, y, bar, 2.6);
   const lx = x0 + ((x1 - x0) * limit) / 100;
   c.line(lx, y - 6, lx, y + 3, st.white, 1.2, 200);
-  c.text(x0, 0, `${Math.trunc(pct)}%  ${status}`, { size: 4.8, weight: 700, align: 'LeftTop', color: st.white, alpha: 210, clip: (x1 - x0) * 0.7 });
+  c.text(x0, 0, `${Math.trunc(pct)}%  ${status}`, { size: 4.8, weight: 700, align: 'LeftTop', color: st.white, alpha: 210, clip: (x1 - x0) * 0.7, shimmer: `${Math.trunc(pct)} ${status}` });
   return { ops: c.flush(), pct, status };
 }

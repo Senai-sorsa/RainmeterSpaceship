@@ -21,7 +21,7 @@ export type Shape =
   | { kind: 'image'; x: number; y: number; w: number; h: number; href: string; matrix: number[] };
 /** bloom: set on glow-layer ops on FULL; the view blurs that run of ops by this many device units, so the halo strokes
  *  fall off like light instead of ending in a hard edge. */
-export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke; bloom?: number; grad?: Grad; pattern?: string };
+export type Op = { shape: Shape; fill?: RGBA; stroke?: Stroke; bloom?: number; grad?: Grad; pattern?: string; shimmer?: string };
 /** A gradient fill (realism kit K1): offsets 0..1 with their colours. Coordinates are zone units in Canvas calls and
  *  device units in ops (userSpaceOnUse), so a gradient skews with its zone. When an op has grad it wins over fill. */
 export type GradStop = [number, RGBA];
@@ -52,7 +52,11 @@ export type Style = {
   white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA; hi: RGBA; good: RGBA;
 };
 export type Zone = { x: number; y: number; w: number; h: number };
-export type TextOpts = { size?: number; color?: RGBA; alpha?: number; align?: string; weight?: number; font?: string; glow?: boolean; clip?: number };
+export type TextOpts = { size?: number; color?: RGBA; alpha?: number; align?: string; weight?: number; font?: string; glow?: boolean; clip?: number;
+  /** K7: faint red/blue fringe copies on large bright text (FULL only); default on for sizes 13 and up */
+  fringe?: boolean;
+  /** K9: a key for the readout's value; when it changes the text flickers on once (FULL only, CSS, off for reduced motion) */
+  shimmer?: string };
 
 /** The app's typeface roles beyond the skin: condensed display faces sit small on their em box, so they draw larger to
  *  match the cap height of B612 Mono, and they keep the weight the module asks for (the skin's Rainmeter could not).
@@ -268,12 +272,20 @@ export class Canvas {
       // display faces: small print stays at medium weight under the bold titles, so the rows read title-then-detail
       weight: FONT_SCALE[font] && base < 8 ? Math.min(opts.weight ?? 600, 500) : opts.weight ?? 600, font, clipW: opts.clip, blur: 0,
     };
+    const before = this.layers.top.length;
     if (st.tier < 2 && st.textGlow > 0 && opts.glow !== false) {
       // a heavier face fills its own halo, so its glow is softer (0.55) to keep the letters apart
       const ga = Math.floor((st.textGlowA * (opts.alpha ?? 255) * (FONT_SCALE[font] ? 0.55 : 1)) / 255);
       this.push('top', { ...shape, blur: st.textGlow }, this.tint(tc, ga));
     }
+    if (st.tier === 0 && (opts.fringe ?? base >= 13)) {
+      // a lens's chromatic fringe: red a hair left, blue a hair right (0.6 device px), faint, under the letters
+      const d = 0.6 / st.s, fa = Math.floor(((opts.alpha ?? 255) * 0.17));
+      this.push('top', { ...shape, x: x - d }, this.tint([255, 70, 70, 255], fa));
+      this.push('top', { ...shape, x: x + d }, this.tint([70, 130, 255, 255], fa));
+    }
     this.push('top', shape, this.tint(fill, opts.alpha ?? fill[3]));
+    if (opts.shimmer !== undefined && st.tier === 0) for (const o of this.layers.top.slice(before)) o.shimmer = opts.shimmer;
   }
 
   /** Icon from icons.json, authored in a 100x100 box and fitted to sz, centred on cx, cy. Unknown names draw the gear, as lib.lua does. */
