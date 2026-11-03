@@ -1,4 +1,4 @@
-import { Canvas, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
+import { arcPts, Canvas, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
 import { type App, type Cat, type Catalog } from './apps';
 
 // Port of Skins/Spaceship/@Resources/Scripts/category.lua: the tab rail (zone 1), the wireframe schematic of the
@@ -82,6 +82,13 @@ export function schematicFrame(app: App | undefined, cat: Cat | undefined, runni
     // instrument dressing, as the reference wireframes have: a faint dashed targeting ring behind the craft, rulers on
     // the left and bottom of the bracket box, and a small caption in the box's lower left
     const hb = sz * 0.5, top = cy - hb * 0.92, bot = cy + hb * 0.92, left = cx - hb, right = cx + hb;
+    // hologram projection (K11): an emitter under the craft, a faint beam rising from it, interference lines in the box
+    const [ar, ag, ab] = st.accent, ey = Math.min(zone.h - 3, bot + 18), ew = hb * 0.55;
+    c.gradPoly([[cx - ew * 0.35, ey], [cx + ew * 0.35, ey], [right - 4, top + 6], [left + 4, top + 6]],
+      { kind: 'linear', x1: 0, y1: ey, x2: 0, y2: top, stops: [[0, [ar, ag, ab, app.missing ? 14 : 36]], [0.6, [ar, ag, ab, 10]], [1, [ar, ag, ab, 0]]] });
+    c.gradPoly(arcPts(cx, ey, ew, 4, 0, 360, 32), { kind: 'radial', cx, cy: ey, r: ew,
+      stops: [[0, [255, 255, 255, app.missing ? 60 : 200]], [0.25, [ar, ag, ab, 150]], [1, [ar, ag, ab, 0]]] });
+    c.texture([[left, top], [right, top], [right, bot], [left, bot]]);
     c.dashArc(cx, cy, sz * 0.47, 0, 360, st.accent, 0.8, 60, 5, 9, true);
     for (let i = 0; i <= 10; i++) {
       const y = top + ((bot - top) * i) / 10, x = left + ((right - left) * i) / 10, major = i % 5 === 0;

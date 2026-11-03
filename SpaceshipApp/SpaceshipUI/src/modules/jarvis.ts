@@ -1,4 +1,4 @@
-import { Canvas, FONT_SCALE, mix, type Op, type Style, type Zone } from '../draw/canvas';
+import { arcPts, Canvas, FONT_SCALE, heat, mix, type Op, type Style, type Zone } from '../draw/canvas';
 import type { Pt } from '../lib/geometry';
 import { popupChip, popupClose, popupFrame, popupRule } from '../draw/popup';
 import { parseColor, type RGBA } from '../lib/theme';
@@ -204,7 +204,15 @@ export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone,
 
   // HUD dial: outer hairline, segmented arcs, tick ring, dashed ring
   c.circle(cx, cy, 203, rc, 1, dim ? 70 : 90);
-  for (let q = 0; q < 3; q++) c.arc(cx, cy, 196, q * 120 + rot1, q * 120 + rot1 + 52, rc, 3.6 + 1.5 * lvl, dim ? 160 : 230);
+  for (let q = 0; q < 3; q++) {
+    // each segment is a filled band (K10) that runs from its tail to a white-hot head, with a wide bloom (K5) when live
+    const a0 = q * 120 + rot1, a1 = a0 + 52, bw = (3.6 + 1.5 * lvl) / 2 + 0.6;
+    c.arc(cx, cy, 196, a0, a1, rc, 3.6 + 1.5 * lvl, dim ? 90 : 130);
+    const [p0] = arcPts(cx, cy, 196, 196, a0, a0, 1), [p1] = arcPts(cx, cy, 196, 196, a1, a1, 1), hh = heat(style, rc, 1);
+    c.gradPoly([...arcPts(cx, cy, 196 + bw, 196 + bw, a0, a1, 12), ...arcPts(cx, cy, 196 - bw, 196 - bw, a1, a0, 12)], { kind: 'linear', x1: p0[0], y1: p0[1], x2: p1[0], y2: p1[1],
+      stops: [[0, [rc[0], rc[1], rc[2], dim ? 70 : 110]], [0.7, [rc[0], rc[1], rc[2], dim ? 150 : 230]], [1, [hh[0], hh[1], hh[2], dim ? 170 : 255]]] });
+    if (!dim) c.hot(arcPts(cx, cy, 196, 196, a0, a1, 12), rc, 3, 110);
+  }
   for (let q = 0; q < 6; q++) c.arc(cx, cy, 196, q * 60 + rot1 + 70, q * 60 + rot1 + 74, hot, 3.6, dim ? 130 : 200);
   const seg = (189 * 2 * Math.PI) / 120;
   c.dashArc(cx, cy, 189, rot3, rot3 + 360, rc, 4, dim ? 75 : 110, seg * 0.12, seg * 0.88, true);

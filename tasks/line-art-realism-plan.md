@@ -206,6 +206,7 @@ if C# changed. Visual check with `tools/visual-check` (crops + contact sheets). 
 | 2026-11-02 | after R1 | 119.2 % | not run | no HUD element uses the kit yet (DOM: 0 gradient / 0 texture fills); kit demo `?panel=kit` → `cspace-visual-baseline\R1\kit.png` |
 | 2026-11-02 | after R4 | 113.6 %, 119.9 % | not run (user: skip for now) | R2-R4 adopted the kit; audio ring still moves (`burst.cjs` frames differ ~10k px) |
 | 2026-11-02 | after R5 | 116.0 %, 116.3 % | not run | K5 hot bloom + K6 spill layer; K8 depth haze deferred (needs per-group blur: measure live GPU first) |
+| 2026-11-02 | after R6 | 128.9, 116.0, 114.4, 118.9, 118.8 % (median 118.8) | not run | orb segments: one extra hot-bloom group per frame on FULL; hologram breathe (K11) left out: it would be a new idle animation |
 
 Note for pixel diffs: two captures of the same code differ by ~130k pixels (animation and the preview feed), so compare
 crops by eye or check the DOM, not whole-frame pixel counts.
