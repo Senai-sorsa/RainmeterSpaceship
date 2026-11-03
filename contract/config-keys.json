@@ -963,6 +963,14 @@
       "default": "20,25,30"
     },
     {
+      "key": "HullRender",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
       "key": "HW_ChargeRate",
       "file": "Settings.inc",
       "control": {

@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
             assert (Path(t1) / n).read_bytes() == (Path(t2) / n).read_bytes(), n
             assert (Path(t1) / n).read_bytes().endswith(b"\n")
     fm = json.loads((Path(t1) / "frame/manifest.json").read_text())
-    assert sorted(fm) == sorted(ex.FRAME_IMAGES) and all(re.fullmatch(r"%s\.[0-9a-f]{8}\.png" % n, f) for n, f in fm.items()), fm
+    assert sorted(fm) == sorted(ex.FRAME_IMAGES + ex.RENDER_IMAGES) and all(re.fullmatch(r"%s\.[0-9a-f]{8}\.png" % n, f) for n, f in fm.items()), fm
     assert sorted(os.listdir(Path(t1) / "frame")) == sorted(list(fm.values()) + ["manifest.json"])
     for f in os.listdir(Path(t1) / "frame"):
         assert (Path(t1) / "frame" / f).read_bytes() == (Path(t2) / "frame" / f).read_bytes(), f
