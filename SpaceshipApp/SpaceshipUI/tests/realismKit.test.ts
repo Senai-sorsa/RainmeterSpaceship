@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Canvas, heat, HUD_SCAN, type Op, type Style } from '../src/draw/canvas';
 import { HudDefs, OpsView } from '../src/draw/ops';
+import { popupFrame } from '../src/draw/popup';
 import type { RGBA } from '../src/lib/theme';
 
 // The realism kit (tasks/line-art-realism-plan.md §4, K1-K4): gradient fills, the backlit display, the hot-core ramp
@@ -92,6 +93,24 @@ describe('screen bezels (12 #11): the readouts sit in the hull', () => {
   it('LOW and STEALTH, or the setting off: nothing outside the body', () => {
     for (const tier of [2, 3]) expect(draw(tier, true).filter(outside)).toEqual([]);
     expect(draw(0, false).filter(outside).filter((o) => !o.bloom)).toEqual([]);
+  });
+});
+
+describe('pop-up bezels (12 #22): the pop-ups share the screens hardware look', () => {
+  const draw = (tier: number, bezel: boolean) => { const c = new Canvas(zone, style({ tier, bezel })); popupFrame(c, style({ tier, bezel }), 100, 60, 20, 10, 20, 20); return c.flush(); };
+  const outside = (o: Op) => o.shape.kind === 'poly' && o.shape.pts.some(([x, y]) => x < 19 || x > 121 || y < 19 || y > 81);
+  it('FULL and LITE: a dark recess round the panel, under it, and a faint lip on its lower edge', () => {
+    for (const tier of [0, 1]) {
+      const ops = draw(tier, true);
+      const recess = ops.find((o) => outside(o) && o.shape.kind === 'poly' && o.shape.closed && o.stroke && !o.bloom)!;
+      expect(recess.stroke!.color.slice(0, 3)).toEqual([0, 0, 0]);
+      expect(ops.indexOf(recess)).toBeLessThan(ops.findIndex((o) => o.fill && o.shape.kind === 'poly' && o.shape.closed));
+      const lip = ops.find((o) => outside(o) && o.shape.kind === 'poly' && !o.shape.closed && !o.bloom)!;
+      expect(lip.shape.kind === 'poly' && lip.shape.pts.every(([, y]) => y > 80)).toBe(true);
+    }
+  });
+  it('LOW, STEALTH or the setting off: no bezel', () => {
+    for (const [tier, b] of [[2, true], [3, true], [0, false]] as const) expect(draw(tier, b).filter((o) => outside(o) && !o.bloom && o.stroke?.color[0] === 0 && o.stroke.color[1] === 0)).toEqual([]);
   });
 });
 

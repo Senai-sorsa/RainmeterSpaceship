@@ -11,6 +11,10 @@ export function popupFrame(c: Canvas, st: Style, w: number, h: number, head = 50
   const A1 = st.accent, k = alpha / 255;
   const P = (pts: [number, number][]) => pts.map(([px, py]): [number, number] => [x + px, y + py]);
   const body = P([[cut, 0], [w, 0], [w, h - cut], [w - cut, h], [0, h], [0, cut]]), [ar, ag, ab] = A1;
+  // the screens' bezel (12 #22): the panel sits in a dark recess, with a faint lip along its lower edge
+  const d = 1.5, e = 3;
+  if (alpha >= 250) c.bezel(P([[cut - d * 0.4, -d], [w + d, -d], [w + d, h - cut + d * 0.4], [w - cut + d * 0.4, h + d], [-d, h + d], [-d, cut - d * 0.4]]),
+    P([[-e, h + e], [w - cut + e * 0.4, h + e]]));
   c.fillPoly(body, BODY, 215 * k);
   // a screen powered from its header (K2): light falls from the header down the glass, the header band is lit from
   // its top, a white specular line runs along the top edge, and the screen texture sits on the open panel

@@ -383,12 +383,8 @@ export class Canvas {
     const body = box(0);
     // the bezel (12 #11), FULL and LITE: a dark recess round the glass, so the readout sits in the hull, and a faint lip
     // on the lower outer edge, where the cabin light catches the hardware. Under the body; never glowing.
-    if (st.bezel && st.tier < 2) {
-      this.push('base', poly(box(-1.2), true), undefined, { color: [0, 0, 0, 150], width: 1.6 });
-      const lip = box(-2.4), y1 = Math.max(...lip.map(([, py]) => py));
-      const low = lip.filter(([, py]) => py === y1);
-      if (low.length >= 2) this.push('base', poly(low), undefined, { color: this.tint(st.white, 40), width: 0.7 });
-    }
+    const lip = box(-2.4), y1 = Math.max(...lip.map(([, py]) => py));
+    this.bezel(box(-1.2), lip.filter(([, py]) => py === y1));
     if (st.tier >= 2) {
       this.fillPoly(body, col, Math.floor(26 * lit));
     } else {
@@ -403,6 +399,16 @@ export class Canvas {
       this.push('base', poly([[ex1, ey1], [ex2, ey2]]), undefined, { color: this.tint(heat(st, col, lit), Math.floor(120 + 110 * lit)), width: 1 });
     }
     this.push('base', poly(box(1.5), true), undefined, { color: this.tint(col, 77), width: 1 });
+  }
+
+  /** The hardware round a display (12 #11, #22), FULL and LITE with the ScreenBezel setting: a dark recess along the
+   *  closed outline just outside the glass, and a faint lip along the open lower edge (where the cabin light catches
+   *  it). Call it before the body, so both sit under it. Never glows. */
+  bezel(recess: Pt[], lip: Pt[]) {
+    const st = this.st;
+    if (!st.bezel || st.tier >= 2) return;
+    this.push('base', poly(recess, true), undefined, { color: [0, 0, 0, 150], width: 1.6 });
+    if (lip.length >= 2) this.push('base', poly(lip), undefined, { color: this.tint(st.white, 40), width: 0.7 });
   }
 
   /** Panel outline with chamfered corners, optionally filled with the panel colour. */
