@@ -84,6 +84,8 @@ from jarvislib.reminders import (ALARM_CAP, ALARM_SAY, DAYS, NAME_ONLY, REMIND_F
 from jarvislib.diag import HW_LINES, cpu_times, diagnose, hw_value, is_protected, prompt_findings, sensors, watch
 from jarvislib.meaning import MEANING_BLOCK, MEANING_TALK, STAMP, _embed, _vecs, closeness, meaning, vec
 from jarvislib.search import _chroma, _chroma_lock, _chunks, _reindexing, chroma_index, smart_search
+from jarvislib.reply import fixed as FX                       # every fixed line he says (one registry)
+from jarvislib.reply.policy import reply_chain                # the reply filter chain, in one place
 from jarvislib.memory import (ACTIVE_TTL, TALK_KEEP, TALK_TTL, EARLIER, FOLLOW_START, POINTS_BACK, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
     MEMORY_BAD, MEMORY_FILE, NO_TALK, RECALL_FLOOR, SECRET, TALK_STOP, TOPICS_BAD, TOPICS_FILE, ask_gist, compact,
     fact_save, facts_about, file_talk, gist_day, gist_for, gist_ok, gisting, keywords, load_gist, load_memory,
@@ -213,45 +215,45 @@ def undo_last():
         ok = undone(run_action("bluetooth", "on") if before == "on"
                     else run_action("bluetooth_off", None, ("bluetooth_off", None)) if before == "off" else False)
         undo.clear()
-        return f"Bluetooth back {bluetooth_radio()}." if ok else "That didn't work."
+        return f"Bluetooth back {bluetooth_radio()}." if ok else FX.FAILED
     if what == "btlink":                                       # the device as it was: connected or not
         addr, name, was = before
         ok = was is not None and undone(run_action("btlink", (addr, was, name), ("btlink", (addr, was, name))))
         undo.clear()
-        return f"{'Connected to' if was else 'Disconnected from'} {name} again." if ok else "That didn't work."
+        return f"{'Connected to' if was else 'Disconnected from'} {name} again." if ok else FX.FAILED
     if what == "power":                                        # the plan that was active, if it is one we may switch to
         ok = bool(before) and power_key(before) and undone(run_action("power", before, ("power", before)))
         undo.clear()
-        return f"Power mode back to {POWER_NAMES.get(power_key(before))}." if ok else "That didn't work."
+        return f"Power mode back to {POWER_NAMES.get(power_key(before))}." if ok else FX.FAILED
     if what == "theme":
         ok = before != "mixed" and undone(run_action("theme", before))
         undo.clear()
-        return f"Back to {theme_mode()} mode." if ok else "It was mixed before, so I can't put that back." if before == "mixed" else "That didn't work."
+        return f"Back to {theme_mode()} mode." if ok else FX.THEME_MIXED if before == "mixed" else FX.FAILED
     if what == "brightness":
         ok = undone(run_action("brightness", ("set", before)))
         undo.clear()
-        return f"Brightness back at {screen_brightness()} percent." if ok else "That didn't work."
+        return f"Brightness back at {screen_brightness()} percent." if ok else FX.FAILED
     if what == "mood":                                         # M2: the mood as it was
         ok = undone(run_action("mood", before))
         undo.clear()
-        return f"Back to {mood.NAMED[before]}, sir." if ok else "That didn't work."
+        return f"Back to {mood.NAMED[before]}, sir." if ok else FX.FAILED
     if what == "micdev":                                       # the microphone setting as it was
         ok = undone(run_action("micdev", before, ("micdev", before)))
         undo.clear()
-        return f"Back to {before}." if ok and before else "Back to the Windows default microphone." if ok else "That didn't work."
+        return f"Back to {before}." if ok and before else FX.MIC_DEFAULT if ok else FX.FAILED
     if what.startswith("mic_"):                                # 7a: put the microphone back as it was read before
         was_muted, percent = before
         ok = undone(run_action("mic_level", ("set", percent)) if what == "mic_level"      # mute/unmute: back to the state read before
                     else run_action("mic_mute", None, ("mic_mute", None)) if was_muted else run_action("mic_unmute", None))
         undo.clear()
         if not ok:
-            return "That didn't work."
+            return FX.FAILED
         return f"Microphone back at {mic_volume()[1]} percent." if what == "mic_level" else "Microphone muted." if mic_volume()[0] else "Microphone unmuted."
     if what in ("volume", "mute", "unmute"):
         ok = undone(run_action("volume", ("set", before[1])) if what == "volume" else run_action("mute" if before[0] else "unmute", None))
         undo.clear()                                           # an undo is not itself undone
         if not ok:
-            return "That didn't work."
+            return FX.FAILED
         return f"Volume back at {speakers()[1]} percent." if what == "volume" else "Muted." if before[0] else "Unmuted."
     try:
         if what in ("forget", "forget_all", "forget_facts"):   # put back what was forgotten, if not already back
@@ -469,7 +471,7 @@ def remind_reply(op, args, quiet):
     if repeats(kind, now) and (due is None or said.startswith("in ")):
         return "A repeating reminder needs a clock time, like every day at 9."
     if due is None:                                            # no time heard: ask once and listen, like a confirmation
-        reply_line("How long?" if kind == "timer" else "When?", quiet)
+        reply_line(FX.HOW_LONG if kind == "timer" else FX.WHEN, quiet)
         S.set(state="listening", level=0.0)
         answer = hear()
         if answer:
@@ -813,7 +815,7 @@ def command_reply(kind, action, target, prompt, quiet):
     if kind == "memory":
         return memory_reply(action, target)
     if kind == "act" and prompt is None:
-        return done_line(action, target) if run_action(action, target) else "That didn't work."
+        return done_line(action, target) if run_action(action, target) else FX.FAILED
     return None
 
 
@@ -886,7 +888,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         if setting("JarvisGPU", "prefer").lower() == "require" and not gpu():   # never a turn on the CPU
             S.set(err="RTX is off - switch the laptop to hybrid graphics (JarvisGPU=require)")
-            reply_line("My graphics card is off.", muted())
+            reply_line(FX.GPU_OFF, muted())
             return
         S.set(state="listening", level=0.0, err="")
         try:                                                   # 7a: a click is how a muted microphone comes back
@@ -1012,7 +1014,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             way.update(kind="act", action="close", via="rule", lane="command")
             ok = run_action("close", closing, pending=("close", closing))
             way["result"] = "done" if ok else "failed"
-            fixed("Done." if ok else "That didn't work.")
+            fixed(FX.DONE if ok else FX.FAILED)
             return
         if fact and (is_yes(text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
             way.update(kind="memory", action="save", via="rule", lane="command")
@@ -1022,7 +1024,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             elif ask_yes(res[3], muted()):
                 ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
                 way["result"] = "done" if ok else "failed"
-                fixed("Done." if ok else "That didn't work.")
+                fixed(FX.DONE if ok else FX.FAILED)
             else:
                 fixed(memory_reply("save", fact) + " I kept the old one too.")
             return
@@ -1040,7 +1042,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         if text != room and is_yes(text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
             way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
-            fixed("There's nothing waiting for a yes, sir.")
+            fixed(FX.NOTHING_WAITING)
             return
         m = NEW_TOPIC.match(strip_name(text))
         way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
@@ -1049,25 +1051,25 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             last.clear()                                       # M1b: "cancel it" no longer points back
             text = strip_name(text)[m.end():].strip()
             if not text:
-                fixed("Okay.")
+                fixed(FX.OKAY)
                 history.clear()                                # "new topic" / "Okay." is not talk to keep
                 return
         if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
             way.update(kind="quiet", via="rule")
             if not quiet_talk.talk():
-                fixed("I'm not in quiet mode.")
+                fixed(FX.NOT_QUIET)
                 return
             quiet = muted()
-            fixed("Okay, I can talk." if not quiet else "Okay.")
+            fixed(FX.CAN_TALK if not quiet else FX.OKAY)
             return
         # "show me what you've said" / "close the log": handled here, no model needed
         way["kind"] = "log"
         if HIDE_LOG.search(text):
-            fixed("Closing the log.")
+            fixed(FX.CLOSING_LOG)
             S.set(pop="close")                                 # after: a quiet reply_line opens it
             return
         if SHOW_LOG.search(text):
-            fixed("Here's everything we've said.")
+            fixed(FX.ALL_SAID)
             S.set(pop="open")
             return
         kind, action, target, prompt, via = understand(text, model, quiet, room)
@@ -1086,10 +1088,10 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             left["again"] = not quiet and "ear"
             return
         if kind == "heard":
-            fixed(f"I heard: {recent['you']}" if recent["you"] else "I haven't heard anything yet.")
+            fixed(f"I heard: {recent['you']}" if recent["you"] else FX.HEARD_NOTHING)
             return
         if kind == "again":
-            fixed(recent["me"] or "I haven't said anything yet.")
+            fixed(recent["me"] or FX.SAID_NOTHING)
             return
         if cancel.is_set():                                    # stopped while the model read it: nothing runs
             return
@@ -1106,7 +1108,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             if not ask_yes(prompt, quiet):                     # an act asks below, with the same prompt
                 way["result"] = "left - no yes"
                 log(f"{kind} {action} not confirmed (Whisper unsure)")
-                fixed("Cancelled.")
+                fixed(FX.CANCELLED)
                 return
             prompt = None
         if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
@@ -1123,7 +1125,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
             if setting("JarvisDiagnose", "1") != "1":
-                fixed("Diagnosis is off.")
+                fixed(FX.DIAG_OFF)
                 return
             filler("diag", quiet)
             line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
@@ -1151,11 +1153,11 @@ def exchange(tier, follow, woke, mode, left, typed=None):
                 way["result"] = "done" if ok else "failed"
                 if action == "stealth":
                     quiet = True                               # pop-up only: no voice, no open ear
-                fixed(("Added." if action == "todo" else done_line(action, target)) if ok else "That didn't work.")
+                fixed((FX.ADDED if action == "todo" else done_line(action, target)) if ok else FX.FAILED)
             else:
                 way["result"] = "left - no yes"
                 log(f"action {action} not confirmed")
-                fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else "Cancelled.")
+                fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else FX.CANCELLED)
             return
         if kind == "notes":
             filler("notes", quiet)
@@ -1215,8 +1217,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
         stream = chat_stream(model, messages, 0 if lane == "info" else 0.5)
         known = " ".join(m["content"] for m in messages)               # every reading he may quote must come from here
-        said = mood.polish(mood.grounded(mood.no_hope(no_claims(sentences_from(stream, collected), collected)), collected, known),
-                           collected, cap, turn_key == "serious")
+        said = reply_chain(stream, collected, known, cap, turn_key == "serious")   # the filter order: jarvislib/reply/policy.py
         if quiet and setting("JarvisMutedPopup", "1") == "1":
             say_text_only(said, collected)
         else:
@@ -1249,10 +1250,10 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         if promised:                                           # D4: written down like a fact; "what do you remember" lists it
             memory_reply("save", promised)
         if fact and not auto:                                  # M4a-3 ("ask"): one offer; the next turn's yes saves it
-            reply_line("Want me to remember that?", quiet)
+            reply_line(FX.ASK_REMEMBER, quiet)
             offer.update(fact=fact, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
         if close_offer and reply and not cancel.is_set():      # 9e: one offer; the next turn's yes closes it
-            reply_line("Want me to close it?", quiet)
+            reply_line(FX.ASK_CLOSE, quiet)
             offer.update(close=close_offer, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
         left["again"] = not quiet and not cancel.is_set() and "ear"   # fixed replies set it in fixed()
     except urllib.error.URLError as e:

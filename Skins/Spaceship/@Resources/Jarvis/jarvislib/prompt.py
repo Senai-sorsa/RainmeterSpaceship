@@ -294,6 +294,9 @@ NO_ABILITY = [
     (re.compile(_LEAD + r"(?:play|put on|start)\b.*\b(?:on|in|with|using) (?:apple music|amazon music|youtube music|tidal|pandora|deezer)\b", re.I),
      "I can't start music in that app, sir. I can pause, skip or change the volume."),
 ]
+from .reply.fixed import register as _register  # noqa: E402
+for _i, (_rx, _line) in enumerate(NO_ABILITY):  # listed in the fixed-line registry too (text stays here, next to its rule)
+    _register(f"no_ability_{_i}", _line)
 
 
 def no_ability(text):
