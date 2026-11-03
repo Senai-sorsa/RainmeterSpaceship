@@ -67,6 +67,8 @@ BloomEngine=canvas
 LensFx=1
 ; depth haze: the hologram glow is softer than the dash, as if further away (FULL only)
 DepthHaze=1
+; screen bezels: a dark recess and a faint lip round each display (FULL and LITE)
+ScreenBezel=1
 ; text glow: blur radius (px, 0 = off) and strength
 TextGlow=4
 TextGlowAlpha=150

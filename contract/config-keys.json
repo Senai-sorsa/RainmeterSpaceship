@@ -2741,6 +2741,14 @@
       "default": "1"
     },
     {
+      "key": "ScreenBezel",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
       "key": "ShadeAlpha",
       "file": "Settings.inc",
       "control": {

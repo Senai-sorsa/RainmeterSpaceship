@@ -50,6 +50,8 @@ export type Style = {
   s: number; tier: number; glowA: number; glowW: number; coreWhite: number; hudA: number; edit: boolean;
   textGlow: number; textGlowA: number; textSmall: number; textLarge: number; fontText: string; fontNum: string; fontTitle: string;
   white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA; hi: RGBA; good: RGBA;
+  /** screen() draws a hardware bezel round each display (setting ScreenBezel); off when left out */
+  bezel?: boolean;
 };
 export type Zone = { x: number; y: number; w: number; h: number };
 export type TextOpts = { size?: number; color?: RGBA; alpha?: number; align?: string; weight?: number; font?: string; glow?: boolean; clip?: number;
@@ -379,6 +381,14 @@ export class Canvas {
       return k > 0 ? [[x0 + k, y0], [x1, y0], [x1, y1 - k], [x1 - k, y1], [x0, y1], [x0, y0 + k]] : [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
     };
     const body = box(0);
+    // the bezel (12 #11), FULL and LITE: a dark recess round the glass, so the readout sits in the hull, and a faint lip
+    // on the lower outer edge, where the cabin light catches the hardware. Under the body; never glowing.
+    if (st.bezel && st.tier < 2) {
+      this.push('base', poly(box(-1.2), true), undefined, { color: [0, 0, 0, 150], width: 1.6 });
+      const lip = box(-2.4), y1 = Math.max(...lip.map(([, py]) => py));
+      const low = lip.filter(([, py]) => py === y1);
+      if (low.length >= 2) this.push('base', poly(low), undefined, { color: this.tint(st.white, 40), width: 0.7 });
+    }
     if (st.tier >= 2) {
       this.fillPoly(body, col, Math.floor(26 * lit));
     } else {

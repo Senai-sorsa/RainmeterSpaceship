@@ -64,6 +64,7 @@ add('display', 'Theme', 'advanced', [
   ['BloomEngine', 'Glow engine', 'Canvas: one soft light layer, lighter on the GPU. SVG: the old blur on each glowing part.', sel('canvas|Canvas', 'svg|SVG'), 'canvas', O],
   ['LensFx', 'Glass and lens', 'Smudges on the windows catch the HUD light; a faint reflection of the HUD in the glass.', tog, '1', O],
   ['DepthHaze', 'Depth haze', 'The hologram out in the windscreen glows softer than the dash, as if further away.', tog, '1', O],
+  ['ScreenBezel', 'Screen bezels', 'A dark recess and a faint lip round each display, so the readouts sit in the hull.', tog, '1', O],
   ['GlowWidth', 'Glow width', 'Width of the neon glow in pixels.', sl(1, 8, 0.1), '3.0'],
   ['TextGlow', 'Text glow', 'Size of the glow behind text in pixels.', sl(0, 12, 1), '4'],
   ['TextGlowAlpha', 'Text glow strength', 'Opacity of the text glow.', sl(0, 255, 5), '150'],

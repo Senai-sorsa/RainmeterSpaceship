@@ -12,5 +12,6 @@ export function styleFrom(v: Record<string, string>): Style {
     fontNum: v.FontNum || 'B612 Mono', fontTitle: v.FontTitle || 'Michroma',
     white: c('ColorWhite'), dim: c('ColorDim'), panel: c('ColorPanel'), accent: c('ColorAccent'), warn: c('ColorWarn'),
     alert: c('ColorAlert'), text: c('ColorText'), hi: c('ColorHighlight'), good: c('ColorGood'),
+    bezel: v.ScreenBezel !== '0',
   };
 }

@@ -74,6 +74,27 @@ describe('screen texture (K4)', () => {
   });
 });
 
+describe('screen bezels (12 #11): the readouts sit in the hull', () => {
+  const draw = (tier: number, bezel: boolean) => { const c = new Canvas(zone, style({ tier, bezel })); c.screen(10, 10, 100, 40, { from: 'bottom', lit: 1 }); return c.flush(); };
+  const outside = (o: Op) => o.shape.kind === 'poly' && o.shape.pts.some(([x, y]) => x < 10 || x > 110 || y < 10 || y > 50);
+  it('FULL and LITE: a dark recess round the body, drawn under it, and a faint lip below, never glowing', () => {
+    for (const tier of [0, 1]) {
+      const ops = draw(tier, true);
+      const recess = ops.find((o) => outside(o) && o.shape.kind === 'poly' && o.shape.closed)!;
+      expect(recess.stroke!.color.slice(0, 3)).toEqual([0, 0, 0]);
+      expect(ops.indexOf(recess)).toBeLessThan(ops.findIndex((o) => o.grad));
+      const lip = ops.find((o) => outside(o) && o.shape.kind === 'poly' && !o.shape.closed)!;
+      expect(lip.shape.kind === 'poly' && lip.shape.pts.every(([, y]) => y > 50)).toBe(true);
+      expect(lip.stroke!.color[3]).toBeLessThanOrEqual(60);
+      expect(ops.filter(outside).every((o) => !o.bloom)).toBe(true);
+    }
+  });
+  it('LOW and STEALTH, or the setting off: nothing outside the body', () => {
+    for (const tier of [2, 3]) expect(draw(tier, true).filter(outside)).toEqual([]);
+    expect(draw(0, false).filter(outside).filter((o) => !o.bloom)).toEqual([]);
+  });
+});
+
 describe('backlit display (K2) by tier', () => {
   const draw = (tier: number, opts = {}) => { const c = new Canvas(zone, style({ tier })); c.screen(10, 10, 100, 40, opts); return c.flush(); };
 
