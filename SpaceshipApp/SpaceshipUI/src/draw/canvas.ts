@@ -2,6 +2,7 @@ import icons from '../generated/icons.json';
 import type { RGBA } from '../lib/theme';
 import type { Pt } from '../lib/geometry';
 import { appIconUrls } from './appIcons';
+import { bendFor, warpPoly, type Curve, type Warp } from './curve';
 
 // Port of the drawing layer in Skins/Spaceship/@Resources/Scripts/lib.lua (Canvas). Records draw ops in zone units; the
 // output is device units, so it can be drawn as SVG without the Rainmeter meter strings. Glow tiers and colour rules match lib.lua.
@@ -52,8 +53,10 @@ export type Style = {
   white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA; hi: RGBA; good: RGBA;
   /** screen() draws a hardware bezel round each display (setting ScreenBezel); off when left out */
   bezel?: boolean;
+  /** HullRender: the shell's curve table (tools/frame_src/curve.json); long elements in its zones bend with it */
+  curve?: Curve;
 };
-export type Zone = { x: number; y: number; w: number; h: number };
+export type Zone = { x: number; y: number; w: number; h: number; id?: string };
 export type TextOpts = { size?: number; color?: RGBA; alpha?: number; align?: string; weight?: number; font?: string; glow?: boolean; clip?: number;
   /** K7: faint red/blue fringe copies on large bright text (FULL only); default on for sizes 13 and up */
   fringe?: boolean;
@@ -104,7 +107,26 @@ export class Canvas {
   /** K5: the wide second bloom for the few hottest things; FULL only, drawn first in the glow layer */
   private readonly hotOps: Op[] = [];
 
-  constructor(private readonly zone: Zone, private readonly st: Style) {}
+  private readonly warp?: Warp;
+
+  constructor(private readonly zone: Zone, private readonly st: Style) {
+    if (st.curve) this.warp = bendFor(zone.id, zone, st.curve);
+  }
+
+  /** Task 10: the zone's bend, in zone units. A rect becomes a closed poly (long edges split); text, ellipses and images move by their anchor. */
+  private bent(shape: Shape): Shape {
+    const w = this.warp;
+    if (!w) return shape;
+    switch (shape.kind) {
+      case 'poly': return { ...shape, pts: warpPoly(shape.pts, w) };
+      case 'rect': {
+        const { x, y, w: rw, h } = shape;
+        return { kind: 'poly', closed: true, pts: warpPoly([[x, y], [x + rw, y], [x + rw, y + h], [x, y + h], [x, y]], w).slice(0, -1) };
+      }
+      case 'ellipse': { const [cx, cy] = w([shape.cx, shape.cy]); return { ...shape, cx, cy }; }
+      case 'text': case 'image': { const [x, y] = w([shape.x, shape.y]); return { ...shape, x, y }; }
+    }
+  }
 
   /** Zone units to device units: offset by the zone origin, then scale. Widths and dashes only scale. */
   private scaled(shape: Shape): Shape {
@@ -121,7 +143,7 @@ export class Canvas {
   private push(layer: Layer, shape: Shape, fill?: RGBA, stroke?: Stroke, paint?: { grad?: Grad; pattern?: string }) {
     const s = this.st.s;
     const dev = stroke && { color: stroke.color, width: stroke.width * s, dash: stroke.dash && ([stroke.dash[0] * s, stroke.dash[1] * s] as [number, number]) };
-    const op: Op = { shape: this.scaled(shape), fill, stroke: dev };
+    const op: Op = { shape: this.scaled(this.bent(shape)), fill, stroke: dev };
     if (paint?.grad) op.grad = this.scaledGrad(paint.grad);
     if (paint?.pattern) op.pattern = paint.pattern;
     this.layers[layer].push(op);

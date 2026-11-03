@@ -1,4 +1,5 @@
 import type { Style } from '../draw/canvas';
+import { CURVE } from '../draw/curve';
 import { num, parseColor, SKIN_DEFAULTS } from '../lib/theme';
 
 /** The draw Style from the settings values, with the defaults H.init uses in Scripts/lib.lua. */
@@ -13,5 +14,6 @@ export function styleFrom(v: Record<string, string>): Style {
     white: c('ColorWhite'), dim: c('ColorDim'), panel: c('ColorPanel'), accent: c('ColorAccent'), warn: c('ColorWarn'),
     alert: c('ColorAlert'), text: c('ColorText'), hi: c('ColorHighlight'), good: c('ColorGood'),
     bezel: v.ScreenBezel !== '0',
+    ...(v.HullRender === '1' ? { curve: CURVE } : {}),
   };
 }

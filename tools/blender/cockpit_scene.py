@@ -36,6 +36,26 @@ def zc(x, r=RAD):
     return -((x - CW / 2) ** 2) / (2 * r)
 
 
+SAG_T, SAG_B = C["edgeSag"]["top"], C["edgeSag"]["bottom"]
+
+
+def bow(pts):
+    """Barrel curve: every long, near-horizontal edge inside the canvas gets a parabolic bow, the top ones bulging up and
+    the bottom ones down (the glass grows, the HUD stays in it). Endpoints stay, so shared edges stay shared."""
+    out = []
+    for i, a in enumerate(pts):
+        b = pts[(i + 1) % len(pts)]
+        out.append(tuple(a))
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        sag = -SAG_T if a[1] < CH / 2 else SAG_B
+        if sag and abs(dx) > 400 and abs(dy) < 0.25 * abs(dx) and 0 < a[1] < CH and 0 < b[1] < CH:
+            n = int(abs(dx) // 60)
+            for k in range(1, n):
+                t = k / n
+                out.append((a[0] + dx * t, a[1] + dy * t + sag * (1 - (2 * t - 1) ** 2)))
+    return out
+
+
 def V(p):
     return Vector((p[0], CH - p[1], 0))
 
@@ -46,6 +66,8 @@ def area(pts):
 
 def plate(name, outer, holes=(), thick=THICK, lift=0.0, res=140, r=RAD, bevel=BEVEL, mat=None):
     """Flat polygon (with holes) -> subdivided -> bent into a cylinder -> solidified -> bevelled."""
+    outer = bow(outer) if len(outer) < 40 else outer
+    holes = [bow(h) for h in holes]
     o = [V(p) for p in outer]
     if area([(v.x, v.y) for v in o]) < 0:
         o.reverse()
