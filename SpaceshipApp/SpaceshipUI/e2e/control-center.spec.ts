@@ -112,12 +112,14 @@ test('each category remembers its scroll position and the pane scrolls with the 
   const first = CATEGORIES.find((c) => c.id === 'display')!;
   await rail.getByRole('button', { name: first.label, exact: true }).click();
   await page.getByRole('switch', { name: 'Advanced settings' }).click(); // more rows, so the pane scrolls
-  expect(await tall()).toBeGreaterThan(200);
+  await expect.poll(tall).toBeGreaterThan(200); // wait for the advanced rows, not a fixed moment
   await expect(pane).toHaveAttribute('data-bottom', '1');
   await expect(pane).toHaveAttribute('data-top', '0');
   await pane.focus();
   await page.keyboard.press('End');
   await expect.poll(top).toBeGreaterThan(100);
+  // End scrolls smoothly: wait until it has reached the bottom, or the saved position is taken mid-animation (flaky)
+  await expect.poll(async () => (await tall()) - (await top())).toBeLessThanOrEqual(1);
   await expect(pane).toHaveAttribute('data-bottom', '0');
   await expect(pane).toHaveAttribute('data-top', '1');
   const was = await top();
