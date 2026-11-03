@@ -1656,6 +1656,12 @@ for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital 
     assert ear(["Set a timer for 10 minutes.", other]) == (2, 0) and len(j.load_reminders()) == 1, other   # one listen, no reply
     assert asked == ["Timer set for 10 minutes."], asked
     j.save_reminders([])
+# Slice 3 fix: route() also classifies what the undo window hears; a timed mood said there is dropped and must not start
+import jarvislib.mood as _mood
+_mood.state["temp"] = None
+assert ear(["Set a timer for 10 minutes.", "Be serious for ten minutes."]) == (2, 0)
+assert _mood.state["temp"] is None, ("dropped in the undo window, yet the timed mood started", _mood.state)
+j.save_reminders([])
 # room talk in the open ear after a chat answer: a fragment is ignored, 3+ words with no cue are asked about, a question is answered
 assert ear(["Tell me a joke.", "Uh huh."]) == (2, 1) and asked[-1] != "Uh huh."
 assert ear(["Tell me a joke.", "Mom the pasta is boiling over."])[1] == 1 and asked[-1] in j.ROOM_ASKS
@@ -2282,8 +2288,12 @@ routes.clear()
 ear(["Lock the computer.", "No."])
 assert routes[-1].startswith("route: command.") and routes[-1].endswith("-> left - no yes"), routes
 routes.clear()
+locked, acts_before_lock = [], j.ACTIONS     # never the real LockWorkStation: this step said "yes" to the real lock
+j.ACTIONS = dict(acts_before_lock, lock=lambda _: locked.append(1) or True)
+assert j.ACTIONS["lock"] is not acts_before_lock["lock"], "the fake lock must be installed"
 ear(["Lock the computer.", "Yes, Jarvis."])
-assert routes[-1].endswith("-> done"), routes
+j.ACTIONS = acts_before_lock
+assert routes[-1].endswith("-> done") and locked == [1], (routes, locked)
 j.log = keep
 j.save_reminders([])
 j.undo.clear()
@@ -4090,7 +4100,10 @@ assert M.timed("be serious for the next ten minutes") == ("serious", 600) and M.
 for no in ("be serious", "be serious for", "be careful for ten minutes", "be serious for ten years", "be serious for 99 hours"):
     assert M.timed(no) is None, no
 r = j.route("be serious for ten minutes")
-assert r[0] == "say" and "10 minutes" in r[3] and M.state["temp"][0] == "serious", r
+assert r[0] == "say" and "10 minutes" in r[3] and M.state["temp"] is None, r   # route() only reads: it is also used to classify
+say("be serious for ten minutes")                                       # the turn carries it out
+assert M.state["temp"] and M.state["temp"][0] == "serious" and any("10 minutes" in a for a in asked), (M.state, asked)
+assert M.state["temp"] is None or M.state["temp"][0] == "serious"
 assert M.turn_mood("hello", "playful") == "serious"                    # the timed mood replaces the setting for now
 M.state["temp"] = ("serious", time.time() - 1)
 assert M.turn_mood("hello", "playful") == "playful" and M.state["temp"] is None      # it ran out

@@ -154,11 +154,16 @@ def timed(cmd):
     return (key, secs) if secs and 0 < secs <= 14400 else None
 
 
-def start_timed(key, secs):
-    """Start a timed mood and return what to say."""
-    state["temp"] = (key, time.time() + secs)
+def timed_line(key, secs):
+    """What he says when a timed mood starts. Reads nothing, changes nothing."""
     n, unit = (secs // 3600, "hour") if secs % 3600 == 0 else (round(secs / 60), "minute")
     return f"{NAMED[key].capitalize()} for {n} {unit}{'s' if n != 1 else ''}, sir."
+
+
+def start_timed(key, secs):
+    """Start a timed mood and return what to say. Only the turn that answers calls this, never route()."""
+    state["temp"] = (key, time.time() + secs)
+    return timed_line(key, secs)
 
 
 def current():

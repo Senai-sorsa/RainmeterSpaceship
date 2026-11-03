@@ -776,6 +776,8 @@ def understand(text, model, quiet, room):
 
 def command_reply(kind, action, target, prompt, quiet):
     """Carry out a command that needs no confirmation and return what to say; None if it is not one."""
+    if kind == "say" and action == "mood_for":                 # Slice 3: started here, when the turn answers, not in route()
+        return mood.start_timed(*target)
     if kind in ("say", "fact"):
         return prompt
     if kind == "undo":

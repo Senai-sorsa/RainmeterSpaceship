@@ -4,6 +4,7 @@ One run, in order. Built on branch `fix/phase7-9-audit`; **nothing here has had 
 Source of each step is in brackets. Mark each step PASS / FAIL. For a FAIL, paste: what you said, what he said, roughly when, plus the `route:` and `timing:` log lines of that turn.
 
 **Before:** copy to live on your word (PART D "COPY TO LIVE" in `JARVIS-Repair-Plan.txt`; backs up the live folder first), refresh Rainmeter, restart JARVIS, wait for STANDBY. Settings.inc is never copied.
+**Checked 2026-11-02:** Rainmeter's SkinPath is `C:\Users\Senai\Rainmeter\Skins\`, and its JARVIS there is still the 2026-10-17 code (no `followup.py`, no `wake.py`): every fix since the first live test is missing from it. The CSpace app starts the repo copy instead (it finds `Skins\Spaceship\@Resources` above its own folder). Test through the app, or copy to live first.
 **Rules:** you paste log lines (Claude never reads `jarvis.log` or `Data\`). Tone/wording problems are only noted, not fixed on the spot. Have a wired keyboard and speakers (not headphones) for step 2.
 
 ---
@@ -35,9 +36,10 @@ Do this as one flowing talk; tick each item as it happens.
 - Pop-up text types at his speaking pace (muted: reading pace). [L8]
 
 ## 4. Personality and honesty (Phase 10, tone is for your review)
-- Default stays **playful**; answers 1-3 sentences; "sir" in nearly every reply; contractions fine; "Mr. Sorsa" only on serious topics.
+- Default is now **mirror** (matches your tone; changed 2026-10-30, ce42b3e); answers 1-3 sentences; "sir" in nearly every reply; contractions fine; "Mr. Sorsa" only on serious topics.
+- Timed mood: "be serious for the next ten minutes" -> "Serious mode for 10 minutes, sir."; it ends by itself; the Control Center setting does not change. Said inside the 2 s undo window after a command it is dropped with no reply and must NOT change his mood (fixed 2026-11-02).
 - Name: he calls himself **Clover**; Control Center says CLOVER. "Who made you?" -> Senai Sorsa made him, runs locally. "Are you an AI?" -> allowed to say so. "Hope this helps" never appears.
-- Serious topic (health, money trouble, grief, stress about an exam): tone switches to serious and "Mr. Sorsa" may appear; playful again afterwards.
+- Serious topic (health, money trouble, grief, stress about an exam): tone switches to serious and "Mr. Sorsa" may appear; back to the saved mood afterwards.
 - Mood commands: "be serious" / "be brief" / "be playful" / "be natural" -> short confirmation; Control Center buttons match; "undo" or "back to before" returns the old mood. [mood.py]
 - Rude or sloppy ask -> calm reply; a real mistake by him -> "I apologize, sir," then the specific mistake (and not otherwise).
 - Mis-heard phrase: he says he didn't catch it instead of inventing a meaning. Unclear input: he asks, doesn't joke. He never promises something he cannot do ("I'll make sure to get that to you"). [evidence a-e]
@@ -110,7 +112,7 @@ Do these with ask-first rows, answering "yes" where asked. A bare "yes" with not
 ---
 
 ## Known gaps before you start (so you don't chase them)
-- **Not built:** prompt-cases file + runner + model comparison (T10), headphone-softer voice (T7/J4, ticked in `tasks/phase10-slice2-todo.md` by mistake), temporary moods, streaming voice, voice training, speaker detection, Hey Clover wake model, NAME text input. Wake word stays "Hey Jarvis".
+- **Not built:** prompt-cases file + runner + model comparison (T10), headphone-softer voice (T7/J4, ticked in `tasks/phase10-slice2-todo.md` by mistake), streaming voice, voice training, speaker detection, Hey Clover wake model, NAME text input. Wake word stays "Hey Jarvis".
 - **Unverified:** all Lua, real-model behaviour of the new prompt rules, every real Windows write, the voices, privacy mode beyond fakes.
 - Privacy mode was tested with a fake only: if it leaks names, note it, don't stop the run.
 - Memory window now keeps up to 40 messages for 20 min; if replies feel slow late in a long talk, report the `timing:` lines.

@@ -83,15 +83,17 @@ DAILY BRIEFING
   Order: time, today's calendar, unread mail count, open to-dos (three, then the count),
   pending reminders. Five sentences at most. A part with no data is skipped.
   Only whole phrases count: "Good morning, can you open Chrome" is still an app command.
-  No weather (it would need your location).
+  No weather or news unless you turn them on: JarvisOnline=1 and JarvisPlace=<your town> in Settings.inc.
 
 PERSONALITY
-  PLAYFUL by default.                                      CC: PERSONALITY  PROPER / PLAYFUL / BRIEF
+  MIRROR by default (matches your tone).                   CC: PERSONALITY  MIRROR / SERIOUS / BRIEF / PLAYFUL
+  "Be serious for the next ten minutes": a mood for a while (up to 4 hours, this session only, setting unchanged).
   It only changes answers the model words. Fixed lines ("Done.", "Time to cook.") never change.
   Not tied to the voice: you pick the voice and the personality separately.
 
 OLDER DEFAULTS THAT THESE FEATURES RELY ON
   He answers after 1 second of silence.                    CC: LISTENING  (JarvisSilence)
+  A short command (under 3 s) ends after 0.7 s of quiet. Setting LISTENING yourself, or JarvisFastEnd=0, turns that off.
   He forgets the conversation after 10 minutes without a turn.
   Model memory is 2048 tokens.                             Settings.inc: JarvisContext
   Risky actions (shut down, close an app, forget everything, add a to-do) need a yes within 15 s.
@@ -149,14 +151,15 @@ DAILY BRIEFING
   "Brief me."      "Daily briefing."  "What's my day look like?"
 
 PERSONALITY
-  Control Center, PERSONALITY: PROPER (calm and dry), PLAYFUL (warm, teases a little),
-  BRIEF (one short sentence).
+  Control Center, PERSONALITY: MIRROR (default: calm, jokes only when you do), SERIOUS (precise, never jokes),
+  BRIEF (one short sentence), PLAYFUL (warm, teases a little). By voice: "be serious", "be brief", "be playful",
+  "be natural"; "undo" or "back to before" returns the old one.
 
 
 UNDO
 ----
   Follow-up:          FOLLOW-UP, OFF.
-  Personality:        PERSONALITY, PROPER.
+  Personality:        PERSONALITY, SERIOUS.
   Remembered facts:   "forget everything", or delete @Resources\Data\jarvis_memory.txt.
   Reminders:          "cancel all reminders", or delete @Resources\Data\jarvis_reminders.txt.
   A to-do line:       delete it in Obsidian.
