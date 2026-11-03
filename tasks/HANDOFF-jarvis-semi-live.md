@@ -62,6 +62,25 @@ Open, not fixed: offers ("Would you like me to..."); room talk with "you"/"?" in
 (user's S2-10 rule); 8B sometimes ignores HUD data (said "no unread emails" with 4 unread).
 
 ## 6. Log (newest first)
+- 2026-11-03 j (REFACTOR phase 2 DONE, commits 514dc36 move, d6c3758 edits; branch refactor/jarvis-pipeline, not merged to main).
+  `jarvislib/reply/fixed.py`: ONE registry of 31 fixed lines (11 moved from routing/mood/prompt/memory/diag, 18 jarvis.py literals,
+  NO_ABILITY lines listed too); FIXED_LINES is derived from `passthrough=True` entries (same 3 lines as before); the old names are
+  re-exported, so nothing else changed. jarvis.py uses `FX.<NAME>` for 35 inline literals (tokenize-based replace, f-strings and
+  comments untouched). `reply/policy.py`: `reply_chain()` = the old polish(grounded(no_hope(no_claims(sentences_from)))) call, ORDER tuple.
+  Tests (tests/): test_fixed_lines (registry, pass-through set, no raw literal into fixed()/reply_line() in jarvis.py), test_reply_policy
+  (600 corpus replies identical to the old chain, smooth 1 and 0; first piece released before the stream ends), test_settings_schema.
+  Gate: venv + py -3 test_jarvis OK, host_pipe failed: 0, run_all: OK (3 files), golden routes 0/834, replies 0/2512 diffs.
+  Semi-live A/B, old code (phase 0, live checkout) vs new, seed 7, same hour, TZ=ABC+12, tripwires 0 everywhere
+  (cost old -> new; first-sentence p50 old -> new):
+    8B  main 38 -> 34 (0.35 -> 0.36 s)   fresh 35 -> 34 (0.33 -> 0.33)   persona 19 -> 13 (0.37 -> 0.38)
+    3B  main 50 -> 53 (0.24 -> 0.24 s)   fresh 38 -> 35 (0.24 -> 0.24)   persona 36 -> 37 (0.23 -> 0.25)
+  All inside the +-5 run noise measured in entry h; first sentence within +0.02 s. Replies not read line by line (cost cannot see
+  "sounds odd"), but the code path is byte-identical on the golden replies.
+  NOT DONE on purpose: (1) filters as feed() objects: the lazy-generator contract (first piece out before the stream ends) is the
+  voice timing, the rewrite buys readability only and carries the highest risk in this phase; revisit with phase 6. (2) Scorer sharing
+  the runtime CLAIM regex: kept independent so a gap in the runtime filter cannot blind the measurement. (3) The remaining non-fixed
+  strings (prompts, AI_PROMPT, regex tables) stay with their rules. Phase 1 call-site migration also still open (waits for phase 8).
+  Gate script and A/B runner: C:\Users\Senai\AppData\Local\Temp\jarvis-gate\ (outside the repo; gate.sh, sl_ab.sh).
 - 2026-11-03 i (REFACTOR phase 1, settings table, commit fe3b017). User: do all phases, check and commit myself, no per-phase check-ins.
   Work happens in a git worktree `C:\Users\Senai\RainmeterSpaceship-refactor` (branch refactor/jarvis-pipeline); the live checkout
   stays on branch `jarvis-live` (= phase 0 commit), so the running HUD never sees a half-done phase. Nothing is merged into main.
