@@ -1,4 +1,4 @@
-import { Canvas, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, heat, type Op, type Style, type Zone } from '../draw/canvas';
 import { type Readings } from './readings';
 import { usedShare } from './storage';
 
@@ -35,7 +35,10 @@ function cellsFrame(list: Cell[], mirror: boolean, zone: Zone, st: Style): Op[] 
     const x0 = mirror ? zone.w - 4 - i * STEP - CELLW : 4 + i * STEP;
     const lv = cl.lvl ?? 0;
     const col = lv === 2 ? st.alert : lv === 1 ? st.warn : st.white;
-    c.icon(cl.icon, x0 + 9, y, 15, lv === 2 ? st.alert : lv === 1 ? st.warn : st.accent, 1.2);
+    // each readout sits on a small lit chip (K2), in its warning colour when it warns; the icon burns a little hotter
+    const ic = lv === 2 ? st.alert : lv === 1 ? st.warn : st.accent;
+    c.screen(x0, y - 6.5, CELLW, 13, { col: ic, from: 'bottom', cut: 3, lit: lv ? 0.55 : 0.3, glow: false });
+    c.icon(cl.icon, x0 + 9, y, 15, heat(st, ic, 0.3), 1.2);
     c.text(x0 + 20, y, cl.text, { size: cl.size ?? 5, weight: 700, align: 'LeftCenter', color: col, font: st.fontNum, clip: CELLW - 22 });
   });
   return c.flush();

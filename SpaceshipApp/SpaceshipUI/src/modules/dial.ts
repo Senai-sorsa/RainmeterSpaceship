@@ -1,4 +1,4 @@
-import { Canvas, arcPts, mix, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, arcPts, heat, mix, type Op, type Style, type Zone } from '../draw/canvas';
 
 // Port of Skins/Spaceship/@Resources/Scripts/dial.lua: the systems dial (round, bottom left) with six controls on a ring:
 // BRT, VOL, MIC, PWR, HZ, GLW. Drawn from plain values only; the clicks, scroll and setters live in
@@ -70,7 +70,11 @@ export function dialFrame(inp: DialInput, zone: Zone, st: Style, sel = 1, note =
   const va = A0 + SWEEP * f;
   // core glass
   c.halo(CX, CY, 20, A1, 30);
-  c.fillCircle(CX, CY, R_IN - 4, st.panel, 140);
+  // a round display (K2): lit glass in the middle, darkening to the rim, with the screen texture
+  const face = arcPts(CX, CY, R_IN - 4, R_IN - 4, 0, 360, 48);
+  c.gradPoly(face, { kind: 'radial', cx: CX, cy: CY, r: R_IN - 4,
+    stops: [[0, [A1[0], A1[1], A1[2], 48]], [0.6, [st.panel[0], st.panel[1], st.panel[2], 140]], [1, [st.panel[0], st.panel[1], st.panel[2], 175]]] });
+  c.texture(face);
   // tick scale across the top, lit up to the value
   for (let i = 0; i <= 10; i++) {
     const a = 225 + i * 9, lit = avail && a <= va, ar = (a * Math.PI) / 180;
@@ -87,7 +91,13 @@ export function dialFrame(inp: DialInput, zone: Zone, st: Style, sel = 1, note =
   }
   // thick value arc and its track
   c.hairPoly(arcPts(CX, CY, R_VAL, R_VAL, A0, A0 + SWEEP, 60), D, 150, 3);
-  if (avail && f > 0.002) c.arc(CX, CY, R_VAL, A0, va, mix(A1, W, 0.25), 3.6, 255);
+  if (avail && f > 0.002) {
+    // the value is a filled band (K10): its glow, then a gradient from dim at the start to white-hot at the value
+    c.arc(CX, CY, R_VAL, A0, va, A1, 3.6, 120);
+    const p0 = arcPts(CX, CY, R_VAL, R_VAL, A0, A0, 1)[0], p1 = arcPts(CX, CY, R_VAL, R_VAL, va, va, 1)[0], hot = heat(st, A1, 1);
+    c.gradPoly([...arcPts(CX, CY, R_VAL + 2.2, R_VAL + 2.2, A0, va), ...arcPts(CX, CY, R_VAL - 2.2, R_VAL - 2.2, va, A0)],
+      { kind: 'linear', x1: p0[0], y1: p0[1], x2: p1[0], y2: p1[1], stops: [[0, [A1[0], A1[1], A1[2], 120]], [0.75, mix(A1, W, 0.25)], [1, [hot[0], hot[1], hot[2], 255]]] });
+  }
   if (avail) {
     const ar = (va * Math.PI) / 180;
     c.dot(CX + R_VAL * Math.cos(ar), CY + R_VAL * Math.sin(ar), 3.4, W);

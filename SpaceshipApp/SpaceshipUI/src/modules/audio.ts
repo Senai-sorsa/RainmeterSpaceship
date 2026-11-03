@@ -1,4 +1,4 @@
-import { arcPts, Canvas, mix, type Op, type Style, type Zone } from '../draw/canvas';
+import { arcPts, Canvas, heat, mix, type Op, type Style, type Zone } from '../draw/canvas';
 import { type Pt } from '../lib/geometry';
 import type { RGBA } from '../lib/theme';
 import { type Readings, val } from './readings';
@@ -144,11 +144,19 @@ export function audioFrame(s: AudioState, r: Readings, zone: Zone, st: Style, fr
   }
   const ring: Pt[] = [];
   for (let k = 0; k <= NS; k++) ring.push(P(tips[k % NS] + 1.5, (k / NS) * 360 - 90));
+  // the spectrum as a filled silhouette (K10), coloured by height (K3): dim at the base, white-hot at the tallest tips
+  const hot = heat(st, A1, 1), base = R_W0 / R_W1;
+  c.gradPoly([...ring, ...arcPts(CX, CY, R_W0, R_W0, 270, -90, 48)], { kind: 'radial', cx: CX, cy: CY, r: R_W1,
+    stops: [[base, [A1[0], A1[1], A1[2], 26]], [base + (1 - base) * 0.5, [A1[0], A1[1], A1[2], 60]], [1, [hot[0], hot[1], hot[2], 120]]] });
   c.poly(ring, mix(A1, W, 0.55), 1.2, 235);
   c.hairPoly(arcPts(CX, CY, R_W0, R_W0, 0, 360, 64), A1, 190, 1.3);
   // glowing core, pulsing with the loudness; red X over it when muted
   const pulse = clamp(s.rmsS * 2.2, 0, 1);
-  c.fillCircle(CX, CY, R_W0 - 3, st.panel, 170);
+  // the core sits on a round lit display (K2), textured
+  const face = arcPts(CX, CY, R_W0 - 3, R_W0 - 3, 0, 360, 40);
+  c.gradPoly(face, { kind: 'radial', cx: CX, cy: CY, r: R_W0 - 3,
+    stops: [[0, [A1[0], A1[1], A1[2], 40]], [0.55, [st.panel[0], st.panel[1], st.panel[2], 160]], [1, [st.panel[0], st.panel[1], st.panel[2], 185]]] });
+  c.texture(face);
   if (st.tier < 2) for (let k = 3; k >= 1; k--) c.fillCircle(CX, CY, 7 + k * 4.5 + pulse * 4, mix(A1, W, 0.6), Math.floor((45 + pulse * 45) / k));
   c.dot(CX, CY, 3.8 + pulse * 2.5, muted ? D : W);
   if (muted) { c.line(CX - 7, CY - 7, CX + 7, CY + 7, RED, 1.8); c.line(CX + 7, CY - 7, CX - 7, CY + 7, RED, 1.8); }

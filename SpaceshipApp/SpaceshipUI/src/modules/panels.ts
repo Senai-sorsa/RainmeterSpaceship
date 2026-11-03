@@ -92,9 +92,15 @@ export function rightRows(r: Readings, st: Style, info: SysInfo = {}): Row[] {
 
 /** The label and value rows, spread over height the way the skin does. */
 function rowsInto(c: Canvas, zone: Zone, list: Row[], height: number, st: Style) {
-  const rh = height / (list.length + 0.3);
+  const rh = height / (list.length + 0.3), [ar, ag, ab] = st.accent;
+  // the card is a lit screen (K1 + K4): light from the top edge falling off down the card, the screen texture over it
+  const card: [number, number][] = [[0, 0], [zone.w, 0], [zone.w, height], [0, height]];
+  c.gradPoly(card, { kind: 'linear', x1: 0, y1: 0, x2: 0, y2: height, stops: [[0, [ar, ag, ab, 42]], [0.4, [ar, ag, ab, 14]], [1, [ar, ag, ab, 4]]] });
+  c.texture(card);
   list.forEach((r, i) => {
     const y = rh * (i + 1 - 0.35);
+    // every other row on a faint lit band, so the eye can follow a row across
+    if (i % 2 === 0) c.fillRect(2, y - rh * 0.45, zone.w - 4, rh * 0.9, st.accent, 12);
     if (i < list.length - 1) c.hair(6, y + rh * 0.5, zone.w - 6, y + rh * 0.5, st.accent, 1, 45);
     c.text(6, y, r.label, { size: 3.0, weight: 700, align: 'LeftCenter', color: st.accent, alpha: 220, glow: false });
     c.text(zone.w - 5, y, r.value, { size: 3.3, weight: 700, align: 'RightCenter', color: r.color ?? st.white, font: st.fontNum, clip: zone.w * 0.66 });
@@ -112,6 +118,8 @@ export function panelRightFrame(list: Row[], zone: Zone, st: Style): Op[] {
   const c = new Canvas(zone, st);
   rowsInto(c, zone, list, zone.h * 0.76, st);
   const bx = 6, by = zone.h * 0.8, bw = zone.w - 12, bh = zone.h * 0.16;
+  // a lit key (K1): bright along its bottom edge
+  c.gradRect(bx, by, bw, bh, { kind: 'linear', x1: 0, y1: by + bh, x2: 0, y2: by, stops: [[0, [st.accent[0], st.accent[1], st.accent[2], 90]], [1, [st.accent[0], st.accent[1], st.accent[2], 15]]] });
   c.chamfer(bx, by, bw, bh, bh * 0.35, st.accent, 1.2, 230, 90);
   c.text(bx + bw / 2, by + bh / 2, '>_ TERMINAL', { size: 3.6, weight: 700, align: 'CenterCenter', color: st.white, font: st.fontNum });
   return c.flush();

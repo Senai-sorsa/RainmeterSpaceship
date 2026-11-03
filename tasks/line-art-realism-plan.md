@@ -204,6 +204,7 @@ if C# changed. Visual check with `tools/visual-check` (crops + contact sheets). 
 |---|---|---|---|---|
 | 2026-11-02 | R0 baseline | 118.4 %, 119.4 % of one core | not run (needs the user's OK) | before frames: `C:\Users\Senai\cspace-visual-baseline\R0` (full, audio, drawer, boot 10/45/110, `sweep/`, `sheet-main.png`) |
 | 2026-11-02 | after R1 | 119.2 % | not run | no HUD element uses the kit yet (DOM: 0 gradient / 0 texture fills); kit demo `?panel=kit` → `cspace-visual-baseline\R1\kit.png` |
+| 2026-11-02 | after R4 | 113.6 %, 119.9 % | not run (user: skip for now) | R2-R4 adopted the kit; audio ring still moves (`burst.cjs` frames differ ~10k px) |
 
 Note for pixel diffs: two captures of the same code differ by ~130k pixels (animation and the preview feed), so compare
 crops by eye or check the DOM, not whole-frame pixel counts.
