@@ -1603,7 +1603,7 @@ for text in ("Good morning, can you open Chrome?", "brief me on quantum physics"
 prompts, heard, speaks, temps = [], [0], [0], []
 orig_stream = j.chat_stream                                    # the T4 test below needs the real one back
 j.chat_stream = lambda model, messages, temperature=0.5: temps.append(temperature) or prompts.append(messages[0]["content"])
-j.sentences_from = lambda stream, collected: collected.append("Ha.") or iter(["Ha."])
+j.sentences_from = lambda stream, collected: collected.append("Ha, sir.") or iter(["Ha, sir."])
 j.speak_all = j.say_text_only = lambda sentences, *a: list(sentences)
 j.ollama_on_cpu = lambda model: None
 
@@ -2117,7 +2117,7 @@ talk(1, words="Tell me a joke.")
 talk(1, words="What did you hear?")
 assert asked[-1] == "I heard: Tell me a joke."
 talk(1, words="Say that again.")
-assert asked[-1] == "Ha."
+assert asked[-1] == "Ha, sir."
 
 # ---- live test of phase 1: a word before the command, more ways to ask for an alarm, "never mind", the volume read
 # from Windows every time it is asked, and a longer wait for a follow-up
@@ -2530,14 +2530,14 @@ j.history.clear()
 talk(1, words="Tell me about the Eiffel Tower.")
 assert past() == []
 talk(1, words="How tall is the Eiffel Tower?")                     # a shared keyword
-assert past() == ["Tell me about the Eiffel Tower.", "Ha."]
+assert past() == ["Tell me about the Eiffel Tower.", "Ha, sir."]
 talk(1, words="And why is it made of iron?")                       # a follow-up start
 talk(1, words="Really?")                                           # 3 words or fewer
 assert len(past()) == 6 and past()[0] == "Tell me about the Eiffel Tower."   # the whole talk is kept, not just 2 exchanges
 talk(1, words="Never mind.")                                       # "never mind" keeps the window
 assert "Really?" in [m["content"] for m in j.history]
 talk(1, words="What's a good pasta recipe for dinner?")            # unlinked: filed and emptied
-assert past() == [] and [m["content"] for m in j.history] == ["What's a good pasta recipe for dinner?", "Ha."]
+assert past() == [] and [m["content"] for m in j.history] == ["What's a good pasta recipe for dinner?", "Ha, sir."]
 talk(1, words="New topic.")                                        # files it, a fixed "Okay.", nothing kept
 assert asked[-1] == "Okay." and j.history == []
 talk(1, words="What's a good pasta sauce?")
@@ -2576,7 +2576,7 @@ assert j.related("When should I see the dentist?", ["[Mon 14 Oct, 07:00 PM] My t
 j.history.clear()
 talk(1, words="My teeth have been hurting all week.")
 talk(1, words="When should I see the dentist?")                  # no shared word, same meaning: the window stays
-assert past() == ["My teeth have been hurting all week.", "Ha."]
+assert past() == ["My teeth have been hurting all week.", "Ha, sir."]
 talk(1, words="What's the capital of France these days?")        # unrelated in words and meaning
 assert past() == []
 j._embed[0] = lambda texts: 1 / 0                                # the model breaks: words only, the turn goes on
@@ -2624,7 +2624,7 @@ assert j.route("reopen it") == ("act", "open", ("Google Chrome", "Chrome"), None
 j.ACTIONS["open"], j.open_windows = real_open, real_owin
 j.save_reminders([]), j.last.clear(), j.undo.clear()
 # ---- M2: topic memory - talk that leaves the window is filed by topic, and comes back only when it's about it
-pair = lambda you, him="Ha.": [{"role": "user", "content": you}, {"role": "assistant", "content": him}]
+pair = lambda you, him="Ha, sir.": [{"role": "user", "content": you}, {"role": "assistant", "content": him}]
 j.save_topics([])                                                             # the M1 turns above filed talk
 j.file_talk(pair("My card is 4111111111111111 and the code is hunter2abc9.", "Keep those private."))
 j.file_talk(pair("[Tue 14 Oct, 07:00 PM] Set a timer for 10 minutes.", "Timer set."))   # a command reply: not filed
@@ -3926,7 +3926,7 @@ j.snapshot, j.drives, j.memory_percent, j.temps, j.battery_saver = _snap, lambda
 j.WAKE_OFF[0] = None
 prompts, asked, closed = [], [], []
 j.chat_stream = lambda model, messages, temperature=0.5: prompts.append(messages[0]["content"])
-j.sentences_from = lambda stream, collected: collected.append("Ha.") or iter(["Ha."])
+j.sentences_from = lambda stream, collected: collected.append("Ha, sir.") or iter(["Ha, sir."])
 j.speak_all = j.say_text_only = lambda sentences, *a: list(sentences)
 j.ollama_on_cpu = lambda model: None
 j.reply_line = lambda text, quiet: asked.append(text)
@@ -4046,7 +4046,14 @@ assert M.turn_mood("tell me a joke", "playful") == "playful"
 # additions: an ordinary turn adds nothing; each trigger adds only its own rule
 M.reset()
 assert M.additions("what is the capital of France", "", "playful", hour=14) == []
+M.state["late_on"] = None
 assert M.additions("what is the capital of France", "", "playful", hour=2) == [M.ADD["late"]]
+assert M.additions("tell me a joke", "", "playful", hour=2) == [], "the late remark is allowed once per night, not every turn"
+M.state["late_on"], M.state["topic"] = None, True
+assert M.ADD["late"] not in M.additions("my grandfather died", "", "serious", hour=2), "never on a serious topic"
+M.state["topic"] = False
+assert M.additions("what is the capital of France", "", "playful", hour=2) == [M.ADD["late"]]
+M.state["late_on"] = None
 assert M.additions("that's wrong", "", "playful", hour=14) == [M.ADD["apology"]] and "I apologize, sir," in M.ADD["apology"]
 assert M.additions("you are useless", "", "playful", hour=14) == [M.ADD["rude"]]
 assert M.additions("help me with my homework", "", "playful", hour=14) == [M.ADD["homework"]]
@@ -4195,5 +4202,147 @@ j.read_kv = lambda name: ""
 assert "CSPACE HELP" in REAL_CONTEXT("my gmail stopped updating") and "Gmail sign-in" in REAL_CONTEXT("my gmail stopped updating")
 assert "CSPACE HELP" not in REAL_CONTEXT("what is the capital of France")
 assert "CSPACE HELP" not in REAL_CONTEXT("how hot is my cpu") and "CSPACE HELP" not in REAL_CONTEXT("tell me a joke")
+
+# ---- 2026-11-02 semi-live fixes: calendar times and the clock in the 12-hour form (the model read "00:40" out loud)
+import re
+from datetime import datetime as _dt, timedelta as _td
+_at =(_dt.now() + _td(days=1)).replace(hour=15, minute=5, second=0, microsecond=0)
+j.read_kv = lambda name: f"E {int(_at.timestamp())}|{int(_at.timestamp()) + 3600}|0||Physics quiz\n" if name == "calendar.txt" else ""
+ctx = REAL_CONTEXT("what's on my calendar tomorrow?")
+assert "3:05 PM - Physics quiz" in ctx and "15:05" not in ctx, ctx
+assert re.search(r"^Now:\w+ \d\d \w+ \d{4}, \d{1,2}:\d\d [AP]M$", ctx, re.M) and not re.search(r"Now:.*\b\d\d:\d\d \(", ctx), ctx
+j.read_kv = lambda name: ""
+
+# ---- T7/J4 headphones: his voice is softer in headphones, unchanged on speakers; only known names count
+import jarvislib.speech as SP
+assert SP.headphone_gain("Speakers (Realtek(R) Audio)", "60") == 1.0
+assert SP.headphone_gain("Headphones (WH-1000XM4)", "60") == 0.6 and SP.headphone_gain("Headset Earphone (Jabra)", "40") == 0.4
+assert SP.headphone_gain("AirPods Pro", "100") == 1.0 and SP.headphone_gain("Galaxy Buds2", "5") == 0.1   # 10-100 only
+assert SP.headphone_gain("Headphones", "loud") == 0.6 and SP.headphone_gain("", "60") == 1.0 and SP.headphone_gain(None, "60") == 1.0
+
+# ---- wake tuning: one near-miss line per try under the needed score, scores only; nothing for a wake or noise
+import jarvislib.wake as WK
+nm, lines = WK.NearMiss(), []
+for s in [0.05, 0.2, 0.34, 0.3] + [0.01] * 6:                   # a try that peaked at 0.34, then quiet
+    lines.append(nm.feed(s, 0.5, 100.0))
+assert [l for l in lines if l] == ["wake: near miss 0.34 (needs 0.50)"], lines
+assert all(nm.feed(s, 0.5, 101.0) is None for s in [0.4] + [0.0] * 6), "a second try within 3 s is not logged again"
+assert all(nm.feed(s, 0.5, 200.0) is None for s in [0.7] + [0.0] * 6), "a score that would wake him is no near miss"
+assert all(nm.feed(s, 0.5, 300.0) is None for s in [0.1, 0.12] + [0.0] * 6), "under the floor: not a try"
+nm.feed(0.3, 0.5, 400.0)
+nm.reset()                                                       # a wake (HV, under need) clears the try: no line after it
+assert all(nm.feed(0.0, 0.5, 401.0) is None for _ in range(8))
+# the second check (JarvisWakeVerify): the name or a word close to it, never an empty or unrelated line
+assert WK.wake_heard("Hey, Jarvis.", "Jarvis") and WK.wake_heard("hey jervis", "Jarvis") and WK.wake_heard("Hey Clover.", "Clover")
+assert not WK.wake_heard("", "Jarvis") and not WK.wake_heard(None, "Jarvis") and not WK.wake_heard("Hey, what's up?", "Jarvis")
+assert not WK.wake_heard("pass the salt", "Jarvis") and not WK.wake_heard("Hey Jarvis", "Clover")
+assert WK.wake_heard("Hey service.", "Jarvis") and not WK.wake_heard("Hey service.", "Clover")   # Whisper's known spellings
+
+# ---- semi-live round 1 (2026-11-02): code polish of the spoken chat answer
+import jarvislib.mood as MD
+def _pol(sents, cap=None):
+    col = ["raw"]
+    out = list(MD.polish(iter(sents), col, cap))
+    return out, col
+o, c = _pol(["Sir, why did the computer go to the doctor?", "It had a virus, sir."])
+assert o == ["Sir, why did the computer go to the doctor?", "It had a virus."] and c == [" ".join(o)], (o, c)   # one "sir"
+o, _ = _pol(["Congratulations, Mr. Sorsa, sir.", "Well done, sir!"])
+assert o == ["Congratulations, Mr. Sorsa.", "Well done!"], o
+o, _ = _pol(["Yes, sir.", "I am functioning normally.", "How may I assist you, sir?"])
+assert o == ["Yes, sir.", "I am functioning normally."], o                     # a stock sentence is left out...
+o, _ = _pol(["How may I assist you, sir?"])
+assert o == ["How may I assist you, sir?"], o                                   # ...unless it is all there is
+o, _ = _pol(["One.", "Two.", "Three.", "Four.", "Five."], cap=3)
+assert o == ["One.", "Two.", "Three."], o
+o, _ = _pol(["Sir, the seasons are caused", "by the tilt of the Earth, sir.", "Sir, it is about 23.5 degrees."])
+assert o == ["Sir, the seasons are caused", "by the tilt of the Earth.", "It is about 23.5 degrees."], o   # first piece is partial
+o, _ = _pol(["Why did the computer go", "to the doctor? It had a virus.", "Ha, sir.", "More.", "Even more."], cap=3)
+assert o == ["Why did the computer go", "to the doctor? It had a virus.", "Ha, sir."], o                   # cap counts sentences
+o, _ = _pol(["How may I assist", "you today, sir?", "I am fine."])
+assert o == ["I am fine."], o                                            # a split stock sentence is judged whole, then dropped
+o, _ = _pol(["I'm here for you, Mr.", "Sorsa. It's normal to feel stressed.", "Take a short walk."], cap=3)
+assert o == ["I'm here for you, Mr.", "Sorsa. It's normal to feel stressed.", "Take a short walk."], o   # "Mr." ends nothing
+o, _ = _pol(["I'm happy to help you", "with that, sir.", "However, I can't make purchases."], cap=3)
+assert o == ["I can't make purchases."], o                     # a stock opener split over two pieces is still dropped
+o, _ = _pol(["I'd be happy to help"], cap=3)
+assert o == ["I'd be happy to help"], o                                  # ...but never the whole answer
+o, _ = _pol(["Pardon, sir, what did you", "say?", "Could you please rephrase?"], cap=3)
+assert o == ["Pardon, sir, what did you", "say?"], o                     # "Pardon ...?" is the whole answer
+o, _ = _pol(["Pardon me for asking, but", "is that a joke?"])
+assert len(o) == 2, "without a cap (info answers) nothing is cut"
+o, _ = _pol(["I'm happy to help, sir,", "but I'm a text assistant and can't control the music.", "Try the media keys."], cap=3)
+assert o == ["I'm a text assistant and can't control the music.", "Try the media keys."], o   # the opener goes, the answer stays
+o, _ = _pol(["I'm happy to help you with that, sir. However, I can't book tables.", "Call the restaurant."], cap=3)
+assert o[0] == "I'm happy to help you with that, sir. However, I can't book tables.", o   # two sentences in one piece: untouched
+# percent follow-up: "And 20 percent?" after "What's 15 percent of 80?" is the sum again, never the volume
+assert j.percent_follow("And 20 percent?", "What's 15 percent of 80?") == "what's 20 percent of 80"
+assert j.route(j.percent_follow("And 20 percent?", "What's 15 percent of 80?"))[:4] == ("fact", None, None, "16.")
+assert j.percent_follow("About 20%.", "what is the capital of France") is None and j.percent_follow("And 20 percent?", "") is None
+# new command phrasings from the fresh bank (each went to the model before)
+assert j.route("Shut up the music.")[:3] == ("act", "media", "playpause")
+assert j.route("I need a ten minute timer.")[:2] == ("remind", "set") and j.route("Give me a 5 minute timer.")[:2] == ("remind", "set")
+assert j.route("I want a pizza.")[0] == "chat" and j.route("I need help with my homework.")[0] == "chat"
+import jarvislib.routing as _RT
+assert list(_RT.no_claims(iter(["Chrome is now open, sir."]), [])) == [_RT.CLAIM_LINE]
+for s in ("I will provide a real-time translation of our conversation.", "I can inform your professor of your tardiness, sir.",
+          "I can forward a message to your professor."):
+    assert list(_RT.no_claims(iter([s]), [])) == [_RT.CANT_LINE], s
+for s in ("I can't send emails, sir.", "I can tell you a joke.", "I can explain how it works."):
+    assert list(_RT.no_claims(iter([s]), [])) == [s], s
+# round 5: "sir" once inside a sentence; "Mr. Sorsa" as an address only on serious turns; no reply opens with "However,"
+o, _ = _pol(["I'm designed to assist Senai Sorsa, sir, and Siri is a general AI assistant, sir."])
+assert o == ["I'm designed to assist Senai Sorsa, sir, and Siri is a general AI assistant."], o
+o = list(MD.polish(iter(["Yes, it is late, Mr. Sorsa.", "Mr. Sorsa, get some rest."]), [], 3, serious=False))
+assert o == ["Yes, it is late, sir.", "Get some rest."], o
+o = list(MD.polish(iter(["I'm sorry to hear that, Mr. Sorsa."]), [], 3, serious=True))
+assert o == ["I'm sorry to hear that, Mr. Sorsa."], o
+o = list(MD.polish(iter(["I was made to assist Mr. Sorsa."]), [], 3, serious=False))
+assert o == ["I was made to assist Mr. Sorsa."], o                       # about you, not to you: unchanged
+o, _ = _pol(["I'm happy to help, sir.", "However, I can't make purchases."], cap=3)
+assert o == ["I can't make purchases."], o
+# made-up readings: a status sentence's number must be in what he was given
+known = "LIVE HUD DATA:\nCPU load: 18%\nGPU temperature: 52 C\nMemory in use: 41% of 31 GB"
+for s in ("Your WiFi signal strength is currently at 85%.", "I'm running at 85% capacity, sir.", "Your CPU is at 64% right now."):
+    assert MD.ungrounded(s, known), s
+for s in ("Your CPU load is 18%, sir.", "The GPU is at 52 degrees.", "Wi-Fi uses radio waves at 2.4 GHz.",
+          "Water boils at 100 degrees.", "Your memory is 41% used of 31 GB.", "The tilt is about 23.5 degrees."):
+    assert not MD.ungrounded(s, known), s
+col = []
+assert list(MD.grounded(iter(["Sure.", "I'm running at 85% capacity.", "More."]), col, known)) == ["Sure.", MD.NO_READING]
+assert col == [MD.NO_READING]
+o, c = _pol([], cap=3)
+assert o == [] and c == ["raw"], "an empty answer leaves collected alone (the caller reports it)"
+assert MD.chat_cap("mirror", []) == 3 and MD.chat_cap("brief", []) == 2 and MD.chat_cap("mirror", [MD.ADD["long"]]) == 8
+assert MD.chat_cap("mirror", [MD.ADD["homework"]]) == 5 and MD.chat_cap("playful", [MD.ADD["less"]]) == 2
+j.setting = lambda name, default="": default
+for s in ("I want to kill myself.", "sometimes I think about suicide", "I don't want to be alive anymore", "I keep hurting myself"):
+    assert MD.crisis(s), s
+for s in ("kill the process", "this exam is killing me", "my phone died", "I'm dying to see that movie"):
+    assert not MD.crisis(s), s
+assert "988" in MD.CRISIS_LINE
+j.setting = lambda name, default="": "0" if name == "JarvisSeriousTopics" else default
+assert not MD.crisis("I want to kill myself"), "SERIOUS TOPICS off turns the fixed line off too"
+j.setting = lambda name, default="": default
+# claims and promises he cannot keep
+import jarvislib.routing as RT
+def _nc(sents):
+    col = []
+    return list(RT.no_claims(iter(sents), col)), col
+assert _nc(["The computer will lock in 30 seconds, sir."])[0] == [RT.CLAIM_LINE]
+assert _nc(["I'll send an email to your professor, sir.", "What is the name?"]) == ([RT.CANT_LINE], [RT.CANT_LINE])
+assert _nc(["I will call you Mr. Sorsa from now on."])[0] == ["I will call you Mr. Sorsa from now on."]   # a name, not a phone call
+assert _nc(["I can't send emails, sir."])[0] == ["I can't send emails, sir."]
+# a fun fact told as a question is not a question to you; a real question is
+import jarvislib.followup as FU
+assert not FU.asked_you("Sir, did you know that the shortest war lasted 38 minutes?")
+assert not FU.asked_you("It lasted 38 minutes. Isn't that something?")
+assert FU.asked_you("Would you like another one, sir?") and not FU.asked_you("Here you go.") and not FU.asked_you(None)
+# a short question that points back keeps the talk ("How tall is it?" lost Everest and got "Pardon sir")
+j.history[:] = [{"role": "user", "content": "What's the tallest mountain in the world?"},
+                {"role": "assistant", "content": "Mount Everest, sir."}]
+j.last_turn = j.time.time()
+assert len(j.active("How tall is it?")) == 2
+assert len(j.active("What do you think about pineapple on a pizza?")) == 0, "an unrelated longer question files the talk"
+j.history[:] = []
 
 print("test_jarvis: OK")

@@ -5,6 +5,7 @@
           "undo" counts. Everything else is dropped without a word.
   "stop"  right after a stop word or the End key: one second, and what you say counts as a follow-up.
 Typed turns, muted turns and JarvisFollowUp=0 never listen again (the caller checks those)."""
+import re
 import time
 from .base import log, setting, stopped
 from .mic import follow_name_wait, follow_wait, listen
@@ -37,9 +38,20 @@ def after_stop():
     return "stop" if why in STOPS and time.time() - when < 3 else None
 
 
+RHETORICAL = re.compile(r"(?:sir,? )?(?:did you know|have you ever (?:wondered|heard)|ever wonder|guess what|who knew|"
+                        r"isn'?t (?:it|that)|wouldn'?t you (?:say|agree)|can you (?:believe|imagine))\b", re.I)
+
+
+def asked_you(reply):
+    """His reply ends with a real question to you (so the next words are likely an answer). A fun fact told as
+    "Did you know that ...?" is not one (semi-live 2026-11-02: it made room talk after a fun fact count as for him)."""
+    last = re.split(r"(?<=[.!?])\s+", (reply or "").strip())[-1]
+    return last.endswith("?") and not RHETORICAL.match(last)
+
+
 def ear_wait():
     """S2-10: the open-ear window after a reply: JarvisFollowUpWait (3 s); 8 s when he asked or offered something."""
-    asked = (recent["me"] or "").rstrip().endswith("?") or time.time() < offer.get("expires", 0)
+    asked = asked_you(recent["me"]) or time.time() < offer.get("expires", 0)
     return max(follow_wait(), 8.0) if asked else follow_wait()
 
 

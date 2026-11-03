@@ -90,6 +90,21 @@ PERSONALITY
   "Be serious for the next ten minutes": a mood for a while (up to 4 hours, this session only, setting unchanged).
   It only changes answers the model words. Fixed lines ("Done.", "Time to cook.") never change.
   Not tied to the voice: you pick the voice and the personality separately.
+  Code tidies every chat answer (2026-11-02): "sir" once, no "How may I assist you?" tail, at most 3 sentences
+  (2 in BRIEF, 8 when you ask him to explain in detail). Calendar, mail and to-do answers are never cut.
+  Words about suicide or self-harm get one fixed line from code with 988 (call or text), never the model.
+  A "yes" when nothing is waiting for one: "There's nothing waiting for a yes, sir." Nothing runs.
+  "Mr. Sorsa" as an address only on serious turns; elsewhere code turns it into "sir". The late-night remark
+  (midnight-5 AM) comes once per night, never on a serious topic.
+  New phrasings: "pull up / bring up / fire up Chrome" opens it; "shut up the music" pauses it; "I need a ten minute
+  timer" sets it; "And 20 percent?" right after "What's 15 percent of 80?" answers 16 (not the volume).
+
+VOICE AND WAKE WORD (2026-11-02)
+  In headphones his voice plays at 60% (only his voice; Windows volume unchanged). Settings.inc: JarvisHeadphoneLevel
+  (10-100; 100 = as on speakers). Headphones = an output device named headphones / headset / earbuds / AirPods / Buds.
+  Each "Hey Jarvis" try that does NOT wake him logs "wake: near miss 0.34 (needs 0.50)" (scores only, no audio).
+  JarvisWakeVerify=1 (off by default): Whisper re-checks the last 1.6 s for "Jarvis" before he wakes. Fewer false wakes;
+  costs about 0.2-0.3 s per wake. Logs "wake: second check passed/failed" (never the words).
 
 OLDER DEFAULTS THAT THESE FEATURES RELY ON
   He answers after 1 second of silence.                    CC: LISTENING  (JarvisSilence)

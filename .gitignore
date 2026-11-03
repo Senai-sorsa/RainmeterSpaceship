@@ -54,3 +54,8 @@ SpaceshipApp/SpaceshipUI/node_modules/
 # local tool output and build artefacts (kept on disk, never committed)
 graphify-out/
 release/*.rmskin
+
+# semi-live test output (real model replies; regenerate with Jarvis/tools/semi_live.py)
+Skins/Spaceship/@Resources/Jarvis/tools/semi-live-results/
+# your recorded voice clips for tools/hearing_eval.py: personal, never commit
+Skins/Spaceship/@Resources/Jarvis/tools/hearing-clips/

@@ -110,8 +110,12 @@ def additions(text, prev_user="", mood=None, hour=None):
     a, b = _norm(t), _norm(prev_user)
     if len(a) > 6 and a == b:
         keys.append("repeat")
-    if (time.localtime().tm_hour if hour is None else hour) in LATE:
+    night = time.strftime("%Y-%m-%d")
+    # G2 "remark once": the rule goes into ONE turn per night, never a serious one (semi-live 2026-11-03: sent every
+    # turn, the 8B model said "you're a night owl" to an insult, a joke request and "My grandfather died")
+    if (time.localtime().tm_hour if hour is None else hour) in LATE and not state["topic"] and state.get("late_on") != night:
         keys.append("late")
+        state["late_on"] = night
     if on("JarvisPrivacy", "0"):
         keys.append("privacy")
     if on("JarvisTalkLess", "0"):
@@ -208,6 +212,152 @@ def promise(reply):
         if PROMISE.search(s):
             return ("I promised: " + re.sub(r"\s+", " ", s).strip().rstrip(".!"))[:200]
     return ""
+
+
+# ------------------------------------------------------------------ semi-live 2026-11-02: code polish of the spoken answer
+# Each rule here came from a real model reply in the semi-live test (llama3.1:8b and llama3.2:3b): code, not more prompt.
+CRISIS = re.compile(r"\b(?:kill(?:ing)? myself|suicid\w*|end (?:it all|my life)|take my (?:own )?life|want to die|"
+                    r"wanna die|better off dead|hurt(?:ing)? myself|self[- ]?harm|cut(?:ting)? myself|"
+                    r"don'?t want to (?:live|be alive|wake up))\b", re.I)
+CRISIS_LINE = ("Mr. Sorsa, I'm really sorry you're feeling this way. Please call or text 988 right now, the Suicide and "
+               "Crisis Lifeline, or reach out to someone you trust. You don't have to go through this alone.")
+FILLER = re.compile(r"(?:is there anything else|how (?:can|may) I (?:help|assist)|what can I (?:do|help) (?:for|with)|"
+                    r"let me know if|feel free to|don'?t hesitate|I'?m (?:here|happy|glad) to (?:help|assist)|"
+                    r"I'?d be (?:happy|glad) to help)", re.I)
+LEADIN = re.compile(r"^(?:I'?m|I am|I'?d be|I would be) (?:happy|glad) to (?:help|assist|try)(?: you)?(?: with (?:that|this))?"
+                    r"(?:,? sir)?,?\s*(?:but|however),?\s*", re.I)
+SIR_TAG = re.compile(r",\s*sir(?=\s*[.!?,])|^sir,\s*|(?<=[.!?] )sir,\s*", re.I)
+
+
+def crisis(text):
+    """Words about suicide or self-harm: he answers with CRISIS_LINE from code, never the model (the 3B model gave a
+    retired hotline number, the 8B one a refusal and "1. 2. 3. 4.")."""
+    return on("JarvisSeriousTopics") and bool(CRISIS.search(text or ""))
+
+
+def chat_cap(mood, adds):
+    """Most sentences a chat answer may have: 3 (the persona says one to three), 2 in brief mood or talk-less, 8 when
+    he was asked to explain in detail, 5 for schoolwork. Info answers (calendar, to-dos) are never capped."""
+    if ADD["long"] in adds:
+        return 8
+    if mood == "brief" or ADD["less"] in adds:
+        return 2
+    return 5 if ADD["homework"] in adds else 3
+
+
+SORSA_CALL = re.compile(r",\s*Mr\.? Sorsa(?=\s*[.!?,])|^Mr\.? Sorsa,\s*")   # "Mr. Sorsa" said TO you, not about you
+DANGLING = re.compile(r"^(?:however|but|that said|still|although),?\s+", re.I)
+
+
+FIXED_LINES = set()                    # replacement lines written by code (routing adds its own): polish leaves them alone
+
+
+def polish(sentences, collected, cap=None, serious=True):
+    """The spoken chat answer, cleaned by code: a short stock sentence ("How may I assist you, sir?") is left out unless
+    it is all there is; "sir" stays only where it is first said; the answer stops after `cap` sentences. `collected`
+    becomes what was really said, so the pop-up and the history match the voice."""
+    # The pieces are sentences, except the first, which can stop after a few words (sentences_from starts speaking
+    # early): `start` = this piece begins a sentence, `ends` = sentences finished so far.
+    out, held, said_sir, start, ends, pend = [], None, False, True, 0, None
+
+    def ended(s):                                              # "Mr." / "Dr." never end a sentence
+        return bool(re.search(r"[.!?][\"')]*\s*$", s)) and not re.search(r"\b(?:Mr|Mrs|Ms|Dr|St|Prof)\.\s*$", s)
+
+    END = object()
+
+    def pieces():
+        yield from sentences
+        yield END                                              # flush a held first piece when the answer ends there
+
+    try:
+        for s in pieces():
+            last = s is END
+            s = "" if last else s
+            if s in FIXED_LINES:                               # a line code already wrote (claim / can't / no reading)
+                out.append(s)
+                yield s
+                return
+            if pend is not None:                               # a stock opener split over the first two pieces: judged whole
+                s, pend = (pend + " " + s).strip(), None
+            if not s:
+                continue
+            if not last and start and not out and not ended(s) and FILLER.search(s):
+                pend = s
+                continue
+            if start:                                          # "I'm happy to help, sir, but I can't ..." -> "I can't ..."
+                cut = LEADIN.sub("", s)
+                if not out:                                    # the answer can't open with "However," (its lead-in was cut)
+                    cut = DANGLING.sub("", cut)
+                if cut != s and re.search(r"\w", cut):
+                    s = cut[:1].upper() + cut[1:]
+            whole = start and ended(s)
+            if whole and FILLER.search(s) and len(s.split()) <= 12:
+                held = held or s                               # kept only if nothing else comes
+                continue
+            s = re.sub(r"\bMr\.? Sorsa,\s*sir\b", "Mr. Sorsa", s)
+            if not serious:                                    # persona: "Mr. Sorsa" only on serious topics; else "sir"
+                s = SORSA_CALL.sub(lambda m: ", sir" if m.group(0).startswith(",") else "Sir, ", s)
+            if said_sir:
+                cut = SIR_TAG.sub("", s).strip() if start else re.sub(r",\s*sir(?=\s*[.!?,])", "", s).strip()
+                if start and cut != s.strip():
+                    cut = cut[:1].upper() + cut[1:]
+                s = cut
+            first = re.search(r"\bsir\b|Mr\.? Sorsa", s, re.I)
+            if first:                                          # once inside a sentence too: "..., sir, ... assistant, sir."
+                s = s[:first.end()] + re.sub(r",\s*sir(?=\s*[.!?,])", "", s[first.end():])
+            said_sir = said_sir or bool(first)
+            if not re.search(r"\w", s):
+                continue
+            out.append(s)
+            yield s
+            start = ended(s)
+            ends += len(re.findall(r"[.!?]+(?=[\"')]*(?:\s|$))", re.sub(r"\b(?:Mr|Mrs|Ms|Dr|St|Prof)\.", "", s)))
+            if cap and ends >= cap:
+                return
+            if cap and start and re.match(r"\s*pardon\b", " ".join(out), re.I) and "?" in s:
+                return                                         # "Pardon sir, what did you say?" is the whole answer
+        if not out and held:
+            out.append(held)
+            yield held
+    finally:
+        if out:
+            collected[:] = [" ".join(out)]
+
+
+# 2026-11-03: the 3B model invented readings ("Your WiFi signal strength is currently at 85%", "I'm running at 85%
+# capacity") that were nowhere in its data. A status sentence with a number + unit must find that number in what it was
+# given (HUD data, the talk, your words); general knowledge ("Wi-Fi uses 2.4 GHz") has no status words and passes.
+READING = re.compile(r"(\d+(?:[.,]\d+)?)\s?(?:%|percent|°|degrees?|gb|gigabytes?|mb|megabytes?|mbps|gbps|ghz|mhz|fps|"
+                     r"watts?|rpm|ms|milliseconds)(?!\w)", re.I)
+SYSTEMISH = re.compile(r"\b(?:cpu|gpu|processor|graphics|memory|ram|vram|battery|wi-?fi|signal|network|internet|"
+                       r"connection|capacity|processing|temperature|temp|disk|storage|drive|load|usage|fans?|bandwidth|"
+                       r"ping|latency|download|upload|volume|brightness)\b", re.I)
+STATUSY = re.compile(r"\b(?:your|my|i'?m|i am|currently|right now|at the moment|is at|are at|running at|operating at|"
+                     r"sitting at|reads?)\b", re.I)
+NO_READING = "I don't have that reading right now, sir."
+FIXED_LINES.add(NO_READING)
+
+
+def ungrounded(sentence, known):
+    """A status sentence quoting a reading whose number is not in `known` (what the model was given)."""
+    if not (SYSTEMISH.search(sentence) and STATUSY.search(sentence)):
+        return False
+    for m in READING.finditer(sentence):
+        num = m.group(1).replace(",", "")
+        if not re.search(rf"(?<![\d.]){re.escape(num)}(?![\d])", (known or "").replace(",", "")):
+            return True
+    return False
+
+
+def grounded(sentences, collected, known):
+    """The answer as spoken: a made-up reading is replaced by NO_READING and the answer ends there."""
+    for s in sentences:
+        if ungrounded(s, known):
+            log("chat answer gave a reading that is not in its data - replaced")
+            collected[:] = [NO_READING]
+            yield NO_READING
+            return
+        yield s
 
 
 def clean_reply(reply):

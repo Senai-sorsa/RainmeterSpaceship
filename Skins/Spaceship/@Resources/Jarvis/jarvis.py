@@ -61,7 +61,7 @@ from jarvislib.audio import _com, mic_volume, speakers, speakers_mute
 from jarvislib import quiet as quiet_talk
 from jarvislib import mood
 from jarvislib import followup, wake
-from jarvislib.followup import ear_wait
+from jarvislib.followup import asked_you, ear_wait
 from jarvislib.wake import (HV_FLOOR, WAKE_FLOOR, WAKE_STYLES, _wake_bad, _wake_warned, heard_speech, load_model, need_level,
     oww_reset, record, wake_checks, wake_model, wake_name, wake_way)
 from jarvislib.mic import (_listen, _mic_missing, _duck, follow_name_wait, follow_wait, list_mics, listen, mic_device,
@@ -84,7 +84,7 @@ from jarvislib.reminders import (ALARM_CAP, ALARM_SAY, DAYS, NAME_ONLY, REMIND_F
 from jarvislib.diag import HW_LINES, cpu_times, diagnose, hw_value, is_protected, prompt_findings, sensors, watch
 from jarvislib.meaning import MEANING_BLOCK, MEANING_TALK, STAMP, _embed, _vecs, closeness, meaning, vec
 from jarvislib.search import _chroma, _chroma_lock, _chunks, _reindexing, chroma_index, smart_search
-from jarvislib.memory import (ACTIVE_TTL, TALK_KEEP, TALK_TTL, EARLIER, FOLLOW_START, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
+from jarvislib.memory import (ACTIVE_TTL, TALK_KEEP, TALK_TTL, EARLIER, FOLLOW_START, POINTS_BACK, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
     MEMORY_BAD, MEMORY_FILE, NO_TALK, RECALL_FLOOR, SECRET, TALK_STOP, TOPICS_BAD, TOPICS_FILE, ask_gist, compact,
     fact_save, facts_about, file_talk, gist_day, gist_for, gist_ok, gisting, keywords, load_gist, load_memory,
     load_topics, recall, recall_on, recompact, related, save_gist, save_memory, save_topics, talk_forget, talk_list,
@@ -621,7 +621,8 @@ def active(text):
     del history[:-TALK_KEEP]
     plain = " ".join(re.sub(r"[^a-z' ]", " ", text.lower().replace("’", "'")).split())
     if history and (time.time() - last_turn > TALK_TTL or not (
-            len(plain.split()) <= 3 or FOLLOW_START.match(plain) or related(text, [m["content"] for m in history]))):
+            len(plain.split()) <= 3 or FOLLOW_START.match(plain) or (len(plain.split()) <= 6 and POINTS_BACK.search(plain))
+            or related(text, [m["content"] for m in history]))):
         file_active()
     return list(history)
 
@@ -750,12 +751,26 @@ def level_fix(text):
     return None
 
 
+PERCENT_OF = re.compile(r"\b(\S+) ?(?:%|percent) of (\d[\d,.]*)", re.I)
+PERCENT_MORE = re.compile(r"(?:and |what about |how about |now |ok |okay )*(.+?) ?(?:%|percent)(?: of (?:it|that))?", re.I)
+
+
+def percent_follow(text, before):
+    """ "What's 15 percent of 80?" then "And 20 percent?": the same sum with the new percent, not a volume (semi-live
+    2026-11-03 asked "Did you mean the volume at 20 percent?"). None when it is not that."""
+    was = PERCENT_OF.search(before or "")
+    m = PERCENT_MORE.fullmatch(" ".join(re.sub(r"[^a-z0-9%., ]", " ", strip_name(text).lower()).split()).rstrip(". "))
+    n = m and _num(m.group(1))
+    return f"what's {m.group(1)} percent of {was.group(2)}" if was and n is not None else None
+
+
 def understand(text, model, quiet, room):
     """Rules first, then the last exchange, then the model only on a miss. kind "room": likely not for him."""
-    kind, action, target, prompt = fix_route(text, route(text))
+    more = percent_follow(text, recent["you"])
+    kind, action, target, prompt = fix_route(text, route(more)) if more else fix_route(text, route(text))
     via = "rule"
     if kind == "chat":
-        lone = level_fix(strip_name(text))
+        lone = None if more else level_fix(strip_name(text))
         if lone:                                               # still asked back below if Whisper was unsure
             kind, action, target, prompt, via = lone
         elif text != room and room_talk(text):
@@ -937,7 +952,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             way.update(kind="ear", result="late, no name - dropped")
             log("ear: started late without his name - dropped")
             return
-        answering = time.time() < offer.get("expires", 0) or (recent["me"] or "").rstrip().endswith("?")
+        answering = time.time() < offer.get("expires", 0) or asked_you(recent["me"])
         if mode == "undo" and not followup.only_undo(route(strip_name(text))[0]):   # T2: after a command only "undo" counts
             way.update(kind="ear", result="not an undo - quiet")
             return
@@ -1018,6 +1033,10 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         if text != room and (polite or ENDERS.fullmatch(said)):
             way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
             log("control: ended by you")
+            return
+        if text != room and is_yes(text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
+            way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
+            fixed("There's nothing waiting for a yes, sir.")
             return
         m = NEW_TOPIC.match(strip_name(text))
         way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
@@ -1180,16 +1199,24 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         extra += INFO_PROMPT if lane == "info" else ""
         turn_key = mood.turn_mood(text, mood_key(), counted=not follow)   # Phase 10: serious topic / class time; silent
         adds = mood.additions(text, past[-2]["content"] if len(past) >= 2 else "", turn_key) if lane == "chat" else []
+        if lane == "chat" and mood.crisis(text):               # suicide / self-harm: a fixed line from code, never the model
+            way["result"] = "crisis line"
+            fixed(mood.CRISIS_LINE)
+            return
+        cap = mood.chat_cap(turn_key, adds) if lane == "chat" else None   # info answers (calendar, to-dos) are never cut
         messages = fit_context([{"role": "system", "content": system_prompt(ask, kind, turn_key, adds) + "".join("\n" + r for r in readings) + extra}],
                                past, {"role": "user", "content": text})
         collected, spoke = [], None
         way["via"] = "model"
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
         stream = chat_stream(model, messages, 0 if lane == "info" else 0.5)
+        known = " ".join(m["content"] for m in messages)               # every reading he may quote must come from here
+        said = mood.polish(mood.grounded(mood.no_hope(no_claims(sentences_from(stream, collected), collected)), collected, known),
+                           collected, cap, turn_key == "serious")
         if quiet and setting("JarvisMutedPopup", "1") == "1":
-            say_text_only(mood.no_hope(no_claims(sentences_from(stream, collected), collected)), collected)
+            say_text_only(said, collected)
         else:
-            spoke = speak_all(mood.no_hope(no_claims(sentences_from(stream, collected), collected)))
+            spoke = speak_all(said)
         reply = mood.clean_reply("".join(collected).strip())
         if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
             reply = spoke
@@ -1290,6 +1317,9 @@ def wake_loop():
     heard_talk, no_vad = 0, False                              # 80 ms blocks heard while he speaks; "voice" without a VAD logged
     spot = None                                                # the stop words (StopWords); False: not available
     checks, last_score, loaded = None, 0.0, None               # your trained check (loaded with the model); the model's score key
+    near = wake.NearMiss()                                     # tuning: one log line per try that did not wake him
+    from collections import deque
+    lately = deque(maxlen=20)                                  # the last 1.6 s of the microphone, for the second check only
 
     def drop():
         """Close the microphone and hand it back."""
@@ -1398,6 +1428,20 @@ def wake_loop():
                     mine = {n: float(c.predict_proba(feats)[0][-1]) for n, c in checks.items()}
                 way = wake_way(score, held, mine, need)
                 follow = 0 if way else None
+                lately.append(data[:, 0].copy())
+                line = None if way else near.feed(score, need, time.time())
+                if line:
+                    log(line)
+                if way and setting("JarvisWakeVerify", "0") == "1":   # second check by Whisper (off by default)
+                    ok = wake.wake_heard(transcribe(np.concatenate(list(lately)).astype(np.float32) / 32768.0), wake_name())
+                    log(f"wake: second check {'passed' if ok else 'failed'} ({score:.2f}, {way})")   # never the words
+                    if not ok:
+                        follow, way, last_score = None, None, 0.0
+                        oww_reset(model)
+                        lately.clear()
+                if way:
+                    near.reset()
+                    lately.clear()
             if follow is not None:
                 last_score = 0.0
                 log(f"wake word heard ({score:.2f}, {way})" if not talking else f"barge-in ({'voice' if follow else 'wake'})")

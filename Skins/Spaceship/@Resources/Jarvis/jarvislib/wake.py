@@ -2,6 +2,7 @@
 training. Moved out of jarvis.py in Phase 10B (S2-4). The training needs the ding, reply_line and turn_id of the
 knot, so train() takes them as arguments; this module never imports jarvis.py."""
 import os
+import re
 import threading
 import time
 from .base import DATA, RES, S, busy, cancel, live, log, mic, problem, setting
@@ -65,6 +66,50 @@ def wake_way(score, held, mine, need):
     if score >= HV_FLOOR and mine.get("hey_jarvis", 0.0) >= HV_NEED:   # HV: a soft "Hey Jarvis" in your voice
         return "HV"
     return None
+
+
+NEAR_FLOOR = 0.15                      # a score this high is a try at "Hey <name>" (or something like it)
+NEAR_GAP = 6                           # 80 ms blocks under the floor that end the try (0.48 s)
+
+
+class NearMiss:
+    """Tuning (2026-11-02): one log line per try that did NOT wake him, with its best score, so the sensitivity can
+    be set from real numbers. Scores only, never audio or words. At most one line per 3 s."""
+
+    def __init__(self):
+        self.peak, self.quiet, self.last = 0.0, 0, 0.0
+
+    def reset(self):
+        self.peak, self.quiet = 0.0, 0
+
+    def feed(self, score, need, now):
+        if score >= NEAR_FLOOR:
+            self.peak, self.quiet = max(self.peak, score), 0
+            return None
+        if not self.peak:
+            return None
+        self.quiet += 1
+        if self.quiet < NEAR_GAP:
+            return None
+        peak = self.peak
+        self.reset()
+        if peak >= need or now - self.last < 3:
+            return None
+        self.last = now
+        return f"wake: near miss {peak:.2f} (needs {need:.2f})"
+
+
+def wake_heard(text, name):
+    """Second check (JarvisWakeVerify=1, off by default): Whisper's reading of the last 1.6 s must hold the name, or a
+    word close to it ("Jarvis" heard as "Jervis"). Like a phone's second wake check: fewer false wakes, so the normal
+    score may later be set lower. Empty text fails: no words, no wake."""
+    import difflib
+    from .confirm import NAMES                                 # how Whisper writes "Jarvis" ("service", "jervis", ...)
+    target = name.lower()
+    known = {target} | (set(NAMES) | {n.strip().lower() for n in setting("JarvisNameAliases", "").split(",") if n.strip()}
+                        if target == "jarvis" else set())
+    return any(w in known or difflib.SequenceMatcher(None, w, target).ratio() >= 0.67
+               for w in re.findall(r"[a-z]+", (text or "").lower()))
 
 
 def is_talking(locked, state, barge):

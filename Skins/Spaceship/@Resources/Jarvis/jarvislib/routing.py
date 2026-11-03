@@ -8,7 +8,7 @@ from .actions import BT_GENERIC, MEDIA_KEYS, bt_devices, bt_link, bt_names, pick
 from .audio import mic_volume, speakers_mute
 from .base import set_setting
 from .mic import pick_mic
-from .mood import act_mood, command as mood_command, timed as mood_timed, timed_line
+from .mood import FIXED_LINES, act_mood, command as mood_command, timed as mood_timed, timed_line
 from .base import NAME, log, setting, todo_note
 from .calc import _num, fact_answer
 from .confirm import DANGER, NAMES
@@ -305,10 +305,32 @@ def fix_route(text, routed):
     return routed
 
 
+# semi-live 2026-11-02: "The computer will lock in 30 seconds, sir." after a lone "yes" (nothing had run), and "I'll send
+# an email to your professor, sir." (he cannot send mail). The first is a claim; the second a promise he cannot keep.
+WILL_HAPPEN = re.compile(r"\b(?:computer|pc|laptop|screen|system)(?: will| is going to) (?:now )?(?:lock|restart|reboot|"
+                         r"shut down|sleep|turn off|power off)\b|"
+                         r"\b(?:is|are) now (?:open|opened|running|launched|closed|playing|paused|muted|unmuted)\b", re.I)
+CANT_PROMISE = re.compile(r"\bI(?:['’]ll| will| am going to|'m going to) (?:now )?(?:go ahead and )?(?:send|e-?mail|text|"
+                          r"message|call(?! (?:you|me|it|him|her|them)\b)|phone|dial|order|book|buy|purchase|pay|post|"
+                          r"tweet|upload|download|install|translate|transcribe|provide (?:a )?(?:real-?time )?translation|"
+                          r"record|delete|erase|look (?:it |that )?up online|search the web|browse)\b|"
+                          # "I can inform your professor" / "I can forward a message" (2026-11-03): he has no way to
+                          r"\bI can (?:forward|send|inform|notify|email|e-mail|text|message|call|phone|order|book|buy|pay|"
+                          r"post|record)\b", re.I)
+CANT_LINE = "I can't do that from here, sir."
+FIXED_LINES.update({CLAIM_LINE, CANT_LINE})                  # polish passes them through unchanged
+
+
 def no_claims(sentences, collected):
-    """The chat answer as it is spoken: a sentence that says an action was done is replaced, and the answer ends there."""
+    """The chat answer as it is spoken: a sentence that says an action was done is replaced, and the answer ends there.
+    A promise of something he has no way to do (send, order, call...) becomes CANT_LINE."""
     for s in sentences:
-        if CLAIM.search(s):
+        if CANT_PROMISE.search(s):
+            log("chat answer promised something he can't do - replaced")
+            collected[:] = [CANT_LINE]
+            yield CANT_LINE
+            return
+        if CLAIM.search(s) or WILL_HAPPEN.search(s):
             log("chat answer claimed an action - replaced")
             collected[:] = [CLAIM_LINE]
             yield CLAIM_LINE
@@ -389,6 +411,20 @@ def route(text):
     # actions only for commands ("lock my computer", "jarvis, could you open chrome"), never for questions about them
     # ("should I restart my computer?", "how do I close a for loop?")
     whole = cmd = re.sub(r"^(hey |ok |okay )?(" + NAME + r"[, ]+)?(please |can you |could you |would you |will you )?(please )?", "", t).strip()
+    # "I need a ten minute timer" (semi-live 2026-11-03: missed by the rules; the AI reread took 7 s and lost the time)
+    # Tried second, and kept only when the rest is a command: the rules that already read "I need an alarm at 7" stay first.
+    need = re.match(r"(?:i need|i want|i'd like|give me|get me|can i get|can i have|could i get|could i have)\s+(?=an? |the |\d)", cmd)
+    if need:
+        first = _route_rest(text, named, t, whole, cmd)
+        if first[0] != "chat":
+            return first
+        again = route(cmd[need.end():].strip())
+        return again if again[0] not in ("chat", "say") else first
+    return _route_rest(text, named, t, whole, cmd)
+
+
+def _route_rest(text, named, t, whole, cmd):
+    """route() after the opening words are read (split out so "I need ..." can be tried twice)."""
     if text.strip().endswith("?") and cmd == t and not named:   # "Jarvis, ...?" was a command before the name moved out
         cmd = ""
     if re.fullmatch(rf"(?:(?:no|oh|oops|wait|actually|never ?mind|{'|'.join([NAME] + NAMES)})[,.!]? +)*"
@@ -649,7 +685,7 @@ def route(text):
         return ("act", "volume", ("step", int(n) if m.group(1) in ("raise", "increase", "boost") else -int(n)), None)
     thing = r"(?: (?:the |my |this )?(?:music|song|track|video|playback))"
     # shortcut: one play/pause key, so "play" while it plays pauses; Windows has no separate keys worth the code
-    if re.match(rf"(?:(?:pause|play|resume|unpause){thing}?|stop{thing})$", cmd):
+    if re.match(rf"(?:(?:pause|play|resume|unpause){thing}?|(?:stop|shut up|shut off|cut|kill|silence){thing})$", cmd):   # "shut up the music"
         return ("act", "media", "playpause", None)
     if re.match(r"(?:(?:play |skip to )?(?:the )?next(?: track| song)?|skip(?: (?:this |the )?(?:track|song))?)$", cmd):
         return ("act", "media", "next", None)
@@ -665,7 +701,8 @@ def route(text):
         if exe:
             return ("act", "close", exe, f"You want me to close {exe.replace('.exe', '')}. Unsaved work could be lost. Confirm with yes.")
         return ("say", None, None, f"I don't see {m.group(1)} open.")
-    m = re.match(r"(?:open|launch|start|run)\s+(?:the\s+|up\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
+    # "pull up Chrome" (semi-live 2026-11-03: went to the model, which said "Chrome is now open" - nothing had opened)
+    m = re.match(r"(?:open|launch|start|run|pull up|bring up|fire up|boot up|load up)\s+(?:the\s+|up\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
     if m and not re.search(r"\b(log|transcript|history|conversation|chat|pop ?up)\b", m.group(1)):
         app = best_app(m.group(1))
         if app:

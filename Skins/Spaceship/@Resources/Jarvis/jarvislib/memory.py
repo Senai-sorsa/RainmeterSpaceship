@@ -61,6 +61,9 @@ TALK_STOP = STOP | set("how who why whom whose its they them their there then th
                        "does did has had will well now yes yeah okay please jarvis clover want need know think get got going "
                        "like one some more much many all our out into over too let".split())
 FOLLOW_START = re.compile(r"(?:it|that|this|he|she|they|and|but|so|what about|how about|why|then|also)\b")
+# a short question with a word that points back ("How tall is it?", "What else did he paint?") is a follow-up too
+# (semi-live 2026-11-02: it lost the talk and answered "Pardon sir")
+POINTS_BACK = re.compile(r"\b(?:it|its|that|this|he|she|they|him|her|them|his|their|those|these|there|one)\b")
 
 
 def keywords(text):

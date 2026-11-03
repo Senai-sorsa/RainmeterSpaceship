@@ -8,7 +8,7 @@
 - [x] T5 room talk silent (D6), auto-remember (H3), promises to memory (D4), "what do you know about me" (H5)
 - [x] CHECKPOINT B: tests pass; commit
 - [x] T6 say.py speakable + pronunciation fixes (E5/E6/K9)
-- [x] T7 headphones softer (J4), shorter pauses (K5), voice speed (K4)
+- [x] T7 headphones softer (J4; was ticked by mistake, actually built 2026-11-02: JarvisHeadphoneLevel), shorter pauses (K5), voice speed (K4)
 - [x] CHECKPOINT C: tests pass; commit
 - [x] T8 privacy mode (J3)
 - [x] T9 Control Center rows (M1): name, voice speed, serious topics, talk less
