@@ -47,7 +47,7 @@ export const currentBloomMode = signal<'canvas' | 'svg' | 'off'>('svg');
 let anchorSeq = 0;
 /** canvas mode (tasks/hyperrealism-plan.md D1): stands where the blurred groups were and posts their ops, with its own
  *  screen CTM (zone matrix and viewBox fit included), to the light bus; ui/BloomLayer draws them. */
-export function BloomAnchor({ id, ops }: { id: string; ops: Op[] }) {
+export function BloomAnchor({ id, ops, far }: { id: string; ops: Op[]; far?: boolean }) {
   const ref = useRef<SVGGElement>(null);
   const key = useRef('');
   if (!key.current) key.current = `${id}#${++anchorSeq}`;
@@ -61,7 +61,7 @@ export function BloomAnchor({ id, ops }: { id: string; ops: Op[] }) {
   }
   const list = last.current;
   useLayoutEffect(() => {
-    const post = () => { const m = ref.current?.getScreenCTM(); if (m) postBloom(key.current, { ops: list, ctm: m }); };
+    const post = () => { const m = ref.current?.getScreenCTM(); if (m) postBloom(key.current, { ops: list, ctm: m, far }); };
     post();
     addEventListener('resize', post);
     return () => removeEventListener('resize', post);
@@ -70,8 +70,9 @@ export function BloomAnchor({ id, ops }: { id: string; ops: Op[] }) {
   return <g ref={ref} data-bloom-anchor={id} data-bloom-key={key.current} />;
 }
 
-/** All ops in order. name keeps clip ids unique when several op lists share one page. */
-export function OpsView({ ops, name, mode }: { ops: Op[]; name: string; mode?: 'canvas' | 'svg' | 'off' }) {
+/** All ops in order. name keeps clip ids unique when several op lists share one page. far: this light is further away
+ *  (depth haze, canvas mode only). */
+export function OpsView({ ops, name, mode, far }: { ops: Op[]; name: string; mode?: 'canvas' | 'svg' | 'off'; far?: boolean }) {
   // canvas: the bloom runs and the blurred text copies go to one light anchor instead of SVG (D1, D2)
   if ((mode ?? currentBloomMode.value) === 'canvas') {
     const out: JSX.Element[] = [], light: Op[] = [];
@@ -85,7 +86,7 @@ export function OpsView({ ops, name, mode }: { ops: Op[]; name: string; mode?: '
       const sh = op.shimmer;
       out.push(sh === undefined ? <OpEl key={i} op={op} id={`${name}-${i}`} /> : <g key={`${i}~${sh}`} class="shimmer"><OpEl op={op} id={`${name}-${i}`} /></g>);
     });
-    if (at >= 0) out[at] = <BloomAnchor key="light" id={name} ops={light} />;
+    if (at >= 0) out[at] = <BloomAnchor key="light" id={name} ops={light} far={far} />;
     return <>{out}</>;
   }
   // a run of bloom ops (the glow layer on FULL) is drawn as one blurred group: one filter pass per module, not per line

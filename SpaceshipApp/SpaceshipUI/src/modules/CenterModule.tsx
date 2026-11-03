@@ -61,7 +61,8 @@ export function CenterModule({ style, sphere = true, hide = '', link = 0, linkUp
   const place = (zone: typeof ZONES.hud, ops: Op[] | null | undefined, name: string, mod: string, hit?: JSX.Element | false | null) =>
     zone && ops && (
       <g transform={`matrix(${zone.matrix.join(' ')})`} data-module={mod}>
-        <OpsView ops={ops} name={name} />
+        {/* the hologram is projected out in the windscreen, beyond the dash: its light is depth-hazed (K8) */}
+        <OpsView ops={ops} name={name} far />
         {hit}
       </g>
     );

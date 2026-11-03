@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Op } from '../src/draw/canvas';
 import { css, type RGBA } from '../src/lib/theme';
 import { bloomEntries, dropBloom, postBloom } from '../src/draw/bloomBus';
-import { paintOps, stackBlur, type Ctx2D } from '../src/draw/bloomPaint';
+import { BLOOM_STACK, HAZE_STACK, paintOps, paintTile, stackBlur, type Ctx2D } from '../src/draw/bloomPaint';
 import { bloomMode } from '../src/draw/bloomMode';
 
 // The quarter-res light canvas (tasks/hyperrealism-plan.md Task 2): the bus the OpsView anchors post to, and the painters
@@ -192,5 +192,36 @@ describe('paintOps rounded rects (deferred minor)', () => {
     paintOps(ctx, [{ ops: [{ shape: { kind: 'rect', x: 0, y: 0, w: 5, h: 5, r: 0 }, fill: COL }], ctm: ID }], 1);
     expect(calls.some((c) => c[0] === 'rect')).toBe(true);
     expect(calls.some((c) => c[0] === 'roundRect')).toBe(false);
+  });
+});
+
+describe('depth haze (K8): far light is softer, at the same cost', () => {
+  const run = (far: boolean) => {
+    const { ctx, calls, seen } = fakeCtx();
+    paintTile(ctx, {} as CanvasImageSource, 2, far);
+    return { draws: calls.filter((c) => c[0] === 'drawImage').length, filters: seen.filter, alphas: seen.globalAlpha };
+  };
+  it('a near tile is the bloom stack plus the half-strength core', () => {
+    const t = run(false);
+    expect(t.draws).toBe(BLOOM_STACK.length + 1);
+    expect(t.alphas).toEqual([...BLOOM_STACK.map(([, a]) => a), 1, 0.5, 1]);
+  });
+  it('a far tile uses the same radii and pass count, with the weight moved to the wide passes and a fainter core', () => {
+    const near = run(false), far = run(true);
+    expect(far.draws).toBe(near.draws);
+    expect(far.filters).toEqual(near.filters);
+    expect(HAZE_STACK.map(([m]) => m)).toEqual(BLOOM_STACK.map(([m]) => m));
+    expect(HAZE_STACK[0][1]).toBeLessThan(BLOOM_STACK[0][1]);
+    expect(HAZE_STACK[2][1]).toBeGreaterThan(BLOOM_STACK[2][1]);
+    expect(far.alphas!.at(-2)).toBeLessThan(0.5);
+  });
+  it('the bus treats a change of far as a change', () => {
+    const ops = [poly];
+    postBloom('far', { ops, ctm: ID });
+    const before = bloomEntries.value;
+    postBloom('far', { ops, ctm: ID, far: true });
+    expect(bloomEntries.value).not.toBe(before);
+    expect(bloomEntries.value.get('far')!.far).toBe(true);
+    dropBloom('far');
   });
 });

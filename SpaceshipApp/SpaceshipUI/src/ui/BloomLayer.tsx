@@ -1,7 +1,7 @@
 import { effect } from '@preact/signals';
 import { useEffect, useRef } from 'preact/hooks';
 import { bloomEntries, type BloomEntry } from '../draw/bloomBus';
-import { BLOOM_STACK, entryBounds, TILE_MS, GLASS_MS, GLASS_SCALE, paintGlass, paintOps, stackBlur, TileCache, type Box, type Ctx2D } from '../draw/bloomPaint';
+import { BLOOM_STACK, entryBounds, TILE_MS, GLASS_MS, GLASS_SCALE, paintGlass, paintOps, paintTile, TileCache, type Box, type Ctx2D } from '../draw/bloomPaint';
 import dirtUrl from '../assets/lens/dirt.png?url';
 
 // The one light canvas (tasks/hyperrealism-plan.md Task 3): the glow ops every OpsView anchor posts, drawn at a quarter of
@@ -10,13 +10,14 @@ import dirtUrl from '../assets/lens/dirt.png?url';
 // drawImage per tile. It draws only when the light changes (one frame at most), on resize and once the fonts are ready.
 export const SCALE = 0.25;
 
-type Dev = { __glassDraws?: number; __bloomLast?: Record<string, BloomEntry['ctm']>; __bloomDraws?: number; __bloomTileBuilds?: number; __bloomBuiltBy?: Record<string, number> };
+type Dev = { __bloomFar?: Record<string, boolean>; __glassDraws?: number; __bloomLast?: Record<string, BloomEntry['ctm']>; __bloomDraws?: number; __bloomTileBuilds?: number; __bloomBuiltBy?: Record<string, number> };
 type Tile = { box: Box; canvas: HTMLCanvasElement } | null;
 const ctx2d = (c: HTMLCanvasElement) => c.getContext('2d') as unknown as Ctx2D | null;
 
 /** lens: the glass layer (Task 6) - lens dirt lit by the HUD's spread light, and a faint soft ghost of it. Over the whole
- *  view, as a camera lens is (a window-only mask left the smudges dark: little HUD light falls on the windows). */
-export function BloomLayer({ mode, baseRadius, lens = false }: { mode: 'canvas' | 'svg' | 'off'; baseRadius: number; lens?: boolean }) {
+ *  view, as a camera lens is (a window-only mask left the smudges dark: little HUD light falls on the windows).
+ *  haze: anchors posted as far (the hologram) get the depth-hazed tile (K8, setting DepthHaze). */
+export function BloomLayer({ mode, baseRadius, lens = false, haze = false }: { mode: 'canvas' | 'svg' | 'off'; baseRadius: number; lens?: boolean; haze?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const glassRef = useRef<HTMLCanvasElement>(null);
   const glassOn = lens && mode === 'canvas';
@@ -42,11 +43,12 @@ export function BloomLayer({ mode, baseRadius, lens = false }: { mode: 'canvas' 
       if (!sc || !out) return null;
       sc.clearRect(0, 0, box.w, box.h);
       paintOps(sc, [e], SCALE, box.x, box.y);
-      stackBlur(out, scratch, baseRadius);
-      out.globalAlpha = 0.5; // the near-field light, unblurred at quarter res: a soft core under the crisp line
-      out.drawImage(scratch, 0, 0);
-      out.globalAlpha = 1;
-      if (dev) { dev.__bloomTileBuilds = (dev.__bloomTileBuilds ?? 0) + 1; const by = (dev.__bloomBuiltBy ??= {}); by[_k] = (by[_k] ?? 0) + 1; }
+      const far = haze && !!e.far;
+      paintTile(out, scratch, baseRadius, far);
+      if (dev) {
+        dev.__bloomTileBuilds = (dev.__bloomTileBuilds ?? 0) + 1; const by = (dev.__bloomBuiltBy ??= {}); by[_k] = (by[_k] ?? 0) + 1;
+        (dev.__bloomFar ??= {})[_k] = far;
+      }
       return { box, canvas };
     };
     let cache = new TileCache<Tile>(build, TILE_MS);
@@ -92,7 +94,7 @@ export function BloomLayer({ mode, baseRadius, lens = false }: { mode: 'canvas' 
     // the fonts arriving changes every text's light: rebuild all tiles once
     document.fonts?.ready.then(() => { cache = new TileCache<Tile>(build, TILE_MS); schedule(); });
     return () => { stop(); removeEventListener('resize', schedule); if (queued) cancelAnimationFrame(queued); if (glassTimer) clearTimeout(glassTimer); if (retry) clearTimeout(retry); };
-  }, [mode, baseRadius, glassOn]);
+  }, [mode, baseRadius, glassOn, haze]);
   return (
     <>
       <canvas ref={ref} class="bloom-layer" data-mode={mode} aria-hidden="true" />

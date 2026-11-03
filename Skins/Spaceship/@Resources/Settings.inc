@@ -65,6 +65,8 @@ CoreWhite=0.3
 BloomEngine=canvas
 ; glass and lens: smudges on the windows catch the HUD light, a faint reflection of the HUD (FULL only)
 LensFx=1
+; depth haze: the hologram glow is softer than the dash, as if further away (FULL only)
+DepthHaze=1
 ; text glow: blur radius (px, 0 = off) and strength
 TextGlow=4
 TextGlowAlpha=150

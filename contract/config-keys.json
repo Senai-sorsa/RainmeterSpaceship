@@ -630,6 +630,14 @@
       "default": "1"
     },
     {
+      "key": "DepthHaze",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
       "key": "Drive1",
       "file": "Settings.inc",
       "control": {

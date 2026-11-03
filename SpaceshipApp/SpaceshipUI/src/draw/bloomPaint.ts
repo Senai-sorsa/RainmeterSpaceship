@@ -71,14 +71,29 @@ function paintOp(ctx: Ctx2D, op: Op) {
   }
 }
 
+/** Depth haze (K8): light further away (the hologram out in the windscreen) reaches the eye through more air, so it is
+ *  softer: the same radii as BLOOM_STACK (so the same tile size and blur cost), with the weight moved from the tight
+ *  pass to the wide ones, and a fainter unblurred core (HAZE_CORE instead of NEAR_CORE). */
+export const HAZE_STACK: typeof BLOOM_STACK = [[1, 0.25], [3, 0.4], [9, 0.25]];
+export const NEAR_CORE = 0.5, HAZE_CORE = 0.25;
+
 /** The stacked blur: src drawn three times onto dst, each pass wider and fainter (BLOOM_STACK). */
-export function stackBlur(dst: Ctx2D, src: CanvasImageSource, baseRadius: number) {
-  for (const [m, a] of BLOOM_STACK) {
+export function stackBlur(dst: Ctx2D, src: CanvasImageSource, baseRadius: number, stack: typeof BLOOM_STACK = BLOOM_STACK) {
+  for (const [m, a] of stack) {
     dst.filter = `blur(${+(baseRadius * m).toFixed(2)}px)`;
     dst.globalAlpha = a;
     dst.drawImage(src, 0, 0);
   }
   dst.filter = 'none';
+  dst.globalAlpha = 1;
+}
+
+/** One anchor's light tile from its painted ops (src): the stacked blur, then the near-field light unblurred at quarter
+ *  res, a soft core under the crisp line. far: the depth-hazed version (HAZE_STACK, HAZE_CORE). */
+export function paintTile(dst: Ctx2D, src: CanvasImageSource, baseRadius: number, far = false) {
+  stackBlur(dst, src, baseRadius, far ? HAZE_STACK : BLOOM_STACK);
+  dst.globalAlpha = far ? HAZE_CORE : NEAR_CORE;
+  dst.drawImage(src, 0, 0);
   dst.globalAlpha = 1;
 }
 

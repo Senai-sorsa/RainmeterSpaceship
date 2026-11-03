@@ -163,7 +163,7 @@ export function Hud() {
         assistant={(values.JarvisName ?? '').replace(/[^A-Za-z0-9]/g, '') || 'Clover'} onClose={closeLog} />}
       {shown && clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
     </svg>
-    <BloomLayer mode={light} baseRadius={lightRadius} lens={values.LensFx !== '0' && values.Off_Frame !== '1'} />
+    <BloomLayer mode={light} baseRadius={lightRadius} lens={values.LensFx !== '0' && values.Off_Frame !== '1'} haze={values.DepthHaze !== '0'} />
     <Caption on={values.CaptionStyle !== '0'} />
     </>
   );

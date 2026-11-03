@@ -6,7 +6,8 @@ import type { Op } from './canvas';
 
 /** SVG user units to CSS px, as getScreenCTM() returns it. */
 export type Ctm = { a: number; b: number; c: number; d: number; e: number; f: number };
-export type BloomEntry = { ops: Op[]; ctm: Ctm };
+/** far: the anchor is depth-hazed (BloomLayer draws its tile softer, bloomPaint HAZE_STACK). */
+export type BloomEntry = { ops: Op[]; ctm: Ctm; far?: boolean };
 
 export const bloomEntries = signal<ReadonlyMap<string, BloomEntry>>(new Map());
 
@@ -15,8 +16,9 @@ const sameCtm = (x: Ctm, y: Ctm) => x.a === y.a && x.b === y.b && x.c === y.c &&
 /** Adds or replaces one anchor's light. The same ops array with the same CTM is a no-op (no redraw). */
 export function postBloom(key: string, e: BloomEntry) {
   const old = bloomEntries.value.get(key);
-  if (old && old.ops === e.ops && sameCtm(old.ctm, e.ctm)) return;
-  bloomEntries.value = new Map(bloomEntries.value).set(key, { ops: e.ops, ctm: { a: e.ctm.a, b: e.ctm.b, c: e.ctm.c, d: e.ctm.d, e: e.ctm.e, f: e.ctm.f } });
+  if (old && old.ops === e.ops && sameCtm(old.ctm, e.ctm) && !old.far === !e.far) return;
+  const ctm = { a: e.ctm.a, b: e.ctm.b, c: e.ctm.c, d: e.ctm.d, e: e.ctm.e, f: e.ctm.f };
+  bloomEntries.value = new Map(bloomEntries.value).set(key, e.far ? { ops: e.ops, ctm, far: true } : { ops: e.ops, ctm });
 }
 
 export function dropBloom(key: string) {

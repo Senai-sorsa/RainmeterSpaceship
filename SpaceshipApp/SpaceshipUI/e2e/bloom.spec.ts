@@ -128,3 +128,22 @@ test('a fast anchor (the audio ring with music) is re-blurred at most 10 times a
   await page.waitForTimeout(3000);
   expect(await au() - a).toBeLessThanOrEqual(33);
 });
+
+// K8 depth haze: the hologram out in the windscreen (target, hud, sphere) gets the softer far tile; the dash does not.
+type F = { __bloomFar?: Record<string, boolean> };
+const farKeys = (page: Page) => page.evaluate(() => Object.entries((window as F).__bloomFar ?? {}).filter(([, f]) => f).map(([k]) => k.split('#')[0]).sort());
+// with JARVIS on (module=all) the orb takes the centre and the sphere is not drawn: the sphere shows with JARVIS off
+test('depth haze softens only the hologram light', async ({ page }) => {
+  await page.addInitScript(boot(), JSON.stringify({}));
+  await page.goto('/?preview=1&module=center,top');
+  await expect.poll(() => farKeys(page)).toEqual(['sphere']);
+  // the dash light on screen is built too, and stays near (tiles off the 1280x720 view are never built)
+  await expect.poll(() => page.evaluate(() => Object.values((window as F).__bloomFar ?? {}).filter((f) => !f).length)).toBeGreaterThan(0);
+  expect(await farKeys(page)).toEqual(['sphere']);
+});
+test('DepthHaze=0 builds every tile near', async ({ page }) => {
+  await page.addInitScript(boot(), JSON.stringify({ DepthHaze: '0' }));
+  await page.goto('/?preview=1&module=center,top');
+  await expect.poll(() => page.evaluate(() => Object.keys((window as F).__bloomFar ?? {}).some((k) => k.startsWith('sphere#')))).toBe(true);
+  expect(await farKeys(page)).toEqual([]);
+});
