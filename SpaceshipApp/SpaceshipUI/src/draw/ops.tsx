@@ -44,6 +44,20 @@ function GradDef({ g, id }: { g: Grad; id: string }) {
 /** Where glow goes for every OpsView that does not say (Hud sets it from bloomMode each render). */
 export const currentBloomMode = signal<'canvas' | 'svg' | 'off'>('svg');
 
+/** What an anchor's screen CTM depends on, read without a layout: the viewport size, and the viewBox and transform
+ *  attributes from the anchor up to the outer svg (the zone matrices). No HUD anchor sits under a CSS transform
+ *  animation (.scan holds no light); one that did would need its CTM read each time. */
+export function placeKey(el: Element): string {
+  let k = `${innerWidth}x${innerHeight}`;
+  for (let e: Element | null = el; e; e = e.parentElement) {
+    const t = e.getAttribute('transform'), v = e.getAttribute('viewBox');
+    if (t) k += `|${t}`;
+    if (v) k += `|${v}`;
+    if (e.tagName.toLowerCase() === 'svg' && !(e.parentElement && e.parentElement.closest('svg'))) break;
+  }
+  return k;
+}
+
 let anchorSeq = 0;
 /** canvas mode (tasks/hyperrealism-plan.md D1): stands where the blurred groups were and posts their ops, with its own
  *  screen CTM (zone matrix and viewBox fit included), to the light bus; ui/BloomLayer draws them. */
@@ -60,11 +74,21 @@ export function BloomAnchor({ id, ops, far }: { id: string; ops: Op[]; far?: boo
     if (j !== json.current) { last.current = ops; json.current = j; }
   }
   const list = last.current;
+  // the CTM is read (a forced layout) only when it can have changed: see placeKey; a resize always reads it again
+  const ctm = useRef<{ key: string; m: DOMMatrix | null }>({ key: '', m: null });
   useLayoutEffect(() => {
-    const post = () => { const m = ref.current?.getScreenCTM(); if (m) postBloom(key.current, { ops: list, ctm: m, far }); };
-    post();
-    addEventListener('resize', post);
-    return () => removeEventListener('resize', post);
+    const post = (force: boolean) => {
+      const el = ref.current;
+      if (!el) return;
+      const k = placeKey(el);
+      if (force || k !== ctm.current.key || !ctm.current.m) ctm.current = { key: k, m: el.getScreenCTM() };
+      const m = ctm.current.m;
+      if (m) postBloom(key.current, { ops: list, ctm: m, far });
+    };
+    post(false);
+    const resized = () => post(true);
+    addEventListener('resize', resized);
+    return () => removeEventListener('resize', resized);
   });
   useLayoutEffect(() => () => dropBloom(key.current), []);
   return <g ref={ref} data-bloom-anchor={id} data-bloom-key={key.current} />;

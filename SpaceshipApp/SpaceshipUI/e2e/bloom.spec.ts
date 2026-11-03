@@ -147,3 +147,25 @@ test('DepthHaze=0 builds every tile near', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => Object.keys((window as F).__bloomFar ?? {}).some((k) => k.startsWith('sphere#')))).toBe(true);
   expect(await farKeys(page)).toEqual([]);
 });
+
+// UI-handoff 12 #29: the anchors read getScreenCTM (a forced layout) only when their position can have changed - the
+// viewport, the viewBox or an ancestor's transform - not on every timer redraw (it was ~65 reads a second while idle).
+test('an idle HUD does not re-read the screen CTM on every redraw, and a resize still moves the light', async ({ page }) => {
+  await page.addInitScript(() => {
+    const orig = SVGGraphicsElement.prototype.getScreenCTM;
+    (window as unknown as { __ctmReads: number }).__ctmReads = 0;
+    SVGGraphicsElement.prototype.getScreenCTM = function () { (window as unknown as { __ctmReads: number }).__ctmReads++; return orig.call(this); };
+  });
+  await open(page);
+  await expect.poll(() => lightSum(page)).toBeGreaterThan(0);
+  await page.waitForTimeout(1000);
+  const reads = () => page.evaluate(() => (window as unknown as { __ctmReads: number }).__ctmReads);
+  const r0 = await reads();
+  await page.waitForTimeout(3000); // the preview metrics redraw every module twice a second
+  expect(await reads() - r0).toBeLessThan(10);
+  // the cache assumes no light anchor moves by a CSS animation (placeKey reads attributes only)
+  expect(await page.locator('.scan [data-bloom-anchor]').count()).toBe(0);
+  const before = await page.evaluate(() => JSON.stringify((window as W).__bloomLast));
+  await page.setViewportSize({ width: 1100, height: 700 });
+  await expect.poll(() => page.evaluate(() => JSON.stringify((window as W).__bloomLast))).not.toBe(before);
+});
