@@ -221,3 +221,6 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 .helpc-ask { display: flex; gap: 8px; }
 .helpc-ask .ctl-text { flex: 1; }
 .helpc small { display: block; margin-top: 8px; color: var(--text); }
+
+/* the light canvas (tasks/hyperrealism-plan.md Task 3): quarter-res glow stretched over the HUD; DOM pop-ups come later in the page, so they stay above it */
+.bloom-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; mix-blend-mode: screen; }

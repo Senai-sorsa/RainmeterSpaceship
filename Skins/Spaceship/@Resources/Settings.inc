@@ -61,6 +61,8 @@ ShipImage=ship.png
 GlowAlpha=76
 GlowWidth=3.0
 CoreWhite=0.3
+; glow engine: canvas = one soft quarter-res light layer (lighter on the GPU), svg = per-element blur
+BloomEngine=canvas
 ; text glow: blur radius (px, 0 = off) and strength
 TextGlow=4
 TextGlowAlpha=150

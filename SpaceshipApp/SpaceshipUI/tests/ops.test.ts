@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Op } from '../src/draw/canvas';
-import { OpsView, pathD, textAlign } from '../src/draw/ops';
+import { BloomAnchor, OpsView, pathD, textAlign } from '../src/draw/ops';
 import { styleFrom } from '../src/modules/style';
 import { clockFrame } from '../src/modules/MissionClock';
 
@@ -56,5 +56,23 @@ describe('style from settings', () => {
     expect(s.s).toBe(1.5);
     expect(s.edit).toBe(true);
     expect(s.accent).toEqual([255, 0, 0, 255]);
+  });
+});
+
+describe('ops to svg: light canvas mode (tasks/hyperrealism-plan.md Task 3)', () => {
+  const plain: Op = { shape: { kind: 'rect', x: 0, y: 0, w: 4, h: 4, r: 0 }, fill: [1, 2, 3, 255] };
+  const glow = (x: number): Op => ({ shape: { kind: 'poly', pts: [[x, 0], [x + 1, 1]], closed: false }, stroke: { color: [0, 200, 255, 90], width: 3 }, bloom: 2 });
+  const glowText: Op = { shape: { kind: 'text', x: 0, y: 0, text: 'CPU', size: 10, align: 'LeftTop', weight: 600, font: 'Rajdhani', blur: 4 }, fill: [0, 200, 255, 150] };
+  type El = { type: unknown; props: { class?: string; ops?: Op[] } };
+  it('canvas mode replaces bloom runs and blurred text with one anchor', () => {
+    const kids = OpsView({ ops: [plain, glow(0), glow(5), glowText], name: 't', mode: 'canvas' }).props.children as El[];
+    expect(kids.map((c) => c.type === BloomAnchor)).toEqual([false, true]);
+    expect(kids.some((c) => c.props.class === 'bloom')).toBe(false);
+    expect(kids[1].props.ops).toHaveLength(3);
+  });
+  it('svg mode is unchanged', () => {
+    const kids = OpsView({ ops: [plain, glow(0), glow(5), glowText], name: 't', mode: 'svg' }).props.children as El[];
+    expect(kids.some((c) => c.props.class === 'bloom')).toBe(true);
+    expect(kids.some((c) => c.type === BloomAnchor)).toBe(false);
   });
 });

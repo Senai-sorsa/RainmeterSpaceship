@@ -61,6 +61,7 @@ add('display', 'Theme', 'advanced', [
   ['ColorWhite', 'White colour', 'The near-white used for bright details.', col, '215,240,255'],
   ['ColorPanel', 'Panel colour', 'Panel fill as r,g,b,a.', col, '0,30,45,90'],
   ['CoreWhite', 'Hot cores', 'How white-hot the line cores are (1 = white).', sl(0, 1, 0.1), '0.3'],
+  ['BloomEngine', 'Glow engine', 'Canvas: one soft light layer, lighter on the GPU. SVG: the old blur on each glowing part.', sel('canvas|Canvas', 'svg|SVG'), 'canvas', O],
   ['GlowWidth', 'Glow width', 'Width of the neon glow in pixels.', sl(1, 8, 0.1), '3.0'],
   ['TextGlow', 'Text glow', 'Size of the glow behind text in pixels.', sl(0, 12, 1), '4'],
   ['TextGlowAlpha', 'Text glow strength', 'Opacity of the text glow.', sl(0, 255, 5), '150'],

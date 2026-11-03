@@ -22,7 +22,9 @@ import { BootModule } from './modules/BootModule';
 import { JarvisModule, JarvisLogModule } from './modules/JarvisModule';
 import { jarvisFeed, jarvisLog, jarvisPop } from './host/jarvisFeed';
 import { styleFrom } from './modules/style';
-import { HudDefs } from './draw/ops';
+import { currentBloomMode, HudDefs } from './draw/ops';
+import { bloomMode } from './draw/bloomMode';
+import { BloomLayer, SCALE as LIGHT_SCALE } from './ui/BloomLayer';
 import { modulesOn } from './modules/modulesOn';
 import { hiddenZones } from './modules/hidden';
 import { bootReplays, hudHidden } from './modules/overlays';
@@ -104,6 +106,11 @@ export function Hud() {
   }, []);
   // the tier the page computes stands in for the skin's saved PerfTier, so every module draws at it
   const values: Record<string, string> = { ...store.values.value, PerfTier: String(perfTier.value) };
+  // the glow's home (tasks/hyperrealism-plan.md Task 3): set before the modules render so every OpsView follows it.
+  // baseRadius is today's FULL bloom (canvas.ts flush: 1.6 * GlowWidth * 0.45 * Scale) in light-canvas px
+  const light = bloomMode(perfTier.value, values);
+  currentBloomMode.value = light;
+  const lightRadius = Math.max(0.5, 1.6 * num(values, 'GlowWidth', 3.2) * 0.45 * num(values, 'Scale', 1) * LIGHT_SCALE);
   values.Scale = String(num(values, 'Scale', 1) / fit);
   const hide = hiddenZones(values); // the Off_ settings, as the skin's control.lua deactivates configs
   const shown = !hudHidden.value; // the console's OFF tab keeps only the top console
@@ -156,6 +163,7 @@ export function Hud() {
         assistant={(values.JarvisName ?? '').replace(/[^A-Za-z0-9]/g, '') || 'Clover'} onClose={closeLog} />}
       {shown && clockOn && clockZone && values.Off_LeftLocation !== '1' && <MissionClock zone={clockZone} source={calendarFeed.value} captions={values.CaptionStyle !== '0'} style={styleFrom(values)} />}
     </svg>
+    <BloomLayer mode={light} baseRadius={lightRadius} />
     <Caption on={values.CaptionStyle !== '0'} />
     </>
   );

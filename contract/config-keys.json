@@ -43,6 +43,24 @@
       "default": "1"
     },
     {
+      "key": "BloomEngine",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "select",
+        "options": [
+          {
+            "value": "canvas",
+            "label": "Canvas"
+          },
+          {
+            "value": "svg",
+            "label": "SVG"
+          }
+        ]
+      },
+      "default": "canvas"
+    },
+    {
       "key": "BootAnim",
       "file": "Settings.inc",
       "control": {
