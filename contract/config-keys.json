@@ -274,7 +274,7 @@
       "control": {
         "kind": "color"
       },
-      "default": "0,110,150"
+      "default": "0,140,185"
     },
     {
       "key": "ColorGood",

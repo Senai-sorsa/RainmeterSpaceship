@@ -23,7 +23,7 @@ FrameBehindTaskbar=1
 
 ; ---------------------------------------------------------------- theme
 ColorAccent=0,210,255
-ColorDim=0,110,150
+ColorDim=0,140,185
 ColorText=170,235,255
 ColorWarn=255,130,40
 ColorAlert=255,60,70

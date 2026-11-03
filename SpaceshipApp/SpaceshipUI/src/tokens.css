@@ -4,7 +4,7 @@
    change values already resolved on :root (that was the earlier "dim" bug). */
 :root {
   --accent: rgb(0,210,255);
-  --dim: rgb(0,110,150);
+  --dim: rgb(0,140,185);
   --text: rgb(170,235,255);
   --warn: rgb(255,130,40);
   --alert: rgb(255,60,70);

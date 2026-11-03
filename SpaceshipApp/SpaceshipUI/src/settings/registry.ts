@@ -53,7 +53,7 @@ add('display', 'Theme', 'normal', [
   ['ReduceMotion', 'Reduce motion', 'Stops Control Center and setup animations. The HUD keeps running.', tog, '0', { opt: 1 }],
 ]);
 add('display', 'Theme', 'advanced', [
-  ['ColorDim', 'Dim colour', 'Colour for inactive lines and labels.', col, '0,110,150'],
+  ['ColorDim', 'Dim colour', 'Colour for inactive lines and labels.', col, '0,140,185'],
   ['ColorText', 'Text colour', 'Colour for text.', col, '170,235,255'],
   ['ColorAlert', 'Alert colour', 'Colour for alerts.', col, '255,60,70'],
   ['ColorGood', 'Good colour', 'Colour for healthy readings.', col, '60,255,170'],

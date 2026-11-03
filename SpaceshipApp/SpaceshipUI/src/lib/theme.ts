@@ -1,7 +1,7 @@
 // Rainmeter 'r,g,b[,a]' colour strings -> CSS. Defaults are the skin's own (Scripts/lib.lua H.init), not reference-image values.
 export type RGBA = [number, number, number, number];
 export const SKIN_DEFAULTS: Record<string, string> = {
-  ColorAccent: '0,210,255', ColorDim: '0,110,150', ColorText: '170,235,255', ColorWarn: '255,130,40',
+  ColorAccent: '0,210,255', ColorDim: '0,140,185', ColorText: '170,235,255', ColorWarn: '255,130,40',
   ColorAlert: '255,60,70', ColorGood: '60,255,170', ColorHighlight: '255,105,135', ColorWhite: '215,240,255',
   ColorPanel: '0,30,45,90',
 };
