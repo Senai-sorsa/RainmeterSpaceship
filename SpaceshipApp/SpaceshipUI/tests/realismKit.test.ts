@@ -130,3 +130,17 @@ describe('R2 adoption: telemetry cells and rails', async () => {
     expect(st[st.length - 1][1][3]).toBeGreaterThan(st[0][1][3]);
   });
 });
+
+describe('R3 adoption: rows and blocks', async () => {
+  const { slotRowFrame } = await import('../src/modules/slot');
+  it('a running app row is a textured lit plate with a filled status lamp in the good colour', () => {
+    const st = style({ tier: 0 });
+    const ops = slotRowFrame({ app: { id: 'x', name: 'X', short: 'X', icon: 'gear', missing: false } as never, state: 2, mirror: false }, { x: 0, y: 0, w: 400, h: 110 }, st);
+    expect(ops.some((o) => o.pattern === HUD_SCAN)).toBe(true);
+    expect(ops.some((o) => o.shape.kind === 'rect' && o.fill?.[1] === st.good[1] && o.fill?.[0] === st.good[0] && o.shape.h === 8)).toBe(true);
+  });
+  it('LOW keeps the rows free of texture', () => {
+    const ops = slotRowFrame({ state: 0, mirror: true }, { x: 0, y: 0, w: 400, h: 110 }, style({ tier: 2 }));
+    expect(ops.some((o) => o.pattern)).toBe(false);
+  });
+});

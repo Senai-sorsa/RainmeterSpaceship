@@ -329,6 +329,12 @@ export class Canvas {
     this.push('base', poly(pts, true), undefined, undefined, { grad });
   }
 
+  /** The screen texture (K4) over a lit shape, on FULL and LITE only. */
+  texture(pts: Pt[]) {
+    if (this.st.tier >= 2 || pts.length < 3) return;
+    this.push('base', poly(pts, true), undefined, undefined, { pattern: HUD_SCAN });
+  }
+
   /** Backlit display (K2): a glass body lit from one edge, the screen texture, a faint inner border, a bright line along
    *  the lit edge and, on FULL, a soft glow beyond the outline. Graphics drawn afterwards sit on it. LITE drops the glow;
    *  LOW and STEALTH get the flat body and the inner border only (no gradient, texture or glow). */

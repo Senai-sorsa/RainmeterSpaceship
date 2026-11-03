@@ -1,4 +1,5 @@
-import { Canvas, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
+import { Canvas, heat, mix, textWidth, type Op, type Style, type Zone } from '../draw/canvas';
+import { litPlate } from '../draw/plate';
 
 // Port of Skins/Spaceship/@Resources/Scripts/sysinfo.lua: the network block (PING, LAN, WAN, live down and up in Mbps)
 // with the Wi-Fi emblem. PING, LAN and WAN come from the host's net.update
@@ -32,8 +33,7 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
   const A1 = st.accent, W = st.white, D = st.dim;
   const lyp = (rx: number, base: number) => base - (10 / 196 - 4 / 187) * (rx - 34) * SYR;
   // the same faint plate as the mission clock, mirrored
-  c.fillPoly([[X(40), Y(231)], [X(226), Y(231)], [X(222), lyp(222, h - 13)], [X(35), lyp(35, h - 13)]], st.panel, 60);
-  c.fillPoly([[X(40), Y(231)], [X(226), Y(231)], [X(226), Y(234)], [X(40), Y(234)]], A1, 22);
+  litPlate(c, st, [[X(40), Y(231)], [X(226), Y(231)], [X(222), lyp(222, h - 13)], [X(35), lyp(35, h - 13)]], Y(231), h - 13);
   c.line(X(40), Y(228), X(226), Y(228), A1, 1.3, 220);
   c.dot(X(40), Y(228), 3, A1); c.dot(X(226), Y(228), 3, A1);
   // emblem: ring with three Wi-Fi arcs, lit up to the level, and the speed-test box
@@ -45,11 +45,14 @@ export function sysinfoFrame(input: SysInput, zone: Zone, st: Style): Op[] {
     c.hair(gx + 41.5 * Math.cos(a), gy + 41.5 * Math.sin(a), gx + r1 * Math.cos(a), gy + r1 * Math.sin(a), A1, 1, i % 6 === 0 ? 170 : 90);
   }
   for (let i = 1; i <= 3; i++) {
-    const lit = wifi >= i * 30;
-    c.arc(gx, gy + 12, 9 + i * 8, 225, 315, lit ? W : D, 1.6, lit ? 255 : 120);
+    const lit = wifi >= i * 30, r = 9 + i * 8;
+    // lit bars are filled segments (K10) burning white-hot, over a soft glow of the arc
+    if (lit) { c.arc(gx, gy + 12, r, 225, 315, A1, 1.6, 110); c.sector(gx, gy + 12, r - 1.6, r + 1.6, 227, 313, heat(st, W, 1), 245); }
+    else c.arc(gx, gy + 12, r, 225, 315, D, 1.6, 120);
   }
   c.dot(gx, gy + 12, 2.6, W);
   const boxCol = input.testing ? st.warn : A1;
+  c.screen(gx + 30, gy + 12, 40, 22, { col: boxCol, from: 'bottom', lit: 0.45, glow: false });
   c.rect(gx + 30, gy + 12, 40, 22, boxCol, 1.5);
   // the box shows the saved line speed (LinkDownMbps) or TEST; dots while a test runs (static here: the block redraws once a second)
   c.text(gx + 50, gy + 23, input.testing ? '...' : input.link ? String(Math.round(input.link)) : 'TEST', { size: 6.4, weight: 700, align: 'CenterCenter', color: boxCol, font: st.fontNum });
