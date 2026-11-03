@@ -66,9 +66,14 @@ test('fonts ready triggers a redraw', async ({ page }) => {
 
 test('idle light is not re-blurred when nothing changed', async ({ page }) => {
   await open(page);
-  await page.waitForTimeout(3000);
   type B = { __bloomBuiltBy?: Record<string, number> };
   const snap = () => page.evaluate(() => ({ ...(window as B).__bloomBuiltBy }));
+  // wait for the state (the three timer-driven anchors have built their tiles), not for a fixed time
+  const timed = (m: Record<string, number>) => Object.keys(m).filter((k) => ['cs', 'pw', 'tabs'].includes(k.split('#')[0]));
+  await expect.poll(async () => timed(await snap()).length).toBeGreaterThanOrEqual(3);
+  const sig = async () => { const m = await snap(); return JSON.stringify(timed(m).sort().map((k) => [k, m[k]])); };
+  let prev = await sig();
+  await expect.poll(async () => { const cur = await sig(); const same = cur === prev; prev = cur; return same; }, { intervals: [400] }).toBe(true);
   const a = await snap();
   await page.waitForTimeout(3000);
   const b = await snap();
