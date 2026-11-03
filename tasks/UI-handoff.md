@@ -287,3 +287,183 @@ Deliberately not built in R1-R12:
 - Tasks complete: 1-7, 11. Task 12 was skipped (budget met). Task 13 is done headless; the live run and the user's check are still open.
 - Tasks 8-10 wait for Blender (user: not yet).
 - To resume the plan: read `tasks/hyperrealism-plan.md` Task 8. The plan's §0 start condition is satisfied. Work on a new branch off `main`.
+
+---
+
+## 10. Research summary (2026-11-02/03; the full version with sources is in `tasks/hyperrealism-plan.md` §A and §E)
+**Why the references look real.** Five things, in order of how much they matter:
+1. **Lit materials and geometry.** Bevels catch light, there is ambient occlusion in seams, panels are curved and glossy, there are contact shadows (`images (5).jpg`, MAIN). Our hull is a procedural 2D numpy texture (`tools/frame_render.py`). This is the biggest gap. Plan Task 8 fixes it with Blender, at zero runtime cost.
+2. **Light behaves physically.**
+   - Bright cores burn white and fall off through the hue (`heat()` does this).
+   - Bloom is several radii stacked, not one blur (Kawase GDC 2004; Jimenez SIGGRAPH 2014). The light canvas does this.
+   - Screens spill light onto the surfaces around them. Today that is radial CSS pools; Task 9 makes it physically rendered.
+3. **The camera lens.**
+   - Every reference is "filmed": soft bloom, grain, lens dirt lit only near bright sources, a faint reflection, slight chromatic aberration (CA) at the edges, vignette, and optics compensation (barrel curvature) for a first-person look.
+   - Values from PremiumBeat's HUD compositing tips: overall softening blur of 2-4 px; CA about 100.3 % scale; ghost reflection at 15-30 % in film. We use 7 %, because a desktop must stay readable.
+4. **Curvature.** The main reference is named for it. Nothing in our HUD curves yet: zone matrices are 2D affine. See Tasks 8 and 10.
+5. **Composition.** Dark by default, 1-3 hot things per cluster, one warm accent for focus or warnings, dense micro-detail only in the periphery. Readability first: players complained about CRT-style MFDs in Star Citizen.
+
+**What costs GPU in a web page** (Chrome "Animating a blur"; FrostKiwi "Video Game Blurs"):
+- Blur cost is texture taps and memory traffic. A Gaussian grows with radius². Downsampling first makes wide blurs cheap. Dual Kawase / mip-chain bloom is the cheap, motion-stable option (ARM 2015; KDE uses it).
+- A blurred element that changes is re-blurred by the GPU on every update. A blurred element that does not change is rasterised once and reused. So: blur things that change at low resolution, and cache everything else. The tile cache does this.
+- `mix-blend-mode` and `backdrop-filter` make the browser read back what is behind the element. Keep only a few full-screen blended layers. Normal blending measured cheaper than screen blending for the light canvas.
+
+**Dither.** Add about ±2/255 noise before 8-bit quantisation (Zed GPUI). Blue noise is the best pattern (Bart Wronski). For Blender's 8-bit output, use `dither_intensity`.
+
+**Page lifecycle** (Chrome docs; WebView2 reports):
+- Chrome does not call `requestAnimationFrame` for background or hidden pages. Background timers are throttled after about 10 s.
+- WebView2 may pause rAF and timers when Windows reports the window as occluded. That is good for power, but check that the HUD wakes up correctly. A third-party app needed a watchdog for this; see the crew v0.12.9 link below.
+- Our `host/scheduler.ts` already sleeps between jobs and pauses when the host reports a fullscreen window.
+
+**Desktop-overlay norms.**
+- No official overhead figure exists for Wallpaper Engine or Rainmeter. Community reports range from about 4 % to about 50 % GPU depending on the wallpaper; a Steam moderator says it "depends on the particular wallpaper", and badly optimised ones use a lot.
+- Task Manager and GPU-Z disagree on GPU %, so always measure with the same tool (`tools/gpu_baseline.ps1`).
+- **Lesson:** an always-on overlay has to be judged against "almost nothing", not against a game.
+
+Additional sources from this round:
+- Wallpaper Engine performance threads: https://steamcommunity.com/app/431960/discussions/1/135512931353453239 and https://steamcommunity.com/app/431960/discussions/2/1696045708644625403
+- Chrome background tabs (rAF paused, timer budget): https://developer.chrome.com/blog/background_tabs
+- WebView2 timer throttling proposal: https://github.com/MicrosoftEdge/WebView2Announcements/issues/80
+- WebView2 occlusion pausing rAF (third-party report): https://github.com/ArdaDDemir/crew/releases/tag/v0.12.9
+
+## 11. Performance budgets: what is acceptable
+These are **recommendations** (engineering targets), not measurements. They are based on the machine and on the HUD's own tier thresholds.
+- **Machine** (read 2026-11-03):
+  - CPU: AMD Ryzen AI 9 465, 20 logical cores.
+  - GPU: hybrid. Radeon 880M (integrated) plus RTX 5070 Laptop (discrete; ECO mode turns it off).
+  - RAM: 31 GB.
+- **The HUD's own auto tiers** step down at a *whole-GPU* load of 50 % (LITE), 75 % (LOW) and 85 % (STEALTH) (`TierLite`/`TierLow`/`TierStealth` in Settings.inc). The HUD itself must sit far below these, or it will push itself into lower tiers and make them flap.
+- **How to read the numbers:**
+  - Headless "% of one core" ÷ 20 = % of the whole CPU. For example, 140 % of one core ≈ 7 % of the CPU in Task Manager.
+  - Headless includes software rasterisation, which the GPU does in the live app, so headless overstates CPU and says nothing about GPU. Use it only for relative A/B checks.
+
+| Condition (live WebView2, FULL) | CPU, whole machine (Task Manager) | GPU 3D engine, the adapter the HUD runs on | VRAM / RAM (HUD processes) | Spikes |
+|---|---|---|---|---|
+| Idle, nothing changing | target ≤ 2 %, max 3 % | target ≤ 3 %, max 5 % | ≤ 300 MB VRAM, ≤ 400 MB RAM | none over +10 points |
+| Music (audio ring live) | target ≤ 4 %, max 6 % | target ≤ 6 %, max 8 % | same | none over +15 points |
+| Opening a pop-up / Control Center | short burst OK | short burst OK | — | under 25 % for under 1 s |
+| LITE | ≤ 60 % of the FULL numbers | ≤ 60 % of FULL | — | — |
+| LOW / STEALTH | ≤ 1 % | ≤ 2 % | — | — |
+| A fullscreen app or game covering the HUD | ≈ 0 (scheduler paused, rAF stopped) | ≈ 0 | — | — |
+| On battery | `BatteryMinTier` (default 1 = LITE) applies; use the LITE row | | | |
+
+- **Headless A/B budget** (what the plans use): no more than +10 % over the previous step on FULL, as interleaved medians of 3 rounds.
+- **Which GPU:** WebView2 should run on the integrated Radeon in hybrid mode. Check which adapter it uses (`gpu_baseline.ps1` prints one row per GPU; Task Manager has a "GPU engine" column). Never let the HUD wake the RTX 5070 on its own: that costs battery and heat.
+- **Frame-rate targets:**
+
+  | What | Rate |
+  |---|---|
+  | Animations (orb, audio) | ≤ 20-30 fps is enough (the audio feed is 20 fps) |
+  | Light tiles | ≤ 10 Hz (`TILE_MS`) |
+  | Glass | ≤ 4 Hz |
+  | Telemetry | at the host reading rate (about 1-2 Hz) |
+  | Everything else | 0 Hz while idle |
+
+## 12. Everything we should still do to improve the UI (after the current work)
+Each item says what, why and how, cheapest first. Ask the user before building anything marked (ASK).
+
+### A. Frame and hull (the biggest realism gains)
+1. **Blender shell render (Tasks 8-9) (ASK, the GPU must be free).**
+   - **What:** bevels, AO, PBR gunmetal with roughness variation, curved dash and bezels, contact shadows; grayscale light passes per light group, tinted live (so theme colours keep working). Orthographic camera, so the layout cannot move.
+   - **Also bake:** recessed screen bezels under each MFD zone. That is what makes MAIN's MFDs look like hardware.
+2. **Real curvature (Task 10), after the render.** The strip, console line and rails bend with the shell (shared `curve.json`).
+3. **Micro-detail on the hull** (baked, free): panel seams, screw heads, warning stencils, tiny serial numbers and vent grilles near the struts. Keep it low-contrast and in the periphery only.
+4. **Trim tubes as inlays:** a baked groove that the neon sits in (R7 added the spill; the groove needs the render).
+5. **Interior reflections:** a faint baked reflection of the dash lights in the side glass (Task 8's `glass_reflect` pass).
+
+### B. Light, glass, lens (runtime, on the light canvas)
+6. **Tune the lens with the user, live:** `LENS_SPREAD`, `GHOST_ALPHA`, and the dirt density (seed and count in `lens_assets.py`).
+7. **Depth haze (K8), cheaply:** add a `far` flag on `OpsView`, so the decor, back faces and faint grids get one extra blur pass in their own tile only. It is cached, so it costs almost nothing while idle.
+8. **Radial chromatic aberration:** only with the WebGL2 compositor (plan Task 12). Skip unless the live GPU number has headroom. Never per text.
+9. **Light that follows state:** the orb's spill brightens when JARVIS speaks, and the audio dial's spill pulses with the level. Change the opacity of a static layer (cheap); never animate a blur.
+10. **Glare streaks on the two or three hottest points** (orb core, warning lamp): a tiny precomputed sprite drawn into the light tile, never a full-screen effect.
+
+### C. Screens and instruments (MFD realism)
+11. **Bezels around every screen:** a 1-2 px dark recess plus a highlight lip (baked, or `litPlate` variants), so the readouts sit *in* the hull.
+12. **Pixel structure on large screens:** a subpixel or fine grid at about 3 % on the side panels and pop-ups only. Readability first; never on small text.
+13. **Data density:** peripheral micro-readouts (coordinates, serials, labelled ticks) in the dim colour around the big readouts, as in `inline_image_preview.jpg`. Keep the primary numbers large and clean.
+14. **Real data wherever possible,** no static fake numbers. Life comes from data updates, not idle animation.
+15. **Entry/update flicker (K9 shimmer):** extend it to more readouts, but only on a change, never while idle.
+
+### D. Holograms and the orb
+16. **Hologram breathe (K11):** throttled through the tile cache (≤ 10 Hz), FULL only, opacity only. Measure first.
+17. **Interference lines and a little instability** on the schematics: a static pattern plus a rare (every 8-15 s) one-frame glitch. Rare, so it costs nothing on average.
+18. **The orb:** its vector rings become filled thin sectors with a gradient (K10), plus a slow travelling hot head.
+
+### E. Motion
+19. **Music ball motion (user complaint).**
+    - Research per-band attack/decay (fast attack about 10-30 ms, slower release about 150-300 ms), peak-hold with gravity, and log-frequency bands.
+    - The DSP is in `ShipCore.Core/SpectrumBands.cs`, mirrored in `tools/visual-check/spec.cjs`; the drawing is in `src/modules/audio.ts`.
+    - Show the user frames from `burst.cjs`.
+20. **One motion language:** ease-out for things arriving, linear for scanning, no bounce, durations of 120-250 ms. Respect reduced motion (`data-reduce-motion`).
+21. **Boot sequence:** add the lens and grain fading in last, as if a camera settles.
+
+### F. Pop-ups, Control Center, wizard
+22. **Pop-ups (log, drawer, boot check):** use the same bezel and screen language as the MFDs (item 11). Control Center outer glow via a wrapper element (deferred in R9).
+23. **Control Center and wizard stay readable** (they are settings): lit keys for the active items and a subtle texture. No fringe or flicker on their text.
+24. **Hints:** the user wants most kept but condensed. Audit every hint string (≤ 1 line) with impeccable (critique/polish).
+
+### G. Typography and colour
+25. **One type system:**
+    - Rajdhani for labels.
+    - A mono font with tabular figures for numbers, so digits don't jitter.
+    - Michroma for titles only.
+    - Keep sizes ≥ 7 pt at 100 % scale.
+26. **Colour discipline:** one dominant hue, white-hot cores, one warm accent. Review the five doubtful `st.warn` uses (§6) with the user.
+27. **Contrast check:** dim text on the darkest panels at 100 % and 150 % scale (impeccable's audit can flag it).
+
+### H. Engineering and performance
+28. **Live GPU/VRAM measurement** (§5, §11). Do this before anything big.
+29. **Cache `getScreenCTM`** per resize instead of on every render (deferred minor).
+30. **Rounded-rect glow** (`rect.r`) in `paintOps` (deferred minor).
+31. **WebGL2 compositor (Task 12)**, only if the live numbers fail: one pass for bloom + CA + grain + vignette, rendered only when something changed.
+32. **LOW/STEALTH gradients:** decide whether they go back to flat fills (about two lines in `canvas.ts`).
+33. **K7 fringe:** keep or drop it now that the light canvas exists (ASK).
+34. **Flaky e2e tests** (§2): make them wait for state, not for time.
+35. **Line endings:** every commit warns "LF will be replaced by CRLF". It is harmless; a `.gitattributes` would silence it. Coordinate first, because the JARVIS session is editing `.gitignore`.
+
+## 13. What should be looked at (audits and risks)
+- **Live run over the real wallpaper.** Check:
+  - legibility at 100 % and 150 % display scale;
+  - lens strength;
+  - grain visibility;
+  - no doubled text from the ghost;
+  - the glow sitting exactly on the lines on every monitor and DPI.
+- **WebView2 occlusion:** after a fullscreen game or sleep/resume, does the HUD wake up and redraw the light canvas? rAF can be paused while occluded; BloomLayer redraws on the next bus change or resize.
+- **Multi-monitor / DPI change while running:** the anchors re-post on `resize`. Check that a DPI change fires `resize` in WebView2.
+- **Battery:** LITE on battery (`BatteryMinTier`). Check that the light and glass layers are off (they are FULL only).
+- **Theme colours:** change `ColorAccent` live; check the glow, spill, trim and grain.
+- **Rainmeter parity:** the app shares `Settings.inc` and `Images/` with the Rainmeter skin. The hyperreal work changed no Rainmeter images, and the skin ignores the new keys (`BloomEngine`, `LensFx`). Verify the skin still loads if you add more.
+- **Reduced motion:** shimmer, power-on and any new animation stop under `data-reduce-motion` / `prefers-reduced-motion`.
+- **Push hygiene:** before pushing, run all gates on `main`, make sure no JARVIS files are staged, and keep `Refrences-Art/` untracked.
+
+## 14. Recommendations (how to work)
+1. **Measure live before building more.** One `gpu_baseline.ps1` run per condition decides whether the WebGL path (Task 12) or the depth haze (item 7) is affordable.
+2. **Bake static, light dynamic.** Anything that does not change goes into PNGs (Blender, numpy); anything that changes goes through the cached light canvas. No new CSS `filter: blur()` on elements that update.
+3. **Small slices:** one commit each, an interleaved headless A/B every 2-3 slices, and a crop pair against the matching reference image (`tools/visual-check/pair.cjs`).
+4. **Every new effect gets a runtime switch** (like `BloomEngine`/`LensFx`), so the user can roll back without git.
+5. **Test behaviour, not op counts.** The bloom tests check what is drawn, where and how often, through the dev hooks (§4).
+6. **Look at crops, not full frames.** Full frames are expensive in tokens, and whole-frame pixel diffs are noise.
+7. **Ask the user before:** Blender runs, live runs while the GPU is busy, colour changes, removing R-slice effects, and pushing.
+
+## 15. Skills and plugins to use, per part
+| Part of the work | Use | Why |
+|---|---|---|
+| Starting any new feature or effect | `superpowers:brainstorming` | settles the intent and design before code |
+| Turning a design into tasks | `superpowers:writing-plans` (save under `tasks/`, as `hyperrealism-plan.md` is) | exact files, interfaces, tests per task |
+| Executing a plan | `superpowers:executing-plans` (inline, cheaper), or `superpowers:subagent-driven-development` (a reviewer per task; only if the user asks for agents) | ledger in `.superpowers/sdd/<plan>/progress.md`; `task-start` / `task-done` scripts |
+| Every code change | `superpowers:test-driven-development` | watch the test fail first; this caught the clip and dash bugs |
+| A test fails or something looks wrong | `superpowers:systematic-debugging` | find the cause before patching (the stale light came from BloomLayer being unmounted) |
+| Before saying "done" | `superpowers:verification-before-completion` | run the gates and read the output |
+| Reviewing a branch | `superpowers:requesting-code-review`, `code-review` (low/medium; `ultra` is user-triggered and billed), `simplify` | a fresh review (this round's final review was a self-review) |
+| Finishing or merging a branch | `superpowers:finishing-a-development-branch` | merge/push options, cleanup |
+| Visual design: critique, polish, audit, hierarchy, contrast | `impeccable:impeccable`; its agents: `impeccable-finish-reviewer` (review against the references), `impeccable-asset-producer` (raster assets from approved mocks), `impeccable-documenter` (DESIGN.md) | the design skill for this UI; run its detector after visual edits |
+| A bold new look for one part (pop-up style, MFD look) | `frontend-design:frontend-design` | distinctive, non-template choices |
+| Gauges, graphs, telemetry cells, stat tiles | `dataviz` | colour formulas, mark specs, sparkline and meter rules |
+| Looking at references on the web (ArtStation "FUI hud", "MFD cockpit UI", Territory Studio, Cantina Creative, GMUNK) | `claude-in-chrome` / `anthropic-skills:chrome-browser` | open one tab, read it, close it |
+| Broad research with a written report | `anthropic-skills:deep-research` (uses subagents: only if the user asks) | multi-source synthesis |
+| Library and API docs (Preact, @preact/signals, Vite, Playwright, Canvas2D, WebView2, Blender `bpy`) | Context7 MCP (`resolve-library-id` → `query-docs`) | current docs; required by `~/.claude/rules/context7.md` |
+| Who calls what (modules ↔ draw ↔ host) | `graphify` (`graphify-out/`; the CLI may be blocked by Smart App Control, so read `graph.json` with a short Python query) | cross-file relationships |
+| Launching or screenshotting the app | the `run` skill, or the `tools/visual-check` scripts against the dev server on port 5199 | crops, contact sheets, bursts |
+| Blender scene (Task 8) | Context7 for the `bpy` docs; plain Python; TDD for `tools/test_render_frame.py` | renders checked by tests (size, window alpha IoU ≥ 0.995) |
+| Any host or IPC change | `security-review` | model output must never authorise OS actions |
