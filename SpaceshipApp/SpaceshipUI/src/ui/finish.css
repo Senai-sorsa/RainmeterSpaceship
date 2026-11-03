@@ -158,3 +158,25 @@ html .wiz-launch { min-height: 44px; font-size: 15px; letter-spacing: .22em; }
 /* ---- System tab: About and Help sit in the same 640px column as the setting groups ---- */
 .cc-pane > .hp { max-width: 640px; margin: 12px auto 0; box-sizing: border-box; }
 .cc-pane .about-body small, .cc-pane .helpc small { font: 500 13px/1.4 Rajdhani, sans-serif; color: color-mix(in srgb, var(--text) 80%, transparent); }
+
+/* ---- realism kit K12 (2026-11-02): the DOM surfaces as lit hardware - a faint scan texture on the glass, light from the
+   header, a specular top line, and the active items as lit keys with a white-hot edge. Text stays crisp: no fringe, no
+   flicker. The Control Center keeps its clip-path, so it gets no outer glow (that would need a wrapper element). ---- */
+.hp {
+  background:
+    radial-gradient(110% 45% at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 2.5%, transparent) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 30%, var(--accent)), inset 0 0 40px rgb(0 0 0 / .35); }
+.notices .hp { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 30%, var(--accent)), 0 10px 30px rgb(0 0 0 / .45), 0 0 18px -6px var(--accent); }
+.help {
+  background:
+    radial-gradient(90% 30% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 2.5%, transparent) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: -20px 0 40px rgb(0 0 0 / .45), inset 0 1px 0 color-mix(in srgb, var(--white) 25%, var(--accent)); }
+.cc { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 40%, var(--accent)), inset 0 0 60px rgb(0 0 0 / .45); }
+/* lit keys: the open category, the current wizard step and the primary action burn along one edge */
+html .rail-btn[aria-current='page'] { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--white) 65%, var(--accent)), -6px 0 14px -8px var(--accent); }
+html .wiz-mod[aria-current='step'] { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--white) 60%, var(--accent)); }
+html .wiz-primary { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--white) 55%, var(--accent)), inset 0 1px 0 color-mix(in srgb, var(--white) 25%, transparent); }
