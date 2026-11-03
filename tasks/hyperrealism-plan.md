@@ -368,7 +368,8 @@ Rollback: each task is one commit (`git revert <sha>`). Runtime switches: `Bloom
 ## §D Measurements (append one line per check)
 | Date | When | Headless CPU | Live GPU % (median / peak) | Notes |
 |---|---|---|---|---|
-| | §0 before (copied from the runner's last row) | | | |
+| 2026-11-02 | §0 before (runner's R11 row) | 122.2, 121.8, 119.5 % (median 121.8) | not run | runner's last row; tier pass: FULL 45 bloom groups, LITE/LOW/STEALTH 0 |
+| 2026-11-02 | H0 | — (the §0 row stands; Task 4 does the svg/canvas A/B in one sitting) | not run (the user told the runner "dont run it yet") | Task 1 Step 1: no live run without the user's word |
 
 ## §E Sources
 - FrostKiwi, "Video Game Blurs (and how the best one works)": box/Gaussian/separable, downsampling, Kawase, dual Kawase, stacked blurs (Kawase 2004, Jimenez 2014), ARM 2015, KDE: https://blog.frost.kiwi/dual-kawase/
