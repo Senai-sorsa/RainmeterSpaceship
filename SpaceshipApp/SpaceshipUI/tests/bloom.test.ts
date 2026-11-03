@@ -85,6 +85,13 @@ describe('stackBlur', () => {
     expect(seen.filter?.at(-1)).toBe('none');
     expect(seen.globalAlpha?.at(-1)).toBe(1);
   });
+  it('spreads the light wide for the dirt and blurs the ghost so no text survives in it', async () => {
+    const { paintGlass, LENS_SPREAD, GHOST_BLUR } = await import('../src/draw/bloomPaint');
+    const { ctx, seen } = fakeCtx();
+    paintGlass(ctx, {} as CanvasImageSource, {} as CanvasImageSource, 400, 300);
+    expect(seen.filter?.slice(0, 3)).toEqual([`blur(${LENS_SPREAD}px)`, 'none', `blur(${GHOST_BLUR}px)`]);
+    expect(seen.filter?.at(-1)).toBe('none');
+  });
 });
 
 describe('bloomMode', () => {
@@ -116,5 +123,20 @@ describe('light tiles (Task 4: cache each anchor\'s blurred light, rebuild only 
     expect(built).toEqual(['a', 'b', 'b']);
     cache.update(new Map([['b', b]]));
     expect([...cache.tiles.keys()]).toEqual(['b']);
+  });
+});
+
+describe('glass layer (Task 6)', () => {
+  it('composites dirt into the light, then adds the ghost', async () => {
+    const { paintGlass, GHOST_SCALE } = await import('../src/draw/bloomPaint');
+    const { ctx, calls, seen } = fakeCtx();
+    paintGlass(ctx, {} as CanvasImageSource, {} as CanvasImageSource, 400, 300);
+    expect(seen.globalCompositeOperation?.slice(0, 3)).toEqual(['source-over', 'destination-in', 'source-over']);
+    const draws = calls.filter((c) => c[0] === 'drawImage');
+    expect(draws).toHaveLength(4); // spread light twice, dirt, ghost
+    expect(draws[3][4]).toBeCloseTo(400 * GHOST_SCALE); // [name, image, x, y, w, h]
+    expect(GHOST_SCALE).toBe(1.035);
+    expect(seen.globalCompositeOperation?.at(-1)).toBe('source-over');
+    expect(seen.globalAlpha?.at(-1)).toBe(1);
   });
 });

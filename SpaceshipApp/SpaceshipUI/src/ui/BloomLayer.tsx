@@ -1,7 +1,8 @@
 import { effect } from '@preact/signals';
 import { useEffect, useRef } from 'preact/hooks';
 import { bloomEntries, type BloomEntry } from '../draw/bloomBus';
-import { BLOOM_STACK, entryBounds, paintOps, stackBlur, TileCache, type Box, type Ctx2D } from '../draw/bloomPaint';
+import { BLOOM_STACK, entryBounds, paintGlass, paintOps, stackBlur, TileCache, type Box, type Ctx2D } from '../draw/bloomPaint';
+import dirtUrl from '../assets/lens/dirt.png?url';
 
 // The one light canvas (tasks/hyperrealism-plan.md Task 3): the glow ops every OpsView anchor posts, drawn at a quarter of
 // the CSS resolution, blurred at three radii and stretched over the HUD in screen blend. Each anchor's light is a cached
@@ -13,11 +14,19 @@ type Dev = { __bloomLast?: Record<string, BloomEntry['ctm']>; __bloomDraws?: num
 type Tile = { box: Box; canvas: HTMLCanvasElement } | null;
 const ctx2d = (c: HTMLCanvasElement) => c.getContext('2d') as unknown as Ctx2D | null;
 
-export function BloomLayer({ mode, baseRadius }: { mode: 'canvas' | 'svg' | 'off'; baseRadius: number }) {
+/** lens: the glass layer (Task 6) - lens dirt lit by the HUD's spread light, and a faint soft ghost of it. Over the whole
+ *  view, as a camera lens is (a window-only mask left the smudges dark: little HUD light falls on the windows). */
+export function BloomLayer({ mode, baseRadius, lens = false }: { mode: 'canvas' | 'svg' | 'off'; baseRadius: number; lens?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const glassRef = useRef<HTMLCanvasElement>(null);
+  const glassOn = lens && mode === 'canvas';
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    const glass = glassRef.current;
+    const dirt = new Image();
+    let dirtReady = false;
+    if (glass) { dirt.onload = () => { dirtReady = true; schedule(); }; dirt.src = dirtUrl; }
     const scratch = document.createElement('canvas');
     // a blur of radius r spreads about 2.5 r: the widest pass decides the tile margin
     const pad = Math.ceil(baseRadius * BLOOM_STACK[BLOOM_STACK.length - 1][0] * 2.5);
@@ -52,6 +61,11 @@ export function BloomLayer({ mode, baseRadius }: { mode: 'canvas' | 'svg' | 'off
       cache.update(entries);
       out.clearRect(0, 0, w, h);
       for (const { tile } of cache.tiles.values()) if (tile) out.drawImage(tile.canvas, tile.box.x, tile.box.y);
+      if (glass && dirtReady) {
+        if (glass.width !== w || glass.height !== h) { glass.width = w; glass.height = h; }
+        const g = ctx2d(glass);
+        if (g) paintGlass(g, cv, dirt, w, h);
+      }
       if (dev) {
         dev.__bloomLast = Object.fromEntries([...entries].map(([k, e]) => [k, e.ctm]));
         dev.__bloomDraws = (dev.__bloomDraws ?? 0) + 1;
@@ -64,6 +78,11 @@ export function BloomLayer({ mode, baseRadius }: { mode: 'canvas' | 'svg' | 'off
     // the fonts arriving changes every text's light: rebuild all tiles once
     document.fonts?.ready.then(() => { cache = new TileCache<Tile>(build); schedule(); });
     return () => { stop(); removeEventListener('resize', schedule); if (queued) cancelAnimationFrame(queued); };
-  }, [mode, baseRadius]);
-  return <canvas ref={ref} class="bloom-layer" data-mode={mode} aria-hidden="true" />;
+  }, [mode, baseRadius, glassOn]);
+  return (
+    <>
+      <canvas ref={ref} class="bloom-layer" data-mode={mode} aria-hidden="true" />
+      {glassOn && <canvas ref={glassRef} class="glass-layer" aria-hidden="true" />}
+    </>
+  );
 }

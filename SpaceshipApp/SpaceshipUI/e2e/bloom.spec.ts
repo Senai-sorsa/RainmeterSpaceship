@@ -77,3 +77,19 @@ test('idle light is not re-blurred when nothing changed', async ({ page }) => {
   expect(still.length).toBeGreaterThanOrEqual(3); // cs, pw and both sides' tabs
   expect(still.filter((k) => b[k] !== a[k])).toEqual([]);
 });
+
+test('glass layer only on FULL with LensFx', async ({ page }) => {
+  await open(page);
+  await expect(page.locator('canvas.glass-layer')).toHaveCount(1);
+  await page.close();
+});
+test('no glass layer with LensFx=0', async ({ page }) => {
+  await open(page, { LensFx: '0' });
+  await expect(page.locator('canvas.bloom-layer')).toHaveCount(1);
+  await expect(page.locator('canvas.glass-layer')).toHaveCount(0);
+});
+test('no glass layer on LITE', async ({ page }) => {
+  await open(page, { PerfOverride: '1' });
+  await expect(page.locator('canvas.bloom-layer')).toHaveCount(1);
+  await expect(page.locator('canvas.glass-layer')).toHaveCount(0);
+});

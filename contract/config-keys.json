@@ -1932,6 +1932,14 @@
       "default": "0"
     },
     {
+      "key": "LensFx",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
       "key": "LinkDownMbps",
       "file": "Settings.inc",
       "control": {

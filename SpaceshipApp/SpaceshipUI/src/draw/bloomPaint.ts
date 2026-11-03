@@ -108,3 +108,32 @@ export class TileCache<T> {
     }
   }
 }
+
+/** Glass (Task 6): how faint the HUD's reflection is, how much larger than the HUD (a second surface a bit nearer), and
+ *  how soft (light-canvas px; no text shape survives in it). LENS_SPREAD: the light scattered across the lens, which is
+ *  what lights the dirt - wide, so a smudge glows near any bright part of the HUD, not only on top of it. */
+export const GHOST_ALPHA = 0.07;
+export const GHOST_SCALE = 1.035;
+export const GHOST_BLUR = 4;
+export const LENS_SPREAD = 14;
+
+/** The lens's own light: the HUD light spread wide, times the dirt mask (smudges show only near bright parts), then a
+ *  faint, soft, slightly enlarged ghost of the light (its reflection in the glass). */
+export function paintGlass(ctx: Ctx2D, bloom: CanvasImageSource, dirt: CanvasImageSource, w: number, h: number) {
+  ctx.clearRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.filter = `blur(${LENS_SPREAD}px)`;
+  ctx.drawImage(bloom, 0, 0);
+  ctx.drawImage(bloom, 0, 0); // twice: the spread light is faint, the dirt needs it at full strength
+  ctx.filter = 'none';
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(dirt, 0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = GHOST_ALPHA;
+  ctx.filter = `blur(${GHOST_BLUR}px)`;
+  const gw = w * GHOST_SCALE, gh = h * GHOST_SCALE;
+  ctx.drawImage(bloom, (w - gw) / 2, (h - gh) / 2, gw, gh);
+  ctx.filter = 'none';
+  ctx.globalAlpha = 1;
+}
