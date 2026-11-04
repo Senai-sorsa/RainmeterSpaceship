@@ -292,7 +292,7 @@ Ruling on Task 12: `SOL-JARVIS&SYSTEM-review.md` is another reviewer's untracked
 | #14 disk graph key; #15 hide VRAM graph (decision 3) | 1 | 6d27678, a05f2ab (fix round: settle when metrics arrive later) |
 | #38/#39/#40 calendar bounds + sort | 4 | 75c9955 |
 | #21 dial out-of-range step | 5 | 7ea3ba3 |
-| #18 lock pulse once per move | 6 | 48ce581 |
+| #18 lock pulse once per move (+ cleared when the tick stops at tier 2+) | 6 | 48ce581, dfbe950 |
 | #63 performance power-plan GUID | 2 | 0266cb1 |
 | #59/#62 safe-integer ids + shared fixture | 3 | c7ce0bf |
 | #60, #65-#69 runner/pipe shutdown | 8 | d8a91bd, 442dd36, bb2a6ac, f368825, 579c8b9, 10a3e69, a7479ca |
