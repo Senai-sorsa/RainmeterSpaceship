@@ -83,6 +83,7 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post, Func
             {
                 var line = await rd.ReadLineAsync(cts.Token) ?? throw new IOException("connection closed");
                 sb.Append(line).Append('\n');
+                if (sb.Length > 65536) throw new InvalidDataException("reply too large"); // a server that never sends the tag line
                 if (line.StartsWith(tag + " ", StringComparison.Ordinal)) return sb.ToString();
             }
         }
