@@ -8,16 +8,19 @@ type Box = { left: number; top: number; width: number; height: number };
 const PAD = 6; // device pixels around each box, so a hover glow or a near miss still lands
 const MAX = 64; // the host refuses more
 
-/** Device-pixel rects [x, y, w, h], padded, empty boxes dropped, at most 64. */
+/** Device-pixel rects [x, y, w, h], padded, empty boxes dropped. A box wholly inside another is redundant (the bigger one already takes the click),
+ *  and duplicates collapse. Over the host's cap the LAST boxes win: they are the overlays drawn on top, and losing those left two open panels unclickable. */
 export function regionsOf(boxes: Box[], dpr: number): number[][] {
-  const out: number[][] = [];
+  const all: number[][] = [];
   for (const b of boxes) {
-    if (!(b.width > 0 && b.height > 0) || out.length === MAX) continue;
+    if (!(b.width > 0 && b.height > 0)) continue;
     const x = Math.floor(b.left * dpr) - PAD, y = Math.floor(b.top * dpr) - PAD;
     const r = Math.ceil((b.left + b.width) * dpr) + PAD, btm = Math.ceil((b.top + b.height) * dpr) + PAD;
-    out.push([clamp(x), clamp(y), Math.min(r - x, 16384), Math.min(btm - y, 16384)]);
+    all.push([clamp(x), clamp(y), Math.min(r - x, 16384), Math.min(btm - y, 16384)]);
   }
-  return out;
+  const inside = (a: number[], o: number[]) => a[0] >= o[0] && a[1] >= o[1] && a[0] + a[2] <= o[0] + o[2] && a[1] + a[3] <= o[1] + o[3];
+  const kept = all.filter((a, i) => !all.some((o, j) => j !== i && inside(a, o) && (!inside(o, a) || j < i)));
+  return kept.slice(-MAX);
 }
 const clamp = (n: number) => Math.max(-16384, Math.min(16384, n));
 
