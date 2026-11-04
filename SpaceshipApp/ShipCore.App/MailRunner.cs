@@ -13,6 +13,7 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post, Func
 {
     readonly System.Windows.Forms.Timer _tick = new() { Interval = 3000 }; // 120 s after the first check
     readonly string _file = Path.Combine(data, "mail.txt");
+    readonly RunnerLifetime _life = new(); // shutdown: cancels an IMAP check in flight, and nothing is written or posted after it
     bool _fetching;
 
     /// <summary>The last message, for a page that just loaded.</summary>
@@ -26,12 +27,14 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post, Func
 
     async void Tick()
     {
+        if (_life.Disposed) return;
         if (!shown() || _fetching) { if (_tick.Interval < 3000) _tick.Interval = 3000; return; } // after Soon(): don't spin while hidden or busy
         _tick.Interval = PowerPolicy.Scale(120000, factor?.Invoke() ?? 1);
         _fetching = true;
         try
         {
-            var body = await Task.Run(Check);
+            var body = await Task.Run(() => Check(_life.Token));
+            if (_life.Disposed) return; // shut down mid-check: keep mail.txt as it was
             var text = $"T {DateTimeOffset.UtcNow.ToUnixTimeSeconds()}\n{body}\n";
             try
             {
@@ -41,18 +44,18 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post, Func
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } // the page still gets the count
             Last = StatusScripts.Mail(text);
-            post(Last);
+            _life.Post(post, Last);
         }
         finally { _fetching = false; }
     }
 
-    static async Task<string> Check()
+    static async Task<string> Check(CancellationToken stop)
     {
         var cred = CalendarRunner.Unprotect(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SpaceshipHUD", "gmail.dat"));
         if (cred is null) return "OFF";
         var p = cred.Split('\n');
         if (p.Length < 2) return "ERR bad saved login";
-        try { return "UNREAD " + await Unread(p[0].Trim(), p[1].Trim()); }
+        try { return "UNREAD " + await Unread(p[0].Trim(), p[1].Trim(), stop); }
         catch (Exception e) when (e is IOException or SocketException or AuthenticationException or OperationCanceledException or InvalidDataException)
         {
             return "ERR " + (e is InvalidDataException ? e.Message : e is OperationCanceledException ? "no connection" : e.GetType().Name);
@@ -61,9 +64,10 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post, Func
 
     static string Quote(string s) => "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
-    static async Task<int> Unread(string user, string pass)
+    static async Task<int> Unread(string user, string pass, CancellationToken stop)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(stop); // the runner's Dispose, or the 30 s limit
+        cts.CancelAfter(TimeSpan.FromSeconds(30));
         using var tcp = new TcpClient();
         await tcp.ConnectAsync("imap.gmail.com", 993, cts.Token);
         await using var ssl = new SslStream(tcp.GetStream(), false);
@@ -92,5 +96,5 @@ sealed class MailRunner(string data, Func<bool> shown, Action<string> post, Func
     /// <summary>status_block.lua right-click (Data\mail.refresh): check on the next tick instead of in up to 2 min.</summary>
     public void Soon() { _tick.Stop(); _tick.Interval = 1; _tick.Start(); }
 
-    public void Dispose() { _tick.Stop(); _tick.Dispose(); }
+    public void Dispose() { _life.Dispose(); _tick.Stop(); _tick.Dispose(); }
 }
