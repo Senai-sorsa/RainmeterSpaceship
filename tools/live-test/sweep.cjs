@@ -20,6 +20,10 @@ const ALL = [
   ['LensFx+Haze+Bezel+Light all 0', { LensFx: 0, DepthHaze: 0, ScreenBezel: 0, StateLight: 0 }],
   ['frame=picture', { UseShipImage: 1 }],
   ['frame=none', { FrameOff: 1 }],
+  ['hide css-gradient layers', base, undefined, '[data-layer=sheen],[data-layer=bounce],[data-layer=spill],[data-layer=orblight],[data-layer=vignette],[data-layer=trimspill],[data-layer=grain]{display:none!important}'],
+  ['hide hull+corners+shade images', base, undefined, '[data-layer=hull],[data-layer=corners],[data-layer=shade]{display:none!important}'],
+  ['hide glass_fx+scan+mist', base, undefined, '[data-layer=glass_fx],[data-layer=scan],[data-layer=mist]{display:none!important}'],
+  ['hide all frame layers (css only)', base, undefined, '.frame{display:none!important}'],
   ['ReduceMotion=1', { ReduceMotion: 1 }],
   ['FrameBrightness=60', { FrameBrightness: 60 }],
   ['tier LITE', { PerfOverride: 1 }],
@@ -29,7 +33,7 @@ const ALL = [
 const cases = Array.from({ length: ROUNDS }, () => ALL.filter(c => !ONLY || ONLY.includes(c[0]))).flat();
 (async () => {
   const rows = [];
-  for (const [name, cfg, url = '/?preview=1&module=all'] of cases) {
+  for (const [name, cfg, url = '/?preview=1&module=all', css = ''] of cases) {
     const port = 9300 + rows.length; const udd = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lt-'));
     const proc = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [...(VIS ? ['--window-position=0,0','--window-size=1707,1067'] : ['--headless=new']), '--remote-debugging-port=' + port, '--user-data-dir=' + udd, '--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu-rasterization', '--no-first-run', 'about:blank'], { stdio: 'ignore' });
     const pid = proc.pid; let b;
@@ -39,7 +43,7 @@ const cases = Array.from({ length: ROUNDS }, () => ALL.filter(c => !ONLY || ONLY
     p.on('console', m => { if (['warning', 'error'].includes(m.type())) msgs.push(m.type() + ': ' + m.text().slice(0, 120)); }); p.on('pageerror', e => msgs.push('pageerror ' + String(e).slice(0, 120)));
     p.on('requestfailed', r => msgs.push('reqfail ' + r.url().slice(0, 100)));
     await p.addInitScript((c) => { sessionStorage.setItem('cspace.booted', '1'); localStorage.setItem('mockhost.v1', JSON.stringify({ config: Object.fromEntries(Object.entries(c).map(([k, v]) => [k, String(v)])), setupDone: true, aboutMe: '' })); }, cfg);
-    await p.goto(URL + url); await p.waitForTimeout(4000);
+    await p.goto(URL + url); if (css) await p.addStyleTag({ content: css }); await p.waitForTimeout(4000);
     const slug = name.replace(/[^a-z0-9]+/gi, '_');
     await p.screenshot({ path: path.join(out, slug + '.png') });
     const layers = await p.evaluate(() => [...document.querySelectorAll('.frame [data-layer]')].map(e => e.getAttribute('data-layer')).join(','));
