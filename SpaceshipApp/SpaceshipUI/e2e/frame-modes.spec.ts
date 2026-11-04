@@ -115,3 +115,64 @@ test('each frame mode keeps its own layout: only fitted re-seats the top boxes',
   expect(Math.abs(xs.none - xs.rendered)).toBeLessThanOrEqual(1);
   expect(Math.abs(xs.fitted - xs.rendered)).toBeGreaterThan(10); // seated into its pocket
 });
+
+// Live test: after switching Picture -> Rendered -> Picture the frame ended up about 1.5x larger than the HUD's canvas while the panels stayed the right size.
+// Whatever the cause, the frame is now sized FROM the HUD canvas (ui/stage.ts) and re-fitted after every change to a frame setting, as the first load does.
+const areaGap = (page: Page) => page.evaluate(() => {
+  const svg = document.querySelector('#hud') as SVGSVGElement, vb = svg.viewBox.baseVal, m = svg.getScreenCTM()!;
+  const f = document.querySelector('.frame')!.getBoundingClientRect();
+  return { dx: Math.abs(f.left - m.e), dy: Math.abs(f.top - m.f), dw: Math.abs(f.width - vb.width * m.a), w: vb.width * m.a };
+});
+const worst = async (page: Page) => { const g = await areaGap(page).catch(() => ({ dx: 99, dy: 99, dw: 99 })); return Math.max(g.dx, g.dy, g.dw); };
+const openCc = async (page: Page) => { await page.locator('[aria-label="Control Center"]').first().click({ force: true }); await page.waitForSelector('.cc'); };
+
+for (const mode of ['rendered', 'picture', 'fitted']) {
+  test(`${mode}: the frame follows the HUD canvas when the canvas box changes (margins, a narrower stage)`, async ({ page }) => {
+    await page.setViewportSize({ width: 1707, height: 1067 });
+    expect(await boot(page, MODES[mode])).toEqual([]);
+    expect(await worst(page)).toBeLessThanOrEqual(2);
+    await page.addStyleTag({ content: '#hud{ width: calc(100vw - 260px) !important; height: calc(100vh - 140px) !important; margin: 31px 0 0 47px !important; }' });
+    await expect.poll(() => worst(page), { timeout: 4000 }).toBeLessThanOrEqual(2);
+    expect((await areaGap(page)).w).toBeLessThan(1707 - 200); // the canvas really did shrink
+  });
+}
+
+test('switching frame mode in the Control Center keeps the frame on the HUD canvas every time', async ({ page }) => {
+  await page.setViewportSize({ width: 1707, height: 1067 });
+  expect(await boot(page, { ...MODES.picture, Scale: '0.67' })).toEqual([]);
+  await openCc(page);
+  const sel = page.locator('.row', { hasText: 'Cockpit frame' }).locator('select');
+  for (const v of ['rendered', 'picture', 'rendered', 'picture', 'fitted', 'picture', 'none', 'picture']) {
+    await sel.selectOption(v);
+    if (v === 'none') { await expect(page.locator('.frame')).toHaveCount(0); continue; }
+    await expect.poll(() => worst(page), { timeout: 4000 }).toBeLessThanOrEqual(2);
+  }
+});
+
+test('a frame knocked 1.5x too big (the live symptom) is pulled back onto the canvas by the next frame-setting change', async ({ page }) => {
+  await page.setViewportSize({ width: 1707, height: 1067 });
+  expect(await boot(page, MODES.picture)).toEqual([]);
+  await openCc(page);
+  // break it the way the live app showed it: the frame at 1.5x the canvas, anchored at the top-left
+  await page.evaluate(() => { const f = document.querySelector('.frame') as HTMLElement; f.style.width = '2560px'; f.style.left = '0px'; f.style.top = '0px'; });
+  expect((await areaGap(page)).dw, 'it really is broken').toBeGreaterThan(500);
+  await page.locator('.row', { hasText: 'Cockpit frame' }).locator('select').selectOption('rendered');
+  await expect.poll(() => worst(page), { timeout: 4000 }).toBeLessThanOrEqual(2);
+  // and again for a different frame setting (the brightness slider), without changing the mode
+  await page.evaluate(() => { const f = document.querySelector('.frame') as HTMLElement; f.style.width = '2560px'; });
+  await page.locator('.row', { hasText: 'Frame brightness' }).locator('input[type="range"]').fill('70');
+  await expect.poll(() => worst(page), { timeout: 4000 }).toBeLessThanOrEqual(2);
+});
+
+test('only frame settings force a re-fit: a frame change sends a window resize, a Reduce motion change does not', async ({ page }) => {
+  await page.setViewportSize({ width: 1707, height: 1067 });
+  expect(await boot(page, MODES.picture)).toEqual([]);
+  await openCc(page);
+  await page.evaluate(() => { (window as unknown as { __resizes: number }).__resizes = 0; addEventListener('resize', () => { (window as unknown as { __resizes: number }).__resizes++; }); });
+  const resizes = () => page.evaluate(() => (window as unknown as { __resizes: number }).__resizes);
+  await page.locator('.row', { hasText: 'Reduce motion' }).locator('.ctl-switch').click();
+  await page.waitForTimeout(1500);
+  expect(await resizes(), 'a non-frame setting must not re-fit').toBe(0);
+  await page.locator('.row', { hasText: 'Cockpit frame' }).locator('select').selectOption('rendered');
+  await expect.poll(resizes, { timeout: 4000 }).toBeGreaterThanOrEqual(1);
+});

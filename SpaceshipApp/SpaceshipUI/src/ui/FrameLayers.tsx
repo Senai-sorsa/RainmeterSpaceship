@@ -7,6 +7,7 @@ import { partShapes } from './frameParts';
 import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
 import { PictureTrim } from './PictureTrim';
+import { stageBox } from './stage';
 import { blankStrayIcon, fixPanelSlabs, type SlabZone } from './panelSlab';
 import { seatInPicture } from '../modules/pictureSlots';
 import layout from '../generated/layout.json';
@@ -29,6 +30,9 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
   // the bottom panels' zones, seated like the modules are, so the glass slab behind each one follows its card (panelSlab.ts)
   const slabZones = useMemo(() => layout.zones.filter((z) => z.id === 'B_panelL' || z.id === 'B_panelR').map((z) => (style === 'fitted' ? seatInPicture(z) : z)) as SlabZone[], [style]);
   if (style === 'none') return null;
+  // sized from the HUD canvas (stage.ts), so it cannot disagree with it; until the first measurement the CSS rule (the same fit) applies
+  const sb = stageBox.value;
+  const frameBox = sb ? { left: `${sb.left}px`, top: `${sb.top}px`, width: `${sb.width}px` } : undefined;
   const pic = style === 'picture' || style === 'fitted'; // fitted is the same picture art; only the HUD layout differs
   const rgb = String(values.ColorAccent ?? '').split(',').slice(0, 3).map((x) => Math.min(255, Math.max(0, Number(x) || 0))).join(',');
   const accent = `rgb(${rgb})`;
@@ -49,7 +53,7 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
   return (
     // the frame is the 16:10 area the modules' svg letterboxes into (.frame in ui.css: width min(100vw, 160vh), top-left of that area), from the window
     // size alone. It must NOT follow the HUD-size value: a page Scale other than the design 0.67 made it 1.5x too big against the modules (live test)
-    <div class="frame" data-frame={style} aria-hidden="true">
+    <div class="frame" data-frame={style} aria-hidden="true" style={frameBox}>
       {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} zones={slabZones} />}
       {/* picture frames: the glare is CSpace's own cleaned layer (tools/clean_glass_fx.cjs): the skin's had an odd bright triangular spot in the right window */}
       {pic

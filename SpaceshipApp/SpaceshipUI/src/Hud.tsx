@@ -8,6 +8,7 @@ import { perfTier } from './host/perfTier';
 import { frameStyleOf } from './settings/frameStyle';
 import { deriveLabel, validateLabel } from './settings/identity';
 import { FrameLayers } from './ui/FrameLayers';
+import { frameSignature, measureStage, refitStage } from './ui/stage';
 import { Wallpaper } from './ui/Wallpaper';
 import { Caption } from './ui/Caption';
 import { MissionClock } from './modules/MissionClock';
@@ -107,9 +108,14 @@ export function Hud() {
   }, [pop]);
   const closeLog = useCallback(() => setLogOpen(false), []);
   useEffect(() => {
-    const on = () => setFit(fitOf());
+    const on = () => { setFit(fitOf()); measureStage(); };
     addEventListener('resize', on); // a display-scale or zoom change resizes the CSS viewport
-    return () => removeEventListener('resize', on);
+    // the frame is sized from the canvas box: follow it whenever the SVG's own box changes, not only when the window does
+    const svg = document.getElementById('hud');
+    const ro = typeof ResizeObserver === 'undefined' || !svg ? null : new ResizeObserver(() => measureStage());
+    if (svg) ro?.observe(svg);
+    measureStage();
+    return () => { removeEventListener('resize', on); ro?.disconnect(); };
   }, []);
   // the tier the page computes stands in for the skin's saved PerfTier, so every module draws at it
   const values: Record<string, string> = { ...store.values.value, PerfTier: String(perfTier.value) };
@@ -119,12 +125,20 @@ export function Hud() {
   currentBloomMode.value = light;
   const lightRadius = Math.max(0.5, 1.6 * num(values, 'GlowWidth', 3.2) * 0.45 * hudScale(values) * LIGHT_SCALE);
   values.Scale = String(hudScale(values) / DESIGN_FIT); // fit-independent: the svg and the frame already follow the window, so any display scale, zoom or resolution fills it
+  // a change to a FRAME setting (the Cockpit frame row, brightness, glass, scanlines...) re-runs the layout the way the first load does (stage.ts), so a frame
+  // switch can never leave the frame and the HUD on different scales. Other settings do not trigger it.
+  const frameSig = frameSignature(values);
+  const firstSig = useRef(true);
+  useEffect(() => {
+    if (firstSig.current) { firstSig.current = false; return; }
+    refitStage();
+  }, [frameSig]);
   const hide = hiddenZones(values); // the Off_ settings, as the skin's control.lua deactivates configs
   const shown = !hudHidden.value; // the console's OFF tab keeps only the top console
   return (
     <>
     <Wallpaper />
-    {shown && values.Off_Frame !== '1' && <FrameLayers style={frameStyleOf(values)} values={values} />}
+    {shown && values.Off_Frame !== '1' && <FrameLayers key={frameStyleOf(values)} style={frameStyleOf(values)} values={values} />}
     <svg id="hud" viewBox={`0 0 ${canvas.w} ${canvas.h}`} style={{ width: '100vw', height: '100vh', position: 'relative' }}
       preserveAspectRatio="xMidYMid meet">
       <HudDefs />
