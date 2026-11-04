@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "gen": "py -3 -I ../../tools/export_ui_assets.py",
+    "gen": "py -3 -I ../../tools/export_ui_assets.py && py -3 ../../tools/shade_pic.py --if-stale",
     "build": "npm run gen && vite build",
-    "test": "py -3 -I ../../tools/export_ui_assets.py --check && vitest run",
+    "test": "py -3 -I ../../tools/export_ui_assets.py --check && py -3 ../../tools/shade_pic.py --check && vitest run",
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run test:e2e",
     "dev": "vite"

@@ -191,6 +191,8 @@ def main():
     im.save(out, optimize=True)
     if has_alpha and not args.recut:
         glass_layers(alpha, 2.0, args.min_glass, IMAGES)
+        import shade_pic                        # CSpace's picture shade follows the new window mask
+        shade_pic.run([])
     print(f"wrote {out.relative_to(ROOT)} ({out.stat().st_size / 1e6:.1f} MB). "
           f"Set UseShipImage=1{'' if args.out == 'ship.png' else f' and ShipImage={args.out}'} in Settings.inc.")
 
