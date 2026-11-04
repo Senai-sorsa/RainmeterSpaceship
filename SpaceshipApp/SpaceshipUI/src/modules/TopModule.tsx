@@ -9,7 +9,7 @@ import { host, store } from '../settings/instance';
 import { alertFrame, type AlertState } from './alert';
 import { batteryFrame, type BatteryState } from './battery';
 import { consoleFrame, consoleIntent, lltMessage, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
-import { graphFrame, graphState, selectSource, type GraphState } from './graph';
+import { graphFrame, graphState, selectSource, settleSource, type GraphState } from './graph';
 import { resolveSource } from './sources';
 import { type Readings } from './readings';
 import { powerFrame } from './power';
@@ -45,6 +45,15 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
     cpu: graphState('cpu'), ram: graphState('ram'), a: graphState(savedSource(values.GraphA_Source, 'gpu', m)),
     b: graphState(savedSource(values.GraphB_Source, 'netdown', m)), battery: { samples: [] }, alert: { blink: 0 },
   }));
+  // metrics usually arrive after mount: a saved source the host cannot supply (vram without mVRAM) moves to the slot default once they do
+  useEffect(() => {
+    if (!m) return;
+    const r = readingsFrom(m);
+    setSt((s) => {
+      const a = settleSource(s.a, r, 'gpu'), b = settleSource(s.b, r, 'netdown');
+      return a === s.a && b === s.b ? s : { ...s, a, b };
+    });
+  }, [m]);
   const [view, setView] = useState(NO_VIEW);
   const say = (msg: string) => setView((v) => ({ ...v, msg, msgAt: Date.now() }));
   useEffect(() => host.onMessage((r) => { if (r.type === 'llt.result') say(r.ran === true ? 'DONE' : 'FAILED'); }) || undefined, []);
@@ -91,7 +100,7 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   // graph.lua setSource: a new source starts an empty history and is saved (GraphA_Source / GraphB_Source)
   const step = (k: 'a' | 'b', dir: number) => {
-    const next = selectSource(st[k], dir, m ? readingsFrom(m) : undefined);
+    const next = selectSource(st[k], dir, m ? readingsFrom(m) : {});
     setSt((s) => ({ ...s, [k]: next }));
     store.set(k === 'a' ? 'GraphA_Source' : 'GraphB_Source', next.src);
   };

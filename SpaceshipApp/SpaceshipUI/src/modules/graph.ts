@@ -1,6 +1,6 @@
 import { Canvas, heat, mix, type Op, type Style, type Zone, ramp } from '../draw/canvas';
 import { type Readings } from './readings';
-import { normalise, nextSource, SOURCES } from './sources';
+import { normalise, nextSource, resolveSource, SOURCES } from './sources';
 
 // Port of Skins/Spaceship/@Resources/Scripts/graph.lua: the history instrument in the top console. Mode 'fixed' always shows
 // one source; 'select' shows a source the user picks. OnClick, OnRightClick and OnScroll live in TopModule.tsx: they step
@@ -16,6 +16,11 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 /** A new graph on a source. An unknown id falls back to cpu, as Initialize does. */
 export function graphState(src: string): GraphState {
   return { src: SOURCES[src] ? src : 'cpu', hist: [] };
+}
+
+/** Readings have arrived: a slot on a source that is not offered (a saved vram, no mVRAM) moves to its default; otherwise the same state. */
+export function settleSource(state: GraphState, r: Readings, fallback: string): GraphState {
+  return resolveSource(state.src, r, fallback) === state.src ? state : graphState(fallback);
 }
 
 /** setSource with the step: the next or previous source, with an empty history. */

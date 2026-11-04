@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Op, Shape, Style } from '../src/draw/canvas';
-import { graphFrame, graphState, selectSource } from '../src/modules/graph';
+import { graphFrame, graphState, selectSource, settleSource } from '../src/modules/graph';
 import { bytes, mbps, nextSource, normalise, rate, resolveSource, SOURCES } from '../src/modules/sources';
 
 // Fake readings only. Expected values are worked out from graph.lua and sources.lua. Zone 100 x 40.
@@ -130,5 +130,16 @@ describe('disk source and hidden VRAM source', () => {
     expect(resolveSource('vram', { mVRAM: 1e9 }, 'gpu')).toBe('vram');
     expect(resolveSource('cpu', {}, 'gpu')).toBe('cpu');
     expect(nextSource('vram', 1, {})).toBe('cputemp');
+  });
+});
+
+describe('a saved vram when metrics arrive after mount', () => {
+  it('moves to the slot default when the first readings have no mVRAM, keeps vram when they do', () => {
+    const saved = graphState('vram'); // restored at mount, before any metrics
+    expect(saved.src).toBe('vram');
+    expect(settleSource(saved, { mCPU: 5 }, 'gpu').src).toBe('gpu');
+    expect(settleSource(saved, { mVRAM: 1e9 }, 'gpu')).toBe(saved);
+    const cpu = graphState('cpu');
+    expect(settleSource(cpu, {}, 'gpu')).toBe(cpu);
   });
 });
