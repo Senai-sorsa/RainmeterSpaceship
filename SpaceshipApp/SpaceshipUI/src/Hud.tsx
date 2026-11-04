@@ -83,6 +83,10 @@ function Neon({ d }: { d: string }) {
 // the Scale setting is the skin's, tuned on a 2560x1600 panel at 150 %: Scale 0.67 means "fills the screen" (0.67 / DESIGN_FIT = 1.005). Dividing by the live fit instead kept the HUD one logical size,
 // so at 100 % or 125 % it covered only 67 to 84 % of the screen (live test U10).
 const DESIGN_FIT = 2 / 3;
+// the HUD-size value as the modules may use it: the registry's range and default. A hand-edited or damaged settings file can hold anything
+// (negative, 1e9, text); a negative size made every rect draw with a negative width (over a thousand SVG errors), text fell back to 1 (a 1.5x HUD).
+const SCALE_MIN = 0.4, SCALE_MAX = 3, SCALE_DEFAULT = 0.67;
+export const hudScale = (v: Record<string, string>) => { const n = Number(v.Scale); return Number.isFinite(n) ? Math.min(SCALE_MAX, Math.max(SCALE_MIN, n)) : SCALE_DEFAULT; };
 const fitOf = () => Math.min(innerWidth / canvas.w, innerHeight / canvas.h) || 1;
 
 export function Hud() {
@@ -113,8 +117,8 @@ export function Hud() {
   // baseRadius is today's FULL bloom (canvas.ts flush: 1.6 * GlowWidth * 0.45 * Scale) in light-canvas px
   const light = bloomMode(perfTier.value, values);
   currentBloomMode.value = light;
-  const lightRadius = Math.max(0.5, 1.6 * num(values, 'GlowWidth', 3.2) * 0.45 * num(values, 'Scale', 1) * LIGHT_SCALE);
-  values.Scale = String(num(values, 'Scale', 1) / DESIGN_FIT); // fit-independent: the svg and the frame already follow the window, so any display scale, zoom or resolution fills it
+  const lightRadius = Math.max(0.5, 1.6 * num(values, 'GlowWidth', 3.2) * 0.45 * hudScale(values) * LIGHT_SCALE);
+  values.Scale = String(hudScale(values) / DESIGN_FIT); // fit-independent: the svg and the frame already follow the window, so any display scale, zoom or resolution fills it
   const hide = hiddenZones(values); // the Off_ settings, as the skin's control.lua deactivates configs
   const shown = !hudHidden.value; // the console's OFF tab keeps only the top console
   return (

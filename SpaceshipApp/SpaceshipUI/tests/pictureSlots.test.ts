@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PICTURE_SLOTS, seatInPicture } from '../src/modules/pictureSlots';
 import { visible } from '../src/modules/hidden';
 import { styleFrom } from '../src/modules/style';
+import layout from '../src/generated/layout.json';
 
 const zone = (id: string, over: Partial<{ x: number; y: number; w: number; h: number; matrix: number[] }> = {}) =>
   ({ id, x: 100, y: 200, w: 200, h: 100, matrix: [1, 0, 0, 1, 0, 0], ...over });
@@ -44,14 +45,20 @@ describe('seatInPicture', () => {
     expect(seatInPicture(z)).toBe(z);
     delete PICTURE_SLOTS.__t;
   });
-  it('the left and right stacks have the same shift and scale, row for row', () => {
-    for (const [l, r] of [['L_app1', 'R_app1'], ['L_app2', 'R_app2'], ['L_app3', 'R_app3'], ['L_app4', 'R_app4'], ['L_location', 'R_sysinfo'], ['L_dots', 'R_dots']])
-      expect(PICTURE_SLOTS[l]).toEqual(PICTURE_SLOTS[r]);
+  it('the side stacks are never moved: every left/right zone of the real layout comes back untouched', () => {
+    const sides = layout.zones.filter((z) => /^(L_|R_)/.test(z.id));
+    expect(sides.length).toBeGreaterThan(12);
+    for (const z of sides) expect(seatInPicture(z as never), z.id).toBe(z);
+  });
+  it('the real layout mirrors left and right: matching zones are drawn at the same height', () => {
+    const drawn = (id: string) => { const z = layout.zones.find((q) => q.id === id)!, [a, b, c, d, e, f] = z.matrix, px = z.x + z.w / 2, py = z.y + z.h / 2; return b * px + d * py + f + 0 * (a + c + e); };
+    for (const [l, r] of [['L_app1', 'R_app1'], ['L_app2', 'R_app2'], ['L_app3', 'R_app3'], ['L_app4', 'R_app4'], ['L_category', 'R_category'], ['L_location', 'R_sysinfo'], ['L_dots', 'R_dots']])
+      expect(Math.abs(drawn(l) - drawn(r)), l + ' vs ' + r).toBeLessThanOrEqual(1);
   });
 });
 
 describe('visible with the picture frame', () => {
-  const Z = { a: zone('G1_cpu'), b: zone('T_power'), list: [zone('L_app1'), zone('L_app2')] };
+  const Z = { a: zone('G1_cpu'), b: zone('T_power'), list: [zone('G2_select'), zone('G3_select')] };
   it('does nothing extra without pic', () => {
     expect(visible(Z, '')).toBe(Z);
     expect(visible(Z, '', false)).toBe(Z);
@@ -63,7 +70,7 @@ describe('visible with the picture frame', () => {
     expect(out.list[0].matrix).not.toEqual(Z.list[0].matrix);
   });
   it('hidden zones stay hidden with pic on', () => {
-    const out = visible(Z, 'G1_cpu,L_app2', true) as { a?: unknown; list: (unknown | undefined)[] };
+    const out = visible(Z, 'G1_cpu,G3_select', true) as { a?: unknown; list: (unknown | undefined)[] };
     expect(out.a).toBeUndefined();
     expect(out.list[1]).toBeUndefined();
     expect(out.list[0]).toBeDefined();

@@ -22,9 +22,8 @@ test('the fill follows a live resize without a reload', async ({ page }) => {
   await page.goto('/?preview=1&module=all');
   await page.waitForSelector('.frame');
   await page.setViewportSize({ width: 2560, height: 1600 });
-  await page.waitForTimeout(400);
-  const box = await page.locator('.frame').boundingBox();
-  expect(Math.abs(box!.width - 2560)).toBeLessThanOrEqual(26);
+  // wait for the state (the frame has refitted), not for a fixed time
+  await expect.poll(async () => Math.abs((await page.locator('.frame').boundingBox())!.width - 2560), { timeout: 8000 }).toBeLessThanOrEqual(26);
 });
 
 // the modules (svg, letterboxed xMidYMid) and the frame art (CSS box) must cover the same 16:10 area on any window shape
