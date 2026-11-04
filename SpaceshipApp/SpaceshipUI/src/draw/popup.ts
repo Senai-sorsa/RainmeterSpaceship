@@ -15,19 +15,19 @@ export function popupFrame(c: Canvas, st: Style, w: number, h: number, head = 50
   const d = 1.5, e = 3;
   if (alpha >= 250) c.bezel(P([[cut - d * 0.4, -d], [w + d, -d], [w + d, h - cut + d * 0.4], [w - cut + d * 0.4, h + d], [-d, h + d], [-d, cut - d * 0.4]]),
     P([[-e, h + e], [w - cut + e * 0.4, h + e]]));
-  c.fillPoly(body, BODY, 215 * k);
+  c.fillPoly(body, BODY, 250 * k); // near-opaque: the HUD behind must not show through (live test 2026-11-03)
   // a screen powered from its header (K2): light falls from the header down the glass, the header band is lit from
   // its top, a white specular line runs along the top edge, and the screen texture sits on the open panel
-  c.gradPoly(body, { kind: 'linear', x1: 0, y1: y, x2: 0, y2: y + Math.min(h, head * 5), stops: [[0, [ar, ag, ab, Math.floor(30 * k)]], [1, [ar, ag, ab, 0]]] });
-  c.gradRect(x, y, w, head, { kind: 'linear', x1: 0, y1: y, x2: 0, y2: y + head, stops: [[0, [ar, ag, ab, Math.floor(44 * k)]], [1, [ar, ag, ab, Math.floor(10 * k)]]] });
+  c.gradPoly(body, { kind: 'linear', x1: 0, y1: y, x2: 0, y2: y + Math.min(h, head * 5), stops: [[0, [ar, ag, ab, Math.floor(22 * k)]], [1, [ar, ag, ab, 0]]] });
+  c.gradRect(x, y, w, head, { kind: 'linear', x1: 0, y1: y, x2: 0, y2: y + head, stops: [[0, [ar, ag, ab, Math.floor(34 * k)]], [1, [ar, ag, ab, Math.floor(8 * k)]]] });
   if (alpha >= 250) c.texture(body);
-  c.hair(x + cut + 4, y + 0.5, x + w - 44, y + 0.5, heat(st, A1, 1), 1, 190 * k);
-  c.hot(P([[cut, 0], [w, 0], [w, h - cut], [w - cut, h], [0, h], [0, cut]]), A1, 3, 60 * k, true);
-  c.chamfer(x, y, w, h, cut, A1, 1, 140 * k);
-  c.poly(P([[0, cut + 28], [0, cut], [cut, 0], [cut + 52, 0]]), A1, 1.8, 255 * k);
-  c.poly(P([[w - cut - 52, h], [w - cut, h], [w, h - cut], [w, h - cut - 28]]), A1, 1.8, 255 * k);
-  c.poly(P([[w - 40, 0], [w, 0], [w, 26]]), A1, 1.4, 200 * k);
-  c.poly(P([[0, h - 26], [0, h], [40, h]]), A1, 1.4, 200 * k);
+  c.hair(x + cut + 4, y + 0.5, x + w - 44, y + 0.5, heat(st, A1, 1), 1, 150 * k);
+  c.hot(P([[cut, 0], [w, 0], [w, h - cut], [w - cut, h], [0, h], [0, cut]]), A1, 3, 42 * k, true);
+  c.chamfer(x, y, w, h, cut, A1, 1, 110 * k);
+  c.poly(P([[0, cut + 28], [0, cut], [cut, 0], [cut + 52, 0]]), A1, 1.8, 205 * k);
+  c.poly(P([[w - cut - 52, h], [w - cut, h], [w, h - cut], [w, h - cut - 28]]), A1, 1.8, 205 * k);
+  c.poly(P([[w - 40, 0], [w, 0], [w, 26]]), A1, 1.4, 160 * k);
+  c.poly(P([[0, h - 26], [0, h], [40, h]]), A1, 1.4, 160 * k);
 }
 
 /** A list row's band (K10): every other row faintly lit so the eye follows it; the active row lit from its left. */
