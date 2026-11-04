@@ -46,3 +46,25 @@ for (const [w, h] of [[1920, 1080], [3440, 1440], [1600, 1200], [1707, 1067]] as
     expect(Math.abs(r.w - r.fw)).toBeLessThanOrEqual(r.w * 0.012 + 1);
   });
 }
+
+// live test (user screenshot): the frame came out 1.5x the size of the modules. The frame must follow the window only, never the HUD-size (Scale) value.
+for (const scale of ['0.4', '1', '1.5', '2.5']) {
+  for (const style of ['picture', 'rendered']) {
+    test(`frame stays on the modules' area with Scale=${scale} (${style} frame)`, async ({ page }) => {
+      await page.setViewportSize({ width: 1707, height: 1067 });
+      await page.addInitScript((c) => { sessionStorage.setItem('cspace.booted', '1'); localStorage.setItem('mockhost.v1', JSON.stringify({ config: c, setupDone: true, aboutMe: '' })); },
+        { Scale: scale, UseShipImage: style === 'picture' ? '1' : '0' });
+      await page.goto('/?preview=1&module=all');
+      await page.waitForSelector('.frame');
+      const r = await page.evaluate(() => {
+        const svg = document.querySelector('#hud') as SVGSVGElement;
+        const vb = svg.viewBox.baseVal, m = svg.getScreenCTM()!;
+        const f = document.querySelector('.frame')!.getBoundingClientRect();
+        return { w: vb.width * m.a, fw: f.width, x: m.e, fx: f.left, y: m.f, fy: f.top };
+      });
+      expect(Math.abs(r.fw - r.w)).toBeLessThanOrEqual(r.w * 0.01 + 1);
+      expect(Math.abs(r.fx - r.x)).toBeLessThanOrEqual(2);
+      expect(Math.abs(r.fy - r.y)).toBeLessThanOrEqual(2);
+    });
+  }
+}

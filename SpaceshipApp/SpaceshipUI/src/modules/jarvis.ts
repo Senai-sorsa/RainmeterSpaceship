@@ -20,6 +20,8 @@ const STALE_S = 8;          // a feed older than this is offline
 
 export type JarvisState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'offline';
 export const LABEL: Record<JarvisState, string> = { idle: 'STANDBY', listening: 'LISTENING', thinking: 'THINKING', speaking: 'SPEAKING', offline: 'OFFLINE' };
+// live test: the core turned too fast; every rotation of it (rings, plexus, the ball) runs at 2/3 of the skin's rate
+const SPIN_TRIM = 2 / 3;
 const SPIN: Record<string, number> = { idle: 1, listening: 0.7, thinking: 3, speaking: 1.4, offline: 0.3 };
 
 export type Feed = { state: string; level: number; note?: string }; // note: the host's caption (STARTING, NO PYTHON...) in place of the state's
@@ -112,7 +114,7 @@ export function orbStep(m: OrbMotion, state: string, level: number, dt: number):
   const target = state === 'speaking' || state === 'listening' ? clamp(Number.isFinite(level) ? level : 0, 0, 1) : 0;
   const lvl = m.lvl + (target - m.lvl) * (target > m.lvl ? 0.55 : 0.18);
   const want = state === 'speaking' ? 0.55 + 0.45 * lvl : state === 'thinking' ? 0.25 : 0;
-  const speed = state === 'speaking' ? 1 + 1.6 * lvl : ORB_SPEED[state] ?? 1;
+  const speed = (state === 'speaking' ? 1 + 1.6 * lvl : ORB_SPEED[state] ?? 1) * SPIN_TRIM;
   return { lvl, act: m.act + (want - m.act) * 0.25, fIdle: m.fIdle + dt * speed, fAct: m.fAct + dt * (1 + 1.2 * lvl) };
 }
 
@@ -136,7 +138,7 @@ export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone,
   const col = stateColor(state, style, cols);
   const rc = dim ? D : col;
   const hot = mix(rc, W, 0.45);
-  const spin = state === 'speaking' ? 1.4 + 2 * lvl : SPIN[state] ?? 1;
+  const spin = (state === 'speaking' ? 1.4 + 2 * lvl : SPIN[state] ?? 1) * SPIN_TRIM;
   const yaw = (frame * 0.006 * spin) % (2 * Math.PI);
   const rot1 = (frame * 0.5 * spin) % 360, rot2 = (frame * 0.8 * spin) % 360, rot3 = (-frame * 0.25 * spin) % 360;
 

@@ -38,9 +38,9 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
   // Frame.ini's Shape parts: Glass under everything (rendered only), Accents/Spill/Lights/Decor over it (Decor in both styles)
   const vars = { ...values, ColorAccent: rgb };
   return (
-    // the skin draws the frame at 2560*Scale logical px from the screen's top-left (0.67 overhangs a 150 % screen by
-    // ~0.5 %), where the modules sit too; Hud passes Scale already divided by the fit, so 1 means "fills the window"
-    <div class="frame" data-frame={style} aria-hidden="true" style={{ width: `calc(min(100vw, 160vh) * ${n(values, 'Scale', 1)})` }}>
+    // the frame is the 16:10 area the modules' svg letterboxes into (.frame in ui.css: width min(100vw, 160vh), top-left of that area), from the window
+    // size alone. It must NOT follow the HUD-size value: a page Scale other than the design 0.67 made it 1.5x too big against the modules (live test)
+    <div class="frame" data-frame={style} aria-hidden="true">
       {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} />}
       {img(pic ? 'glass_fx_pic' : 'glass_fx', alpha(n(values, 'GlassGlare', 12) * 21))}
       {scan && img(pic ? 'scan_pic' : 'scan', alpha(n(values, 'ScanAlpha', 6) * 18))}

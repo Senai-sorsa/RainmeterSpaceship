@@ -22,10 +22,10 @@ describe('orb motion (jarvis.lua 317-329)', () => {
     expect(m.act).toBeLessThan(3 / 255);
   });
 
-  it('frames advance by dt times the state speed; a bad level counts as 0', () => {
-    expect(orbStep(rest, 'thinking', 0, 2).fIdle).toBe(3);
-    expect(orbStep(rest, 'offline', 0, 3).fIdle).toBeCloseTo(1.05);
-    expect(orbStep(rest, 'speaking', NaN, 1)).toEqual({ lvl: 0, act: 0.1375, fIdle: 1, fAct: 1 });
+  it('frames advance by dt times the state speed (at 2/3, the live-test trim); a bad level counts as 0', () => {
+    expect(orbStep(rest, 'thinking', 0, 2).fIdle).toBeCloseTo(3 * (2 / 3));
+    expect(orbStep(rest, 'offline', 0, 3).fIdle).toBeCloseTo(1.05 * (2 / 3));
+    expect(orbStep(rest, 'speaking', NaN, 1)).toEqual({ lvl: 0, act: 0.1375, fIdle: 2 / 3, fAct: 1 });
   });
 });
 
