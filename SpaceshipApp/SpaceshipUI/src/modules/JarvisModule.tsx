@@ -105,6 +105,7 @@ export function JarvisLogModule({ style, log = '', live = '', muted = false, ass
   const [scroll, setScroll] = useState(0);
   const [poke, setPoke] = useState(0);
   const [typing, setTyping] = useState(false);
+  const openedAt = useRef(0); // a blur in the first 0.8 s after TYPE is the window still taking focus, not the user leaving
   useEffect(() => setScroll(0), [log, live]); // new text jumps back to the newest line
   useEffect(() => {
     if (!onClose) return;
@@ -123,8 +124,10 @@ export function JarvisLogModule({ style, log = '', live = '', muted = false, ass
       {onClose && <rect x={(W - 44) * s} y={8 * s} width={32 * s} height={32 * s} fill="transparent" data-hit aria-label="Close log"
         style={{ cursor: 'pointer' }} onClick={onClose} />}
       {/* TYPE at (w-330, 8, 90x32) opens Jarvis.ini's mAsk InputText (150, 556, 860x36) */}
-      <rect x={(W - 330) * s} y={8 * s} width={90 * s} height={32 * s} fill="transparent" data-hit aria-label={`Type to ${assistant}`}
-        style={{ cursor: 'pointer' }} onClick={() => setTyping(true)} />
+      {/* data-hit="keyboard": the host takes the keyboard on a mouse-down only when a keyboard region is already on the page (Program.cs
+          WM_LBUTTONDOWN), so the TYPE button itself must be one; otherwise the box opens without focus and closes at once */}
+      <rect x={(W - 330) * s} y={8 * s} width={90 * s} height={32 * s} fill="transparent" data-hit="keyboard" aria-label={`Type to ${assistant}`}
+        style={{ cursor: 'pointer' }} onClick={() => { openedAt.current = Date.now(); setTyping(true); }} />
       {typing && <foreignObject x={150 * s} y={556 * s} width={860 * s} height={36 * s}>
         <input data-hit="keyboard" aria-label={`Ask ${assistant}`} maxLength={500} autoFocus ref={(el) => el?.focus()}
           style={{ width: '100%', height: '100%', boxSizing: 'border-box', border: 0, outline: 0, padding: `0 ${6 * s}px`,
@@ -133,7 +136,7 @@ export function JarvisLogModule({ style, log = '', live = '', muted = false, ass
             const el = e.currentTarget;
             if (e.key === 'Enter') { if (el.value.trim()) host.send({ type: 'jarvis.cmd', cmd: 'ask', text: el.value.slice(0, 500) }); setTyping(false); }
             else if (e.key === 'Escape') setTyping(false);
-          }} onBlur={() => setTyping(false)} />
+          }} onBlur={(e) => { if (Date.now() - openedAt.current < 800) e.currentTarget.focus(); else setTyping(false); }} />
       </foreignObject>}
     </g>
   );

@@ -3,6 +3,14 @@
   "generator": "SpaceshipApp/SpaceshipUI/tests/contract.test.ts (UPDATE_CONTRACT=1)",
   "keys": [
     {
+      "key": "AllowCopy",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
       "key": "AssistantLabel",
       "file": "Settings.inc",
       "control": {

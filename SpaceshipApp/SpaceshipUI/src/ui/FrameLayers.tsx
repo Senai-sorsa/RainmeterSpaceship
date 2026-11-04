@@ -8,7 +8,7 @@ import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
 import { PictureTrim } from './PictureTrim';
 import { stageBox } from './stage';
-import { blankStrayIcon, fixPanelSlabs, type SlabZone } from './panelSlab';
+import { blankStrayIcon, consoleCutout, fixPanelSlabs, type SlabZone } from './panelSlab';
 import { seatInPicture } from '../modules/pictureSlots';
 import layout from '../generated/layout.json';
 import { bootRunning } from './settle';
@@ -23,7 +23,11 @@ const url = (name: string) => urls[`../generated/frame/${(manifest as Record<str
 const n = (v: Record<string, string>, k: string, d: number) => { const x = Number(v[k]); return Number.isFinite(x) ? x : d; };
 const alpha = (x: number) => Math.min(255, Math.max(0, x)) / 255;
 // the HUD's own trim kept in fitted mode: everything except the top 330 units and the bottom console (x 700..1860, y 1380..1600), which PictureTrim draws on the art's edges
-const DECOR_CLIP = 'polygon(0 20.625%, 100% 20.625%, 100% 100%, 72.656% 100%, 72.656% 86.25%, 27.344% 86.25%, 27.344% 100%, 0 100%)';
+// the cut-out's sides are the bottom panels' slab edges, not a fixed 700 and 1860: the slabs reach into that range and lost a corner to the clip
+const decorClip = (zones: SlabZone[]) => {
+  const { left, right } = consoleCutout(zones), pc = (x: number) => `${((x / 2560) * 100).toFixed(3)}%`;
+  return `polygon(0 20.625%, 100% 20.625%, 100% 100%, ${pc(right)} 100%, ${pc(right)} 86.25%, ${pc(left)} 86.25%, ${pc(left)} 100%, 0 100%)`;
+};
 const fill = { position: 'absolute', inset: 0, backgroundSize: '100% 100%' } as const;
 
 /** Frame.ini's cockpit, as stacked layers in the skin's drawing order. Alpha formulas are the skin's (GlassGlare*21, ScanAlpha*18, ...). */
@@ -77,7 +81,7 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {style === 'fitted' ? (
         <>
           {/* the top 330 units and the bottom console of the HUD's own trim are hidden: PictureTrim draws them along the picture's slots and band instead */}
-          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: DECOR_CLIP }}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>
+          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: decorClip(slabZones) }}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>
           <PictureTrim accent={accent} tier={tier} />
         </>
       ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} zones={slabZones} />}

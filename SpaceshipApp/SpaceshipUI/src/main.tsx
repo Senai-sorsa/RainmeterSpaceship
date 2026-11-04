@@ -33,6 +33,7 @@ effect(() => {
   const v = { ...(settings as { variables: Record<string, string> }).variables, ...store.values.value };
   for (const [k, val] of Object.entries(themeVars(v))) document.documentElement.style.setProperty(k, val);
   document.documentElement.dataset.reduceMotion = v.ReduceMotion === '1' ? '1' : '0';
+  document.documentElement.dataset.allowCopy = v.AllowCopy === '1' ? '1' : '0'; // tokens.css: off blocks selecting text on the HUD
 });
 
 host.onMessage(acceptSystemMetrics);

@@ -9,15 +9,17 @@ describe('regionsOf', () => {
     expect(regionsOf([{ left: 10.4, top: 20, width: 30.2, height: 5 }], 1.5)).toEqual([[9, 24, 58, 20]]);
   });
   it('drops empty boxes and keeps at most 64', () => {
-    const boxes = Array.from({ length: 70 }, (_, i) => ({ left: i, top: 0, width: 1, height: 1 }));
-    expect(regionsOf([{ left: 0, top: 0, width: 0, height: 9 }, ...boxes], 1)).toHaveLength(64);
+    const boxes = Array.from({ length: 70 }, (_, i) => ({ left: i * 20, top: 0, width: 1, height: 1 }));
+    expect(regionsOf([{ left: 0, top: 0, width: 0, height: 9 }, ...boxes], 1).length).toBeLessThanOrEqual(64);
   });
-  it('when over the cap the LAST boxes (the overlays on top) win, not the first', () => {
+  it('over the cap no box loses its click: every one (first or last) stays inside some region', () => {
     const hud = Array.from({ length: 60 }, (_, i) => ({ left: i * 30, top: 0, width: 10, height: 10 }));
     const drawer = Array.from({ length: 12 }, (_, i) => ({ left: i * 30, top: 500, width: 10, height: 10 }));
     const out = regionsOf([...hud, ...drawer], 1);
-    expect(out).toHaveLength(64);
-    for (const d of drawer) expect(out.some((r) => r[1] === 494 && r[0] === d.left - 6)).toBe(true); // every drawer box is kept
+    expect(out.length).toBeLessThanOrEqual(64);
+    for (const b of [...hud, ...drawer]) {
+      expect(out.some((r) => b.left >= r[0] && b.top >= r[1] && b.left + b.width <= r[0] + r[2] && b.top + b.height <= r[1] + r[3])).toBe(true);
+    }
   });
   it('drops a box that lies wholly inside another one, and duplicates', () => {
     const out = regionsOf([{ left: 0, top: 0, width: 100, height: 100 }, { left: 10, top: 10, width: 20, height: 20 }, { left: 0, top: 0, width: 100, height: 100 }], 1);

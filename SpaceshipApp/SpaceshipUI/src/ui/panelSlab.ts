@@ -19,6 +19,23 @@ export function slabPath(z: SlabZone, pad = 7): string {
   return `${P(x1, y0)} | LineTo ${P(x0, y0)} | LineTo ${P(x0, y1)} | LineTo ${P(x1, y1)} | ClosePath 1`;
 }
 
+/** The slab's corners in canvas units (the same four points slabPath draws). */
+function slabCorners(z: SlabZone, pad = 7): [number, number][] {
+  const [a, b, c, d, e, f] = z.matrix;
+  const x0 = z.x - pad, y0 = z.y - pad, x1 = z.x + z.w + pad, y1 = z.y + z.h + pad;
+  return [[x1, y0], [x0, y0], [x0, y1], [x1, y1]].map(([x, y]) => [a * x + c * y + e, b * x + d * y + f]);
+}
+
+/** Where the bottom console's cut-out in the fitted Decor clip may start and end: the left slab's right-most corner and the right slab's left-most one, so the
+ *  slabs (which reach into the console's x range, 700..1860) keep all four corners. Falls back to the console's own edges. */
+export function consoleCutout(zones: SlabZone[], left = 700, right = 1860): { left: number; right: number } {
+  const edge = (id: string, pick: (xs: number[]) => number, fallback: number) => {
+    const z = zones.find((q) => q.id === id);
+    return z && z.matrix.length === 6 ? pick(slabCorners(z).map((p) => p[0])) : fallback;
+  };
+  return { left: Math.max(left, edge('B_panelL', (xs) => Math.max(...xs), left)), right: Math.min(right, edge('B_panelR', (xs) => Math.min(...xs), right)) };
+}
+
 /** The Decor section with the two slabs rebuilt from the panels' zones. A section without the skin's original slab paths, or a missing zone, is left as it is. */
 export function fixPanelSlabs<S extends Record<string, string>>(sec: S, zones: SlabZone[]): S {
   let out: Record<string, string> | null = null;

@@ -30,3 +30,12 @@
 @font-face { font-family: 'Share Tech Mono'; src: url('../../../Skins/Spaceship/@Resources/Fonts/ShareTechMono-Regular.ttf'); }
 html, body { margin: 0; background: var(--bg); overflow: hidden; }
 .label { font: 700 11px/1 'B612 Mono', monospace; letter-spacing: .3em; text-transform: uppercase; fill: var(--text); }
+
+/* No highlighting on the HUD, and the plain arrow over text (the I-beam only in a text box). The Control Center, the setup wizard and its help always allow
+   copying; the AllowCopy setting (data-allow-copy on <html>, main.tsx) allows it on the HUD too. */
+html { cursor: default; }
+html:not([data-allow-copy='1']) body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html body :is(.cc, .wiz-panel, .help, .panel), html body :is(.cc, .wiz-panel, .help, .panel) * { -webkit-user-select: text; user-select: text; }
+html body :is(input, textarea, [contenteditable]) { -webkit-user-select: text; user-select: text; cursor: text; }
+html body :is(button, [role='button'], summary, select, svg [data-hit], a[href]):not(input, textarea) { cursor: pointer; }
+svg text, svg tspan, html body :is(.cc, .wiz-panel, .help, .panel) :is(p, span, div, small, label, li, td, h1, h2, h3, output) { cursor: inherit; }

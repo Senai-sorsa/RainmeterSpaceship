@@ -51,6 +51,7 @@ add('display', 'Theme', 'normal', [
   ['ColorWarn', 'Warning colour', 'Colour for warnings such as a low battery.', col, '255,130,40'],
   ['GlowAlpha', 'Glow strength', 'How strongly the neon lines glow.', sl(0, 160, 4), '76'],
   ['ReduceMotion', 'Reduce motion', 'Stops Control Center and setup animations. The HUD keeps running.', tog, '0', { opt: 1 }],
+  ['AllowCopy', 'Allow copying', 'Lets you select and copy text on the main HUD. Off: the HUD cannot be highlighted. The Control Center always allows copying.', tog, '0', { opt: 1 }],
 ]);
 add('display', 'Theme', 'advanced', [
   ['ColorDim', 'Dim colour', 'Colour for inactive lines and labels.', col, '0,140,185'],
