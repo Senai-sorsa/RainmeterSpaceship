@@ -427,15 +427,17 @@ def route(text):
     return _route_rest(text, named, t, whole, cmd)
 
 
-def _route_rest(text, named, t, whole, cmd):
-    """route() after the opening words are read (split out so "I need ..." can be tried twice)."""
-    if text.strip().endswith("?") and cmd == t and not named:   # "Jarvis, ...?" was a command before the name moved out
-        cmd = ""
+def _rules_undo(text, named, t, whole, cmd):
+    """undo / never mind. Returns a route, or None when nothing here matches (the next area is tried)."""
     if re.fullmatch(rf"(?:(?:no|oh|oops|wait|actually|never ?mind|{'|'.join([NAME] + NAMES)})[,.!]? +)*"
                     r"(?:undo(?: that| it)?|put it back|cancel that|take that back|back to (?:before|how it was|how you were))", whole):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
         return ("end", None, None, None)                       # T1: he drops it and says nothing (jarvis.py: control)
+
+
+def _rules_other_device(text, named, t, whole, cmd):
+    """things on another device. Returns a route, or None when nothing here matches (the next area is tried)."""
     dev = OTHER_DEVICE.search(cmd) if OTHER_DEVICE_VERB.match(cmd) else None
     if dev:                                                    # "set my alarm on my phone": not reachable, and not "couldn't work it out"
         noun = {"tv": "TV", "ipad": "iPad", "iphone": "iPhone", "smart tv": "smart TV"}.get(dev.group("dev"), dev.group("dev"))
@@ -443,12 +445,20 @@ def _route_rest(text, named, t, whole, cmd):
         if re.match(r"(?:set|add|schedule)\b.*\b(?:alarm|timer|reminder)", cmd):
             return ("say", None, None, f"I can't reach {what} from here. I can set that on this PC, though.")
         return ("say", None, None, f"I can't reach {what} from here. I only control this PC.")
+
+
+def _rules_mood(text, named, t, whole, cmd):
+    """mood commands. Returns a route, or None when nothing here matches (the next area is tried)."""
     tm = mood_timed(cmd)
     if tm:                                                     # Slice 3: "be serious for ten minutes" (this session only)
         return ("say", "mood_for", tm, timed_line(*tm))       # started by command_reply: route() also only classifies
     key = mood_command(cmd)
     if key:                                                    # M2: "be serious", "just answer briefly", "stop joking"
         return ("act", "mood", key, None)
+
+
+def _rules_followups(text, named, t, whole, cmd):
+    """fixes to the last answer, volume question, heard/again, snooze, last-item, reminders. Returns a route, or None when nothing here matches (the next area is tried)."""
     # "no, AM" / "I meant the evening" just after a clock time was set: moved 12 hours (remind_reply). "Morning." alone
     # is a greeting, so a part of the day needs the "no" / "I meant" in front
     m = re.fullmatch(r"((?:no,? |i meant |make (?:it|that) )*)(?:in the |the |at )?(a\.? ?m|p\.? ?m|morning|afternoon|evening|night)", whole)
@@ -469,6 +479,10 @@ def _route_rest(text, named, t, whole, cmd):
     op = reminder_cmd(t, cmd, time.time())
     if op:
         return ("remind", op[0], op[1:], None)
+
+
+def _rules_memory(text, named, t, whole, cmd):
+    """briefing, memory, what he knows, to-do. Returns a route, or None when nothing here matches (the next area is tried)."""
     if re.fullmatch(r"(?:good (?:morning|afternoon|evening)|brief me|(?:give me )?(?:my |the )?daily briefing|"
                     r"what.?s my day look(?:ing)? like)(?:,? " + NAME + r")?", whole):
         return ("brief", None, None, None)
@@ -526,6 +540,10 @@ def _route_rest(text, named, t, whole, cmd):
             return ("say", None, None, "No to-do note is set (Control Center, TO-DO NOTE).")
         item = " ".join(as_said(text, m.group(1)).split())[:200]
         return ("act", "todo", item, f"Add '{item}' to your to-do list? Confirm with yes.")
+
+
+def _rules_lookup(text, named, t, whole, cmd):
+    """notes search, installed apps. Returns a route, or None when nothing here matches (the next area is tried)."""
     m = re.search(r"\b(?:search|check|look (?:through|in)|find|what do)\b.*\b(?:my )?(?:notes?|vault|obsidian)\b(?:.*?\b(?:for|about|on)\b\s+(.+))?", t)
     if m:
         q = m.group(1) or re.sub(r"\b(search|check|look|through|in|find|what|do|my|notes?|vault|obsidian|say)\b", " ", t)
@@ -533,6 +551,10 @@ def _route_rest(text, named, t, whole, cmd):
     m = re.search(r"\b(?:is|do i have)\s+(.+?)\s+installed\b|\b(?:what|which|list)\b.*\b(?:apps|applications|programs)\b.*\binstalled\b", t)
     if m:
         return ("apps", None, (m.group(1) or "").strip(), None)
+
+
+def _rules_system(text, named, t, whole, cmd):
+    """power mode, stealth, microphone device, mute himself. Returns a route, or None when nothing here matches (the next area is tried)."""
     pc = r"(?:the |my |this )?(?:pc|computer|laptop|system|machine)"
     if re.match(r"lock (the |my )?(pc|computer|screen|laptop)\b", cmd) or re.fullmatch(rf"lock(?: it| up| {pc})?", cmd):
         return ("act", "lock", None, "You want me to lock the PC. Confirm with yes.")
@@ -568,6 +590,10 @@ def _route_rest(text, named, t, whole, cmd):
         return ("act", "micdev", got, f"You want me to listen through {got or 'the Windows default microphone'}. Confirm with yes.")
     if re.fullmatch(r"(?:mute|silence) yourself", cmd):
         return ("act", "mute", None, None)                    # his voice is the sound he makes: the same mute as "mute"
+
+
+def _rules_bluetooth(text, named, t, whole, cmd):
+    """bluetooth on/off, pair, list, connect. Returns a route, or None when nothing here matches (the next area is tried)."""
     m = (re.fullmatch(r"(?:turn|switch) (on|off) (?:the |my )?bluetooth", cmd) or re.fullmatch(r"(?:turn|switch) (?:the |my )?bluetooth (on|off)", cmd)
          or re.fullmatch(r"(?:(enable)|(disable)) (?:the |my )?bluetooth", cmd))
     if m:                                                      # 7b: off asks first, it cuts a Bluetooth mouse or headset
@@ -600,6 +626,10 @@ def _route_rest(text, named, t, whole, cmd):
         if got[2] == want:
             return ("say", None, None, f"{got[1]} is already {'connected' if want else 'disconnected'}.")
         return ("act", "btlink", (got[0], want, got[1]), f"You want me to {'connect' if want else 'disconnect'} {got[1]}. Confirm with yes.")
+
+
+def _rules_settings(text, named, t, whole, cmd):
+    """settings pages, screenshot, desktop, recycle bin. Returns a route, or None when nothing here matches (the next area is tried)."""
     page = None                                                # 7c/7d: a fixed table of Windows settings pages
     names = (("night light", r"night ?light", 1), ("focus", r"focus(?: assist)?|do not disturb", 1), ("battery saver", r"battery saver", 1),
              ("startup", r"start-?up apps|startup programs", 1), ("apps", r"installed apps|apps and features", 1),
@@ -628,6 +658,10 @@ def _route_rest(text, named, t, whole, cmd):
         return ("act", "desktop", None, None)
     if re.fullmatch(r"empty (?:the |my )?(?:recycle bin|trash|bin)", cmd):
         return ("act", "recycle", None, "You want me to empty the recycle bin. That can't be undone. Confirm with yes.")
+
+
+def _rules_display(text, named, t, whole, cmd):
+    """dark/light mode, brightness. Returns a route, or None when nothing here matches (the next area is tried)."""
     m = (re.fullmatch(r"(?:switch|change|go|turn) (?:on |to |over to |back to )?(?:the )?(dark|light) (?:mode|theme)", cmd)
          or re.fullmatch(r"(?:use|enable|set|put) (?:the )?(dark|light) (?:mode|theme)(?: on)?", cmd)
          or re.fullmatch(r"(?:turn off|disable) (?:the )?(dark|light) (?:mode|theme)", cmd) or re.fullmatch(r"(dark|light) (?:mode|theme)", cmd))
@@ -648,6 +682,10 @@ def _route_rest(text, named, t, whole, cmd):
     n = m and (_num(m.group(2)) if m.group(2) else 10)
     if m and n is not None:
         return ("act", "brightness", ("step", n if m.group(1) in ("brighten", "brighter", "up", "raise", "increase", "boost") else -n), None)
+
+
+def _rules_mic_level(text, named, t, whole, cmd):
+    """microphone mute and level. Returns a route, or None when nothing here matches (the next area is tried)."""
     mic_word = r"(?:the |my )?(?:mic|microphone)"
     m = re.match(rf"(mute|unmute) {mic_word}$", cmd)
     if m:                                                      # 7a: he cannot hear "unmute" once muted, so mute asks first
@@ -666,6 +704,10 @@ def _route_rest(text, named, t, whole, cmd):
     n = m and (_num(m.group(2)) if m.group(2) else 10)
     if m and n is not None:
         return ("act", "mic_level", ("step", int(n) if m.group(1) in ("up", "raise", "increase", "boost") else -int(n)), None)
+
+
+def _rules_sound(text, named, t, whole, cmd):
+    """mute and the volume. Returns a route, or None when nothing here matches (the next area is tried)."""
     m = re.match(r"(mute|unmute)( the)?( sound| audio| volume| speakers)?$", cmd)
     if m:
         return ("act", m.group(1), None, None)
@@ -694,6 +736,10 @@ def _route_rest(text, named, t, whole, cmd):
     n = m and (_num(m.group(2)) if m.group(2) else 10)
     if m and n is not None:
         return ("act", "volume", ("step", int(n) if m.group(1) in ("raise", "increase", "boost") else -int(n)), None)
+
+
+def _rules_media(text, named, t, whole, cmd):
+    """next/previous track, leave stealth. Returns a route, or None when nothing here matches (the next area is tried)."""
     thing = r"(?: (?:the |my |this )?(?:music|song|track|video|playback))"
     # shortcut: one play/pause key, so "play" while it plays pauses; Windows has no separate keys worth the code
     if re.match(rf"(?:(?:pause|play|resume|unpause){thing}?|(?:stop|shut up|shut off|cut|kill|silence){thing})$", cmd):   # "shut up the music"
@@ -704,6 +750,10 @@ def _route_rest(text, named, t, whole, cmd):
         return ("act", "media", "prev", None)
     if re.fullmatch(r"(?:exit|leave|turn off|disable|get out of) (?:the )?stealth(?: mode)?", cmd):
         return ("say", None, None, "You leave stealth in the Control Center.")      # it can't be undone by voice
+
+
+def _rules_apps(text, named, t, whole, cmd):
+    """close and open apps. Returns a route, or None when nothing here matches (the next area is tried)."""
     m = re.match(r"(?:close|quit|exit|kill)\s+(?:the\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
     if m and not re.search(r"\b(log|transcript|history|conversation|chat|pop ?up|window)\b", m.group(1)):
         exe = running_window(m.group(1))
@@ -721,6 +771,10 @@ def _route_rest(text, named, t, whole, cmd):
         if start_apps() is None:
             return ("say", None, None, "The app list isn't ready yet.")
         # not an app ("run a speed test"): let the model answer
+
+
+def _rules_misc(text, named, t, whole, cmd):
+    """facts, several commands in one, not built yet, unparsed commands, diagnostics. Returns a route, or None when nothing here matches (the next area is tried)."""
     answer = fact_answer(whole, time.time())
     if answer:
         return ("fact", None, None, answer)
@@ -745,6 +799,20 @@ def _route_rest(text, named, t, whole, cmd):
     d = diag_route(whole)
     if d:
         return d
+
+
+# The order IS the behaviour (an earlier area wins): tests/test_rule_order.py prints and checks it.
+RULES = (("undo", _rules_undo), ("other_device", _rules_other_device), ("mood", _rules_mood), ("followups", _rules_followups), ("memory", _rules_memory), ("lookup", _rules_lookup), ("system", _rules_system), ("bluetooth", _rules_bluetooth), ("settings", _rules_settings), ("display", _rules_display), ("mic_level", _rules_mic_level), ("sound", _rules_sound), ("media", _rules_media), ("apps", _rules_apps), ("misc", _rules_misc))
+
+
+def _route_rest(text, named, t, whole, cmd):
+    """route() after the opening words are read (split out so "I need ..." can be tried twice)."""
+    if text.strip().endswith("?") and cmd == t and not named:   # "Jarvis, ...?" was a command before the name moved out
+        cmd = ""
+    for _name, rule in RULES:
+        r = rule(text, named, t, whole, cmd)
+        if r is not None:
+            return r
     return ("chat", None, None, None)
 
 
