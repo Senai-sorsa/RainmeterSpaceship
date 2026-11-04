@@ -303,3 +303,10 @@ Ruling on Task 12: `SOL-JARVIS&SYSTEM-review.md` is another reviewer's untracked
 | Window shading on Picture frames (user request) | 13 | 5226e0c |
 
 Not done on purpose: #9 (autoFocus; the user is editing that input), #73 (decision 2), #36, all notes and withdrawn items.
+
+### Follow-ups requested by the user after the review
+| Request | Commit |
+|---|---|
+| The picture shade rebuilds itself when the window mask changes (`image_frame.py` calls it; `npm run gen` rebuilds only when stale; `npm test` fails with a clear message when out of date; hash kept in `src/assets/shade_pic.src.sha256`) | 38af726 |
+| `test_jarvis.py` can be run safely through `Jarvis/tests/guarded_run.py` (tripwires on real process, delete outside temp, recycle bin, registry, lock, sleep calls): `test_jarvis.py` OK with 0 tripwires hit; `test_host_pipe.py` and `run_all.py` OK | b86c442 |
+| `npm run build:check` builds into `node_modules/.build-check`, so a check never overwrites the deployed `dist` | 1322256 |
