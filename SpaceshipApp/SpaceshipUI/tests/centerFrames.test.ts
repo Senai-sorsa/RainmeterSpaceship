@@ -48,6 +48,17 @@ describe('target reticle', () => {
     expect(targetFrame(s, { cpu: 40, ram: 512 * 1048576 }, zone, st).length).toBeGreaterThan(0);
   });
 
+  it('drawing does not advance the lock pulse; each move advances it once', () => {
+    const s = targetState(zone);
+    targetMove(s, zone, { name: 'game.exe' }, 1, () => 0.5); // a new process name starts the lock pulse
+    expect(s.lockAnim).toBe(18);
+    const first = JSON.stringify(targetFrame(s, {}, zone, st));
+    for (let i = 0; i < 3; i++) targetFrame(s, {}, zone, st);
+    expect(s.lockAnim).toBe(18);
+    expect(JSON.stringify(targetFrame(s, {}, zone, st))).toBe(first);
+    targetMove(s, zone, { name: 'game.exe' }, 1, () => 0.5);
+    expect(s.lockAnim).toBe(17);
+  });
   it('to-do mode shows the count, the countdown and the label like target.lua', () => {
     const todos = [{ text: 'call the dentist about the appointment', due: 7200, timed: false }, { text: 'b', due: 9000, timed: true }, { text: 'c', due: null, timed: false }];
     const ops = JSON.stringify(targetFrame(targetState(zone), { todos, todoCount: 5, nowS: 0 }, zone, st));

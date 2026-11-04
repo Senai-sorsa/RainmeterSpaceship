@@ -88,6 +88,8 @@ const smoother = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 export function targetMove(state: TargetState, zone: Zone, input: TargetInput, step: number, rnd: Rnd) {
   state.frame += 1;
   const now = state.frame * 0.05;
+  // the lock pulse advances once per move, not once per draw; set below, so the first frame after a lock still draws it in full
+  if (state.lockAnim > 0) state.lockAnim -= 1;
   if (input.name !== undefined && input.name !== state.lastName) {
     state.lastName = input.name;
     state.lockAnim = 18;
@@ -124,7 +126,6 @@ export function targetFrame(state: TargetState, input: TargetInput, zone: Zone, 
   let zoom = 1;
   if (state.lockAnim > 0) {
     zoom = 1 + (state.lockAnim / 18) * 0.08;
-    state.lockAnim -= step;
   }
   const R = 86 * zoom;
   // haze (pre-blurred sprite, wide and horizontal like the reference)
