@@ -10,6 +10,7 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
     static readonly HttpClient Http = CreateHttp();
     readonly System.Windows.Forms.Timer _tick = new() { Interval = 2000 }; // 60 s once the HUD has been shown (it is not yet at Start)
     readonly string _file = Path.Combine(data, "calendar.txt");
+    readonly RunnerLifetime _life = new(); // shutdown: cancels a fetch in flight, and nothing reaches the page or the file after it
     DateTime _fetchDue, _stamp;
     bool _fetching;
 
@@ -31,6 +32,7 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
 
     async void Tick()
     {
+        if (_life.Disposed) return;
         if (!shown()) { if (_tick.Interval < 2000) _tick.Interval = 2000; return; } // after Soon(): don't spin while hidden
         var f = factor?.Invoke() ?? 1;
         _tick.Interval = PowerPolicy.Scale(60000, f);
@@ -59,12 +61,14 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
         int on = 0, errors = 0;
         foreach (var src in Ics.Sources(text).Where(s => s.On))
         {
+            if (_life.Disposed) return; // shut down mid-fetch: keep the file as it was
             on++;
             // the link is a secret: the log names only the label and the error kind
             if (Ics.FetchUri(src.Url) is not { } uri) { errors++; log($"CAL_BAD_LINK,{src.Label}"); continue; }
-            try { events.AddRange(Ics.Parse(await Http.GetStringAsync(uri), src.Label, now.AddHours(-6), now.AddDays(21))); }
+            try { events.AddRange(Ics.Parse(await Http.GetStringAsync(uri, _life.Token), src.Label, now.AddHours(-6), now.AddDays(21))); }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException or InvalidOperationException) { errors++; log($"CAL_FETCH_FAILED,{src.Label},{e.GetType().Name}"); }
         }
+        if (_life.Disposed) return;
         try
         {
             var tmp = _file + ".tmp" + Environment.ProcessId;
@@ -76,13 +80,14 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
 
     void Read()
     {
+        if (_life.Disposed) return;
         try
         {
             var stamp = File.GetLastWriteTimeUtc(_file);
             if (stamp == _stamp || !File.Exists(_file)) return;
             _stamp = stamp;
             Last = System.Text.Json.JsonSerializer.Serialize(new { type = "calendar.update", text = File.ReadAllText(_file) });
-            post(Last);
+            _life.Post(post, Last);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
@@ -118,5 +123,5 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
     /// <summary>location.lua right-click (Data\calendar.refresh): fetch the feeds on the next tick.</summary>
     public void Soon() { _fetchDue = DateTime.MinValue; _tick.Stop(); _tick.Interval = 1; _tick.Start(); }
 
-    public void Dispose() { _tick.Stop(); _tick.Dispose(); }
+    public void Dispose() { _life.Dispose(); _tick.Stop(); _tick.Dispose(); }
 }
