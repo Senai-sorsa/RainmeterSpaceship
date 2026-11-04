@@ -65,7 +65,7 @@ export function plexus(n = 56) {
       .map((b, k) => ({ k, d: (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2 }))
       .filter((p) => p.k !== i)
       .sort((p, q) => p.d - q.d);
-    for (let m = 0; m < 3; m++) {
+    for (let m = 0; m < Math.min(3, near.length); m++) {
       const k = near[m].k;
       const key = `${Math.min(i, k)}:${Math.max(i, k)}`;
       if (!seen.has(key)) {

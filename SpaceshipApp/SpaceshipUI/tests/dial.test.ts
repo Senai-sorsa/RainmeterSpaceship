@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dialFrame } from '../src/modules/dial';
+import { dialFrame, valueOf } from '../src/modules/dial';
 import { styleFrom } from '../src/modules/style';
 import type { Op } from '../src/draw/canvas';
 
@@ -27,5 +27,13 @@ describe('systems dial', () => {
   it('shows MUTED for a muted mic, and a percentage for brightness', () => {
     expect(texts(dialFrame({ mic: 40, micMuted: true }, zone, st, 3))).toContain('MUTED');
     expect(texts(dialFrame({ bright: 70 }, zone, st, 1))).toContain('70%');
+  });
+});
+
+describe('power dial value', () => {
+  it('exact step wins over a step that is contained in another', () => {
+    const c = { id: 'power', label: 'PWR', name: 'POWER MODE', ang: 0, steps: ['bal', 'balanced', 'perf'] };
+    expect(valueOf(c, { power: 'Balanced' })).toBe(2);
+    expect(valueOf(c, { power: 'balanced mode' })).toBe(1);
   });
 });

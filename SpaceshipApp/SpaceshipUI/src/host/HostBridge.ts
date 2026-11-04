@@ -49,6 +49,7 @@ export class MockHost implements HostBridge {
       case 'config.set': {
         const { key, value, id } = msg as unknown as { key: string; value: string; id: number };
         const ack = (ok: boolean, error?: string) => this.reply({ type: 'config.ack', id, key, ok, ...(error ? { error } : {}) });
+        if (typeof id !== 'number') return ack(false, 'bad id');
         if (typeof key !== 'string' || typeof value !== 'string' || (this.o.allow && !this.o.allow(key))) return ack(false, 'not allowed');
         if (this.o.failKeys?.has(key)) return ack(false, 'write failed');
         this.st.config[key] = value;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Style } from '../src/draw/canvas';
-import { consoleActions, consoleFrame, isTabUnderline, consoleIntent, lltMessage, withHybridMode, type ConsoleConfig, type ConsoleState, type ConsoleView } from '../src/modules/console';
+import { cycle, consoleActions, consoleFrame, isTabUnderline, consoleIntent, lltMessage, withHybridMode, type ConsoleConfig, type ConsoleState, type ConsoleView } from '../src/modules/console';
 
 // Fake status and config only. Expected values are worked out from console.lua. Zone 580 x 104.
 const st: Style = {
@@ -115,5 +115,13 @@ describe('lltMessage', () => {
   it('is null for anything else', () => {
     expect(lltMessage({ kind: 'action', action: 'status.refresh', args: {} }, 1)).toBeNull();
     expect(lltMessage({ kind: 'ui', name: 'hud' }, 1)).toBeNull();
+  });
+});
+
+describe('cycle picks the exact entry before a partial one', () => {
+  it('exact match wins over includes', () => {
+    expect(cycle(['60', '120', '165'], '165')).toBe('60');
+    expect(cycle(['bal', 'balanced', 'perf'], 'balanced')).toBe('perf');
+    expect(cycle(['bal', 'balanced', 'perf'], 'balanced mode')).toBe('balanced'); // includes still the fallback
   });
 });

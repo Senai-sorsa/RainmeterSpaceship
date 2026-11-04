@@ -6,7 +6,7 @@ import { num } from './lib/theme';
 import { store } from './settings/instance';
 import { perfTier } from './host/perfTier';
 import { frameStyleOf } from './settings/frameStyle';
-import { deriveLabel, validateLabel } from './settings/identity';
+import { deriveLabel, validateLabel, validateName } from './settings/identity';
 import { FrameLayers } from './ui/FrameLayers';
 import { frameSignature, measureStage, refitStage } from './ui/stage';
 import { Wallpaper } from './ui/Wallpaper';
@@ -63,9 +63,9 @@ const firstLoad = (() => {
 const anyOn = [clockOn, topOn, bottomOn, leftOn, rightOn, centerOn, drawerOn, bootOn, jarvisOn, jarvisLogOn].some(Boolean);
 const clockZone = layout.zones.find((z) => z.id === 'L_location');
 /** The assistant's HUD label: AssistantLabel, or the name dotted like the skin's H.assistant('dots'). */
-const hudLabel = (v: Record<string, string>) => {
+export const hudLabel = (v: Record<string, string>) => {
   const l = validateLabel(v.AssistantLabel ?? '', v.JarvisName || undefined);
-  return l.ok ? l.value : deriveLabel(v.JarvisName ?? '');
+  return l.ok ? l.value : deriveLabel(validateName(v.JarvisName ?? '').value);
 };
 
 function Neon({ d }: { d: string }) {

@@ -40,7 +40,8 @@ export function valueOf(c: Ctl, inp: DialInput): number | undefined {
   if (c.id === 'glow') return Math.min(1, Math.max(0, (inp.glowAlpha ?? 60) / 160));
   if (c.id === 'power') {
     const cur = (inp.power ?? '').toLowerCase();
-    const i = c.steps!.findIndex((m) => cur.includes(m));
+    let i = c.steps!.indexOf(cur);
+    if (i < 0) i = c.steps!.findIndex((m) => cur.includes(m));
     return i >= 0 ? i + 1 : undefined;
   }
   const cur = (inp.refresh ?? '').match(/\d+/)?.[0];

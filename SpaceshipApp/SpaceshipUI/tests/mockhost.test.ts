@@ -78,3 +78,12 @@ describe('MockHost setup actions', () => {
     expect(got).toEqual([{ type: 'setup.state', done: false }]);
   });
 });
+
+describe('MockHost config.set id guard', () => {
+  it('a non-numeric id is acked ok:false with "bad id"', () => {
+    const h = new MockHost({ ...opts, storage: null });
+    const [a] = run(h, { type: 'config.set', key: 'ColorAccent', value: '1', id: 'x' } as unknown as Msg);
+    expect(a).toMatchObject({ type: 'config.ack', ok: false, error: 'bad id' });
+    expect(run(h, { type: 'config.get', keys: ['ColorAccent'] })).toEqual([{ type: 'config.values', values: { ColorAccent: '0,210,255' } }]);
+  });
+});

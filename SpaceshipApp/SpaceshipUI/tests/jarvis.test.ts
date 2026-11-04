@@ -79,3 +79,9 @@ describe('jarvis log', () => {
     expect(json(999)).toBe(json(40));
   });
 });
+
+describe('jarvis plexus small n', () => {
+  it('plexus(3) does not throw', () => {
+    expect(() => plexus(3)).not.toThrow();
+  });
+});

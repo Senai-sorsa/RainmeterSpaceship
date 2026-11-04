@@ -132,8 +132,9 @@ export function consoleFrame(st: ConsoleState, cfg: ConsoleConfig, view: Console
 }
 
 /** A cycle through a list: the entry after the current one, or the first when the current one is not in it. */
-function cycle(list: string[], current: string): string {
-  const i = list.findIndex((v) => current === v.toLowerCase() || current.includes(v.toLowerCase()));
+export function cycle(list: string[], current: string): string {
+  let i = list.findIndex((v) => current === v.toLowerCase());
+  if (i < 0) i = list.findIndex((v) => current.includes(v.toLowerCase()));
   return i < 0 ? list[0] : list[(i + 1) % list.length];
 }
 
