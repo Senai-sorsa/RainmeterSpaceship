@@ -903,6 +903,85 @@ def _record_chat(reply, model, t_spoke, text, kind, apart, quiet, close_offer, l
     left["again"] = not quiet and not cancel.is_set() and "ear"   # fixed replies set it in fixed()
 
 
+def _hear(tier, follow, woke, mode, left, typed, way):
+    """Input stage: preflight checks, the click or typed text, listening and transcribing, and the first reasons a turn ends quietly (no words, false wake, long talk not for him). Returns (text, model, hud, reading, t_spoke, wait), or None when the turn ends here."""
+    if tier >= 3:
+        return
+    t_click = time.time()
+    miss = missing_packages()
+    if miss:
+        problem("Setup needed - missing " + ", ".join(miss) + ". Run Control Center > CLOVER > SETUP")
+        return
+    if setting("JarvisGPU", "prefer").lower() == "require" and not gpu():   # never a turn on the CPU
+        S.set(err="RTX is off - switch the laptop to hybrid graphics (JarvisGPU=require)")
+        reply_line(FX.GPU_OFF, muted())
+        return
+    S.set(state="listening", level=0.0, err="")
+    try:                                                   # 7a: a click is how a muted microphone comes back
+        if typed is None and mic_volume()[0]:
+            mic_volume(mute=False)
+            log("microphone: unmuted by the click")
+    except Exception as e:
+        log(f"microphone check failed ({type(e).__name__})")
+    if not ensure_ollama():
+        problem("Ollama isn't running or installed - run Control Center > CLOVER > SETUP")
+        return
+    model = pick_model(tier)
+    if not model:
+        want = setting("JarvisModel", "llama3.1:8b")
+        problem(f"Model {want} is not downloaded (Control Center > CLOVER > MODEL, or: ollama pull {want})")
+        return
+    if follow:
+        if mode != "stop":
+            time.sleep(0.3)                                # let the last of his own voice fade before the microphone opens
+    else:
+        warm(model)
+        threading.Thread(target=prepare_fillers, daemon=True).start()   # cheap if nothing changed
+        if typed is None:
+            time.sleep(chime())                            # don't record the chime
+    log(f"timing: click -> listening {time.time() - t_click:.2f}s")
+    t_listen = time.time()
+    hud = []
+    reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
+    reading.start()                                        # read while you speak, so it costs the reply nothing
+    audio, wait = (None, 0.0) if typed is not None else followup.listen_for(mode, follow, woke)
+    if (audio is None and typed is None) or cancel.is_set():
+        return
+    t_spoke = way["t"] = time.time()
+    log(f"timing: listening -> end of speech {t_spoke - t_listen:.2f}s")
+    S.set(state="thinking", level=0.0)
+    try:
+        text = typed if typed is not None else transcribe(audio)
+    except ImportError:
+        problem("Speech recognition isn't installed - run Control Center > CLOVER > SETUP")
+        return
+    log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
+    log(f"you: {len(text.split())} words")                # counts only: the words stay in the pop-up log
+    way.update(kind="silence", via="rule", result="nothing said")   # replaced below once words came
+    if not text and woke:                                  # FR6 L9: likely a false wake - end quietly
+        way.update(kind="false_wake")
+        log("transcript: nothing after the wake word - ended quietly")
+        return
+    if woke and t_spoke - t_listen - onset[0] >= 24:        # hit the 25 s cap (the wait before speech does not count): likely a conversation, not an order
+        mine, step = for_me(text, model)
+        if not mine:
+            way.update(kind="false_wake", result="long talk, not for him - dropped")
+            log(f"transcript: long talk after the wake word - dropped (name/rules/judge: {step}, {len(text.split())} words)")
+            return
+    if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
+        way.update(result="asked again")
+        quiet = muted()
+        line, box = hearing.missed_line(mic_peak[0], setting("JarvisCallMe", "").strip())
+        reply_line(line, quiet)
+        if box:
+            S.set(pop="open")                              # the type box is in the pop-up (T5)
+        left["again"] = not quiet and "ear"
+        return
+    if not text or cancel.is_set():
+        return
+    return text, model, hud, reading, t_spoke, wait
+
+
 def exchange(tier, follow, woke, mode, left, typed=None):
     """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
@@ -915,81 +994,11 @@ def exchange(tier, follow, woke, mode, left, typed=None):
     turn_id[0] = time.time()
     threading.Thread(target=watchdog, args=(turn_id[0],), daemon=True).start()
     try:
-        if tier >= 3:
+        heard = _hear(tier, follow, woke, mode, left, typed, way)
+        if heard is None:                                      # the turn ended in the input stage (it already said or logged why)
             return
-        t_click = time.time()
-        miss = missing_packages()
-        if miss:
-            problem("Setup needed - missing " + ", ".join(miss) + ". Run Control Center > CLOVER > SETUP")
-            return
-        if setting("JarvisGPU", "prefer").lower() == "require" and not gpu():   # never a turn on the CPU
-            S.set(err="RTX is off - switch the laptop to hybrid graphics (JarvisGPU=require)")
-            reply_line(FX.GPU_OFF, muted())
-            return
-        S.set(state="listening", level=0.0, err="")
-        try:                                                   # 7a: a click is how a muted microphone comes back
-            if typed is None and mic_volume()[0]:
-                mic_volume(mute=False)
-                log("microphone: unmuted by the click")
-        except Exception as e:
-            log(f"microphone check failed ({type(e).__name__})")
-        if not ensure_ollama():
-            problem("Ollama isn't running or installed - run Control Center > CLOVER > SETUP")
-            return
-        model = pick_model(tier)
-        if not model:
-            want = setting("JarvisModel", "llama3.1:8b")
-            problem(f"Model {want} is not downloaded (Control Center > CLOVER > MODEL, or: ollama pull {want})")
-            return
-        if follow:
-            if mode != "stop":
-                time.sleep(0.3)                                # let the last of his own voice fade before the microphone opens
-        else:
-            warm(model)
-            threading.Thread(target=prepare_fillers, daemon=True).start()   # cheap if nothing changed
-            if typed is None:
-                time.sleep(chime())                            # don't record the chime
-        log(f"timing: click -> listening {time.time() - t_click:.2f}s")
-        t_listen = time.time()
-        hud = []
-        reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
-        reading.start()                                        # read while you speak, so it costs the reply nothing
-        audio, wait = (None, 0.0) if typed is not None else followup.listen_for(mode, follow, woke)
-        if (audio is None and typed is None) or cancel.is_set():
-            return
-        t_spoke = way["t"] = time.time()
-        log(f"timing: listening -> end of speech {t_spoke - t_listen:.2f}s")
-        S.set(state="thinking", level=0.0)
-        try:
-            text = typed if typed is not None else transcribe(audio)
-        except ImportError:
-            problem("Speech recognition isn't installed - run Control Center > CLOVER > SETUP")
-            return
-        log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
-        log(f"you: {len(text.split())} words")                # counts only: the words stay in the pop-up log
-        way.update(kind="silence", via="rule", result="nothing said")   # replaced below once words came
-        if not text and woke:                                  # FR6 L9: likely a false wake - end quietly
-            way.update(kind="false_wake")
-            log("transcript: nothing after the wake word - ended quietly")
-            return
-        if woke and t_spoke - t_listen - onset[0] >= 24:        # hit the 25 s cap (the wait before speech does not count): likely a conversation, not an order
-            mine, step = for_me(text, model)
-            if not mine:
-                way.update(kind="false_wake", result="long talk, not for him - dropped")
-                log(f"transcript: long talk after the wake word - dropped (name/rules/judge: {step}, {len(text.split())} words)")
-                return
-        if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
-            way.update(result="asked again")
-            quiet = muted()
-            line, box = hearing.missed_line(mic_peak[0], setting("JarvisCallMe", "").strip())
-            reply_line(line, quiet)
-            if box:
-                S.set(pop="open")                              # the type box is in the pop-up (T5)
-            left["again"] = not quiet and "ear"
-            return
-        if not text or cancel.is_set():
-            return
-        hearing.missed[0] = 0                                  # words came out: the next miss is a first one again
+        text, model, hud, reading, t_spoke, wait = heard
+        hearing.missed[0] = 0                                 # words came out: the next miss is a first one again
         if follow and onset[0] > wait and strip_name(text) == text:   # 8a: late in the open ear and no name: room talk
             way.update(kind="ear", result="late, no name - dropped")
             log("ear: started late without his name - dropped")
