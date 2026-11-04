@@ -27,7 +27,7 @@ const ZONES = {
  * (from the host's process list). Clicks launch through the host (hit.tsx); the page and picks are local state.
  */
 export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { style: Style; hide?: string; catalog?: Catalog }) {
-  const Z = useMemo(() => visible(ZONES, hide), [hide]);
+  const Z = useMemo(() => visible(ZONES, hide, style.fitted), [hide, style.fitted]);
   const up = upkeepStatus.value;
   const { ci, cat, ai, app, state, choose, turn } = usePanel(catalog, 1);
   const nTabs = Math.min(MAXTABS, cat?.apps.length ?? 0);

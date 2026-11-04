@@ -1,3 +1,4 @@
+import { seatInPicture } from './pictureSlots';
 /**
  * modules.json key → the layout zones that skin config draws. State.inc Off_<key>=1 hides it (control.lua deactivates
  * the config). Controller has no zone; Frame, LeftLocation and OverlayDrawer are whole modules the Hud skips itself.
@@ -17,10 +18,10 @@ export function hiddenZones(values: Record<string, string>): string {
   return Object.entries(KEY_ZONES).filter(([k]) => values[`Off_${k}`] === '1').flatMap(([, ids]) => ids).join(',');
 }
 
-/** A module's zone table with each hidden zone (and each hidden slot in an array) replaced by undefined. */
-export function visible<T extends object>(zones: T, hide: string): T {
-  if (!hide) return zones;
-  const off = new Set(hide.split(','));
-  const keep = (z: unknown) => (z && typeof z === 'object' && off.has((z as { id: string }).id) ? undefined : z);
+/** A module's zone table with each hidden zone (and each hidden slot in an array) replaced by undefined. With fitted, each zone is also seated into the picture frame's slots. */
+export function visible<T extends object>(zones: T, hide: string, fitted = false): T {
+  if (!hide && !fitted) return zones;
+  const off = new Set(hide ? hide.split(',') : []);
+  const keep = (z: unknown) => (z && typeof z === 'object' ? (off.has((z as { id: string }).id) ? undefined : fitted ? seatInPicture(z as Parameters<typeof seatInPicture>[0]) : z) : z);
   return Object.fromEntries(Object.entries(zones).map(([k, z]) => [k, Array.isArray(z) ? z.map(keep) : keep(z)])) as T;
 }

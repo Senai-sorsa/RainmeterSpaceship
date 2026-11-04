@@ -32,7 +32,7 @@ const ZONES = {
 export function RightModule({ style, hide = '', catalog = catalogFeed.value, mask = true, link = 0, linkUp = 0 }: { style: Style; hide?: string; catalog?: Catalog; mask?: boolean; link?: number; linkUp?: number }) {
   const speed = speedStatus.value;
   const testing = speed.state === 'testing';
-  const Z = useMemo(() => visible(ZONES, hide), [hide]);
+  const Z = useMemo(() => visible(ZONES, hide, style.fitted), [hide, style.fitted]);
   const m = systemMetrics.value;
   const dev = devStatus.value;
   const net = netStatus.value;

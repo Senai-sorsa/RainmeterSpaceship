@@ -2523,6 +2523,14 @@
       "default": "0"
     },
     {
+      "key": "PictureFit",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "0"
+    },
+    {
       "key": "PingHost",
       "file": "Settings.inc",
       "control": {

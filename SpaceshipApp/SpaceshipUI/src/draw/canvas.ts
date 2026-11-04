@@ -48,7 +48,7 @@ export type ScreenOpts = {
 
 /** Settings the skin reads from H.init (PerfTier, GlowAlpha, GlowWidth, CoreWhite, HudAlpha, Scale, EditMode, text settings) and its colours. */
 export type Style = {
-  s: number; tier: number; glowA: number; glowW: number; coreWhite: number; hudA: number; edit: boolean;
+  s: number; tier: number; glowA: number; glowW: number; coreWhite: number; hudA: number; edit: boolean; /** the fitted picture frame is on: zones are seated into its slots (modules/pictureSlots.ts) */ fitted?: boolean;
   textGlow: number; textGlowA: number; textSmall: number; textLarge: number; fontText: string; fontNum: string; fontTitle: string;
   white: RGBA; dim: RGBA; panel: RGBA; accent: RGBA; warn: RGBA; alert: RGBA; text: RGBA; hi: RGBA; good: RGBA;
   /** screen() draws a hardware bezel round each display (setting ScreenBezel); off when left out */

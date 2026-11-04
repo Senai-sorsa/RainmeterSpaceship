@@ -16,5 +16,6 @@ export function styleFrom(v: Record<string, string>): Style {
     white: c('ColorWhite'), dim: c('ColorDim'), panel: c('ColorPanel'), accent: c('ColorAccent'), warn: c('ColorWarn'),
     alert: c('ColorAlert'), text: c('ColorText'), hi: c('ColorHighlight'), good: c('ColorGood'),
     bezel: v.ScreenBezel !== '0',
+    fitted: v.FrameOff !== '1' && v.UseShipImage === '1' && v.PictureFit === '1',
   };
 }

@@ -1,0 +1,82 @@
+import { describe, expect, it } from 'vitest';
+import { PICTURE_SLOTS, seatInPicture } from '../src/modules/pictureSlots';
+import { visible } from '../src/modules/hidden';
+import { styleFrom } from '../src/modules/style';
+
+const zone = (id: string, over: Partial<{ x: number; y: number; w: number; h: number; matrix: number[] }> = {}) =>
+  ({ id, x: 100, y: 200, w: 200, h: 100, matrix: [1, 0, 0, 1, 0, 0], ...over });
+const centre = (z: ReturnType<typeof zone>) => {
+  const [a, b, c, d, e, f] = z.matrix, px = z.x + z.w / 2, py = z.y + z.h / 2;
+  return [a * px + c * py + e, b * px + d * py + f];
+};
+
+describe('seatInPicture', () => {
+  it('leaves a zone with no slot untouched (same object)', () => {
+    const z = zone('T_power');
+    expect(seatInPicture(z)).toBe(z);
+  });
+  it('moves the drawn centre by exactly dx, dy and scales about it', () => {
+    PICTURE_SLOTS.__t = { dx: 30, dy: -20, s: 0.5 };
+    const z = zone('__t');
+    const out = seatInPicture(z);
+    const [cx0, cy0] = centre(z), [cx1, cy1] = centre(out);
+    expect(cx1).toBeCloseTo(cx0 + 30);
+    expect(cy1).toBeCloseTo(cy0 - 20);
+    expect(out.matrix[0]).toBeCloseTo(0.5);
+    expect(out.matrix[3]).toBeCloseTo(0.5);
+    // a point 100 right of the centre ends up 50 right of the new centre
+    const [a, , c, , e] = out.matrix;
+    const x = a * (z.x + z.w / 2 + 100) + c * (z.y + z.h / 2) + e;
+    expect(x - cx1).toBeCloseTo(50);
+    delete PICTURE_SLOTS.__t;
+  });
+  it("keeps a skewed zone's centre on the shift (the skew does not move it)", () => {
+    PICTURE_SLOTS.__t = { dy: -50 };
+    const z = zone('__t', { matrix: [1, -0.15, 0, 1, 2, 30] });
+    const out = seatInPicture(z);
+    expect(centre(out)[1]).toBeCloseTo(centre(z)[1] - 50);
+    expect(out.matrix.slice(0, 4)).toEqual([1, -0.15, 0, 1]);
+    delete PICTURE_SLOTS.__t;
+  });
+  it('ignores a malformed matrix instead of throwing', () => {
+    PICTURE_SLOTS.__t = { dy: 5 };
+    const z = zone('__t', { matrix: [1, 0, 0] });
+    expect(seatInPicture(z)).toBe(z);
+    delete PICTURE_SLOTS.__t;
+  });
+  it('the left and right stacks have the same shift and scale, row for row', () => {
+    for (const [l, r] of [['L_app1', 'R_app1'], ['L_app2', 'R_app2'], ['L_app3', 'R_app3'], ['L_app4', 'R_app4'], ['L_location', 'R_sysinfo'], ['L_dots', 'R_dots']])
+      expect(PICTURE_SLOTS[l]).toEqual(PICTURE_SLOTS[r]);
+  });
+});
+
+describe('visible with the picture frame', () => {
+  const Z = { a: zone('G1_cpu'), b: zone('T_power'), list: [zone('L_app1'), zone('L_app2')] };
+  it('does nothing extra without pic', () => {
+    expect(visible(Z, '')).toBe(Z);
+    expect(visible(Z, '', false)).toBe(Z);
+  });
+  it('seats the zones that have a slot when pic is on, and keeps the others', () => {
+    const out = visible(Z, '', true);
+    expect(out.a.matrix).not.toEqual(Z.a.matrix);
+    expect(out.b).toBe(Z.b);
+    expect(out.list[0].matrix).not.toEqual(Z.list[0].matrix);
+  });
+  it('hidden zones stay hidden with pic on', () => {
+    const out = visible(Z, 'G1_cpu,L_app2', true) as { a?: unknown; list: (unknown | undefined)[] };
+    expect(out.a).toBeUndefined();
+    expect(out.list[1]).toBeUndefined();
+    expect(out.list[0]).toBeDefined();
+  });
+});
+
+describe('Style.fitted', () => {
+  it('is on only for the fitted picture; plain picture, rendered and none keep the original layout', () => {
+    expect(styleFrom({ UseShipImage: '1', PictureFit: '1' }).fitted).toBe(true);
+    expect(styleFrom({ UseShipImage: '1', PictureFit: '0' }).fitted).toBe(false); // the picture as it always was
+    expect(styleFrom({ UseShipImage: '1' }).fitted).toBe(false);
+    expect(styleFrom({ UseShipImage: '0', PictureFit: '1' }).fitted).toBe(false);
+    expect(styleFrom({ UseShipImage: '1', PictureFit: '1', FrameOff: '1' }).fitted).toBe(false);
+    expect(styleFrom({}).fitted).toBe(false);
+  });
+});

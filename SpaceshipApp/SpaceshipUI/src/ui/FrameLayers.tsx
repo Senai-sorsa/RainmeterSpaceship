@@ -20,7 +20,7 @@ const fill = { position: 'absolute', inset: 0, backgroundSize: '100% 100%' } as 
 /** Frame.ini's cockpit, as stacked layers in the skin's drawing order. Alpha formulas are the skin's (GlassGlare*21, ScanAlpha*18, ...). */
 export function FrameLayers({ style, values }: { style: FrameStyle; values: Record<string, string> }) {
   if (style === 'none') return null;
-  const pic = style === 'picture';
+  const pic = style === 'picture' || style === 'fitted'; // fitted is the same picture art; only the HUD layout differs
   const rgb = String(values.ColorAccent ?? '').split(',').slice(0, 3).map((x) => Math.min(255, Math.max(0, Number(x) || 0))).join(',');
   const accent = `rgb(${rgb})`;
   const bright = `brightness(${Math.min(100, Math.max(0, n(values, 'FrameBrightness', 25))) / 100})`;

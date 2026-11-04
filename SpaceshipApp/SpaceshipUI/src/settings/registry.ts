@@ -10,10 +10,10 @@ export const CATEGORIES: { id: CategoryId; label: string }[] = [
 /** Runtime state; never shown as rows. UseShipImage/FrameOff are reached only through the virtual frameStyle row. */
 export const INTERNAL_KEYS = new Set([
   'MasterPrev', 'LastSpeedTest', 'LastAppScan', 'MonX', 'MonY', 'SensorStatus', 'CtlTab', 'CtlPage', 'CtlMod', 'DialSel',
-  'UseShipImage', 'FrameOff',
+  'UseShipImage', 'FrameOff', 'PictureFit',
   'LltPath', 'JarvisPython', // executable paths: the page must never set what the host later runs; edit Settings.inc by hand
 ]);
-export const WRITABLE_INTERNAL = ['UseShipImage', 'FrameOff'];
+export const WRITABLE_INTERNAL = ['UseShipImage', 'FrameOff', 'PictureFit'];
 
 // --- compact row DSL: [key, label, help, control, default, flags?]
 type Flags = { opt?: 1; w?: WizardStep; virtual?: 1; restart?: 1; hide?: 1 };
@@ -71,13 +71,14 @@ add('display', 'Theme', 'advanced', [
   ['TextGlowAlpha', 'Text glow strength', 'Opacity of the text glow.', sl(0, 255, 5), '150'],
 ]);
 add('display', 'Frame', 'normal', [
-  ['frameStyle', 'Cockpit frame', 'Choose the rendered hull, your own picture, or no frame.', sel('rendered|Rendered', 'picture|Picture', 'none|None'), 'rendered', { w: 'look', virtual: 1 }],
+  ['frameStyle', 'Cockpit frame', 'Rendered hull, your picture, the picture with the HUD fitted to it, or no frame.', sel('rendered|Rendered', 'picture|Picture', 'fitted|Picture (fitted)', 'none|None'), 'rendered', { w: 'look', virtual: 1 }],
   ['FrameBrightness', 'Frame brightness', 'Brightness of the hull in percent.', sl(0, 100, 5), '95'],
   ['HullAlpha', 'Hull opacity', 'Opacity of the hull, 0 to 255.', sl(0, 255, 5), '255'],
 ]);
 add('display', 'Frame', 'normal', [ // the two real keys behind frameStyle
   ['UseShipImage', 'Frame uses picture', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
   ['FrameOff', 'Frame off', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
+  ['PictureFit', 'Picture fitted', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],
 ]);
 add('display', 'Wallpaper', 'normal', [
   ['WallpaperOn', 'Live wallpaper', 'Play a video or picture behind the HUD. Off: your own wallpaper.', tog, '0', O],

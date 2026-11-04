@@ -72,11 +72,11 @@ describe('settings registry', () => {
   it('allowedKeys excludes virtual, includes modules and writable internals', () => {
     const a = allowedKeys(modules);
     expect(a.has('frameStyle')).toBe(false);
-    expect(a.has('Scale') && a.has('UseShipImage') && a.has('FrameOff') && a.has(mods[0].key)).toBe(true);
+    expect(a.has('Scale') && a.has('UseShipImage') && a.has('FrameOff') && a.has('PictureFit') && a.has(mods[0].key)).toBe(true);
     expect(a.has(`Off_${modules.keys[0]}`)).toBe(true);
     expect(a.has('Off_T_power')).toBe(false);
     expect(a.has('MasterPrev')).toBe(false);
-    expect(WRITABLE_INTERNAL).toEqual(['UseShipImage', 'FrameOff']);
+    expect(WRITABLE_INTERNAL).toEqual(['UseShipImage', 'FrameOff', 'PictureFit']);
   });
   it('every helpId names a section of the exported guide', () => {
     const ids = new Set(guide.sections.map((x) => x.id));

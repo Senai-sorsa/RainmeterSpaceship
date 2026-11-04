@@ -34,7 +34,7 @@ type TopState = { cpu: GraphState; ram: GraphState; a: GraphState; b: GraphState
 
 /** Top console: CPU and RAM graphs, two select graphs (GraphA and GraphB sources), power, battery, alert and the console. Behind ?module=top. */
 export function TopModule({ style, values, hide = '' }: { style: Style; values: Record<string, string>; hide?: string }) {
-  const Z = useMemo(() => visible(ZONES, hide), [hide]);
+  const Z = useMemo(() => visible(ZONES, hide, style.fitted), [hide, style.fitted]);
   const m = systemMetrics.value;
   const cs = consoleStatus.value;
   const [st, setSt] = useState<TopState>(() => ({
