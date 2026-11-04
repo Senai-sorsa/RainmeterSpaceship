@@ -1077,7 +1077,7 @@ sealed class Overlay : Form
         _openWait?.Unregister(null);
         if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
         Microsoft.Win32.SystemEvents.SessionSwitch -= _onSession; // a static event: left attached it would keep this form alive
-        _visibility.Stop(); _rescan.Stop(); _perf.Stop(); _metricsTimer.Stop(); _audioTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _mail?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
+        _visibility.Stop(); _rescan.Stop(); _perf.Stop(); _metricsTimer.Stop(); _audioTimer.Stop(); _jarvisTimer.Stop(); _status?.Dispose(); _net.Dispose(); _todo.Dispose(); _calendar?.Dispose(); _mail?.Dispose(); _speed?.Dispose(); _cursor.Stop(); _loopback.Dispose(); _gpu.Dispose(); _procCpu.Dispose(); _procRam.Dispose(); _tray.Dispose(); _log?.Dispose(); _log = null; _jarvis.Dispose();
     }
 
     // A WM_CLOSE from outside (a task manager's "End task") ends the run cleanly: marker cleared, no ghost tray icon.
