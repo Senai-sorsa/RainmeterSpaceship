@@ -867,6 +867,42 @@ def turn(tier, follow=0, woke=False, typed=None):
         follow, woke = follow + 1, False
 
 
+def _record_chat(reply, model, t_spoke, text, kind, apart, quiet, close_offer, left, way):
+    """Record stage: the finished chat reply goes to the pop-up log, the chat history, memory (learnable facts, promises) and the offers. Last thing a model turn does; it returns nothing (an early return here ends the turn, as before)."""
+    global history, last_turn
+    convo_add("J", reply)                                  # at once: the live line was just cleared (empty: no-op)
+    S.set(state="idle", level=0.0)                        # done talking: the HUD doesn't wait for the GPU check
+    if ollama_on_cpu(model):
+        chat_to_gpu(model)
+    else:
+        _moved.discard(model)
+    log(f"timing: end of speech -> reply done {time.time() - t_spoke:.2f}s ({model})")
+    if not reply and not cancel.is_set():
+        problem(f"{model} gave no answer - try again, or pick another model in Control Center > CLOVER")
+        return
+    log(f"clover: {len(reply)} characters")
+    way["result"] = "answered"
+    recent["me"] = reply
+    if not apart and reply:
+        history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
+        last_turn = time.time()
+    S.set(say=reply)
+    fact = learnable(text) if kind == "chat" and not cancel.is_set() else ""
+    auto = setting("JarvisLearn", "auto").strip().lower() == "auto"
+    if fact and auto:                                      # H3: saved quietly; "forget that" / undo still work
+        memory_reply("save", fact)
+    promised = mood.promise(reply) if auto and kind == "chat" and not cancel.is_set() else ""
+    if promised:                                           # D4: written down like a fact; "what do you remember" lists it
+        memory_reply("save", promised)
+    if fact and not auto:                                  # M4a-3 ("ask"): one offer; the next turn's yes saves it
+        reply_line(FX.ASK_REMEMBER, quiet)
+        offer.update(fact=fact, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+    if close_offer and reply and not cancel.is_set():      # 9e: one offer; the next turn's yes closes it
+        reply_line(FX.ASK_CLOSE, quiet)
+        offer.update(close=close_offer, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+    left["again"] = not quiet and not cancel.is_set() and "ear"   # fixed replies set it in fixed()
+
+
 def exchange(tier, follow, woke, mode, left, typed=None):
     """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
@@ -1225,37 +1261,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         reply = mood.clean_reply("".join(collected).strip())
         if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
             reply = spoke
-        convo_add("J", reply)                                  # at once: the live line was just cleared (empty: no-op)
-        S.set(state="idle", level=0.0)                        # done talking: the HUD doesn't wait for the GPU check
-        if ollama_on_cpu(model):
-            chat_to_gpu(model)
-        else:
-            _moved.discard(model)
-        log(f"timing: end of speech -> reply done {time.time() - t_spoke:.2f}s ({model})")
-        if not reply and not cancel.is_set():
-            problem(f"{model} gave no answer - try again, or pick another model in Control Center > CLOVER")
-            return
-        log(f"clover: {len(reply)} characters")
-        way["result"] = "answered"
-        recent["me"] = reply
-        if not apart and reply:
-            history += [{"role": "user", "content": text}, {"role": "assistant", "content": reply}]
-            last_turn = time.time()
-        S.set(say=reply)
-        fact = learnable(text) if kind == "chat" and not cancel.is_set() else ""
-        auto = setting("JarvisLearn", "auto").strip().lower() == "auto"
-        if fact and auto:                                      # H3: saved quietly; "forget that" / undo still work
-            memory_reply("save", fact)
-        promised = mood.promise(reply) if auto and kind == "chat" and not cancel.is_set() else ""
-        if promised:                                           # D4: written down like a fact; "what do you remember" lists it
-            memory_reply("save", promised)
-        if fact and not auto:                                  # M4a-3 ("ask"): one offer; the next turn's yes saves it
-            reply_line(FX.ASK_REMEMBER, quiet)
-            offer.update(fact=fact, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
-        if close_offer and reply and not cancel.is_set():      # 9e: one offer; the next turn's yes closes it
-            reply_line(FX.ASK_CLOSE, quiet)
-            offer.update(close=close_offer, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
-        left["again"] = not quiet and not cancel.is_set() and "ear"   # fixed replies set it in fixed()
+        _record_chat(reply, model, t_spoke, text, kind, apart, quiet, close_offer, left, way)
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
         live("")
