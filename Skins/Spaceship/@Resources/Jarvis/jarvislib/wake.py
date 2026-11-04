@@ -22,6 +22,7 @@ REPEATS = 6                            # "Hey <name>" this many times after a di
 TALK_SECONDS = 15                      # then this much normal talk, the "not him" examples
 
 TRAINING = threading.Event()           # set while train() runs: the wake loop does no barge-in and no stop words then
+_train_start = threading.Lock()              # held from the start of a training thread until it ends: one at a time
 
 _wake_warned = [None]
 _wake_bad = set()                                              # custom wake files that would not load: Hey Jarvis instead
@@ -182,6 +183,26 @@ def step(text):
     """The step now asked of you, kept in the pop-up until the next one: with the volume off it is the only cue."""
     S.set(pop="open")
     live(text)
+
+
+def start_training(target):
+    """TRAINWAKE: start the training thread unless one is running or pending. True when started."""
+    if TRAINING.is_set() or not _train_start.acquire(blocking=False):
+        log("wake training already running")
+        return False
+
+    def run():
+        try:
+            target()
+        finally:
+            _train_start.release()
+
+    try:
+        threading.Thread(target=run, daemon=True).start()
+    except BaseException:
+        _train_start.release()
+        raise
+    return True
 
 
 def train(say, ding, turn_id):

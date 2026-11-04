@@ -1614,7 +1614,7 @@ def main():
                 history.clear()
                 log("conversation memory cleared")
             elif parts[0] == "TRAINWAKE":
-                threading.Thread(target=train_wake, daemon=True).start()
+                wake.start_training(train_wake)
             elif parts[0] == "QUIT":
                 log("stopped from the Control Center")
                 cancel.set()
