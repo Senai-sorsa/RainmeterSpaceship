@@ -1014,5 +1014,14 @@
  { "name": "status.refresh calendar", "valid": true, "msg": { "type": "status.refresh", "kind": "calendar" } },
  { "name": "status.refresh unknown kind", "valid": false, "msg": { "type": "status.refresh", "kind": "upkeep.ps1" } },
  { "name": "status.refresh kind not text", "valid": false, "msg": { "type": "status.refresh", "kind": 1 } },
+ { "name": "config.set max safe id", "valid": true, "msg": { "type": "config.set", "key": "Scale", "value": "1", "id": 9007199254740991 } },
+ { "name": "config.set id above safe range", "valid": false, "msg": { "type": "config.set", "key": "Scale", "value": "1", "id": 9007199254740992 } },
+ { "name": "config.set id int64 max", "valid": false, "msg": { "type": "config.set", "key": "Scale", "value": "1", "id": 9223372036854775807 } },
+ { "name": "llt.set max safe id", "valid": true, "msg": { "type": "llt.set", "feature": "refresh", "value": "165", "id": 9007199254740991 } },
+ { "name": "llt.set id above safe range", "valid": false, "msg": { "type": "llt.set", "feature": "refresh", "value": "165", "id": 9007199254740992 } },
+ { "name": "llt.set id int64 max", "valid": false, "msg": { "type": "llt.set", "feature": "refresh", "value": "165", "id": 9223372036854775807 } },
+ { "name": "dial.set max safe id", "valid": true, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9007199254740991 } },
+ { "name": "dial.set id above safe range", "valid": false, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9007199254740992 } },
+ { "name": "dial.set id int64 max", "valid": false, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9223372036854775807 } },
  { "name": "speed.run", "valid": true, "msg": { "type": "speed.run" } }
 ]

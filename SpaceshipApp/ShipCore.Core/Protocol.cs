@@ -6,6 +6,9 @@ namespace ShipCore.Core;
 /// <summary>Shape check for messages from the WebView (untrusted). Same verdicts as src/host/contract.ts; contract/fixtures/ui-to-host.json is the shared test.</summary>
 public static class Protocol
 {
+    // The largest whole number JavaScript holds exactly (Number.MAX_SAFE_INTEGER); the UI refuses anything above it too.
+    const long MaxSafeId = 9007199254740991L;
+
     private static readonly Regex Key = new(@"^[A-Za-z][A-Za-z0-9_]{0,63}$", RegexOptions.Compiled);
     private static readonly HashSet<string> Flows = new() { "gmail", "calendars", "obsidian" };
     // status.refresh kinds: the status scripts (StatusScripts.Kinds), the mail check and the calendar fetch
@@ -38,7 +41,7 @@ public static class Protocol
             case "config.set":
                 if (!Str(m, "key", out var key) || !Key.IsMatch(key)) return "bad key";
                 if (!Str(m, "value", out var v) || v.Length > 256 || v.Any(c => c < ' ' || c == '\x7f')) return "bad value";
-                return m.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number && id.TryGetInt64(out var n) && n >= 0
+                return m.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number && id.TryGetInt64(out var n) && n >= 0 && n <= MaxSafeId
                     && id.GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) < 0 ? null : "bad id";
             case "setup.get": case "aboutme.get": return null;
             case "setup.finish": return Str(m, "mode", out var mode) && mode is "defaults" or "custom" ? null : "bad mode";
@@ -53,7 +56,7 @@ public static class Protocol
             case "llt.set":
                 if (!Str(m, "feature", out var lf) || Array.IndexOf(LltGate.Features, lf) < 0) return "bad feature";
                 if (!Str(m, "value", out var lv) || !LltGate.Word.IsMatch(lv)) return "bad value";
-                return m.TryGetProperty("id", out var lid) && lid.ValueKind == JsonValueKind.Number && lid.TryGetInt64(out var ln) && ln >= 0
+                return m.TryGetProperty("id", out var lid) && lid.ValueKind == JsonValueKind.Number && lid.TryGetInt64(out var ln) && ln >= 0 && ln <= MaxSafeId
                     && lid.GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) < 0 ? null : "bad id";
             // the block to read again (status_block.lua / console.lua right-click); no kind = the console's status.ps1
             case "status.refresh": return !m.TryGetProperty("kind", out _) || Str(m, "kind", out var rk) && RefreshKinds.Contains(rk) ? null : "bad kind";
@@ -89,7 +92,7 @@ public static class Protocol
     private static string? DialSetProblem(JsonElement m)
     {
         if (!Str(m, "control", out var c) || !DialControls.Contains(c)) return "bad control";
-        if (!m.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.Number || !id.TryGetInt64(out var n) || n < 0
+        if (!m.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.Number || !id.TryGetInt64(out var n) || n < 0 || n > MaxSafeId
             || id.GetRawText().IndexOfAny(new[] { '.', 'e', 'E' }) >= 0) return "bad id";
         if (!m.TryGetProperty("value", out var v)) return "bad value";
         return c switch
