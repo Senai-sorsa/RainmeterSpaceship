@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Op, Shape, Style } from '../src/draw/canvas';
 import { graphFrame, graphState, selectSource } from '../src/modules/graph';
-import { bytes, mbps, nextSource, normalise, rate, SOURCES } from '../src/modules/sources';
+import { bytes, mbps, nextSource, normalise, rate, resolveSource, SOURCES } from '../src/modules/sources';
 
 // Fake readings only. Expected values are worked out from graph.lua and sources.lua. Zone 100 x 40.
 const st: Style = {
@@ -112,5 +112,23 @@ describe('byte and bit-rate text (lib.lua)', () => {
   it('Mbps: long form, one decimal below 99.5', () => {
     expect(mbps(1250000)).toBe('10.0 Mbps'); // 10 Mbit/s
     expect(mbps(20000000)).toBe('160 Mbps');
+  });
+});
+
+describe('disk source and hidden VRAM source', () => {
+  it('disk source follows mDiskIO', () => {
+    expect(SOURCES.disk.get({ mDiskIO: 52000 }).value).toBe(52000);
+    expect(SOURCES.disk.get({}).value).toBe(0);
+  });
+  it('vram is not offered without an mVRAM reading, and is offered with one', () => {
+    expect(nextSource('gpu', 1, {})).toBe('cputemp');
+    expect(nextSource('cputemp', -1, {})).toBe('gpu');
+    expect(nextSource('gpu', 1, { mVRAM: 1e9 })).toBe('vram');
+  });
+  it('a saved vram resolves to a valid source', () => {
+    expect(resolveSource('vram', {}, 'gpu')).toBe('gpu');
+    expect(resolveSource('vram', { mVRAM: 1e9 }, 'gpu')).toBe('vram');
+    expect(resolveSource('cpu', {}, 'gpu')).toBe('cpu');
+    expect(nextSource('vram', 1, {})).toBe('cputemp');
   });
 });

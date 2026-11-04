@@ -67,7 +67,7 @@ export const SOURCES: Record<string, Source> = {
     },
   },
   disk: {
-    label: 'DISK I/O', get: (r) => { const v = val(r, 'mDiskRead') + val(r, 'mDiskWrite'); return { value: v, text: rate(v) }; },
+    label: 'DISK I/O', get: (r) => { const v = val(r, 'mDiskIO'); return { value: v, text: rate(v) }; },
   },
   netdown: { label: 'NET DOWN', get: (r) => { const v = val(r, 'netDown'); return { value: v, text: mbps(v) }; } },
   netup: { label: 'NET UP', get: (r) => { const v = val(r, 'netUp'); return { value: v, text: mbps(v) }; } },
@@ -76,13 +76,24 @@ export const SOURCES: Record<string, Source> = {
 
 export const ORDER = ['cpu', 'ram', 'gpu', 'vram', 'cputemp', 'gputemp', 'power', 'disk', 'netdown', 'netup', 'battery'];
 
+/** VIDEO MEMORY has no host producer yet: it is offered only while the readings contain mVRAM. Without readings, every source is offered. */
+const offered = (id: string, r?: Readings) => id !== 'vram' || r === undefined || r.mVRAM !== undefined;
+
+/** A saved id that is not offered (or unknown) falls back to the slot's default source. */
+export function resolveSource(id: string, r: Readings, fallback: string): string {
+  return SOURCES[id] && offered(id, r) ? id : fallback;
+}
+
 /** S.next: step through the order with wrap-around in both directions. An unknown id gives the first source. */
-export function nextSource(id: string, dir: number): string {
+export function nextSource(id: string, dir: number, r?: Readings): string {
   const i = ORDER.indexOf(id);
   if (i < 0) return ORDER[0];
   const n = ORDER.length;
   // Lua's % floors, so a negative step wraps; JavaScript's does not, hence the second %.
-  return ORDER[(((i + dir) % n) + n) % n];
+  let j = (((i + dir) % n) + n) % n;
+  // skip sources that are not offered; at most n tries, so a lone remaining source cannot loop forever
+  for (let k = 0; k < n && !offered(ORDER[j], r); k++) j = (((j + (dir < 0 ? -1 : 1)) % n) + n) % n;
+  return ORDER[j];
 }
 
 /** S.normalise: 0..1 for the graph. Auto-scaled sources are divided by 110% of their peak, starting at 1. */

@@ -19,8 +19,8 @@ export function graphState(src: string): GraphState {
 }
 
 /** setSource with the step: the next or previous source, with an empty history. */
-export function selectSource(state: GraphState, dir: number): GraphState {
-  return graphState(nextSource(state.src, dir));
+export function selectSource(state: GraphState, dir: number, r?: Readings): GraphState {
+  return graphState(nextSource(state.src, dir, r));
 }
 
 export function graphFrame(state: GraphState, r: Readings, zone: Zone, st: Style, mode: GraphMode): GraphFrame {

@@ -10,6 +10,7 @@ import { alertFrame, type AlertState } from './alert';
 import { batteryFrame, type BatteryState } from './battery';
 import { consoleFrame, consoleIntent, lltMessage, withHybridMode, type ConsoleConfig, type ConsoleView } from './console';
 import { graphFrame, graphState, selectSource, type GraphState } from './graph';
+import { resolveSource } from './sources';
 import { type Readings } from './readings';
 import { powerFrame } from './power';
 import { visible } from './hidden';
@@ -30,6 +31,9 @@ const PREV_KEY = 'cspace.masterPrev.v1';
 let masterPrev = (() => { try { const v = Number(localStorage.getItem(PREV_KEY)); return [0, 1, 2].includes(v) && localStorage.getItem(PREV_KEY) !== null ? v : -1; } catch { return -1; } })();
 const savePrev = (v: number) => { masterPrev = v; try { localStorage.setItem(PREV_KEY, String(v)); } catch { /* storage off: this run only */ } };
 
+const savedSource = (id: string | undefined, def: string, m: Parameters<typeof readingsFrom>[0] | null | undefined) =>
+  id === undefined ? def : m ? resolveSource(id, readingsFrom(m), def) : id;
+
 type TopState = { cpu: GraphState; ram: GraphState; a: GraphState; b: GraphState; battery: BatteryState; alert: AlertState };
 
 /** Top console: CPU and RAM graphs, two select graphs (GraphA and GraphB sources), power, battery, alert and the console. Behind ?module=top. */
@@ -38,8 +42,8 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
   const m = systemMetrics.value;
   const cs = consoleStatus.value;
   const [st, setSt] = useState<TopState>(() => ({
-    cpu: graphState('cpu'), ram: graphState('ram'), a: graphState(values.GraphA_Source ?? 'gpu'),
-    b: graphState(values.GraphB_Source ?? 'netdown'), battery: { samples: [] }, alert: { blink: 0 },
+    cpu: graphState('cpu'), ram: graphState('ram'), a: graphState(savedSource(values.GraphA_Source, 'gpu', m)),
+    b: graphState(savedSource(values.GraphB_Source, 'netdown', m)), battery: { samples: [] }, alert: { blink: 0 },
   }));
   const [view, setView] = useState(NO_VIEW);
   const say = (msg: string) => setView((v) => ({ ...v, msg, msgAt: Date.now() }));
@@ -87,7 +91,7 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
   // a click moves a select graph to the next source (right click the previous one); the history starts again
   // graph.lua setSource: a new source starts an empty history and is saved (GraphA_Source / GraphB_Source)
   const step = (k: 'a' | 'b', dir: number) => {
-    const next = selectSource(st[k], dir);
+    const next = selectSource(st[k], dir, m ? readingsFrom(m) : undefined);
     setSt((s) => ({ ...s, [k]: next }));
     store.set(k === 'a' ? 'GraphA_Source' : 'GraphB_Source', next.src);
   };
