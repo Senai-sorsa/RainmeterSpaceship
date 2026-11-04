@@ -982,6 +982,38 @@ def _hear(tier, follow, woke, mode, left, typed, way):
     return text, model, hud, reading, t_spoke, wait
 
 
+def _gate(text, follow, wait, mode, typed, left, way):
+    """Gate stage: was this speech for him? Late in the open ear without his name, not an undo after a command, or a fragment or room talk: the turn ends quietly (or asks once). Returns True to go on, a falsy None when the turn ends here."""
+    hearing.missed[0] = 0                                 # words came out: the next miss is a first one again
+    if follow and onset[0] > wait and strip_name(text) == text:   # 8a: late in the open ear and no name: room talk
+        way.update(kind="ear", result="late, no name - dropped")
+        log("ear: started late without his name - dropped")
+        return
+    answering = time.time() < offer.get("expires", 0) or asked_you(recent["me"])
+    if mode == "undo" and not followup.only_undo(route(strip_name(text))[0]):   # T2: after a command only "undo" counts
+        way.update(kind="ear", result="not an undo - quiet")
+        return
+    heard_as = directed(text, answering) if mode in ("ear", "stop") else "yes"
+    if heard_as != "yes":
+        way.update(kind="ear", result="not for me - quiet" if heard_as == "no" else "asked if for me")
+    if heard_as == "no":                                   # a fragment or room noise: no answer, the window ends
+        log("ear: not for me - stayed quiet")
+        return
+    if heard_as == "ask" and setting("JarvisRoomAsk", "0") != "1":   # D6: unsure means quiet unless you want the question
+        log("ear: unsure - stayed quiet")
+        way.update(kind="ear", result="not for me - quiet")
+        return
+    if heard_as == "ask":                                  # unsure: ask once; "yes" answers what was said
+        log("ear: unsure - asked")
+        convo_add("U", text)
+        reply_line(room_ask(), muted())
+        offer.clear()
+        offer.update(room=text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+        left["again"] = not muted() and "ear"
+        return
+    return True
+
+
 def exchange(tier, follow, woke, mode, left, typed=None):
     """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
@@ -998,32 +1030,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         if heard is None:                                      # the turn ended in the input stage (it already said or logged why)
             return
         text, model, hud, reading, t_spoke, wait = heard
-        hearing.missed[0] = 0                                 # words came out: the next miss is a first one again
-        if follow and onset[0] > wait and strip_name(text) == text:   # 8a: late in the open ear and no name: room talk
-            way.update(kind="ear", result="late, no name - dropped")
-            log("ear: started late without his name - dropped")
-            return
-        answering = time.time() < offer.get("expires", 0) or asked_you(recent["me"])
-        if mode == "undo" and not followup.only_undo(route(strip_name(text))[0]):   # T2: after a command only "undo" counts
-            way.update(kind="ear", result="not an undo - quiet")
-            return
-        heard_as = directed(text, answering) if mode in ("ear", "stop") else "yes"
-        if heard_as != "yes":
-            way.update(kind="ear", result="not for me - quiet" if heard_as == "no" else "asked if for me")
-        if heard_as == "no":                                   # a fragment or room noise: no answer, the window ends
-            log("ear: not for me - stayed quiet")
-            return
-        if heard_as == "ask" and setting("JarvisRoomAsk", "0") != "1":   # D6: unsure means quiet unless you want the question
-            log("ear: unsure - stayed quiet")
-            way.update(kind="ear", result="not for me - quiet")
-            return
-        if heard_as == "ask":                                  # unsure: ask once; "yes" answers what was said
-            log("ear: unsure - asked")
-            convo_add("U", text)
-            reply_line(room_ask(), muted())
-            offer.clear()
-            offer.update(room=text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
-            left["again"] = not muted() and "ear"
+        if not _gate(text, follow, wait, mode, typed, left, way):   # not for him (or asked once): the turn ends here
             return
         convo_add("U", text)
         quiet = muted()
