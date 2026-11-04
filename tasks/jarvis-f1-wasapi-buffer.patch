@@ -1,0 +1,69 @@
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py
+index 24dce82..6456370 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py
+@@ -66,6 +66,7 @@ DEFAULTS = {
+     "JarvisChimeVolume": "25",
+     "JarvisVoiceSmooth": "1",         # player.SMOOTH_DEFAULT (test_jarvis.py switches it to "0" for the older speech tests)
+     "JarvisWasapi": "1",
++    "JarvisPlayerLatency": 0.1,       # player.stream_latency(): WASAPI buffer in seconds, 0 = "low" (the old value)
+     "JarvisPauseCont": 25,            # numbers: player._num() / pause_ms() read these
+     "JarvisPauseClause": 150,
+     "JarvisPauseSentence": 300,
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+index 3d95435..5f72077 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+@@ -30,6 +30,13 @@ def _num(name, default, lo, hi):
+         return default
+ 
+ 
++def stream_latency():
++    """The WASAPI buffer in seconds (JarvisPlayerLatency, default 0.1; 0 = PortAudio's "low", about 25 ms on this machine). A bigger
++    buffer rides out short stalls of the writing thread, which is what random slight glitches in the speech were by ear (live test F1)."""
++    sec = _num("JarvisPlayerLatency", 0.1, 0.0, 0.5)
++    return sec if sec > 0 else "low"
++
++
+ def pause_ms(kind):
+     name, default = PAUSES.get(kind, PAUSES["cont"])
+     return int(_num(name, default, 0, 1500))
+@@ -100,7 +107,7 @@ class Player:
+             try:
+                 dev = self._wasapi_device(sd)
+                 if dev is not None:
+-                    out = sd.OutputStream(samplerate=rate, channels=ch, dtype="float32", device=dev, latency="low",
++                    out = sd.OutputStream(samplerate=rate, channels=ch, dtype="float32", device=dev, latency=stream_latency(),
+                                           extra_settings=sd.WasapiSettings(auto_convert=True))
+                     out.start()
+                     api = "wasapi"
+diff --git a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+index f30c374..6cd28ab 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+@@ -4475,7 +4475,7 @@ _tone2 = (0.2 * np.sin(np.linspace(0, 400 * np.pi, 24000))).astype(np.float32)
+ _prog = []
+ for lead in (0, 300, 150):
+     PL.player.play(_tone2, 24000, _prog.append, lead)
+-assert len(sd.opened) == 1 and sd.opened[0] == dict(rate=24000, ch=1, device=8, wasapi=True, latency="low"), sd.opened
++assert len(sd.opened) == 1 and sd.opened[0] == dict(rate=24000, ch=1, device=8, wasapi=True, latency=0.1), sd.opened
+ assert PL.player.api == "wasapi" and [e for e in sd.events if e[0] == "close"] == []      # still open between the clips
+ _zero = [w for w in sd.writes if w[2] == 0.0]
+ assert sum(w[1] for w in _zero) == int(24000 * 0.300) + int(24000 * 0.150), sum(w[1] for w in _zero)   # the chosen pauses, as silence in the stream
+@@ -4490,6 +4490,16 @@ threading.Event().wait(0.7)              # (j.time.sleep is faked by earlier tes
+ assert PL.player.out is None and ("close", 1) in sd.events, sd.events[-4:]
+ del _smooth["JarvisIdleClose"]
+ 
++# F1 (random slight glitches on the speakers, by ear: the 100 ms buffer was smoothest): a bigger buffer by default, settable
++assert PL.stream_latency() == 0.1
++for _v, _want_lat in (("0", "low"), ("0.25", 0.25), ("9", 0.5), ("junk", 0.1)):
++    _smooth["JarvisPlayerLatency"] = _v
++    sd = _fresh_player()
++    PL.player.play(_tone2[:2000], 24000, None, 0)
++    assert sd.opened[0]["latency"] == _want_lat, (_v, sd.opened)
++del _smooth["JarvisPlayerLatency"]
++PL.player.close()
++
+ # WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same
+ sd = _fresh_player(wasapi_fails=True)
+ PL.player.play(_tone2[:2000], 24000, None, 0)

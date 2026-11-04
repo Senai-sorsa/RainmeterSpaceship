@@ -1,0 +1,201 @@
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvis.py b/Skins/Spaceship/@Resources/Jarvis/jarvis.py
+index aada181..35cfad8 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvis.py
+@@ -1117,6 +1117,99 @@ def _preempt(turn, way, woke, left):
+     return False
+ 
+ 
++def _command(turn, model, way, left):
++    """Command stage: understand the words (rules, follow-ups, the AI reread) and finish every kind that ends with a fixed reply: end, room, heard, again, empty data, confirmations, several commands, diagnostics, command replies, actions. Returns what the model path still needs, or None when the turn ended here."""
++    fixed = lambda reply: _fixed(turn, reply)
++    kind, action, target, prompt, via = understand(turn.text, model, turn.quiet, turn.room)
++    way.update(kind=kind, action=action, via=via)
++    if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
++        way.update(kind="control")
++        log("control: ended by you")
++        return
++    if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
++        log("transcript: not for me - stayed quiet")
++        return
++    if kind == "room":                                     # asked once; a "yes" answers it in full
++        log("transcript: not for me? asked")
++        reply_line(room_ask(), turn.quiet)
++        offer.update(room=turn.text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
++        left["again"] = not turn.quiet and "ear"
++        return
++    if kind == "heard":
++        fixed(f"I heard: {recent['you']}" if recent["you"] else FX.HEARD_NOTHING)
++        return
++    if kind == "again":
++        fixed(recent["me"] or FX.SAID_NOTHING)
++        return
++    if cancel.is_set():                                    # stopped while the model read it: nothing runs
++        return
++    blocks = info_blocks(turn.text) if kind == "chat" else set()
++    lane = way["lane"] = lane_of(kind, blocks)
++    empty = no_data(turn.text, blocks) or (no_ability(turn.text) if kind == "chat" and not blocks else None)   # B2: can't-do requests, said by code
++    if empty:                                              # no data, no model
++        fixed(empty)
++        return
++    # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
++    recent["you"] = turn.text
++    extra, close_offer = "", None
++    if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
++        if not ask_yes(prompt, turn.quiet):                     # an act asks below, with the same prompt
++            way["result"] = "left - no yes"
++            log(f"{kind} {action} not confirmed (Whisper unsure)")
++            fixed(FX.CANCELLED)
++            return
++        prompt = None
++    if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
++        replies, steps = [], []
++        for part in target:                                # each part records its own undo: keep them all
++            seen = list(undo)
++            replies.append(command_reply(*part, turn.quiet))
++            if undo and list(undo) != seen:
++                steps.append(list(undo))
++        if len(steps) > 1:
++            undo[:] = [min(s[0] for s in steps), "multi", steps]
++        turn.quiet = muted()
++        fixed(" ".join(replies))
++        return
++    if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
++        if setting("JarvisDiagnose", "1") != "1":
++            fixed(FX.DIAG_OFF)
++            return
++        filler("diag", turn.quiet)
++        line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
++        top = items[0] if items else None                  # only the worst finding, and only when it is what was asked about
++        asked = {"cpu": "of the CPU", "memory": "of memory", "gpu": "the GPU"}.get(action, "")
++        exe = (top and top["closable"] and asked in top["text"] and running_window(top["app"])) or None
++        exe = None if exe and is_protected(exe) else exe
++        if line:
++            fixed(line + (" Want me to close it?" if exe else ""))
++            if exe:
++                offer.update(close=exe, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
++            return
++        extra, close_offer = prompt_findings(items), exe
++    if kind != "act" or prompt is None:
++        reply = command_reply(kind, action, target, prompt, turn.quiet)
++        if reply is not None:
++            if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
++                turn.quiet = muted()
++            fixed(reply)
++            return
++    if kind == "act":
++        # two-phase: ask, and listen for the answer (15 s) without another click
++        if ask_yes(prompt, turn.quiet):
++            ok = run_action(action, target, pending=(action, target))
++            way["result"] = "done" if ok else "failed"
++            if action == "stealth":
++                turn.quiet = True                               # pop-up only: no voice, no open ear
++            fixed((FX.ADDED if action == "todo" else done_line(action, target)) if ok else FX.FAILED)
++        else:
++            way["result"] = "left - no yes"
++            log(f"action {action} not confirmed")
++            fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else FX.CANCELLED)
++        return
++    return kind, target, extra, lane, close_offer
++
++
+ def exchange(tier, follow, woke, mode, left, typed=None):
+     """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
+     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
+@@ -1144,93 +1237,10 @@ def exchange(tier, follow, woke, mode, left, typed=None):
+         S.set(err="")
+         if _preempt(turn, way, woke, left):
+             return
+-        kind, action, target, prompt, via = understand(turn.text, model, turn.quiet, turn.room)
+-        way.update(kind=kind, action=action, via=via)
+-        if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
+-            way.update(kind="control")
+-            log("control: ended by you")
+-            return
+-        if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
+-            log("transcript: not for me - stayed quiet")
+-            return
+-        if kind == "room":                                     # asked once; a "yes" answers it in full
+-            log("transcript: not for me? asked")
+-            reply_line(room_ask(), turn.quiet)
+-            offer.update(room=turn.text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+-            left["again"] = not turn.quiet and "ear"
+-            return
+-        if kind == "heard":
+-            fixed(f"I heard: {recent['you']}" if recent["you"] else FX.HEARD_NOTHING)
+-            return
+-        if kind == "again":
+-            fixed(recent["me"] or FX.SAID_NOTHING)
+-            return
+-        if cancel.is_set():                                    # stopped while the model read it: nothing runs
+-            return
+-        blocks = info_blocks(turn.text) if kind == "chat" else set()
+-        lane = way["lane"] = lane_of(kind, blocks)
+-        empty = no_data(turn.text, blocks) or (no_ability(turn.text) if kind == "chat" and not blocks else None)   # B2: can't-do requests, said by code
+-        if empty:                                              # no data, no model
+-            fixed(empty)
+-            return
+-        # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
+-        recent["you"] = turn.text
+-        extra, close_offer = "", None
+-        if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
+-            if not ask_yes(prompt, turn.quiet):                     # an act asks below, with the same prompt
+-                way["result"] = "left - no yes"
+-                log(f"{kind} {action} not confirmed (Whisper unsure)")
+-                fixed(FX.CANCELLED)
+-                return
+-            prompt = None
+-        if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
+-            replies, steps = [], []
+-            for part in target:                                # each part records its own undo: keep them all
+-                seen = list(undo)
+-                replies.append(command_reply(*part, turn.quiet))
+-                if undo and list(undo) != seen:
+-                    steps.append(list(undo))
+-            if len(steps) > 1:
+-                undo[:] = [min(s[0] for s in steps), "multi", steps]
+-            turn.quiet = muted()
+-            fixed(" ".join(replies))
+-            return
+-        if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
+-            if setting("JarvisDiagnose", "1") != "1":
+-                fixed(FX.DIAG_OFF)
+-                return
+-            filler("diag", turn.quiet)
+-            line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
+-            top = items[0] if items else None                  # only the worst finding, and only when it is what was asked about
+-            asked = {"cpu": "of the CPU", "memory": "of memory", "gpu": "the GPU"}.get(action, "")
+-            exe = (top and top["closable"] and asked in top["text"] and running_window(top["app"])) or None
+-            exe = None if exe and is_protected(exe) else exe
+-            if line:
+-                fixed(line + (" Want me to close it?" if exe else ""))
+-                if exe:
+-                    offer.update(close=exe, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+-                return
+-            extra, close_offer = prompt_findings(items), exe
+-        if kind != "act" or prompt is None:
+-            reply = command_reply(kind, action, target, prompt, turn.quiet)
+-            if reply is not None:
+-                if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
+-                    turn.quiet = muted()
+-                fixed(reply)
+-                return
+-        if kind == "act":
+-            # two-phase: ask, and listen for the answer (15 s) without another click
+-            if ask_yes(prompt, turn.quiet):
+-                ok = run_action(action, target, pending=(action, target))
+-                way["result"] = "done" if ok else "failed"
+-                if action == "stealth":
+-                    turn.quiet = True                               # pop-up only: no voice, no open ear
+-                fixed((FX.ADDED if action == "todo" else done_line(action, target)) if ok else FX.FAILED)
+-            else:
+-                way["result"] = "left - no yes"
+-                log(f"action {action} not confirmed")
+-                fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else FX.CANCELLED)
++        res = _command(turn, model, way, left)
++        if res is None:
+             return
++        kind, target, extra, lane, close_offer = res
+         if kind == "notes":
+             filler("notes", turn.quiet)
+             hits = smart_search(target or turn.text)

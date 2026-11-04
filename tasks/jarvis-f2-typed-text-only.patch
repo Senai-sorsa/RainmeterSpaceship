@@ -1,0 +1,57 @@
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvis.py
+@@ -1023,6 +1023,7 @@
+     way = {}                                                   # 6j: which path answered; logged once in finally
+     cancel.clear()
+     typed_turn[0] = typed is not None
++    quiet_talk.typed[0] = typed is not None                    # typed in the chat: the answer is the chat, not the speakers
+     turn_id[0] = time.time()
+     threading.Thread(target=watchdog, args=(turn_id[0],), daemon=True).start()
+     try:
+@@ -1294,6 +1295,7 @@
+             done = "stopped" if cancel.is_set() else way.get("result", "said")
+             log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s -> {done}")
+         S.set(state="idle", level=0.0)
++        quiet_talk.typed[0] = False
+         busy.release()
+ 
+ 
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/quiet.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/quiet.py
+@@ -10,6 +10,7 @@
+ _off = [0]                                                     # end time of the event he was told he can talk in
+ _seen = [0]                                                    # end time of the event last logged
+ _cache = [0.0, False]                                          # when it was last read, the answer
++typed = [False]                                                # a turn that came from the chat box is running: the answer is text only
+ 
+ 
+ def _current():
+@@ -25,7 +26,10 @@
+ 
+ 
+ def now():
+-    """True while he is quiet. Read at most every 5 s: muted() asks on every sentence."""
++    """True while he is quiet. Read at most every 5 s: muted() asks on every sentence.
++    Also true for the length of a typed turn: what you type in the chat is answered in the chat, not out loud."""
++    if typed[0]:
++        return True
+     if time.time() - _cache[0] < 5:
+         return _cache[1]
+     end = _current()
+--- a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+@@ -1315,6 +1315,14 @@
+ assert asked[-1] == "Timer set for 5 minutes." and states[-1] == idle and not j.busy.locked() and not j.typed_turn[0] is False
+ j.turn(0, typed="Lock my computer.")
+ assert len(acted) == n_acted and not j.busy.locked()          # asked, never confirmed by voice, so nothing ran
++# F2 (live test): what is typed in the chat is answered in the chat only: quiet (pop-up text, no speakers) for that turn, and only that turn
++from jarvislib import quiet as _Qt
++_seen_q, _keep_ca = [], j.convo_add
++j.convo_add = lambda who, text: (_seen_q.append(_Qt.now()), _keep_ca(who, text))[1]
++j.turn(0, typed="Set a timer for 7 minutes.")
++j.convo_add = _keep_ca
++assert _seen_q and all(_seen_q), _seen_q                       # quiet while he answered
++assert _Qt.typed[0] is False and not _Qt.now() and not j.busy.locked()    # and not after: a spoken turn or an alarm speaks again
+ j.listen, j.transcribe = keep_listen, keep_transcribe
+ try:                                                              # the ding itself, where numpy is installed
+     import numpy

@@ -1,0 +1,168 @@
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py
+index 24dce82..d6f312d 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/config.py
+@@ -66,6 +66,7 @@ DEFAULTS = {
+     "JarvisChimeVolume": "25",
+     "JarvisVoiceSmooth": "1",         # player.SMOOTH_DEFAULT (test_jarvis.py switches it to "0" for the older speech tests)
+     "JarvisWasapi": "1",
++    "JarvisOwnResample": "1",         # player.py: 0 = let Windows convert 24 kHz to the device rate (the old way)
+     "JarvisPauseCont": 25,            # numbers: player._num() / pause_ms() read these
+     "JarvisPauseClause": 150,
+     "JarvisPauseSentence": 300,
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+index 3d95435..78a7e06 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+@@ -68,6 +68,21 @@ def fade(a, rate, ms=None):
+     return out
+ 
+ 
++def upsample(a, factor):
++    """The clip at `factor` times its rate (2 to 4): zero-stuffed, then a Kaiser-windowed sinc low-pass (129+ taps, DC gain 1).
++    Done here, not by Windows' automatic conversion, which is what an odd-sounding 24 kHz stream goes through on some sound drivers."""
++    import numpy as np
++    a = np.asarray(a, dtype=np.float32)
++    z = np.zeros((len(a) * factor,) + a.shape[1:], np.float32)
++    z[::factor] = a
++    half = 32 * factor
++    h = np.sinc(np.arange(-half, half + 1) / factor) * np.kaiser(2 * half + 1, 8.6)
++    h = (h * (factor / h.sum())).astype(np.float32)
++    if z.ndim == 1:
++        return np.convolve(z, h, mode="same")
++    return np.stack([np.convolve(z[:, c], h, mode="same") for c in range(z.shape[1])], axis=1)
++
++
+ def prepare(a, rate):
+     """trim + fade: what a clip becomes before it is written to the stream."""
+     return fade(trim(a, rate), rate)
+@@ -82,6 +97,7 @@ class Player:
+         self.out = None
+         self.fmt = None
+         self.api = ""
++        self.out_rate = None                                   # the rate the open stream runs at (the clip's own, or the device's)
+         self.last = 0.0
+         self.timer = None
+ 
+@@ -95,24 +111,37 @@ class Player:
+ 
+     def _open(self, rate, ch):
+         import sounddevice as sd
+-        out, api = None, ""
++        out, api, out_rate = None, "", rate
+         if str(setting("JarvisWasapi", "1")).strip() != "0":
+             try:
+                 dev = self._wasapi_device(sd)
+                 if dev is not None:
+-                    out = sd.OutputStream(samplerate=rate, channels=ch, dtype="float32", device=dev, latency="low",
++                    out_rate = self._device_rate(sd, dev, rate)
++                    out = sd.OutputStream(samplerate=out_rate, channels=ch, dtype="float32", device=dev, latency="low",
+                                           extra_settings=sd.WasapiSettings(auto_convert=True))
+                     out.start()
+                     api = "wasapi"
+             except Exception as e:
+                 log(f"player: WASAPI not available ({type(e).__name__}: {str(e)[:80]}) - using the default audio path")
+-                out = None
++                out, out_rate = None, rate
+         if out is None:
+             out = sd.OutputStream(samplerate=rate, channels=ch, dtype="float32")
+             out.start()
+             api = "default"
+-        self.out, self.fmt, self.api = out, (rate, ch), api
+-        log(f"player: stream open ({api}, {rate} Hz)")
++        self.out, self.fmt, self.api, self.out_rate = out, (rate, ch), api, out_rate
++        log(f"player: stream open ({api}, {out_rate} Hz" + (f", clips upsampled by us from {rate} Hz" if out_rate != rate else "") + ")")
++
++    def _device_rate(self, sd, dev, rate):
++        """The rate to open the shared WASAPI stream at: the sound device's own mix rate when it is a whole multiple (2 to 4) of the
++        clip's, so WE upsample (upsample()) instead of Windows. Anything unknown or odd: the clip's own rate, as before.
++        JarvisOwnResample=0 switches it off."""
++        if str(setting("JarvisOwnResample", "1")).strip() == "0":
++            return rate
++        try:
++            dr = int(float(sd.query_devices(dev)["default_samplerate"]))
++        except Exception:
++            return rate
++        return dr if dr > rate and dr % rate == 0 and 2 <= dr // rate <= 4 else rate
+ 
+     def _ready(self, rate, ch):
+         if self.out is not None and self.fmt != (rate, ch):
+@@ -186,6 +215,10 @@ class Player:
+                 if cancel.is_set():
+                     return
+                 self._ready(rate, ch)
++                if self.out_rate and self.out_rate != rate:        # the stream runs at the device's rate: the clip is made to fit
++                    a = upsample(a, self.out_rate // rate)
++                    rate = self.out_rate
++                    block = max(1, int(rate * 0.04))
+                 shape = (block,) if ch == 1 else (block, ch)
+                 for left in range(int(rate * lead_ms / 1000), 0, -block):      # the chosen pause, in the same stream
+                     if cancel.is_set():
+diff --git a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+index f30c374..587000b 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+@@ -4410,8 +4410,9 @@ assert len(PL.prepare(_clip, _r)) == len(_t)
+ 
+ class _FakeSD:
+     """A sounddevice with a recording OutputStream. `wasapi_fails`: the WASAPI open raises, the default one works."""
+-    def __init__(self, wasapi_fails=False, no_wasapi=False):
++    def __init__(self, wasapi_fails=False, no_wasapi=False, dev_rate=None):
+         self.opened, self.writes, self.events, self.wasapi_fails, self.no_wasapi = [], [], [], wasapi_fails, no_wasapi
++        self.dev_rate = dev_rate                                   # None: the device cannot be asked (query_devices raises)
+         fake = self
+ 
+         class WasapiSettings:
+@@ -4452,6 +4453,11 @@ class _FakeSD:
+                 fake.events.append(("close", self.id))
+         self.WasapiSettings, self.OutputStream, self.on_write = WasapiSettings, OutputStream, None
+ 
++    def query_devices(self, dev=None):
++        if self.dev_rate is None:
++            raise RuntimeError("no device info")
++        return {"name": "Speakers", "default_samplerate": float(self.dev_rate)}
++
+     def query_hostapis(self):
+         return [{"name": "MME", "default_output_device": 3}] + ([] if self.no_wasapi else [{"name": "Windows WASAPI", "default_output_device": 8}])
+ 
+@@ -4490,6 +4496,40 @@ threading.Event().wait(0.7)              # (j.time.sleep is faked by earlier tes
+ assert PL.player.out is None and ("close", 1) in sd.events, sd.events[-4:]
+ del _smooth["JarvisIdleClose"]
+ 
++# F1 (cracked speech on the speakers): the device runs at 48 kHz, so WE upsample the 24 kHz clip with a real filter and open the
++# stream at 48 kHz, instead of leaving the conversion to Windows
++_t1 = np.arange(24000) / 24000
++_s1 = (0.5 * np.sin(2 * np.pi * 1000 * _t1)).astype(np.float32)
++_u1 = PL.upsample(_s1, 2)
++assert len(_u1) == 48000 and abs(np.abs(_u1[2000:-2000]).max() - 0.5) < 0.01, np.abs(_u1[2000:-2000]).max()
++_spec = np.abs(np.fft.rfft(_u1[4000:-4000] * np.hanning(len(_u1) - 8000)))
++_img = _spec[int(len(_spec) * 12500 / 24000):].max()                       # the mirror image above 12 kHz must be gone
++assert 20 * np.log10(_img / _spec.max()) < -50, 20 * np.log10(_img / _spec.max())
++assert PL.upsample(np.zeros((100, 2), np.float32), 3).shape == (300, 2)
++sd = _fresh_player(dev_rate=48000)
++_far.clear()
++PL.player.play(_tone2, 24000, None, 100)
++_want = 2 * len(PL.prepare(_tone2, 24000))
++assert len(sd.opened) == 1 and sd.opened[0]["rate"] == 48000 and sd.opened[0]["wasapi"], sd.opened
++assert sum(w[1] for w in sd.writes if w[2] == 0.0) == 4800, "the 100 ms pause is written at the device rate"
++assert sum(w[1] for w in sd.writes if w[2] != 0.0) == _want and sum(_far) == _want, (_want, sum(_far))
++assert 0.15 < max(w[2] for w in sd.writes) < 0.25                                  # the level is kept
++PL.player.play(_tone2[:2000], 24000, None, 0)
++assert len(sd.opened) == 1, "the stream stays open between clips"
++_smooth["JarvisOwnResample"] = "0"                                                 # off: the old way, Windows converts
++sd = _fresh_player(dev_rate=48000)
++PL.player.play(_tone2[:2000], 24000, None, 0)
++assert sd.opened[0]["rate"] == 24000
++del _smooth["JarvisOwnResample"]
++for _dr in (44100, 24000, 96000 * 2):                                              # not a whole 2-4x multiple: untouched
++    sd = _fresh_player(dev_rate=_dr)
++    PL.player.play(_tone2[:2000], 24000, None, 0)
++    assert sd.opened[0]["rate"] == 24000, (_dr, sd.opened)
++sd = _fresh_player(dev_rate=48000, wasapi_fails=True)                             # WASAPI refuses: the default path at the clip's own rate
++PL.player.play(_tone2[:2000], 24000, None, 0)
++assert sd.opened[0]["rate"] == 24000 and not sd.opened[0]["wasapi"] and PL.player.api == "default"
++PL.player.close()
++
+ # WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same
+ sd = _fresh_player(wasapi_fails=True)
+ PL.player.play(_tone2[:2000], 24000, None, 0)

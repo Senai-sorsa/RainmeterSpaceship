@@ -1,0 +1,68 @@
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+index 5f72077..97442df 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+@@ -199,17 +199,20 @@ class Player:
+                         self._drop()
+                         return
+                     self.out.write(np.zeros(shape, dtype=np.float32) if left >= block else np.zeros((left,) + shape[1:], np.float32))
++                under = 0                                      # diagnostic only: device under-runs (write() returns True)
+                 for i in range(0, len(a), block):
+                     if cancel.is_set():
+                         self._drop()                           # abort: silent now, not after the buffer; the next clip re-opens
+                         return
+                     chunk = np.ascontiguousarray(a[i:i + block], dtype=np.float32)
+                     out = chunk * gain if gain < 1.0 else chunk
+-                    self.out.write(out)
++                    if self.out.write(out) is True:
++                        under += 1
+                     far_add(out, rate)                         # the echo reference is what really played
+                     S.set(level=min(1.0, float(np.sqrt(np.mean(chunk * chunk)) + 1e-9) / 0.18), force=False)
+                     if progress:
+                         progress(min(1.0, (i + block) / len(a)))
++                log(f"player: clip {len(a) / rate:.1f} s, peak {float(np.max(np.abs(a))) if len(a) else 0.0:.2f}, device under-runs {under}")
+                 self.last = time.time()
+                 self._arm()
+             except Exception:
+diff --git a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+index 483f666..b0c25a7 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+@@ -4433,6 +4433,7 @@ class _FakeSD:
+                 fake.events.append(("w", self.id))
+                 if fake.on_write:
+                     fake.on_write(len(fake.writes))
++                return fake.underflow(len(fake.writes)) if fake.underflow else None      # sounddevice: True = the device ran dry
+ 
+             def __enter__(self):
+                 fake.events.append(("start", self.id))
+@@ -4449,7 +4450,7 @@ class _FakeSD:
+ 
+             def close(self):
+                 fake.events.append(("close", self.id))
+-        self.WasapiSettings, self.OutputStream, self.on_write = WasapiSettings, OutputStream, None
++        self.WasapiSettings, self.OutputStream, self.on_write, self.underflow = WasapiSettings, OutputStream, None, None
+ 
+     def query_hostapis(self):
+         return [{"name": "MME", "default_output_device": 3}] + ([] if self.no_wasapi else [{"name": "Windows WASAPI", "default_output_device": 8}])
+@@ -4499,6 +4500,20 @@ for _v, _want_lat in (("0", "low"), ("0.25", 0.25), ("9", 0.5), ("junk", 0.1)):
+ del _smooth["JarvisPlayerLatency"]
+ PL.player.close()
+ 
++# F1 diagnostic: each clip logs its length, peak and how many writes the device reported as under-runs (counts only, no audio changes)
++_pl_log, _pl_keep = [], PL.log
++PL.log = _pl_log.append
++sd = _fresh_player()
++sd.underflow = lambda n: n in (3, 5)                           # the 3rd and 5th write ran dry
++PL.player.play(_tone2, 24000, None, 0)
++_line = [m for m in _pl_log if m.startswith("player: clip")]
++assert len(_line) == 1 and "peak 0.20" in _line[0] and _line[0].endswith("device under-runs 2"), _pl_log
++sd.underflow = None
++PL.player.play(_tone2[:2000], 24000, None, 0)
++assert [m for m in _pl_log if m.startswith("player: clip")][-1].endswith("device under-runs 0"), _pl_log
++PL.log = _pl_keep
++PL.player.close()
++
+ # WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same
+ sd = _fresh_player(wasapi_fails=True)
+ PL.player.play(_tone2[:2000], 24000, None, 0)

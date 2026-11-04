@@ -1,0 +1,38 @@
+{
+  "_note": "Suites the broker runs on the disposable copy, baseline first, then patched. The model cannot edit this file.",
+  "copy": {
+    "subtrees": [
+      "Skins/Spaceship/@Resources/Jarvis"
+    ],
+    "ignore": [
+      "Data",
+      "__pycache__",
+      "vosk",
+      "semi-live-results",
+      "*.onnx",
+      "*.bin",
+      "*.wav",
+      "*.gguf",
+      "*.pt",
+      "kokoro",
+      "voices"
+    ]
+  },
+  "suites": [
+    {
+      "name": "test_jarvis",
+      "cwd": "Skins/Spaceship/@Resources/Jarvis",
+      "argv": [
+        "{venv_python}",
+        "-B",
+        "test_jarvis.py"
+      ],
+      "env": {
+        "TZ": "ABC+12"
+      },
+      "pass": "test_jarvis: OK",
+      "count": null,
+      "timeout": 900
+    }
+  ]
+}

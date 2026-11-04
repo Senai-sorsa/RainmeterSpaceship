@@ -1,0 +1,47 @@
+{
+  "_note": "Sizes marked estimate are replaced by real numbers from `godmode gguf <file>` in G0. Nothing here is downloaded yet.",
+  "slots": {
+    "advanced": {
+      "display": "Jarvis Advanced",
+      "runtime": "ollama",
+      "model": "qwen3.6:35b-a3b",
+      "file_bytes": 22600000000,
+      "expert_bytes": 20500000000,
+      "n_layers": 40,
+      "kv_bytes_per_token": 20480,
+      "ctx_default": 32768,
+      "ctx_min": 8192,
+      "tools": true,
+      "estimate": true,
+      "_kv_note": "HF config: 40 layers, full attention every 4th (10 layers), 2 KV heads x 256 dim, f16 -> 2*10*2*256*2"
+    },
+    "ascendent": {
+      "display": "Jarvis Ascendent",
+      "runtime": "llama-server",
+      "model": "gpt-oss:120b",
+      "file_bytes": 65400000000,
+      "expert_bytes": 61000000000,
+      "n_layers": 36,
+      "kv_bytes_per_token": 36864,
+      "ctx_default": 32768,
+      "ctx_min": 8192,
+      "tools": true,
+      "estimate": true,
+      "_kv_note": "HF config: 36 layers, half sliding-window 128 (cached KV tiny), 18 full x 8 KV heads x 64 dim, f16"
+    },
+    "ultron": {
+      "display": "ULTRON",
+      "runtime": "ollama",
+      "model": "",
+      "file_bytes": 0,
+      "expert_bytes": 0,
+      "n_layers": 0,
+      "kv_bytes_per_token": 0,
+      "ctx_default": 16384,
+      "ctx_min": 4096,
+      "tools": false,
+      "estimate": true,
+      "reserved": true
+    }
+  }
+}
