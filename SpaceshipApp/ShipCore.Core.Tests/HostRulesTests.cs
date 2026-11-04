@@ -10,6 +10,31 @@ public class HostRulesTests
         Assert.Equal(-1, HostRules.PickHomeDisplay(displays, (3840, 2160)));
     }
 
+    [Fact]
+    public void NearestHomeDisplayKeepsTheExactMatchFirst()
+    {
+        var displays = new[] { (1920, 1080), (2560, 1600), (2560, 1600) };
+        Assert.Equal(1, HostRules.PickHomeDisplayNearest(displays, (2560, 1600)));
+    }
+
+    [Fact]
+    public void NearestHomeDisplayFollowsAResolutionChangeByAspectThenSize()
+    {
+        // the home panel was 2560x1600 (16:10) and is now 2048x1280: still 16:10, so it stays home, not the 16:9 monitor beside it
+        var displays = new[] { (1920, 1080), (2048, 1280) };
+        Assert.Equal(1, HostRules.PickHomeDisplayNearest(displays, (2560, 1600)));
+        // two 16:10 screens: the one nearest in pixel count wins
+        Assert.Equal(1, HostRules.PickHomeDisplayNearest(new[] { (1280, 800), (2304, 1440), (3840, 2400) }, (2560, 1600)));
+    }
+
+    [Fact]
+    public void NearestHomeDisplayHandlesNoDisplaysAndUnusableSizes()
+    {
+        Assert.Equal(-1, HostRules.PickHomeDisplayNearest(Array.Empty<(int, int)>(), (2560, 1600)));
+        Assert.Equal(0, HostRules.PickHomeDisplayNearest(new[] { (1920, 1080) }, (2560, 1600)));
+        Assert.Equal(-1, HostRules.PickHomeDisplayNearest(new[] { (0, 0), (1920, 0) }, (2560, 1600)));
+    }
+
     [Theory]
     [InlineData("2560x1600", 2560, 1600)]
     [InlineData("", 2560, 1600)]
