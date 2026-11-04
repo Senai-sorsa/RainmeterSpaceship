@@ -66,6 +66,7 @@ DEFAULTS = {
     "JarvisChimeVolume": "25",
     "JarvisVoiceSmooth": "1",         # player.SMOOTH_DEFAULT (test_jarvis.py switches it to "0" for the older speech tests)
     "JarvisWasapi": "1",
+    "JarvisPlayerLatency": 0.1,       # player.stream_latency(): WASAPI buffer in seconds, 0 = "low" (the old value)
     "JarvisPauseCont": 25,            # numbers: player._num() / pause_ms() read these
     "JarvisPauseClause": 150,
     "JarvisPauseSentence": 300,

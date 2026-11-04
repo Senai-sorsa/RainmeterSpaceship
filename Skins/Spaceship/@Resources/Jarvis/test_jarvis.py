@@ -1315,6 +1315,16 @@ j.turn(0, typed="Set a timer for 5 minutes.")
 assert asked[-1] == "Timer set for 5 minutes." and states[-1] == idle and not j.busy.locked() and not j.typed_turn[0] is False
 j.turn(0, typed="Lock my computer.")
 assert len(acted) == n_acted and not j.busy.locked()          # asked, never confirmed by voice, so nothing ran
+# F2 (live test): what is typed in the chat is answered in the chat only: quiet (pop-up text, no speakers) for that turn, and only that turn
+from jarvislib import quiet as _Qt
+_seen_q, _keep_ca = [], j.convo_add
+import jarvislib.mood as _Mt
+j.convo_add = lambda who, text: (_seen_q.append((_Qt.now(), _Mt.class_time())), _keep_ca(who, text))[1]
+j.turn(0, typed="Set a timer for 7 minutes.")
+j.convo_add = _keep_ca
+assert _seen_q and all(q[0] for q in _seen_q), _seen_q         # quiet while he answered
+assert not any(q[1] for q in _seen_q), _seen_q                 # ... but a typed turn is not class time: it keeps its mood (live test 2026-11-04: every typed answer came out "serious")
+assert _Qt.typed[0] is False and not _Qt.now() and not j.busy.locked()    # and not after: a spoken turn or an alarm speaks again
 j.listen, j.transcribe = keep_listen, keep_transcribe
 try:                                                              # the ding itself, where numpy is installed
     import numpy
@@ -1579,7 +1589,7 @@ assert "match their tone" in j.system_prompt() and "witty banter" not in j.syste
 j.setting = lambda name, default="": "Aria" if name == "JarvisName" else default
 assert j.system_prompt().count("You are Aria") == 1                                      # the name is a setting
 j.setting = lambda name, default="": default
-assert len(j.system_prompt()) <= 1500, len(j.system_prompt())                           # size budget: ~1.5x the old prompt
+assert len(j.system_prompt()) <= 1800, len(j.system_prompt())                           # size budget (was 1500; 1800 since the banter wording 2026-11-04: first sentence p50 stayed 0.38-0.40 s)
 # persona.txt: its sections replace the built-in ones, a missing section falls back, the safety text stays, a bad file is ignored
 real_persona = j.PERSONA
 j.PERSONA = os.path.join(tmp, "persona.txt")
@@ -4072,6 +4082,19 @@ M.state["late_on"] = None
 assert M.additions("that's wrong", "", "playful", hour=14) == [M.ADD["apology"]] and "I apologize, sir," in M.ADD["apology"]
 assert M.additions("you are useless", "", "playful", hour=14) == [M.ADD["rude"]]
 assert M.additions("help me with my homework", "", "playful", hour=14) == [M.ADD["homework"]]
+# banter (live test 2026-11-04: "You're slow today." got "I'm functioning within normal parameters"): teasing in mirror mood gets the play-along rule,
+# never together with another rule, never in playful (it has its own tail), brief or serious, and plain questions get nothing
+for _tease in ("You're slow today.", "Roast me.", "I made coffee. Applaud.", "I bet you can't go five minutes without being polite."):
+    assert M.additions(_tease, "", "mirror", hour=14) == [M.ADD["banter"]], _tease
+assert M.additions("Roast me.", "", "playful", hour=14) == [] and M.additions("Roast me.", "", "brief", hour=14) == []
+assert M.additions("you are useless", "", "mirror", hour=14) == [M.ADD["rude"]], "an insult keeps the rude rule only"
+assert M.additions("what is the capital of France", "", "mirror", hour=14) == [] and M.additions("tell me a joke", "", "mirror", hour=14) == []
+assert "Never make up readings" in M.ADD["banter"]
+import jarvislib.prompt as _P
+j.setting = lambda name, default="": "playful" if name == "JarvisPersonality" else default
+assert j.system_prompt().rstrip().count("PLAYFUL MODE") == 1 and _P.PLAYFUL_TAIL in j.system_prompt(), "playful ends with its tail"
+j.setting = lambda name, default="": default
+assert _P.PLAYFUL_TAIL not in j.system_prompt(), "mirror has no tail"
 assert M.additions("what do you think of Python", "", "playful", hour=14) == [M.ADD["opinion"]]
 assert M.additions("explain in detail how a jet works", "", "playful", hour=14) == [M.ADD["long"]]
 assert M.additions("Who was Lincoln?", "[Fri 17 Oct, 10:00 AM] who was lincoln", "playful", hour=14) == [M.ADD["repeat"]]
@@ -4466,7 +4489,7 @@ _tone2 = (0.2 * np.sin(np.linspace(0, 400 * np.pi, 24000))).astype(np.float32)  
 _prog = []
 for lead in (0, 300, 150):
     PL.player.play(_tone2, 24000, _prog.append, lead)
-assert len(sd.opened) == 1 and sd.opened[0] == dict(rate=24000, ch=1, device=8, wasapi=True, latency="low"), sd.opened
+assert len(sd.opened) == 1 and sd.opened[0] == dict(rate=24000, ch=1, device=8, wasapi=True, latency=0.1), sd.opened
 assert PL.player.api == "wasapi" and [e for e in sd.events if e[0] == "close"] == []      # still open between the clips
 _zero = [w for w in sd.writes if w[2] == 0.0]
 assert sum(w[1] for w in _zero) == int(24000 * 0.300) + int(24000 * 0.150), sum(w[1] for w in _zero)   # the chosen pauses, as silence in the stream
@@ -4480,6 +4503,16 @@ PL.player.play(_tone2[:2000], 16000, None, 0)
 threading.Event().wait(0.7)              # (j.time.sleep is faked by earlier tests)
 assert PL.player.out is None and ("close", 1) in sd.events, sd.events[-4:]
 del _smooth["JarvisIdleClose"]
+
+# F1 (random slight glitches on the speakers, by ear: the 100 ms buffer was smoothest): a bigger buffer by default, settable
+assert PL.stream_latency() == 0.1
+for _v, _want_lat in (("0", "low"), ("0.25", 0.25), ("9", 0.5), ("junk", 0.1)):
+    _smooth["JarvisPlayerLatency"] = _v
+    sd = _fresh_player()
+    PL.player.play(_tone2[:2000], 24000, None, 0)
+    assert sd.opened[0]["latency"] == _want_lat, (_v, sd.opened)
+del _smooth["JarvisPlayerLatency"]
+PL.player.close()
 
 # WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same
 sd = _fresh_player(wasapi_fails=True)

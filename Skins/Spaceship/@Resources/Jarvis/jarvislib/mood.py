@@ -31,6 +31,14 @@ OPINION = re.compile(r"\b(?:should i|what do you think|your (?:opinion|view)|do 
                      r"advice|recommend)\b", re.I)
 LONG = re.compile(r"\b(?:explain (?:in detail|thoroughly|fully)|in detail|in depth|complex explanation|walk me through|elaborate)\b", re.I)
 LATE = range(0, 5)                                                # G2: 00:00-04:59
+# teasing, playing along, fishing for a roast: the user is joking, so the answer should be a joke back, not a disclaimer
+# (semi-live 2026-11-04: "You're slow today." got "I'm functioning within normal parameters", "Roast me." got a refusal)
+BANTER = re.compile(r"\b(?:roast me|you(?:'re| are) (?:so |a bit |kind of |pretty |really )?(?:slow|lazy|boring|annoying|no fun|bad at this|"
+                    r"not (?:very )?(?:good|funny|smart|helpful))|you call that|bet you can'?t|i bet you|do you (?:secretly )?judge me|is plotting|are plotting|conspir|favou?rite (?:appliance|toaster|human)|pretend (?:i|you|we|that|it)|"
+                    r"let'?s pretend|imagine (?:you|if|that)|if you were a|who would win|applaud|clap for me|am i your favou?rite|"
+                    r"(?:great|oh sure|wow|nice|thanks a lot),? (?:another|so|you|blame)|fine,? be that way|"
+                    r"i(?:'m| am) (?:basically |totally )?(?:a genius|the best|a legend|the king|a god)|tell me i'?m wrong|"
+                    r"no fun|haha|lol|just kidding|kidding|jk|you(?:'ve| have) changed|say something (?:dramatic|a butler))\b", re.I)
 
 ADD = {
     "serious": "SERIOUS TOPIC: be gentle and kind. Acknowledge what the user is going through, never joke, give one helpful "
@@ -44,6 +52,8 @@ ADD = {
                "advice is allowed with no disclaimer.",
     "repeat": "The user asked this same question just before. Answer it again and tease them gently for repeating it.",
     "long": "The user wants a longer answer: up to about eight short spoken sentences.",
+    "banter": "The user is teasing or joking. Play along: answer with one short, dry, witty line in kind. Never explain the joke, "
+              "correct them, or say you are an AI or have no feelings. Never make up readings or numbers.",
     "late": "It is very late at night. You may remark once, lightly, that the user is staying up.",
     "privacy": "PRIVACY MODE: speak only in general terms about mail, calendar, to-dos and notes: counts and topics, "
                "never names, titles or other specifics.",
@@ -64,7 +74,7 @@ def serious_topic(text):
 
 def class_time():
     """B9: during the quiet-in-class window a spoken-to turn is answered in serious mood; the base mood returns after."""
-    return quiet.now()
+    return quiet.in_class()                                       # not quiet.now(): a typed turn is silent but not "in class"
 
 
 def turn_mood(text, base, counted=True):
@@ -111,6 +121,8 @@ def additions(text, prev_user="", mood=None, hour=None):
     a, b = _norm(t), _norm(prev_user)
     if len(a) > 6 and a == b:
         keys.append("repeat")
+    if not keys and mood not in ("playful", "brief", "serious") and BANTER.search(t):   # mirror only, and only when no other rule shapes the answer
+        keys.append("banter")
     night = time.strftime("%Y-%m-%d")
     # G2 "remark once": the rule goes into ONE turn per night, never a serious one (semi-live 2026-11-03: sent every
     # turn, the 8B model said "you're a night owl" to an insult, a joke request and "My grandfather died")

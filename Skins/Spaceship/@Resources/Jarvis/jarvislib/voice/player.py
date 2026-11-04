@@ -30,6 +30,13 @@ def _num(name, default, lo, hi):
         return default
 
 
+def stream_latency():
+    """The WASAPI buffer in seconds (JarvisPlayerLatency, default 0.1; 0 = PortAudio's "low", about 25 ms on this machine). A bigger
+    buffer rides out short stalls of the writing thread, which is what random slight glitches in the speech were by ear (live test F1)."""
+    sec = _num("JarvisPlayerLatency", 0.1, 0.0, 0.5)
+    return sec if sec > 0 else "low"
+
+
 def pause_ms(kind):
     name, default = PAUSES.get(kind, PAUSES["cont"])
     return int(_num(name, default, 0, 1500))
@@ -100,7 +107,7 @@ class Player:
             try:
                 dev = self._wasapi_device(sd)
                 if dev is not None:
-                    out = sd.OutputStream(samplerate=rate, channels=ch, dtype="float32", device=dev, latency="low",
+                    out = sd.OutputStream(samplerate=rate, channels=ch, dtype="float32", device=dev, latency=stream_latency(),
                                           extra_settings=sd.WasapiSettings(auto_convert=True))
                     out.start()
                     api = "wasapi"

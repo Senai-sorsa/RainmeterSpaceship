@@ -86,6 +86,7 @@ from jarvislib.meaning import MEANING_BLOCK, MEANING_TALK, STAMP, _embed, _vecs,
 from jarvislib.search import _chroma, _chroma_lock, _chunks, _reindexing, chroma_index, smart_search
 from jarvislib.reply import fixed as FX                       # every fixed line he says (one registry)
 from jarvislib.reply.policy import reply_chain                # the reply filter chain, in one place
+from jarvislib.reply.pardon import no_pardon                  # clear words never get "Pardon, what did you say?"
 from jarvislib.memory import (ACTIVE_TTL, TALK_KEEP, TALK_TTL, EARLIER, FOLLOW_START, POINTS_BACK, GIST_AGE, GIST_FILE, GIST_PROMPT, GIST_SCHEMA,
     MEMORY_BAD, MEMORY_FILE, NO_TALK, RECALL_FLOOR, SECRET, TALK_STOP, TOPICS_BAD, TOPICS_FILE, ask_gist, compact,
     fact_save, facts_about, file_talk, gist_day, gist_for, gist_ok, gisting, keywords, load_gist, load_memory,
@@ -1023,6 +1024,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
     way = {}                                                   # 6j: which path answered; logged once in finally
     cancel.clear()
     typed_turn[0] = typed is not None
+    quiet_talk.typed[0] = typed is not None                    # typed in the chat: the answer is the chat, not the speakers
     turn_id[0] = time.time()
     threading.Thread(target=watchdog, args=(turn_id[0],), daemon=True).start()
     try:
@@ -1267,7 +1269,9 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         collected, spoke = [], None
         way["via"] = "model"
         log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
-        stream = chat_stream(model, messages, 0 if lane == "info" else 0.5)
+        temp = 0 if lane == "info" else 0.5
+        stream = no_pardon(lambda m: chat_stream(model, m, temp), messages,
+                           lane == "chat" and (typed is not None or heard_score[0] >= -1.0))   # clear words never get "Pardon?" (reply/pardon.py)
         known = " ".join(m["content"] for m in messages)               # every reading he may quote must come from here
         said = reply_chain(stream, collected, known, cap, turn_key == "serious")   # the filter order: jarvislib/reply/policy.py
         if quiet and setting("JarvisMutedPopup", "1") == "1":
@@ -1294,6 +1298,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             done = "stopped" if cancel.is_set() else way.get("result", "said")
             log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s -> {done}")
         S.set(state="idle", level=0.0)
+        quiet_talk.typed[0] = False
         busy.release()
 
 

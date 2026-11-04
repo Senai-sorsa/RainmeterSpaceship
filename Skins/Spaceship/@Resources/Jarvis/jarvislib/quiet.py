@@ -10,6 +10,7 @@ TALK = re.compile(r"(?:you can (?:talk|speak)(?: now| again| normally)?|(?:talk|
 _off = [0]                                                     # end time of the event he was told he can talk in
 _seen = [0]                                                    # end time of the event last logged
 _cache = [0.0, False]                                          # when it was last read, the answer
+typed = [False]                                                # a turn that came from the chat box is running: the answer is text only
 
 
 def _current():
@@ -25,7 +26,13 @@ def _current():
 
 
 def now():
-    """True while he is quiet. Read at most every 5 s: muted() asks on every sentence."""
+    """True while he is quiet. Also true for the length of a typed turn: what you type in the chat is answered in the chat,
+    not out loud. (Not the same as in_class(): a typed turn is NOT class time, so it keeps its mood.)"""
+    return True if typed[0] else in_class()
+
+
+def in_class():
+    """True while a QUIET calendar event is running. Read at most every 5 s: muted() asks on every sentence."""
     if time.time() - _cache[0] < 5:
         return _cache[1]
     end = _current()

@@ -62,6 +62,81 @@ Open, not fixed: offers ("Would you like me to..."); room talk with "you"/"?" in
 (user's S2-10 rule); 8B sometimes ignores HUD data (said "no unread emails" with 4 unread).
 
 ## 6. Log (newest first)
+- 2026-11-04 p (ROUND 2 CONTINUED: banter / trolling, a real F2 bug, typing box). APPLIED to the live checkout, UNCOMMITTED, JARVIS restarted 04:21:17. Record of the live diff:
+  tasks/jarvis-round2-live.patch (also holds F2 and the Pardon fix; jarvis.py/test_jarvis.py hunks are NOT in the refactor worktree, the other 6 files were copied there).
+  F2 BUG FOUND AND FIXED: F2 made quiet.now() true for typed turns, and mood.class_time() read quiet.now() as "he is in class" -> every TYPED turn (and every semi-live run since F2,
+  which types) was answered in SERIOUS mood, so mood text had no effect and banter looked flat. Now quiet.in_class() is the real quiet-hours check, now() = typed or in_class(),
+  mood.class_time() uses in_class(). Test: F2 block in test_jarvis.py checks the real mood.class_time() during a typed turn; mutation-checked (caught).
+  Semi-live results before this fix (the 3B baseline, banter flat, "playful barely moves him") were measured in that wrong serious mood: treat them as invalid for J1.
+  BANTER: persona head no longer says "politely and formally" (now "courteous butler's manner, no swearing"); [mirror] = dry wit, plays along when teased; [playful] = shameless
+  affectionate troll, teases only with what he was told or obvious exaggeration, never claims to have seen screen/browsing/files/readings; PLAYFUL_TAIL (last in the prompt, prompt.py)
+  forces a jab after every answer (3-4 sentences). New mood.BANTER regex + ADD["banter"]: in mirror only, only when no other rule applies ("You're slow today.", "Roast me.",
+  "Applaud", "I bet you can't...") -> one dry witty line, never a disclaimer, never invented numbers. Prompt cap in test_jarvis raised 1500 -> 1800 (default prompt is 1760;
+  first sentence p50 stayed 0.38-0.40 s). Mirror cost 187 -> 183 on 262 conversation cases; serious cases (grandfather, job, lonely, sick dog) stay gentle in playful; knowledge
+  answers stay plain. Tests: test_jarvis (banter/playful tail), mutation-checked 3 ways (caught). Gate: venv + py -3 OK, host_pipe 0, run_all OK, golden 0/834 and 0/2512.
+  TYPING BOX (UI, user said fix it): SpaceshipApp/SpaceshipUI/src/modules/JarvisModule.tsx. Cause: Program.cs WM_LBUTTONDOWN takes keyboard focus only when a keyboard hit-region
+  already exists; TYPE button was not one, so the box opened unfocused and onBlur closed it. Fix: TYPE rect is data-hit="keyboard" + 0.8 s blur grace. tsc clean, 4 vitest files
+  (36 tests) pass. NOT rebuilt / not seen running: CSpace must be rebuilt (npm run build + publish) and restarted for it to take effect. TYPING BOX REBUILT 04:2x: the app serves SpaceshipUI/dist from disk (no dotnet publish needed): ran `npx vite build` (no `gen`), restarted CSpace (old pid 21724 -> 30024, JARVIS kept running);
+  bundle checked: TYPE rect has data-hit=keyboard + the blur grace. Perf log clean, no Code Integrity block this time. NOT VERIFIED: the real click-and-type on the desktop (no desktop control here);
+  a throwaway Playwright test (deleted) failed at its own first step (could not find/click the TYPE rect on /?host=mock&module=jarvislog&jarvislog=demo), so it proves nothing either way.
+  Another session is editing JarvisModule.tsx (orb filter ids) and rebuilt/restarted CSpace at 03:56: its changes and mine are both in the working copy, uncommitted. WAKE SENSITIVITY: parked by the user, last.
+- 2026-11-04 o (LIVE TEST ROUND 2: F1 better, wake word, "what did you say", typing, jokes). APPLIED to the live checkout, UNCOMMITTED, JARVIS restarted 03:25:53
+  (needs a restart for any further change). F1: user says NO cracks any more after the restart (F1 buffer + F2 live). Nahimic (sound-processing driver) is installed and
+  running; not touched; cause of the earlier cracks still unproven. Research + sources: tasks/jarvis-f1-glitch-research-2026-11-04.md.
+  "WHAT DID YOU SAY": Whisper heard right (pop-up log: "I think you're annoying.", "What did I ask you?") and the MODEL answered "Pardon sir, what did you say?" because
+  persona.txt/prompt.py SYSTEM_HEAD said "If the input is unclear, say Pardon...". FIX 1 (persona.txt + prompt.py, same words, prompt stays under the 1500-char test cap):
+  Pardon only for garbled words. FIX 2 (new jarvislib/reply/pardon.py `no_pardon`, one call in jarvis.py, tests/test_pardon.py): if the opening of a chat answer asks to repeat while the
+  words were clear (typed, or Whisper score >= -1.0), the model is asked once more with a firm hint; gibberish still gets the Pardon. Numbers (8B, seed 7, same cases):
+  14 clear lines x2: 24 of 28 wrong Pardons (old) -> 0 (both fixes); 262 conversation cases: 21.6% (old, 483-case set) -> 6.1% (fix 1) -> 3.9% (fix 1+2), cost 195 -> 187; the 3
+  gibberish controls and cut-off sentences ("What's the square root of") still ask, on purpose. Not fixed: lone "What?"/"Huh?"/"Jarvis." with no earlier reply (test artifact, but the
+  retried answer is odd). Gate on live: test_jarvis venv + py -3 OK, host_pipe 0 failures, run_all OK (incl. test_pardon), golden routes 0/834, replies 0/2512. Patch (record of the
+  live diff, jarvis.py hunk also holds F2's 2 lines): tasks/jarvis-pardon-fix.patch. NOT ported to the refactor worktree (its jarvis.py is split differently): port before merging it.
+  JOKES / BANTER (J1): measured, NOT fixed. 8B answers teasing with disclaimers ("I don't have personal preferences", "That's not a question, sir"). Rewording the [mirror] mood line did
+  nothing (replies identical), even the existing [playful] mood barely moves it: the main system text ("politely and formally") wins and the prompt is at its 1500-char cap. Next: few-shot
+  banter examples or a lighter system text (needs the user's yes: it changes what he says), judged by the user's blind rating. New bank + scorer flags: tasks/jarvis-f3-bank-and-scorer.patch
+  (not applied). 3B baseline on the chat bank: cost 172 (M1 misreads 84).
+  WAKE WORD: log shows hits at 0.90-0.99 and misses at 0.24-0.37 (needs 0.50), misses below 0.15 are not logged. Suspect: the speech filter (vad_threshold=0.5 in jarvis.py wake_loop) and
+  sensitivity 0.5 (Settings.inc, user said not to touch). My probe (scratchpad wake_probe.py: scores only, 4 filter settings at once) got NO speech on its first run (silent mic block, user
+  was not speaking yet): must be re-run with the user saying "Hey Jarvis" ~10 times. TYPING BOX: nothing reached JARVIS (no ASK in the log); the box is SpaceshipApp JarvisModule.tsx
+  and closes on blur (onBlur -> setTyping(false)); not my area, reported.
+- 2026-11-04 n (LIVE FEEDBACK F1 revised, F2, F3, "blocked" check). Everything below is APPLIED to the live checkout, UNCOMMITTED; the running JARVIS
+  must be restarted to use it. Rollback for each: `git apply -R tasks/<patch>`.
+  F1 (cracked speech on speakers): the own-48 kHz-resample fix (entry m) was REVERTED. Blind A/B by ear (the user, 4 playback paths, one listen each,
+  order hidden): own48 = the only one with glitches; current Windows-converted path clean; the same path with a 100 ms buffer smoothest. So: stream buffer
+  default 0.1 s, setting `JarvisPlayerLatency` (0 = old "low"): `tasks/jarvis-f1-wasapi-buffer.patch` (player.py `stream_latency()`, config.py, tests).
+  User after trying it: "still small glitches, but smaller". NOT SOLVED. One listen per version, position effect not excluded. Next: more A/B rounds with the
+  first slot a throwaway; try 0.2 s; Windows audio enhancements / spatial sound on the Realtek device; mic stream in the same process; log the real device
+  underflow count and per-reply peak (diagnostic only). Evidence so far: no clipping (peaks 0.38-0.57), GPU = CPU output, 0 underflows in a sandbox with Kokoro
+  load, so the sandbox cannot reproduce it; only ears can.
+  F2 (typed text only): what is typed in the chat is answered in the chat, never out loud: `quiet.typed[0]` set for the length of a typed turn
+  (`quiet.now()` true, so every `muted()` call is true: pop-up text, no speakers), cleared in exchange()'s finally. `tasks/jarvis-f2-typed-text-only.patch`.
+  F3 (wake word too hard, misreads, no jesting): PLAN ONLY, `tasks/jarvis-chat-quality-plan-2026-11-04.md`. Needs the user's real example lines and a yes
+  to record wake clips. Nothing started.
+  GATE: worktree (F1 buffer + F2 together): test_jarvis venv + py -3 OK, host_pipe failed: 0, run_all OK, golden routes 0/834, golden replies 0/2512. The LIVE
+  checkout was only syntax-checked after applying (py ast parse of the 5 files); the full gate was NOT re-run on live. Mutation checks for F1/F2 were NOT
+  completed: a mutated test run HANGS instead of failing (the earlier orphaned mutate.sh was one such run), so use `timeout 300` on every mutated run.
+  "BLOCKED" messages: Windows Application Control (WDAC) policy {0283ac0f-fff1-49ae-ada1-8a933130cad6}, enforced for user mode. Event log
+  Microsoft-Windows-CodeIntegrity/Operational, last 3 days: 3077 (enforced block) x3: `SpaceshipApp\publish\CSpace\CSpace.dll` loaded by CSpace.exe (11-03
+  23:50), `SpaceshipApp\ShipCore.Core.Tests\...\ShipCore.Core.dll` loaded by testhost.exe (11-04 01:34), scipy `_peak_finding_utils.pyd` (11-04 00:20, my test);
+  also `nvidia\cublas\bin\cublas64_12.dll` x26 (11-03 09:36-10:00, JARVIS python; Kokoro/Whisper ran on the CPU then, GPU from 10:17); and Windhawk's
+  windhawk.dll into Chrome/Edge x541 (11-03 11:44-11:46). Cause: the self-built / pip-installed DLLs are unsigned. Fix is the user's call (sign them or add a
+  supplemental policy / file-path rule); NOT touched. The CSpace.dll block is the SpaceshipApp session's area.
+- 2026-11-04 m (LIVE FEEDBACK F1: speech "cracked at times" on the SPEAKERS, random slight glitches at random, non-repeating spots, start to end of a reply; user
+  heard it in both replies at 00:01 and 00:02). EVIDENCE: log had only 2 smooth-voice replies, 0 under-runs, no player errors (but "under-runs" counts late synth,
+  NOT device underflows). Offline, silent: Kokoro peaks 0.38-0.57, 0 clipped samples, GPU vs CPU click scores equal -> not clipping, not a CUDA artifact.
+  Real Player.play in a sandbox under Kokoro load: 0 underflow flags in 323 writes, work between writes p99 6.9 ms (buffer 25 ms) -> not a write stall. What is
+  left and UNPROVEN by ear: the 24 kHz stream goes into a 48 kHz Realtek device and Windows converts it (`auto_convert=True`, player.py). Random spots fit a
+  per-sample conversion fault better than a seam or a Kokoro flaw (those would repeat). FIX (candidate, needs the user's ears): `JarvisOwnResample` (default 1,
+  config.py; 0 = old way): player.py opens WASAPI at the device's own rate when it is a whole 2-4x multiple and upsamples the clip itself (`upsample()`, 129-tap
+  Kaiser sinc, 10 ms for a 5.8 s clip). Tests added in test_jarvis.py (filter image < -50 dB, stream rate, pause at device rate, off switch, 44.1 kHz untouched,
+  WASAPI-refused fallback); mutation-checked (2 mutations fail the new tests). Gate: test_jarvis venv + py -3 OK, host_pipe failed: 0, run_all OK, golden routes
+  0/834, golden replies 0/2512. Real device smoke: stream open (wasapi, 48000 Hz, clips upsampled by us from 24000 Hz). APPLIED to the live checkout (uncommitted, user said yes 2026-11-04): patch
+  `tasks/jarvis-f1-own-resample.patch`, files player.py, config.py, test_jarvis.py; gate re-run on the live code: all green (same numbers). Also in worktree
+  refactor/jarvis-pipeline, uncommitted. The running JARVIS process (started 23:50) still has the OLD code until it is restarted. Rollback: `git apply -R` the patch.
+  The orphaned `mutate.sh` chain (bash + test_jarvis python, started 23:52 from the refactor session, harmless, only touches the scratch mirror) was still running:
+  stopping it was refused by the permission check, so the user decides (see its PIDs in the log of the session). NOT verified:
+  that it removes the glitches (blind A/B of 4 playback paths was played, answer pending; key in the session scratchpad ab_key.json). If glitches stay, next
+  suspects: Windows "audio enhancements" / spatial sound on the Realtek device, the mic stream open in the same process, WASAPI shared-mode period.
 - 2026-11-03 l (REFACTOR phases 6, 4, 7 + final A/B; branch refactor/jarvis-pipeline at 147b66d, NOT merged to main, live checkout still on jarvis-live).
   PHASE 6 (exchange() slices, move only, 3 commits): `_record_chat` (31 lines, 17c32cb), `_hear` (74 lines, 966ab84; returns (text, model, hud,
   reading, t_spoke, wait) or None), `_gate` (27 lines, f2c9199; True to go on). Each: lines copied unchanged, gate green, plus a mutation check in
