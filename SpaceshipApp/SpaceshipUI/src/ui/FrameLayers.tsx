@@ -7,6 +7,9 @@ import { partShapes } from './frameParts';
 import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
 import { PictureTrim } from './PictureTrim';
+import { fixPanelSlabs, type SlabZone } from './panelSlab';
+import { seatInPicture } from '../modules/pictureSlots';
+import layout from '../generated/layout.json';
 import { bootRunning } from './settle';
 import { hiddenZones } from '../modules/hidden';
 import grainUrl from '../assets/lens/bluenoise.png?url';
@@ -20,6 +23,8 @@ const fill = { position: 'absolute', inset: 0, backgroundSize: '100% 100%' } as 
 
 /** Frame.ini's cockpit, as stacked layers in the skin's drawing order. Alpha formulas are the skin's (GlassGlare*21, ScanAlpha*18, ...). */
 export function FrameLayers({ style, values }: { style: FrameStyle; values: Record<string, string> }) {
+  // the bottom panels' zones, seated like the modules are, so the glass slab behind each one follows its card (panelSlab.ts)
+  const slabZones = useMemo(() => layout.zones.filter((z) => z.id === 'B_panelL' || z.id === 'B_panelR').map((z) => (style === 'fitted' ? seatInPicture(z) : z)) as SlabZone[], [style]);
   if (style === 'none') return null;
   const pic = style === 'picture' || style === 'fitted'; // fitted is the same picture art; only the HUD layout differs
   const rgb = String(values.ColorAccent ?? '').split(',').slice(0, 3).map((x) => Math.min(255, Math.max(0, Number(x) || 0))).join(',');
@@ -42,7 +47,7 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
     // the frame is the 16:10 area the modules' svg letterboxes into (.frame in ui.css: width min(100vw, 160vh), top-left of that area), from the window
     // size alone. It must NOT follow the HUD-size value: a page Scale other than the design 0.67 made it 1.5x too big against the modules (live test)
     <div class="frame" data-frame={style} aria-hidden="true">
-      {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} />}
+      {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} zones={slabZones} />}
       {img(pic ? 'glass_fx_pic' : 'glass_fx', alpha(n(values, 'GlassGlare', 12) * 21))}
       {scan && img(pic ? 'scan_pic' : 'scan', alpha(n(values, 'ScanAlpha', 6) * 18))}
       {img('shade', alpha(n(values, 'ShadeAlpha', 155)))}
@@ -57,10 +62,10 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {style === 'fitted' ? (
         <>
           {/* the top 330 units of the HUD's own trim are hidden: PictureTrim draws it along the picture's slots instead */}
-          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: 'inset(20.625% 0 0 0)' }}><Parts names={['Decor']} vars={vars} /></div>
+          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: 'inset(20.625% 0 0 0)' }}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>
           <PictureTrim accent={accent} tier={tier} />
         </>
-      ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />}
+      ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} zones={slabZones} />}
     </div>
   );
 }
@@ -68,11 +73,11 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
 const PARTS = parts as unknown as Record<string, [string, Record<string, string>][]>;
 
 /** The named Parts/*.inc sections as one SVG in the canvas units, stretched over the frame like the layer images. */
-function Parts({ names, vars }: { names: string[]; vars: Record<string, string> }) {
+function Parts({ names, vars, zones }: { names: string[]; vars: Record<string, string>; zones: SlabZone[] }) {
   const key = names.join();
   // only the variables the parts read, so a clock tick or an unrelated setting does not rebuild a hundred shapes
   const deps = ['ColorAccent', 'GlowAlpha', 'GlowWidth', 'CoreWhite', 'GlassTint'].map((k) => vars[k]);
-  const shapes = useMemo(() => names.flatMap((p) => (PARTS[`${p}.inc`] ?? []).flatMap(([, sec]) => partShapes(sec, vars))), [key, ...deps]);
+  const shapes = useMemo(() => names.flatMap((p) => (PARTS[`${p}.inc`] ?? []).flatMap(([, sec]) => partShapes(p === 'Decor' ? fixPanelSlabs(sec, zones) : sec, vars))), [key, zones, ...deps]);
   return (
     <svg class="frame-parts" data-part={key} viewBox="0 0 2560 1600" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
       {shapes.map((s, i) => {
