@@ -62,6 +62,29 @@ Open, not fixed: offers ("Would you like me to..."); room talk with "you"/"?" in
 (user's S2-10 rule); 8B sometimes ignores HUD data (said "no unread emails" with 4 unread).
 
 ## 6. Log (newest first)
+- 2026-11-03 k (REFACTOR phases 3 and 5 done as far as is safe; commits 91ed765 phase 3, then phase 5; branch refactor/jarvis-pipeline).
+  PHASE 3 voice package (move only): speech.py cut by line range (text unchanged) into `jarvislib/voice/` chunker (first_words..sentences_from),
+  pacing (merged, plan_chunks, hesitation_parts), output (headphone_gain, output_name, play_samples, muted, say_text_only, SHOW/HIDE_LOG),
+  fillers, speaker (speak_all, _speak_queue); tts.py -> voice/synth.py and player.py -> voice/player.py by `git mv`. `output` exists so
+  speaker <-> fillers has no import cycle. `jarvislib/tts.py` and `player.py` are sys.modules ALIASES of the moved modules (tests set
+  attributes such as `jarvislib.player.SMOOTH_DEFAULT`, tools set `tts.RES`); `speech.py` re-exports every old name (checked against the
+  old file's names from git: none missing). Static undefined-name check on all voice modules: none. Schema test now scans sub-packages.
+  Gate: test_jarvis OK x2, host_pipe failed: 0, run_all OK, golden 0/834 + 0/2512; `tools/voice_gaps.py --no-synth` identical old vs new
+  (47 chunks, 19 seams, mid-clause seams 13 -> 4, first chunk 6.2 words); silent zero-amplitude WASAPI smoke through the moved player ok
+  (api wasapi, closes clean). Semi-live 8B old vs new, seed 7, same hour, tripwires 0: main 36 -> 37, fresh 32 -> 33, persona 18 -> 8,
+  first sentence p50 0.44-0.48 -> 0.41-0.44 s. NEW CHECK `route_ab.py` (jarvis-gate folder): turn decisions (route line without timing +
+  requested actions) old vs new: 400/400 turns equal; use it as the exchange-level gate for phases 4 and 6.
+  NOT DONE in phase 3 on purpose: `Voice.say() -> Spoken` facade (an API change, not a move), jarvis.py importing the voice internals
+  (`_speak_queue`, `_filler_*`) from the new modules instead of the shim (no gain, pure risk), removing JarvisVoiceSmooth=0: KEPT as the
+  legacy path until the user's live test is confirmed (decision for phase 3 was "keep", plan question 5).
+  PHASE 5 session (the safe slice only): `jarvislib/session.py` `reset_turn_state()` clears mood + timed mood, offer, last, recent, undo, did,
+  heard_score in place; tools/semi_live.py and tools/golden_common.py call it instead of two copies of those lines; tests/test_session.py.
+  Product code does not call it. Gate: tests OK x2, host_pipe failed: 0, run_all OK (5 files), golden 0 diffs; semi-live 8B (p5 vs p3-new):
+  main 37 -> 37, fresh 33 -> 33, persona 8 -> 9, decisions 400/400 equal, tripwires 0.
+  NOT DONE in phase 5 on purpose: moving `history`, `last_turn`, `cancel`, `busy`, `turn_id` into a Session and the structural stale-turn
+  guard. Reasons: tests rebind `j.offer`, `j.last`, `j.history`, `j.last_turn` outright (a Session holding its own copy would diverge
+  silently); `turn_id` is a timestamp the watchdog thread compares; cancel/busy are shared with the wake/barge-in threads and no test can
+  exercise those races. B10 audit (log g) already found the stale-turn paths guarded. Module-level mutable state count stays 59 (inventory).
 - 2026-11-03 j (REFACTOR phase 2 DONE, commits 514dc36 move, d6c3758 edits; branch refactor/jarvis-pipeline, not merged to main).
   `jarvislib/reply/fixed.py`: ONE registry of 31 fixed lines (11 moved from routing/mood/prompt/memory/diag, 18 jarvis.py literals,
   NO_ABILITY lines listed too); FIXED_LINES is derived from `passthrough=True` entries (same 3 lines as before); the old names are

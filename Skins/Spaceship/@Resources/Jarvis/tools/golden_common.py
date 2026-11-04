@@ -118,17 +118,10 @@ class Box:
 
     def reset(self):
         """A fresh session: the same state semi_live.py resets per case."""
-        from jarvislib import mood as M, turnstate, hearing
+        from jarvislib import session
         self.jarvis.history = []
         self.jarvis.last_turn = 0.0
-        M.reset()
-        M.state["temp"] = None
-        for d in (turnstate.offer, turnstate.last):
-            d.clear()
-        turnstate.recent.update(you="", me="")
-        turnstate.undo.clear()
-        turnstate.did.clear()
-        hearing.heard_score[0] = 0.0
+        session.reset_turn_state()
         for f in (self.j.MEMORY_FILE, self.j.REMIND_FILE, self.j.TOPICS_FILE, self.j.GIST_FILE):
             if os.path.exists(f):
                 SL._real_remove(f)

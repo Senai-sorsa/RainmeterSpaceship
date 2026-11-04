@@ -175,7 +175,7 @@ def main():
     os.remove, shutil.rmtree = guarded_remove, guarded_rmtree
 
     import jarvis                                              # noqa: E402  (after the guards, on purpose)
-    from jarvislib import mood as M, llm, turnstate, hearing, mic as micmod, prompt as P
+    from jarvislib import mood as M, llm, turnstate, hearing, mic as micmod, prompt as P, session
 
     class Everywhere:                                          # same as test_jarvis.py: a fake reaches every module
         def __init__(self, main):
@@ -308,13 +308,7 @@ def main():
             # a fresh session per case: talk, mood, offers, undo, memory, reminders
             jarvis.history = []
             jarvis.last_turn = 0.0
-            M.reset()
-            M.state["temp"] = None
-            for d in (turnstate.offer, turnstate.last):
-                d.clear()
-            turnstate.recent.update(you="", me="")
-            turnstate.undo.clear()
-            turnstate.did.clear()
+            session.reset_turn_state()                         # mood, offers, last list, recent, undo, did (jarvislib/session.py)
             for f in (j.MEMORY_FILE, j.REMIND_FILE, j.TOPICS_FILE, j.GIST_FILE):
                 if os.path.exists(f):
                     _real_remove(f)
