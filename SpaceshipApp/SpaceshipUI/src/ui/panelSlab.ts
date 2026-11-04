@@ -30,3 +30,18 @@ export function fixPanelSlabs<S extends Record<string, string>>(sec: S, zones: S
   }
   return (out ?? sec) as S;
 }
+
+// A small decor icon at about canvas (640, 840), a circle with a gap and an arrow inside it (Shape43..Shape50 of the skin's Decor.inc: four stroke layers each for
+// the arc P43..P46 and the chevron P47..P50). It does not belong to any module and does nothing; the user asked for it gone (live test, 2026-11-04).
+const STRAY_ICON = [43, 44, 45, 46, 47, 48, 49, 50];
+const BLANK = 'Rectangle 0,0,0,0 | Fill Color 0,0,0,0 | StrokeWidth 0'; // the skin's own no-op shape (Shape33..Shape38)
+
+/** The Decor section with the stray icon's eight shapes blanked (not deleted: the shape list is walked in order and must stay unbroken). A section whose
+ *  Shape43..Shape50 are not the icon's paths is left as it is. */
+export function blankStrayIcon<S extends Record<string, string>>(sec: S): S {
+  const isIcon = (n: number) => new RegExp(`^\\s*Path P${n}\\b`).test(String(sec['Shape' + n] ?? ''));
+  if (!STRAY_ICON.every(isIcon)) return sec;
+  const out: Record<string, string> = { ...sec };
+  for (const n of STRAY_ICON) out['Shape' + n] = BLANK;
+  return out as S;
+}

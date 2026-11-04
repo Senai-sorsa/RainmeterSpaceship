@@ -45,3 +45,23 @@ for (const [mode, cfg] of Object.entries(MODES)) {
     });
   }
 }
+
+// Live test: "remove this random arrow and cut circle" (a decor icon near canvas (640, 840) that belonged to no module). Gone in every frame mode.
+for (const [mode, cfg] of Object.entries(MODES)) {
+  test(`${mode}: the stray circle-with-arrow icon is gone`, async ({ page }) => {
+    await page.setViewportSize({ width: 1707, height: 1067 });
+    await page.addInitScript((c) => {
+      sessionStorage.setItem('cspace.booted', '1');
+      localStorage.setItem('mockhost.v1', JSON.stringify({ config: c, setupDone: true, aboutMe: '' }));
+    }, cfg);
+    await page.goto('/?preview=1&module=all');
+    await page.waitForSelector('[data-module="panel-right"]');
+    await page.waitForTimeout(600);
+    // canvas (640, 840) is css (427, 560) at this size; no drawn decor element may sit there (size-zero shapes are fine)
+    const n = await page.evaluate(() => [...document.querySelectorAll('.frame-parts *')].filter((e) => {
+      const r = e.getBoundingClientRect();
+      return r.width > 1 && r.width < 45 && r.height > 1 && r.height < 45 && Math.abs((r.left + r.right) / 2 - 427) < 14 && Math.abs((r.top + r.bottom) / 2 - 560) < 14;
+    }).length);
+    expect(n).toBe(0);
+  });
+}

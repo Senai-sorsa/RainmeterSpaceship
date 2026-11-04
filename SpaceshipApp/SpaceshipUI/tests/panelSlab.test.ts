@@ -58,3 +58,22 @@ describe('fixPanelSlabs', () => {
     expect(fixPanelSlabs(decor, [{ ...zone('B_panelR'), matrix: [1, 0] }])).toBe(decor);
   });
 });
+
+describe('blankStrayIcon', () => {
+  const sec = decor as Record<string, string>;
+  it('blanks exactly Shape43..Shape50 of the real Decor section (the circle with a gap and its arrow)', async () => {
+    const { blankStrayIcon } = await import('../src/ui/panelSlab');
+    const out = blankStrayIcon(sec);
+    expect(out).not.toBe(sec);
+    const changed = Object.keys(sec).filter((k) => out[k] !== sec[k]).sort();
+    expect(changed).toEqual(['Shape43', 'Shape44', 'Shape45', 'Shape46', 'Shape47', 'Shape48', 'Shape49', 'Shape50']);
+    for (const k of changed) expect(out[k]).toMatch(/^Rectangle 0,0,0,0/); // the skin's own no-op, so the shape list stays unbroken
+  });
+  it('leaves a section whose Shape43..50 are something else untouched (same object)', async () => {
+    const { blankStrayIcon } = await import('../src/ui/panelSlab');
+    const other = { ...sec, Shape47: 'Rectangle 1,2,3,4 | Fill Color 1,2,3,4' };
+    expect(blankStrayIcon(other)).toBe(other);
+    const bare = { Shape1: 'Path P1 | Fill Color 0,0,0,0' };
+    expect(blankStrayIcon(bare)).toBe(bare);
+  });
+});

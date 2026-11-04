@@ -7,18 +7,21 @@ import { partShapes } from './frameParts';
 import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
 import { PictureTrim } from './PictureTrim';
-import { fixPanelSlabs, type SlabZone } from './panelSlab';
+import { blankStrayIcon, fixPanelSlabs, type SlabZone } from './panelSlab';
 import { seatInPicture } from '../modules/pictureSlots';
 import layout from '../generated/layout.json';
 import { bootRunning } from './settle';
 import { hiddenZones } from '../modules/hidden';
 import grainUrl from '../assets/lens/bluenoise.png?url';
+import glassFxClean from '../assets/glass_fx_pic_clean.png?url';
 
 const urls = import.meta.glob('../generated/frame/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const url = (name: string) => urls[`../generated/frame/${(manifest as Record<string, string>)[name]}`];
 
 const n = (v: Record<string, string>, k: string, d: number) => { const x = Number(v[k]); return Number.isFinite(x) ? x : d; };
 const alpha = (x: number) => Math.min(255, Math.max(0, x)) / 255;
+// the HUD's own trim kept in fitted mode: everything except the top 330 units and the bottom console (x 700..1860, y 1380..1600), which PictureTrim draws on the art's edges
+const DECOR_CLIP = 'polygon(0 20.625%, 100% 20.625%, 100% 100%, 72.656% 100%, 72.656% 86.25%, 27.344% 86.25%, 27.344% 100%, 0 100%)';
 const fill = { position: 'absolute', inset: 0, backgroundSize: '100% 100%' } as const;
 
 /** Frame.ini's cockpit, as stacked layers in the skin's drawing order. Alpha formulas are the skin's (GlassGlare*21, ScanAlpha*18, ...). */
@@ -48,7 +51,10 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
     // size alone. It must NOT follow the HUD-size value: a page Scale other than the design 0.67 made it 1.5x too big against the modules (live test)
     <div class="frame" data-frame={style} aria-hidden="true">
       {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} zones={slabZones} />}
-      {img(pic ? 'glass_fx_pic' : 'glass_fx', alpha(n(values, 'GlassGlare', 12) * 21))}
+      {/* picture frames: the glare is CSpace's own cleaned layer (tools/clean_glass_fx.cjs): the skin's had an odd bright triangular spot in the right window */}
+      {pic
+        ? <div class="frame-layer" data-layer="glass_fx_pic" style={{ ...fill, backgroundImage: `url(${glassFxClean})`, opacity: alpha(n(values, 'GlassGlare', 12) * 21) }} />
+        : img('glass_fx', alpha(n(values, 'GlassGlare', 12) * 21))}
       {scan && img(pic ? 'scan_pic' : 'scan', alpha(n(values, 'ScanAlpha', 6) * 18))}
       {img('shade', alpha(n(values, 'ShadeAlpha', 155)))}
       {img(pic ? 'ship' : 'hull', hull, { filter: bright })}
@@ -61,8 +67,8 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {!pic && n(values, 'PerfTier', 0) < 2 && <Grain mask={url('window_mask')} hull={hull} />}
       {style === 'fitted' ? (
         <>
-          {/* the top 330 units of the HUD's own trim are hidden: PictureTrim draws it along the picture's slots instead */}
-          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: 'inset(20.625% 0 0 0)' }}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>
+          {/* the top 330 units and the bottom console of the HUD's own trim are hidden: PictureTrim draws them along the picture's slots and band instead */}
+          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: DECOR_CLIP }}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>
           <PictureTrim accent={accent} tier={tier} />
         </>
       ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} zones={slabZones} />}
@@ -77,7 +83,7 @@ function Parts({ names, vars, zones }: { names: string[]; vars: Record<string, s
   const key = names.join();
   // only the variables the parts read, so a clock tick or an unrelated setting does not rebuild a hundred shapes
   const deps = ['ColorAccent', 'GlowAlpha', 'GlowWidth', 'CoreWhite', 'GlassTint'].map((k) => vars[k]);
-  const shapes = useMemo(() => names.flatMap((p) => (PARTS[`${p}.inc`] ?? []).flatMap(([, sec]) => partShapes(p === 'Decor' ? fixPanelSlabs(sec, zones) : sec, vars))), [key, zones, ...deps]);
+  const shapes = useMemo(() => names.flatMap((p) => (PARTS[`${p}.inc`] ?? []).flatMap(([, sec]) => partShapes(p === 'Decor' ? fixPanelSlabs(blankStrayIcon(sec), zones) : sec, vars))), [key, zones, ...deps]);
   return (
     <svg class="frame-parts" data-part={key} viewBox="0 0 2560 1600" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
       {shapes.map((s, i) => {

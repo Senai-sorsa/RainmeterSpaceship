@@ -10,7 +10,7 @@ import { netStatus } from '../host/statusFeed';
 import { AUDIO_HITS, audioFrame, audioState, FRAME_MS, settled, type AudioState } from './audio';
 import { audioSpectrum } from '../host/audioFeed';
 import { HitRect } from './hit';
-import { leftRows, panelLeftFrame, panelRightFrame, rightRows } from './panels';
+import { leftRows, panelLeftFrame, panelRightFrame, rightRows, RIGHT_INSET } from './panels';
 import { type Readings } from './readings';
 import { stripLeftFrame, stripRightFrame } from './strip';
 import { DialModule } from './DialModule';
@@ -110,7 +110,7 @@ export function BottomModule({ style, hide = '' }: { style: Style; hide?: string
       {place(Z.panelR, panels.pr, 'pr', 'panel-right', Z.panelR && (
         <>
           <HitRect zone={Z.panelR} s={style.s} box={{ x: 0, y: 0, w: Z.panelR.w, h: Z.panelR.h * 0.78 }} label="About this PC" on={{ click: open('about') }} />
-          <HitRect zone={Z.panelR} s={style.s} box={{ x: 6, y: Z.panelR.h * 0.8, w: Z.panelR.w - 12, h: Z.panelR.h * 0.16 }} label="Terminal" on={{ click: open('terminal'), menu: open('powershell') }} />
+          <HitRect zone={Z.panelR} s={style.s} box={{ x: RIGHT_INSET, y: Z.panelR.h * 0.8, w: Z.panelR.w - 2 * RIGHT_INSET, h: Z.panelR.h * 0.16 }} label="Terminal" on={{ click: open('terminal'), menu: open('powershell') }} />
         </>
       ))}
       {place(Z.stripL, ops.sl, 'sl', 'strip-left', Z.stripL && <HitRect zone={Z.stripL} s={style.s} label="Task Manager performance" on={{ click: open('taskperf') }} />)}

@@ -39,16 +39,40 @@ describe('seatInPicture', () => {
     expect(out.matrix.slice(0, 4)).toEqual([1, -0.15, 0, 1]);
     delete PICTURE_SLOTS.__t;
   });
+  it('sy scales only the height about the drawn centre: width and the centre x stay, height shrinks, the centre moves by dy', () => {
+    PICTURE_SLOTS.__t = { dy: 10, sy: 0.5 };
+    const z = zone('__t');
+    const out = seatInPicture(z);
+    expect(out.matrix[0]).toBeCloseTo(1); // x scale untouched
+    expect(out.matrix[3]).toBeCloseTo(0.5); // y scale halved
+    const [cx0, cy0] = centre(z), [cx1, cy1] = centre(out);
+    expect(cx1).toBeCloseTo(cx0);
+    expect(cy1).toBeCloseTo(cy0 + 10);
+    delete PICTURE_SLOTS.__t;
+  });
+  it('GPU and NET share one size, and CPU and MEMORY share another (only the height differs from before)', () => {
+    const { G1_cpu: c, G2_select: g, G3_select: n, G4_ram: m } = PICTURE_SLOTS;
+    expect(g.s ?? 1).toBe(n.s ?? 1); expect(g.sy).toBe(n.sy);
+    expect(c.s).toBe(m.s); expect(c.sy).toBe(m.sy);
+    expect(g.s ?? 1).toBe(1); // the pocket boxes keep their width
+    expect(n.dy!).toBeGreaterThan(g.dy!); // NET a little lower
+  });
   it('ignores a malformed matrix instead of throwing', () => {
     PICTURE_SLOTS.__t = { dy: 5 };
     const z = zone('__t', { matrix: [1, 0, 0] });
     expect(seatInPicture(z)).toBe(z);
     delete PICTURE_SLOTS.__t;
   });
-  it('the side stacks are never moved: every left/right zone of the real layout comes back untouched', () => {
-    const sides = layout.zones.filter((z) => /^(L_|R_)/.test(z.id));
+  it('the side stacks are never moved: every left/right zone of the real layout except the wing tabs comes back untouched', () => {
+    const sides = layout.zones.filter((z) => /^(L_|R_)/.test(z.id) && !/_tabs$/.test(z.id));
     expect(sides.length).toBeGreaterThan(12);
     for (const z of sides) expect(seatInPicture(z as never), z.id).toBe(z);
+  });
+  it("the wing tabs are seated away from the centre: the left one moves left, the right one right, by the same distance up to the layout's own asymmetry", () => {
+    const L = seatInPicture(zone('L_tabs')), R = seatInPicture(zone('R_tabs')), l0 = zone('L_tabs'), r0 = zone('R_tabs');
+    expect(L.matrix[4] - l0.matrix[4]).toBeLessThan(-100);
+    expect(R.matrix[4] - r0.matrix[4]).toBeGreaterThan(100);
+    expect(Math.abs((L.matrix[4] - l0.matrix[4]) + (R.matrix[4] - r0.matrix[4]))).toBeLessThanOrEqual(20); // the skin lays the right tabs out 17 units differently
   });
   it('the real layout mirrors left and right: matching zones are drawn at the same height', () => {
     const drawn = (id: string) => { const z = layout.zones.find((q) => q.id === id)!, [a, b, c, d, e, f] = z.matrix, px = z.x + z.w / 2, py = z.y + z.h / 2; return b * px + d * py + f + 0 * (a + c + e); };

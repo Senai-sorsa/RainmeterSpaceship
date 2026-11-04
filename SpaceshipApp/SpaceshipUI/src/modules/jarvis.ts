@@ -133,12 +133,16 @@ export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone,
   const c = new Canvas(zone, style);
   const state = feed.state in LABEL ? (feed.state as JarvisState) : 'idle';
   const dim = state === 'offline';
-  const lvl = clamp(feed.level, 0, 1);
+  // live test: when he listens, thinks or speaks only the main inner animation (the ball, orbStep/Orb) reacts. The outer parts drawn here (the geometric
+  // shell, the orbit rings, the spinning dial and the side bars) stay as they are at rest: no voice level, no per-state spin or colour, no thinking sweep.
+  // Only offline dims them. The status label (text and dot) still follows the real state.
+  const lvl = 0;
+  const outer: JarvisState = dim ? 'offline' : 'idle';
   const A1 = style.accent, W = style.white, D = style.dim;
-  const col = stateColor(state, style, cols);
-  const rc = dim ? D : col;
+  const col = stateColor(state, style, cols); // the status dot and label
+  const rc = dim ? D : stateColor(outer, style, cols);
   const hot = mix(rc, W, 0.45);
-  const spin = (state === 'speaking' ? 1.4 + 2 * lvl : SPIN[state] ?? 1) * SPIN_TRIM;
+  const spin = (SPIN[outer] ?? 1) * SPIN_TRIM;
   const yaw = (frame * 0.006 * spin) % (2 * Math.PI);
   const rot1 = (frame * 0.5 * spin) % 360, rot2 = (frame * 0.8 * spin) % 360, rot3 = (-frame * 0.25 * spin) % 360;
 
@@ -218,9 +222,8 @@ export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone,
   for (let q = 0; q < 6; q++) c.arc(cx, cy, 196, q * 60 + rot1 + 70, q * 60 + rot1 + 74, hot, 3.6, dim ? 130 : 200);
   const seg = (189 * 2 * Math.PI) / 120;
   c.dashArc(cx, cy, 189, rot3, rot3 + 360, rc, 4, dim ? 75 : 110, seg * 0.12, seg * 0.88, true);
-  if (state === 'thinking') c.arc(cx, cy, 196, (frame * 9) % 360, ((frame * 9) % 360) + 80, W, 3, 250);
 
-  // side data bars, heights from his voice with a little life of their own (not smoothed here)
+  // side data bars: a little life of their own (they no longer follow his voice)
   const nb = 11;
   for (let side = 0; side < 2; side++) {
     for (let i = 1; i <= nb; i++) {
