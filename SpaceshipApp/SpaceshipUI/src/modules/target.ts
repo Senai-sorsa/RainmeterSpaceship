@@ -117,6 +117,11 @@ export function targetMove(state: TargetState, zone: Zone, input: TargetInput, s
   state.rot = (state.rot + 0.9 * step) % 360; // about 14 deg/s at the full rate (target.lua: 1.6 per step)
 }
 
+/** The tick is off (tier 2+ or nothing to animate): no move will decay the lock pulse, so end it, or the reticle stays enlarged. */
+export function parkTarget(state: TargetState) {
+  state.lockAnim = 0;
+}
+
 export function targetFrame(state: TargetState, input: TargetInput, zone: Zone, st: Style, step = 1): Op[] {
   const c = new Canvas(zone, st);
   const [cx, cy] = state.pos;

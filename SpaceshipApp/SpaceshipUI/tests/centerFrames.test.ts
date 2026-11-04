@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import layout from '../src/generated/layout.json';
 import { hudFrame, hudState } from '../src/modules/hud';
 import { sphereFrame, sphereState } from '../src/modules/sphere';
-import { countdown, inside, pickNext, targetFrame, targetMove, targetState, todoLabel } from '../src/modules/target';
+import { countdown, inside, parkTarget, pickNext, targetFrame, targetMove, targetState, todoLabel } from '../src/modules/target';
 import { styleFrom } from '../src/modules/style';
 
 const st = styleFrom({});
@@ -58,6 +58,16 @@ describe('target reticle', () => {
     expect(JSON.stringify(targetFrame(s, {}, zone, st))).toBe(first);
     targetMove(s, zone, { name: 'game.exe' }, 1, () => 0.5);
     expect(s.lockAnim).toBe(17);
+  });
+  it('parkTarget clears a running lock pulse, and the next frame draws without the zoom', () => {
+    const s = targetState(zone);
+    targetMove(s, zone, { name: 'game.exe' }, 1, () => 0.5);
+    expect(s.lockAnim).toBe(18);
+    parkTarget(s);
+    expect(s.lockAnim).toBe(0);
+    const fresh = targetState(zone);
+    fresh.pos = [s.pos[0], s.pos[1]]; fresh.rot = s.rot; fresh.frame = s.frame;
+    expect(JSON.stringify(targetFrame(s, {}, zone, st))).toBe(JSON.stringify(targetFrame(fresh, {}, zone, st)));
   });
   it('to-do mode shows the count, the countdown and the label like target.lua', () => {
     const todos = [{ text: 'call the dentist about the appointment', due: 7200, timed: false }, { text: 'b', due: 9000, timed: true }, { text: 'c', due: null, timed: false }];

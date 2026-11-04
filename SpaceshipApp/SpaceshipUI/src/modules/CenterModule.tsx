@@ -10,7 +10,7 @@ import { HUD_HITS, hudFrame, hudState, type HudState } from './hud';
 import { type Readings } from './readings';
 import { speedTip } from './sysinfo';
 import { NET_HIT, SPHERE_HIT, sphereFrame, sphereState, type SphereState } from './sphere';
-import { reticleBox, targetFrame, targetMove, targetState, targetTip, type TargetState } from './target';
+import { parkTarget, reticleBox, targetFrame, targetMove, targetState, targetTip, type TargetState } from './target';
 import { HitRect } from './hit';
 import { host } from '../settings/instance';
 import { visible } from './hidden';
@@ -46,7 +46,10 @@ export function CenterModule({ style, sphere = true, hide = '', link = 0, linkUp
   const [, setTick] = useState(0);
   const tier = style.tier;
   useEffect(() => {
-    if (tier >= 2 || (!Z.target && !Z.sphere)) return; // nothing left to animate
+    if (tier >= 2 || (!Z.target && !Z.sphere)) { // nothing left to animate: end a running lock pulse and redraw once without it
+      if (tgt.current && tgt.current.lockAnim > 0) { parkTarget(tgt.current); setTick((n) => n + 1); }
+      return;
+    }
     return scheduler.every(FRAME_MS * (tier === 1 ? 2 : 1), () => {
       if (Z.target && tgt.current) targetMove(tgt.current, Z.target, { name: pNow.current?.name }, 1, Math.random);
       setTick((n) => n + 1);
