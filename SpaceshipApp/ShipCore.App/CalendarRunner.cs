@@ -65,6 +65,7 @@ sealed class CalendarRunner(string data, Func<bool> shown, Action<string> post, 
             on++;
             // the link is a secret: the log names only the label and the error kind
             if (Ics.FetchUri(src.Url) is not { } uri) { errors++; log($"CAL_BAD_LINK,{src.Label}"); continue; }
+            if (uri.Scheme == Uri.UriSchemeHttp) log($"CAL_HTTP_LINK,{src.Label}"); // plain http: noted by label only, still fetched
             try { events.AddRange(Ics.Parse(await Http.GetStringAsync(uri, _life.Token), src.Label, now.AddHours(-6), now.AddDays(21))); }
             catch (Exception e) when (e is HttpRequestException or TaskCanceledException or InvalidOperationException) { errors++; log($"CAL_FETCH_FAILED,{src.Label},{e.GetType().Name}"); }
         }
