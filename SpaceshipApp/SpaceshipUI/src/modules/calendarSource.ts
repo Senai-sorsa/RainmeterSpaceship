@@ -22,6 +22,8 @@ export const fakeCalendar: CalendarSource = {
   },
 };
 
+const MAX_TEXT = 262144, MAX_EVENTS = 100, MAX_TITLE = 200, MAX_LABEL = 60;
+
 /** Data\calendar.txt (T, C calendars errors, E start|end|allday|label|title lines, times in s) as location.lua reads it. */
 export function parseCalendarTxt(text: string): CalState {
   const c: CalState = { ok: true, calendars: 0, errors: 0, events: [] };
@@ -29,8 +31,12 @@ export function parseCalendarTxt(text: string): CalState {
     const m = line.match(/^C (\d+) (\d+)/);
     if (m) { c.calendars = +m[1]; c.errors = +m[2]; continue; }
     const e = line.match(/^E (\d+)\|(\d+)\|(\d)\|([^|]*)\|(.*?)\r?$/);
-    if (e) c.events.push({ s: +e[1] * 1000, e: +e[2] * 1000, allday: e[3] === '1', label: e[4], title: e[5] });
+    if (e && Number.isSafeInteger(+e[1] * 1000) && Number.isSafeInteger(+e[2] * 1000)) {
+      c.events.push({ s: +e[1] * 1000, e: +e[2] * 1000, allday: e[3] === '1', label: e[4].slice(0, MAX_LABEL), title: e[5].slice(0, MAX_TITLE) });
+    }
   }
+  c.events.sort((a, b) => a.s - b.s || a.e - b.e);
+  c.events.length = Math.min(c.events.length, MAX_EVENTS);
   return c;
 }
 
@@ -39,7 +45,7 @@ export const calendarFeed = signal<CalendarSource>(fakeCalendar);
 
 export function acceptCalendarUpdate(m: unknown): void {
   const o = m as { type?: unknown; text?: unknown } | null;
-  if (o?.type !== 'calendar.update' || typeof o.text !== 'string') return;
+  if (o?.type !== 'calendar.update' || typeof o.text !== 'string' || o.text.length > MAX_TEXT) return;
   const state = parseCalendarTxt(o.text);
   calendarFeed.value = { read: () => state };
 }
