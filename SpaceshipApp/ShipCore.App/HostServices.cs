@@ -30,7 +30,10 @@ sealed class Win32Snapshots(Func<Rectangle> monitor, Func<uint> browserPid) : IW
         }
         var m = monitor();
         var notice = SHQueryUserNotificationState(out var raw) == 0 && raw >= 1 && raw <= 7 ? (NotificationState)(raw - 1) : NotificationState.NotPresent;
-        var running = Process.GetProcesses().Select(p => { using (p) return p.ProcessName; }).ToList();
+        var procs = Process.GetProcesses();
+        List<string> running;
+        try { running = ProcessNames.Collect(procs.Select(p => (Func<string>)(() => p.ProcessName))); } // one exited or denied process is skipped, not fatal
+        finally { foreach (var p in procs) p.Dispose(); }
         return new WindowSnapshot(info, new ShipCore.Core.Rect(m.Left, m.Top, m.Right, m.Bottom), notice, running);
     }
 
