@@ -5,10 +5,11 @@ const { chromium } = require('C:/Users/Senai/RainmeterSpaceship/SpaceshipApp/Spa
 const { execFileSync, spawn } = require('child_process'); const fs = require('fs'); const path = require('path');
 const out = process.argv[2]; const secs = +(process.argv[3] || 8); fs.mkdirSync(out, { recursive: true });
 const VIS = process.env.VISIBLE === '1';
-const URL = 'http://localhost:5199';
+const URL = process.env.URL || 'http://localhost:5199';
+const ONLY = process.env.ONLY ? process.env.ONLY.split('|') : null, ROUNDS = +(process.env.ROUNDS || 1);
 const base = {};
 const M = '/?preview=1&module=all&audio=demo';
-const cases = [
+const ALL = [
   ['base FULL idle', base],
   ['base FULL music', base, M],
   ['HullRender=1', { HullRender: 1 }],
@@ -27,6 +28,7 @@ const cases = [
   ['tier LOW', { PerfOverride: 2 }],
   ['tier STEALTH', { PerfOverride: 3 }],
 ];
+const cases = Array.from({ length: ROUNDS }, () => ALL.filter(c => !ONLY || ONLY.includes(c[0]))).flat();
 (async () => {
   const rows = [];
   for (const [name, cfg, url = '/?preview=1&module=all'] of cases) {

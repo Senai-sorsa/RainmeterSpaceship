@@ -93,3 +93,29 @@ User: the picture version of the frame was AI-generated and looks cool, but need
 - **U9 / U11 tests added:** `e2e/robustness.spec.ts` (17 garbage-config cases, e.g. `Scale` 'abc' or '1e9', a bad `PerfOverride`, `ShipImage` '../../etc/passwd', `UseShipImage` and `FrameOff` both on; rapid CARGO clicking with a resize) all pass; no page error, HUD still draws.
 - **Gates on `fix/live-test`:** `tsc` clean; vitest 453/453; `vite build` ok; Playwright 98/98; `dotnet test` 311/311; the 4 Python tool checks exit 0.
 - **Not covered:** anything that needs the real WebView2 or Windows (the Control Center is its own window in the real app; the real two-panel click case; text size, dark mode, animation settings, taskbar change, monitor hot-plug).
+
+## Part 10: CPU / GPU review (2026-11-03). Evidence grade is stated for every item.
+Repeat sweep (`tools/live-test/sweep.cjs`, 3 interleaved rounds, medians, headless GPU Chrome on the preview, branch tip):
+| case | CPU % of 1 core (3 runs, median) | GPU 3D % (median) | RAM MB (median) |
+|---|---|---|---|
+| base FULL idle | 159 / 144 / 158 (158) | 4.06 | 2217 |
+| base FULL music | 171 / 168 / 137 (168) | 4.83 | 2237 |
+| BloomEngine=svg | 164 / 163 / 178 (164) | 1.48 | 2119 |
+| LensFx+Haze+Bezel+Light all 0 | 153 / 159 / 161 (159) | 3.68 | 2206 |
+| frame=none | 154 / 152 / 148 (152) | 3.59 | 1451 |
+| tier LITE | 190 / 178 / 191 (190) | 4.49 | 2106 |
+
+**What the data supports**
+1. **CPU numbers from this method are not usable for small or medium differences.** Run-to-run spread is about 15 to 35 points, and sweep 1 vs sweep 2 disagree on LITE (-60 then +32) and on `BloomEngine=svg` (-46 then +6). Conclusion: do not choose CPU optimisations from headless numbers. The real WebView2 HUD must be measured (needs the user's OK to reload CSpace per setting; the read-only sampler `tools/live-test/sample.ps1` already works on `CSpace.exe`).
+2. **Effects are cheap (confirmed twice):** glass/lens, depth haze, screen bezels and orb light together change nothing measurable (159 vs 158 CPU; 3.7 vs 4.1 GPU). Removing them saves nothing, so keep them. No "slight look, high cost" effect was found among the new layers.
+3. **Memory is the one clear cost (consistent in both sweeps):** frame art is about 0.5 to 0.75 GB of RAM (`frame=none` 1451 vs 2217 MB; `HullRender=1` +550 MB). That is the largest saving available.
+4. **`BloomEngine=svg` shows lower GPU 3D in both sweeps (1.15 and 1.48 vs 1.65 and 4.06).** It contradicts "canvas is easier on the GPU", BUT the preview is nearly static, which favours SVG blur (cached while nothing changes). Needs a test with live-changing data and the real GPU before any change.
+
+**Recommendations, least visual loss first**
+- A. (RAM, no visible change) Pre-composite the static frame layers offline (hull + corners + shade, and the other fixed ones) into one or two images, so fewer 2560x1600 bitmaps are decoded. Expect a few hundred MB back. Evidence: item 3. Verify by looking at `frame=none` vs the new frame and the RAM sample.
+- B. (GPU/CPU, no visible change) Replace full-window opacity (`#hud { opacity: .82 }`, the dimming) by baking the dim into the colour constants (text/line alphas). Evidence: the bisect in part 9 (two stacked opacity layers broke a timing test under load). Low risk, but a real saving is unmeasured.
+- C. (done) The Control Center and wizard no longer use `backdrop-filter: blur` (a full-window blur while open).
+- D. (CPU, tiny loss) The centre module re-renders the whole target + sphere zone at about 16 fps via `setTick`; at FULL, drop the target to about 10 fps (its motion is slow now) and keep the sphere at 16. Evidence: code inventory only (not measured).
+- E. (CPU, no visible change) Hit regions are polled every 250 ms with layout reads; drive them from a ResizeObserver or MutationObserver instead. Evidence: code inventory only; likely tiny.
+- F. (decision, not a pure win) `HullRender=1` costs +550 MB and looks worse than the current hull; leave the default at 0.
+- G. (measure first) A repeat of the BloomEngine test with live data, and a live GPU/VRAM baseline with `tools/gpu_baseline.ps1` once the GPU is quiet.
