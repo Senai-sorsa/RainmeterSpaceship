@@ -13,6 +13,8 @@ sealed class JarvisPipe : IDisposable
     readonly string _sessionFile = Path.Combine(Path.GetTempPath(), "spaceship-app", "host-session.json");
     readonly IClock _clock;
     readonly CancellationTokenSource _stop = new();
+    Task? _serve; // kept so Dispose can wait for the server loop to end
+    bool _disposed;
 
     public JarvisPipe(IClock clock)
     {
@@ -25,7 +27,7 @@ sealed class JarvisPipe : IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_sessionFile)!);
         File.WriteAllText(_sessionFile, HostPipeWire.SessionJson(new SessionFile(_pipe, _nonce, _session, Environment.ProcessId)));
-        _ = Task.Run(() => Serve(_stop.Token));
+        _serve = Task.Run(() => Serve(_stop.Token));
     }
 
     async Task Serve(CancellationToken ct)
@@ -71,7 +73,12 @@ sealed class JarvisPipe : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _stop.Cancel();
+        // Serve returns once cancelled; a loop that faulted (an error it does not catch) must not stop the rest of shutdown.
+        try { _serve?.Wait(2000); } catch (AggregateException) { }
+        _stop.Dispose();
         try { File.Delete(_sessionFile); } catch (IOException) { }
     }
 }
