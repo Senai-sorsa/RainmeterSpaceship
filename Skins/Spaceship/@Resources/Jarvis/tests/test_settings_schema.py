@@ -15,9 +15,12 @@ D = config.DEFAULTS
 
 def sources():
     yield "jarvis.py"
-    for f in sorted(os.listdir(os.path.join(JARVIS, "jarvislib"))):
-        if f.endswith(".py"):
-            yield "jarvislib/" + f
+    base = os.path.join(JARVIS, "jarvislib")
+    for root, dirs, files in os.walk(base):                    # jarvislib/ and its sub-packages (voice/, reply/)
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for f in sorted(files):
+            if f.endswith(".py"):
+                yield os.path.relpath(os.path.join(root, f), JARVIS).replace(os.sep, "/")
 
 
 def name_of(call):
