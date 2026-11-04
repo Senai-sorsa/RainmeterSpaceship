@@ -86,3 +86,27 @@ describe('dial setter', () => {
     expect(h.ran).toEqual([]);
   });
 });
+
+describe('a stepped dial refuses an out-of-range step before sending', () => {
+  function spied() {
+    const ran: [string, Args][] = [];
+    const gate = new ActionGate(DIAL_DEFS, async (a, args) => { ran.push([a, args]); return { exitCode: 0 }; }, () => 0);
+    const requests: string[] = [];
+    const real = gate.request.bind(gate);
+    gate.request = ((a: string, ...rest: unknown[]) => { requests.push(a); return (real as (...x: unknown[]) => unknown)(a, ...rest); }) as typeof gate.request;
+    return { ran, requests, setter: createDialSetter({ set: () => {} }, gate) };
+  }
+  it('does not call the gate for power 0 or hz 99', async () => {
+    const { ran, requests, setter } = spied();
+    expect(await setter.set('power', 0)).toEqual({ note: 'NOT SENT', ok: false });
+    expect(await setter.set('hz', 99)).toEqual({ note: 'NOT SENT', ok: false });
+    expect(requests).toEqual([]);
+    expect(ran).toEqual([]);
+  });
+  it('still reaches the gate for a valid step', async () => {
+    const { requests, setter } = spied();
+    const r = await setter.set('power', 1);
+    expect(requests).toEqual(['dial.power']);
+    expect(r.note).not.toBe('NOT SENT');
+  });
+});

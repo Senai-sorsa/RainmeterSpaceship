@@ -51,12 +51,12 @@ export function hostDialRunner(host: HostBridge): Runner {
 }
 
 const pct = (v: number) => Math.round(v * 100);
-const ROUTE: Record<string, (v: number) => [string, Args]> = {
+const ROUTE: Record<string, (v: number) => [string, Args] | null> = {
   bright: (v) => ['dial.brightness', { percent: pct(v) }],
   vol: (v) => ['dial.volume', { percent: pct(v) }],
   mic: (v) => ['dial.mic', { percent: pct(v) }],
-  power: (v) => ['dial.power', { mode: steps('power')[v - 1] ?? '' }],
-  hz: (v) => ['dial.refresh', { hz: steps('hz')[v - 1] ?? '' }],
+  power: (v) => { const mode = steps('power')[v - 1]; return mode === undefined ? null : ['dial.power', { mode }]; },
+  hz: (v) => { const hz = steps('hz')[v - 1]; return hz === undefined ? null : ['dial.refresh', { hz }]; },
 };
 
 function noteOf(o: Outcome): DialNote {
@@ -77,7 +77,9 @@ export function createDialSetter(store: Store, gate = new ActionGate(DIAL_DEFS, 
       }
       const route = ROUTE[id];
       if (!route) return { note: 'NOT SENT', ok: false };
-      const [action, args] = route(v);
+      const routed = route(v);
+      if (!routed) return { note: 'NOT SENT', ok: false };
+      const [action, args] = routed;
       return noteOf(await gate.request(action, args, 'user'));
     },
     async confirm(id) {
