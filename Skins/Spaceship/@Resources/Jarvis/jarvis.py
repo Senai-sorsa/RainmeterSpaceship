@@ -1039,6 +1039,84 @@ def _fixed(turn, reply):
                      and followup.mode_after(way.get("kind"), way.get("action")))
 
 
+def _preempt(turn, way, woke, left):
+    """Pre-route stage: answers that need no routing and no model: the yes to an offer or a room question, courtesies, control words, a new topic, quiet mode, the log commands. Returns True when the turn ended here (it already said or logged why)."""
+    fixed = lambda reply: _fixed(turn, reply)
+    # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
+    live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
+                  and (typed_turn[0] or heard_score[0] >= -1.0))
+    fact = offer.pop("fact", None) if live_offer else None
+    turn.room = offer.pop("room", None) if live_offer else None
+    closing = offer.pop("close", None) if live_offer else None
+    offer.clear()
+    plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(turn.text).lower()).split())
+    if turn.room and is_yes(turn.text):                              # "Are you talking to me, sir?" "Yes": answer what was said
+        turn.text = turn.room
+    if closing and is_yes(turn.text):                           # 9e: the yes to "Want me to close it?" is the confirmation
+        way.update(kind="act", action="close", via="rule", lane="command")
+        ok = run_action("close", closing, pending=("close", closing))
+        way["result"] = "done" if ok else "failed"
+        fixed(FX.DONE if ok else FX.FAILED)
+        return True
+    if fact and (is_yes(turn.text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
+        way.update(kind="memory", action="save", via="rule", lane="command")
+        res = fact_save(fact)                              # an older fact about the same thing asks "Replace?" first
+        if res[0] == "memory":
+            fixed(memory_reply("save", fact))
+        elif ask_yes(res[3], muted()):
+            ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
+            way["result"] = "done" if ok else "failed"
+            fixed(FX.DONE if ok else FX.FAILED)
+        else:
+            fixed(memory_reply("save", fact) + " I kept the old one too.")
+        return True
+    said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(turn.text).lower().replace("’", "'")).split())
+    polite = turn.text != turn.room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
+    if polite and not (woke and heard_score[0] < -1.0):  # a weak "Thank you." after a wake is Whisper's noise phrase
+        way.update(kind="courtesy", via="rule")
+        name = setting("JarvisCallMe", "").strip()
+        reply_line(polite.replace("{name}", f", {name}" if name else ""), turn.quiet)
+        left["again"] = not turn.quiet and polite.startswith("Hello") and "ear"   # a hello is the start of a talk
+        return True
+    if turn.text != turn.room and (polite or ENDERS.fullmatch(said)):
+        way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
+        log("control: ended by you")
+        return True
+    if turn.text != turn.room and is_yes(turn.text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
+        way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
+        fixed(FX.NOTHING_WAITING)
+        return True
+    m = NEW_TOPIC.match(strip_name(turn.text))
+    way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
+    if m:                                                  # files the window; "new topic, <question>" goes on without it
+        file_active()
+        last.clear()                                       # M1b: "cancel it" no longer points back
+        turn.text = strip_name(turn.text)[m.end():].strip()
+        if not turn.text:
+            fixed(FX.OKAY)
+            history.clear()                                # "new topic" / "Okay." is not talk to keep
+            return True
+    if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
+        way.update(kind="quiet", via="rule")
+        if not quiet_talk.talk():
+            fixed(FX.NOT_QUIET)
+            return True
+        turn.quiet = muted()
+        fixed(FX.CAN_TALK if not turn.quiet else FX.OKAY)
+        return True
+    # "show me what you've said" / "close the log": handled here, no model needed
+    way["kind"] = "log"
+    if HIDE_LOG.search(turn.text):
+        fixed(FX.CLOSING_LOG)
+        S.set(pop="close")                                 # after: a quiet reply_line opens it
+        return True
+    if SHOW_LOG.search(turn.text):
+        fixed(FX.ALL_SAID)
+        S.set(pop="open")
+        return True
+    return False
+
+
 def exchange(tier, follow, woke, mode, left, typed=None):
     """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
@@ -1064,77 +1142,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
 
         fixed = lambda reply: _fixed(turn, reply)                  # say a fixed reply (jarvis.py _fixed)
         S.set(err="")
-        # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
-        live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
-                      and (typed_turn[0] or heard_score[0] >= -1.0))
-        fact = offer.pop("fact", None) if live_offer else None
-        turn.room = offer.pop("room", None) if live_offer else None
-        closing = offer.pop("close", None) if live_offer else None
-        offer.clear()
-        plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(turn.text).lower()).split())
-        if turn.room and is_yes(turn.text):                              # "Are you talking to me, sir?" "Yes": answer what was said
-            turn.text = turn.room
-        if closing and is_yes(turn.text):                           # 9e: the yes to "Want me to close it?" is the confirmation
-            way.update(kind="act", action="close", via="rule", lane="command")
-            ok = run_action("close", closing, pending=("close", closing))
-            way["result"] = "done" if ok else "failed"
-            fixed(FX.DONE if ok else FX.FAILED)
-            return
-        if fact and (is_yes(turn.text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
-            way.update(kind="memory", action="save", via="rule", lane="command")
-            res = fact_save(fact)                              # an older fact about the same thing asks "Replace?" first
-            if res[0] == "memory":
-                fixed(memory_reply("save", fact))
-            elif ask_yes(res[3], muted()):
-                ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
-                way["result"] = "done" if ok else "failed"
-                fixed(FX.DONE if ok else FX.FAILED)
-            else:
-                fixed(memory_reply("save", fact) + " I kept the old one too.")
-            return
-        said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(turn.text).lower().replace("’", "'")).split())
-        polite = turn.text != turn.room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
-        if polite and not (woke and heard_score[0] < -1.0):  # a weak "Thank you." after a wake is Whisper's noise phrase
-            way.update(kind="courtesy", via="rule")
-            name = setting("JarvisCallMe", "").strip()
-            reply_line(polite.replace("{name}", f", {name}" if name else ""), turn.quiet)
-            left["again"] = not turn.quiet and polite.startswith("Hello") and "ear"   # a hello is the start of a talk
-            return
-        if turn.text != turn.room and (polite or ENDERS.fullmatch(said)):
-            way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
-            log("control: ended by you")
-            return
-        if turn.text != turn.room and is_yes(turn.text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
-            way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
-            fixed(FX.NOTHING_WAITING)
-            return
-        m = NEW_TOPIC.match(strip_name(turn.text))
-        way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
-        if m:                                                  # files the window; "new topic, <question>" goes on without it
-            file_active()
-            last.clear()                                       # M1b: "cancel it" no longer points back
-            turn.text = strip_name(turn.text)[m.end():].strip()
-            if not turn.text:
-                fixed(FX.OKAY)
-                history.clear()                                # "new topic" / "Okay." is not talk to keep
-                return
-        if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
-            way.update(kind="quiet", via="rule")
-            if not quiet_talk.talk():
-                fixed(FX.NOT_QUIET)
-                return
-            turn.quiet = muted()
-            fixed(FX.CAN_TALK if not turn.quiet else FX.OKAY)
-            return
-        # "show me what you've said" / "close the log": handled here, no model needed
-        way["kind"] = "log"
-        if HIDE_LOG.search(turn.text):
-            fixed(FX.CLOSING_LOG)
-            S.set(pop="close")                                 # after: a quiet reply_line opens it
-            return
-        if SHOW_LOG.search(turn.text):
-            fixed(FX.ALL_SAID)
-            S.set(pop="open")
+        if _preempt(turn, way, woke, left):
             return
         kind, action, target, prompt, via = understand(turn.text, model, turn.quiet, turn.room)
         way.update(kind=kind, action=action, via=via)
