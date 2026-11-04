@@ -62,6 +62,38 @@ Open, not fixed: offers ("Would you like me to..."); room talk with "you"/"?" in
 (user's S2-10 rule); 8B sometimes ignores HUD data (said "no unread emails" with 4 unread).
 
 ## 6. Log (newest first)
+- 2026-11-03 l (REFACTOR phases 6, 4, 7 + final A/B; branch refactor/jarvis-pipeline at 147b66d, NOT merged to main, live checkout still on jarvis-live).
+  PHASE 6 (exchange() slices, move only, 3 commits): `_record_chat` (31 lines, 17c32cb), `_hear` (74 lines, 966ab84; returns (text, model, hud,
+  reading, t_spoke, wait) or None), `_gate` (27 lines, f2c9199; True to go on). Each: lines copied unchanged, gate green, plus a mutation check in
+  the scratch mirror that makes test_jarvis fail (recent[me] not set; wait+99; heard_as==no disabled). The middle of exchange() (courtesies,
+  confirmations, understand, commands, HUD blocks, prompt) is NOT split: it shares `quiet`, `text`, `way`, `left` and the `fixed()` closure
+  with the code around it, and `text`/`quiet` are reassigned in it. Semi-live 8B (p6 vs p5): 35/33/16 vs 37/33/9, decisions 400/400.
+  PHASE 4 (12e2c36): the 319-line `_route_rest` ladder cut into 15 ordered area functions (`_rules_undo` ... `_rules_misc`) + one `RULES` tuple;
+  `_route_rest` is a 9-line driver. Cut points came from a static flow check (59 free cuts; the 15 used are contiguous groups); no regex or
+  line touched, the diff is 72 insertions + the 4 header lines. `tests/test_rule_order.py` pins/prints the order. Golden routes 0/834 diffs;
+  removing one area gives 7 golden diffs (net works), restoring gives 0. NOT DONE: Intent type instead of the positional 4-tuple, folding
+  percent_follow/level_fix/AI reread into the list (an API change; route() is used everywhere).
+  PHASE 7 (147b66d, checks only): `tests/test_action_table.py` (31 actions: callable, risk in read/change/ask, description, DID sentence or a
+  written exemption, destructive rows are "ask"). FOUND, NOT CHANGED: `DID` has no sentence for the `mood` action (did_add falls back to
+  the bare word "mood"); `open`/`close` are built from the target. help_cspace.txt NOT generated from the table (user-visible text).
+  `ARCHITECTURE.md` (Jarvis folder): turn flow, module map, where-to-add table, gates, traps.
+  PHASES 8 and 9 NOT DONE: re-homing the 4.7k-line test_jarvis.py (443 `j.X =` fakes across 81 names, `Everywhere`) into injected fakes and making
+  semi_live run through them are the largest and least safe steps, and the current suite is the safety net for everything above; the traps
+  (RES from sys.argv at import, shared-module fakes) are documented in ARCHITECTURE.md. Phase 1's call-site migration to config.py also waits for 8.
+  FINAL A/B, original Phase 0 code (live checkout) vs finished refactor, same hour, seed 7, TZ=ABC+12, tripwires 0 everywhere
+  (cost old -> new; first-sentence p50 old -> new):
+    8B  main 35 -> 40 (0.36 -> 0.36)  fresh 22 -> 32 (0.34 -> 0.35)  persona 12 -> 16 (0.37 -> 0.37)   decisions 400/400 equal
+    3B  main 61 -> 57 (0.24 -> 0.24)  fresh 27 -> 19 (0.24 -> 0.25)  persona 37 -> 29 (0.24 -> 0.24)   decisions 398/400 equal
+  The 3B differences: room-00 and room-01 second turn, "ear -> not for me - quiet" (old) vs "chat via model -> answered" (new): both are
+  the open-ear window. Cause checked in the result files: turn 0 differs. The new run's 3B reply ended in a question ("...what kind of topic
+  would you be interested in?"), so asked_you() made the next line count as for him; the old run's reply was a statement. Model output
+  variation, not a code change (golden `directed()` 0/834 diffs, 8B decisions 400/400). 8B fresh +10: 2 cases worse (a GUESSED time line, and
+  fresh-serious-4 MUST_NOT, which already flipped between two runs of UNCHANGED code earlier today); 92/130 spoken turns identical, the
+  rest differ because the prompt carries the clock minute and old/new ran minutes apart. Same-code spread seen today on 8B fresh: 22-35.
+  Whole-refactor gate: test_jarvis OK (venv + py -3), host_pipe failed: 0, run_all OK (7 files), golden routes 0/834, replies 0/2512.
+  ROLLBACK: `git revert` the commit range 7ba312b..147b66d (newest first), or delete branch refactor/jarvis-pipeline and remove the worktree
+  (`git worktree remove ../RainmeterSpaceship-refactor`). The live HUD never ran this code. To adopt it: stop CSpace, merge the branch,
+  restart, and do the live test of the voice work first (it was never confirmed finished).
 - 2026-11-03 k (REFACTOR phases 3 and 5 done as far as is safe; commits 91ed765 phase 3, then phase 5; branch refactor/jarvis-pipeline).
   PHASE 3 voice package (move only): speech.py cut by line range (text unchanged) into `jarvislib/voice/` chunker (first_words..sentences_from),
   pacing (merged, plan_chunks, hesitation_parts), output (headphone_gain, output_name, play_samples, muted, say_text_only, SHOW/HIDE_LOG),
