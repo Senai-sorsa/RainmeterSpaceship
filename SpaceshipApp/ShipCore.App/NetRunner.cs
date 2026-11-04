@@ -10,6 +10,7 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Func<bool> wanS
     static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10), MaxResponseContentBufferSize = 65536 }; // the Yahoo chart reply is a few KB
     readonly System.Windows.Forms.Timer _tick = new() { Interval = 2000 };
     readonly Ping _pinger = new();
+    readonly RunnerLifetime _life = new(); // shutdown: cancels the ping and requests in flight, and nothing reaches the page after it
     DateTime _pingDue, _lanDue, _wanDue, _spxDue;
     bool _pinging, _asking, _spxAsking;
     long? _ping;
@@ -26,7 +27,7 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Func<bool> wanS
 
     async void Tick()
     {
-        if (!shown()) return;
+        if (_life.Disposed || !shown()) return;
         var now = DateTime.UtcNow;
         if (now >= _lanDue) { _lanDue = now.AddSeconds(30); _lan = Lan(); Send(); }
         if (now >= _pingDue && !_pinging)
@@ -34,10 +35,11 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Func<bool> wanS
             _pingDue = now.AddSeconds(10); _pinging = true;
             try
             {
-                var r = await _pinger.SendPingAsync(NetInfo.PingHost(pingHost()), 3000);
+                var r = await _pinger.SendPingAsync(NetInfo.PingHost(pingHost()), 3000).WaitAsync(_life.Token); // the ping keeps its own 3 s timeout
                 _ping = r.Status == IPStatus.Success ? Math.Max(1, r.RoundtripTime) : 0;
             }
             catch (Exception e) when (e is PingException or InvalidOperationException) { _ping = 0; }
+            catch (OperationCanceledException) { return; } // only Dispose cancels the token: shut down mid-ping
             finally { _pinging = false; }
             Send();
         }
@@ -45,8 +47,8 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Func<bool> wanS
         if (now >= _wanDue && !_asking && wanShown())
         {
             _wanDue = now.AddSeconds(300); _asking = true;
-            try { _wan = NetInfo.Ipv4(await Http.GetStringAsync(NetInfo.WanUrl)) ?? ""; }
-            catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { _wan = ""; }
+            try { _wan = NetInfo.Ipv4(await Http.GetStringAsync(NetInfo.WanUrl, _life.Token)) ?? ""; }
+            catch (Exception e) when (e is HttpRequestException or OperationCanceledException) { _wan = ""; } // a timeout (TaskCanceledException) or Dispose
             finally { _asking = false; }
             Send();
         }
@@ -58,14 +60,14 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Func<bool> wanS
                 // Yahoo refuses requests without a browser user agent; the skin sends the same one.
                 using var req = new HttpRequestMessage(HttpMethod.Get, Spx.Url);
                 req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36");
-                using var res = await Http.SendAsync(req);
-                if (res.IsSuccessStatusCode && Spx.Parse(await res.Content.ReadAsStringAsync(), DateTimeOffset.UtcNow.ToUnixTimeSeconds()) is { } r)
+                using var res = await Http.SendAsync(req, _life.Token);
+                if (res.IsSuccessStatusCode && Spx.Parse(await res.Content.ReadAsStringAsync(_life.Token), DateTimeOffset.UtcNow.ToUnixTimeSeconds()) is { } r)
                 {
                     _spxDue = now.AddSeconds(Spx.NextSeconds(r.Open));
-                    if (r.Json != _spxSent) { _spxSent = r.Json; post(r.Json); }
+                    if (r.Json != _spxSent) { _spxSent = r.Json; _life.Post(post, r.Json); }
                 }
             }
-            catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { } // keep the last reading
+            catch (Exception e) when (e is HttpRequestException or OperationCanceledException) { } // keep the last reading (a timeout, or Dispose)
             finally { _spxAsking = false; }
         }
     }
@@ -75,7 +77,7 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Func<bool> wanS
         var json = NetInfo.ToJson(_ping, _lan, _wan);
         if (json == _sent) return;
         _sent = json;
-        post(json);
+        _life.Post(post, json);
     }
 
     // The address of the first connected adapter with an IPv4 gateway (Rainmeter SysInfo IP_ADDRESS Best), or "".
@@ -96,5 +98,5 @@ sealed class NetRunner(Func<string?> pingHost, Func<bool> shown, Func<bool> wanS
         return "";
     }
 
-    public void Dispose() { _tick.Stop(); _tick.Dispose(); _pinger.Dispose(); }
+    public void Dispose() { _life.Dispose(); _tick.Stop(); _tick.Dispose(); _pinger.Dispose(); }
 }
