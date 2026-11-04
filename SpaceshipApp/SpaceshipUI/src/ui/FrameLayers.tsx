@@ -15,6 +15,7 @@ import { bootRunning } from './settle';
 import { hiddenZones } from '../modules/hidden';
 import grainUrl from '../assets/lens/bluenoise.png?url';
 import glassFxClean from '../assets/glass_fx_pic_clean.png?url';
+import shadePic from '../assets/shade_pic.png?url';
 
 const urls = import.meta.glob('../generated/frame/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const url = (name: string) => urls[`../generated/frame/${(manifest as Record<string, string>)[name]}`];
@@ -60,7 +61,11 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
         ? <div class="frame-layer" data-layer="glass_fx_pic" style={{ ...fill, backgroundImage: `url(${glassFxClean})`, opacity: alpha(n(values, 'GlassGlare', 12) * 21) }} />
         : img('glass_fx', alpha(n(values, 'GlassGlare', 12) * 21))}
       {scan && img(pic ? 'scan_pic' : 'scan', alpha(n(values, 'ScanAlpha', 6) * 18))}
-      {img('shade', alpha(n(values, 'ShadeAlpha', 155)))}
+      {/* picture frames: the shade made for the picture's own windows (tools/shade_pic.py); shade.png follows the rendered windows and
+          left an unshaded diagonal band across each picture side window, where the rendered hull has a strut */}
+      {pic
+        ? <div class="frame-layer" data-layer="shade" style={{ ...fill, backgroundImage: `url(${shadePic})`, opacity: alpha(n(values, 'ShadeAlpha', 155)) }} />
+        : img('shade', alpha(n(values, 'ShadeAlpha', 155)))}
       {img(pic ? 'ship' : 'hull', hull, { filter: bright })}
       {tint(pic ? 'mist_pic' : 'mist', alpha(n(values, 'MistAlpha', 255)), 'alpha', accent)}
       {!pic && img('corners', hull, { filter: bright })}

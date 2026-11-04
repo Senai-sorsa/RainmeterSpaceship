@@ -200,8 +200,9 @@ def scan_png(glass=None):
     return Image.fromarray(img, "RGBA")
 
 
-def shade_png():
-    """soft dark tint: behind the HUD columns, the top console and toward the window frames"""
+def shade_png(glass=None):
+    """soft dark tint: behind the HUD columns, the top console and toward the window frames.
+    glass: optional float 0-1 mask (CH x CW) instead of the reference windows (picture mode, tools/shade_pic.py)"""
     m = Image.new("L", (CW, CH), 0)
     d = ImageDraw.Draw(m)
     for z in R.ZONES:
@@ -211,7 +212,8 @@ def shade_png():
     yy, xx = np.mgrid[0:CH, 0:CW].astype(np.float32)
     top = np.clip(1 - yy / (CH * 0.22), 0, 1) ** 1.5
     side = np.clip((np.abs(xx - CW / 2) / (CW / 2) - 0.55) / 0.45, 0, 1) ** 1.4
-    glass = np.asarray(window_mask(0), dtype=np.float32) / 255
+    if glass is None:
+        glass = np.asarray(window_mask(0), dtype=np.float32) / 255
     # thicker glass near the frames reads darker
     edge = 1 - np.clip(blur(glass, 55) * 1.5 - 0.5, 0, 1)
     dark = np.clip(cols * 0.55 + top * 0.55 + side * 0.4 + edge * 0.5, 0, 0.82) * glass   # stronger edge tint
