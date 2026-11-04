@@ -73,19 +73,26 @@ sealed class WasapiLoopback : ISpectrumSource, IDisposable
         {
             _enumerator ??= (IMMDeviceEnumerator)WindowsDial.NewEnumerator();
             if (_enumerator.GetDefaultAudioEndpoint(eRender, eConsole, out var device) != 0) return false;
-            if (device.GetId(out _deviceId) != 0) _deviceId = null;
-            var iid = AudioClientIid;
-            if (device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out var obj) != 0) return false;
-            _client = (IAudioClient)obj;
-            if (_client.GetMixFormat(out var fmt) != 0) return false;
+            int activated;
+            object obj;
             try
             {
-                if (!IsFloat(fmt, out var channels, out var rate)) return false;
-                if (_client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, 10_000_000, 0, fmt, IntPtr.Zero) != 0) return false;
+                if (device.GetId(out _deviceId) != 0) _deviceId = null;
+                var iid = AudioClientIid;
+                activated = device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out obj);
+            }
+            finally { try { Marshal.ReleaseComObject(device); } catch (ArgumentException) { } } // the activated client holds its own reference
+            if (activated != 0) return false;
+            _client = (IAudioClient)obj;
+            if (_client.GetMixFormat(out var fmt) != 0) { Stop(); return false; }
+            try
+            {
+                if (!IsFloat(fmt, out var channels, out var rate)) { Stop(); return false; }
+                if (_client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, 10_000_000, 0, fmt, IntPtr.Zero) != 0) { Stop(); return false; }
                 var captureId = CaptureClientIid;
-                if (_client.GetService(ref captureId, out var svc) != 0) return false;
+                if (_client.GetService(ref captureId, out var svc) != 0) { Stop(); return false; }
                 _capture = (IAudioCaptureClient)svc;
-                if (_client.Start() != 0) return false;
+                if (_client.Start() != 0) { Stop(); return false; }
                 _running = true;
                 var capture = _capture;
                 _thread = new Thread(() => Pump(capture, channels, rate)) { IsBackground = true, Name = "wasapi-loopback" };
