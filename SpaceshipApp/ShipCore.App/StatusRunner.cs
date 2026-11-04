@@ -13,6 +13,7 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
     readonly HashSet<string> _busy = [];
     readonly HashSet<string> _started = [];
     readonly Dictionary<string, string> _last = [];
+    readonly RunnerLifetime _life = new(); // shutdown: ends the script trees this runner started, and nothing reaches the page after it
 
     public void Start()
     {
@@ -28,7 +29,7 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
 
     void Tick()
     {
-        if (!shown()) return;
+        if (_life.Disposed || !shown()) return;
         foreach (var (kind, (script, period)) in StatusScripts.Kinds)
         {
             if (_busy.Contains(kind) || DateTime.UtcNow < _due[kind]) continue;
@@ -39,35 +40,39 @@ sealed class StatusRunner(string scriptsDir, Func<bool> shown, Action<string> po
             _busy.Add(kind);
             _due[kind] = DateTime.UtcNow.AddSeconds(PowerPolicy.Scale(period, f));
             var path = Path.Combine(scriptsDir, script);
-            Task.Run(() => RunScript(path)).ContinueWith(t =>
+            Task.Run(() => RunScript(path, stop: _life.Token)).ContinueWith(t =>
             {
+                if (_life.Disposed) { _ = t.Exception; return; } // shut down: the run was ended or its result is not wanted (observed, so it is not reported as unobserved)
                 _busy.Remove(kind);
                 if (t.Exception is { } e) { log($"STATUS_FAILED,{kind},{e.InnerException?.GetType().Name}"); return; }
                 var json = StatusScripts.ToJson(kind, t.Result);
                 if (json is null) { log($"STATUS_BAD_OUTPUT,{kind}"); return; }
                 _last[kind] = json;
-                post(json);
+                _life.Post(post, json);
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
     }
 
     // A fixed interpreter (by full path, not PATH) and a fixed script under the skin folder; nothing from the page reaches the command line.
-    internal static string RunScript(string path, TimeSpan? timeout = null)
+    // stop: ends this call's own process tree (only that one) when cancelled; the other callers pass none and behave as before.
+    internal static string RunScript(string path, TimeSpan? timeout = null, CancellationToken stop = default)
     {
         if (!File.Exists(path)) throw new FileNotFoundException(path);
         var info = new ProcessStartInfo(PowerShell) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
         // RemoteSigned, not Bypass: local scripts run, downloaded ones don't; Bypass and -WindowStyle Hidden are what AV rules flag (CreateNoWindow already hides it).
         foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", path }) info.ArgumentList.Add(a);
         using var p = Process.Start(info) ?? throw new InvalidOperationException("powershell did not start");
+        using var cancel = stop.Register(() => { try { p.Kill(entireProcessTree: true); } catch (Exception) { } }); // already gone, or not killable: nothing to do, and Dispose must not throw
         var read = p.StandardOutput.ReadToEndAsync();
         if (!p.WaitForExit(timeout ?? Timeout))
         {
             p.Kill(entireProcessTree: true); // only the tree this runner started
             throw new TimeoutException(Path.GetFileName(path));
         }
+        stop.ThrowIfCancellationRequested();
         if (p.ExitCode != 0) throw new InvalidOperationException($"exit {p.ExitCode}");
         return read.Result;
     }
 
-    public void Dispose() { _tick.Stop(); _tick.Dispose(); }
+    public void Dispose() { _life.Dispose(); _tick.Stop(); _tick.Dispose(); }
 }
