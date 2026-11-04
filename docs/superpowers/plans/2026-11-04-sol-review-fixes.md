@@ -262,3 +262,44 @@ public sealed class RunnerLifetime : IDisposable {
 - **Coverage:** every "confirmed real" finding maps to a task; latent ones to Task 10/11; policy items are under Decisions; withdrawn items are listed with reasons.
 - **Types:** `RunnerLifetime.Post(Action<string>, string)` matches the runners' `Action<string> post`; `PowerPlans.Guids` keeps `WindowsDial.Plans`' key set; `startPreviewFeed` change is the only signature change in the page and its one caller ignores the result.
 - **Not in this plan on purpose:** Rainmeter skin edits, `draw/*`, `wizard/*`, `GodMode/*` (not audited by the review), and any change to the user's uncommitted JARVIS work beyond the two hunks in Task 7.
+
+---
+
+### Task 13 (added 2026-11-04 at the user's request): window shading follows the active frame
+
+User: "there are window shading issues when switching from rendered to picture, due to how picture and rendered have different sizes - make sure to account for this and make the window shading sizing and other window features automatically change accordingly."
+
+**Files:** `SpaceshipUI/src/ui/FrameLayers.tsx`, `SpaceshipUI/tools`/`tools/export_ui_assets.py` only if a picture variant of an asset must be exported; tests `SpaceshipUI/e2e/frame-modes.spec.ts` (or a new `e2e/window-shading.spec.ts`) and a unit test where the logic is pure.
+
+**Known facts (read from the code, not yet measured):**
+- `FrameLayers.tsx:67` draws `shade` for every frame mode; glass tint, glare, scanlines and mist already have `_pic` variants (`glass_pic`, `glass_fx_pic`, `scan_pic`, `mist_pic`). The skin also ships `window_mask_pic.png`, which `export_ui_assets.py` does not export, and the rendered-only finish layers (`Finish`, `TrimSpill`, `Grain`) use `window_mask` (rendered windows) and are skipped for pictures.
+- The user already has uncommitted edits in `FrameLayers.tsx` (`decorClip`/`consoleCutout`), `panelSlab.ts`, `stage.ts`-adjacent files. Commit only this task's hunks (`git add -p`); never the user's.
+
+- [ ] **Step 1 (measure first):** in the preview (`?preview=1`) at 1707x1067 and 2560x1600, screenshot Rendered then Picture and Picture (fitted) and compare the window areas of every layer with a window shape (`shade`, `glass_pic`/`Glass` parts, `glass_fx*`, `mist*`, `scan*`, `sheen`, `trimspill`). Write which layer is mis-registered and by how many px/units to the report. No code change in this step.
+- [ ] **Step 2 (failing test):** an e2e test that, per frame mode, loads the page, reads each window-shaped layer's rendered box and mask/image source, and asserts the layer set and its box match the active mode (no rendered-only window layer in picture modes, no picture-only layer in rendered) and that switching Rendered -> Picture -> Rendered through the app's own settings write leaves each layer on the frame box (`.frame` rect) within 1 px.
+- [ ] **Step 3:** fix the mis-registered layer(s) found in Step 1: use a picture-specific shade (export `shade_pic` from the picture's `window_mask_pic.png` via `export_ui_assets.py`, add it to `FRAME_IMAGES`, switch on `pic` in `FrameLayers`), or derive the layer's box from the active frame's own geometry, so every window feature follows the frame automatically. Keep the rendered path byte-identical.
+- [ ] **Step 4:** `npx tsc --noEmit`, `npm test`, `npx playwright test e2e/frame-modes.spec.ts e2e/display-fit.spec.ts e2e/glass-fx.spec.ts e2e/panel-slab.spec.ts` pass; `py -3 -I tools/export_ui_assets.py --check` ok. Look at the screenshots again and report before/after.
+- [ ] **Step 5:** commit only this task's files.
+
+---
+
+## Execution results (filled in 2026-11-04 on branch `fix/sol-review`)
+
+Ruling on Task 12: `SOL-JARVIS&SYSTEM-review.md` is another reviewer's untracked document, so it was NOT edited or committed. The corrections to it live in this plan (the "Verification results" section above), and the finding-to-commit map is below.
+
+| Finding(s) | Task | Commit(s) |
+|---|---|---|
+| #14 disk graph key; #15 hide VRAM graph (decision 3) | 1 | 6d27678, a05f2ab (fix round: settle when metrics arrive later) |
+| #38/#39/#40 calendar bounds + sort | 4 | 75c9955 |
+| #21 dial out-of-range step | 5 | 7ea3ba3 |
+| #18 lock pulse once per move | 6 | 48ce581 |
+| #63 performance power-plan GUID | 2 | 0266cb1 |
+| #59/#62 safe-integer ids + shared fixture | 3 | c7ce0bf |
+| #60, #65-#69 runner/pipe shutdown | 8 | d8a91bd, 442dd36, bb2a6ac, f368825, 579c8b9, 10a3e69, a7479ca |
+| #70 IMAP reply cap; #75 process snapshot; #64 WASAPI device release; #71 http log (decision 1) | 9 | bd5ce07, 47e1cb8, b362e82, de27ca7 |
+| #72 live text cleanup; #74 one wake training | 7 | f0567ec, 34fdeb3 |
+| #12/#42 exact match first; #28; #2; #5 | 11 | b5f9b7f |
+| #31, #34, #7 (latent hygiene); #20 comment-only | 10 | d9d6706 |
+| Window shading on Picture frames (user request) | 13 | 5226e0c |
+
+Not done on purpose: #9 (autoFocus; the user is editing that input), #73 (decision 2), #36, all notes and withdrawn items.
