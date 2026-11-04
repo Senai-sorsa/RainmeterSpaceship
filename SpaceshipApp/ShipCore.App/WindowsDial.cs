@@ -8,12 +8,7 @@ using ShipCore.Core;
 sealed class WindowsDial : IDialActions
 {
     // Fixed GUIDs, so a mode name never reaches the command line.
-    static readonly Dictionary<string, string> Plans = new()
-    {
-        ["quiet"] = "a1841308-3541-4fab-bc81-f71556f20b4a",
-        ["balance"] = "381b4222-f694-41f0-9685-ff5bb260df2e",
-        ["performance"] = "8c5e7fa3-e8bf-4a06-9a0e-a1f9f9e0b0e5",
-    };
+    static readonly IReadOnlyDictionary<string, string> Plans = PowerPlans.Guids;
 
     const int eRender = 0, eCapture = 1, eConsole = 0, CLSCTX_ALL = 23;
     static readonly Guid VolumeIid = new("5CDF2C82-841E-4546-9722-0CF74078229A");
