@@ -7,7 +7,7 @@ const seed = (config: Record<string, string>) => (c: Record<string, string>) => 
 };
 
 const BAD: Record<string, string>[] = [
-  { Scale: 'abc' }, { Scale: '-5' }, { Scale: '1e9' }, { Scale: '0' }, { PerfOverride: '99' }, { PerfOverride: '-7' }, { HullRender: 'x' },
+  { Scale: 'abc' }, { Scale: '-5' }, { Scale: '1e9' }, { Scale: '0' }, { PerfOverride: '99' }, { PerfOverride: '-7' }, 
   { ColorAccent: 'zzz' }, { ColorAccent: '300,-5,1e3' }, { ColorDim: '' }, { FrameBrightness: '-50' }, { FrameBrightness: '9999' },
   { GlowAlpha: 'NaN' }, { GlowWidth: 'Infinity' }, { UseShipImage: '1', FrameOff: '1' }, { ShipImage: '../../etc/passwd' }, { BloomEngine: 'nope' },
 ];

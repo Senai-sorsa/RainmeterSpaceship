@@ -12,8 +12,6 @@ const M = '/?preview=1&module=all&audio=demo';
 const ALL = [
   ['base FULL idle', base],
   ['base FULL music', base, M],
-  ['HullRender=1', { HullRender: 1 }],
-  ['HullRender=1 music', { HullRender: 1 }, M],
   ['BloomEngine=svg', { BloomEngine: 'svg' }],
   ['LensFx=0', { LensFx: 0 }],
   ['DepthHaze=0', { DepthHaze: 0 }],

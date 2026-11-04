@@ -229,8 +229,8 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 
 /* the light canvas (tasks/hyperrealism-plan.md Task 3): quarter-res glow stretched over the HUD; DOM pop-ups come later in the page, so they stay above it. Normal blending: it looks the same as screen over the dark HUD and costs the compositor less (Task 4) */
 .bloom-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
-/* live test 2026-11-03: the HUD read too bright against the main reference (dark, a few lit focal points); a global trim of the HUD here and of the glow in BloomLayer (LIGHT_TRIM) */
-#hud { opacity: 0.82; }
+/* live test 2026-11-03: the HUD read too bright against the main reference (dark, a few lit focal points); the trim lives in modules/style.ts (HUD_TRIM) and BloomLayer (LIGHT_TRIM) */
+/* (the HUD trim is now HUD_TRIM in modules/style.ts, applied per op; no opacity layer) */
 /* the lens's own light (Task 6): the HUD's spread light x lens dirt + a faint soft ghost, over the whole view */
 .glass-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
 

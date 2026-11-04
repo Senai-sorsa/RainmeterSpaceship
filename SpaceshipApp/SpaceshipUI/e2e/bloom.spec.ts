@@ -66,6 +66,7 @@ test('fonts ready triggers a redraw', async ({ page }) => {
 
 test('idle light is not re-blurred when nothing changed', async ({ page }) => {
   await open(page);
+  await page.evaluate(() => document.fonts.ready); // a late web-font load reflows the text and legitimately rebuilds every tile once; wait for it (load-sensitivity, not a regression)
   type B = { __bloomBuiltBy?: Record<string, number> };
   const snap = () => page.evaluate(() => ({ ...(window as B).__bloomBuiltBy }));
   // wait for the state (the three timer-driven anchors have built their tiles), not for a fixed time

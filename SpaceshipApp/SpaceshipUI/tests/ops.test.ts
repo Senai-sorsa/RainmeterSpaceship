@@ -46,7 +46,7 @@ describe('text as Rainmeter draws it', () => {
 describe('style from settings', () => {
   it('uses the lib.lua defaults when the settings are empty', () => {
     const s = styleFrom({});
-    expect(s).toMatchObject({ s: 1, tier: 0, glowA: 46, glowW: 3.2, coreWhite: 0.3, hudA: 255, edit: false, fontText: 'Oxanium', fontNum: 'B612 Mono', fontTitle: 'Michroma' });
+    expect(s).toMatchObject({ s: 1, tier: 0, glowA: 46, glowW: 3.2, coreWhite: 0.3, hudA: 217 /* 255 x HUD_TRIM 0.85 */, edit: false, fontText: 'Oxanium', fontNum: 'B612 Mono', fontTitle: 'Michroma' });
     expect(s.accent).toEqual([0, 210, 255, 255]);
     expect(s.panel).toEqual([0, 30, 45, 90]);
   });

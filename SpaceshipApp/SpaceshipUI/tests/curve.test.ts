@@ -52,15 +52,3 @@ it('warpPoly splits long segments', () => {
   expect(warpPoly([[0, 0], [300, 0]], ([x, y]) => [x, y]).length).toBeGreaterThan(4);
 });
 
-describe('HullRender gate', () => {
-  it('only HullRender=1 gives the Style a curve table; 0 and unset never bend', () => {
-    expect(styleFrom({}).curve).toBeUndefined();
-    expect(styleFrom({ HullRender: '0' }).curve).toBeUndefined();
-    expect(styleFrom({ HullRender: '1' }).curve).toBeDefined();
-  });
-  it('a HullRender=0 Canvas leaves a wide rect as a rect', () => {
-    const c = new Canvas(Z, styleFrom({ HullRender: '0' }));
-    c.fillRect(0, 0, 200, 4, [255, 255, 255, 255]);
-    expect(c.flush().every((o) => o.shape.kind !== 'poly')).toBe(true);
-  });
-});
