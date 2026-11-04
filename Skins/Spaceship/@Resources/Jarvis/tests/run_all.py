@@ -1,5 +1,7 @@
 """Runs every tests/test_*.py in its own process (no fake can leak from one file to the next); prints "tests: OK" when all pass.
-The old test_jarvis.py and test_host_pipe.py are still run separately (refactor plan section 4) until phase 8 moves them here."""
+The old test_jarvis.py and test_host_pipe.py are still run separately (refactor plan section 4) until phase 8 moves them here.
+Run the old test_jarvis.py ONLY through the tripwire runner:  py -3 -B tests/guarded_run.py test_jarvis.py  (from this folder's parent).
+It makes any destructive call the test forgot to fake (real process, delete outside temp, recycle bin, registry write, lock, sleep) fail loudly instead of acting."""
 import glob
 import os
 import subprocess
