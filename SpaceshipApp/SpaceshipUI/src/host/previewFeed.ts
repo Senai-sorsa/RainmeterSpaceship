@@ -10,7 +10,11 @@ import { acceptAppsState, acceptNetUpdate, acceptStatusUpdate, acceptTopProcs } 
 // real ones, so screenshot checks show the filled-in HUD. Generic values only; nothing here reads the machine.
 // A plain setInterval, not the scheduler: headless Edge's screenshot mode hardly runs animation frames.
 
-export function startPreviewFeed(): void {
+let stopActive: (() => void) | null = null; // one feed at a time: a second start returns the running one's stop
+
+export function startPreviewFeed(): () => void {
+  if (stopActive) return stopActive;
+  const timers: ReturnType<typeof setInterval>[] = [];
   acceptSysInfo({ type: 'sys.info', user: 'pilot', host: 'preview-pc', os: 'Windows 11', cpu: 'SAMPLE CPU 8C', gpu: 'SAMPLE GPU', display: '2560x1600 @240', version: '0.1.0' });
   acceptNetUpdate({ type: 'net.update', ping: 7, lan: '192.168.1.20', wan: '203.0.113.7' });
   acceptStatusUpdate({ type: 'status.update', kind: 'llt', hybrid: 'on', power: '', refresh: '', battery: '', dgpu: 'on' });
@@ -32,14 +36,14 @@ export function startPreviewFeed(): void {
   // ?audio=demo plays a made-up 24-band spectrum at 20 frames a second (a kick, a bass line, hats), for checking the ring
   if (new URLSearchParams(globalThis.location?.search).get('audio') === 'demo') {
     let t = 0;
-    setInterval(() => {
+    timers.push(setInterval(() => {
       t += 1;
       const kick = Math.max(0, 1 - (t % 10) / 4), hat = t % 5 === 0 ? 1 : 0.3;
       acceptAudioSpectrum({ type: 'audio.spectrum', bands: Array.from({ length: 24 }, (_, i) => {
         const bass = i < 5 ? 0.45 + 0.5 * kick * (1 - i / 5) : 0, mid = i >= 5 && i < 16 ? 0.35 + 0.25 * Math.sin(t / 7 + i) : 0, top = i >= 16 ? 0.2 + 0.35 * hat * (i / 24) : 0;
         return Math.min(1, Math.max(0, bass + mid + top));
       }) });
-    }, 50);
+    }, 50));
   }
   let seq = 0;
   const tick = () => {
@@ -54,5 +58,7 @@ export function startPreviewFeed(): void {
     });
   };
   tick();
-  setInterval(tick, 500);
+  timers.push(setInterval(tick, 500));
+  stopActive = () => { for (const t of timers) clearInterval(t); stopActive = null; };
+  return stopActive;
 }

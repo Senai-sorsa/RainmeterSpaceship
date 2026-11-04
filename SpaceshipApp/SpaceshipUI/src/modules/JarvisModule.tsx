@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
@@ -54,6 +54,7 @@ const clampOr = (v: number | undefined, lo: number, hi: number, dflt: number) =>
 
 function Orb({ f, feed, style, cx, cy, opts }: { f: number; feed: Feed; style: Style; cx: number; cy: number; opts: OrbOpts }) {
   const st = feed.state;
+  const uid = useId(); // filter ids must be unique per orb, or a second orb on the page would take the first one's tint
   const mo = useRef<{ f: number; m: OrbMotion }>({ f, m: { lvl: 0, act: 0, fIdle: 0, fAct: 0 } });
   if (mo.current.f !== f) mo.current = { f, m: orbStep(mo.current.m, st, feed.level, Math.max(0, f - mo.current.f)) }; // once per tick
   const m = mo.current.m, lvl = m.lvl;
@@ -66,15 +67,15 @@ function Orb({ f, feed, style, cx, cy, opts }: { f: number; feed: Feed; style: S
   const ef = ACTIVE.length ? ACTIVE[Math.floor(m.fAct) % ACTIVE.length] : ORB[(Math.floor(m.fIdle) + (ORB.length >> 1)) % ORB.length];
   return (
     <>
-      <filter id="orb-tint" color-interpolation-filters="sRGB">
+      <filter id={`orb-tint-${uid}`} color-interpolation-filters="sRGB">
         <feColorMatrix type="matrix" values={tintMatrix(k0 * bright, col, tint, a)} />
       </filter>
-      <image href={ORB[Math.floor(m.fIdle) % ORB.length]} x={cx * s - d / 2} y={cy * s - d / 2} width={d} height={d} filter="url(#orb-tint)" data-module="jarvis-orb" />
+      <image href={ORB[Math.floor(m.fIdle) % ORB.length]} x={cx * s - d / 2} y={cy * s - d / 2} width={d} height={d} filter={`url(#orb-tint-${uid})`} data-module="jarvis-orb" />
       {echo && <>
-        <filter id="orb-echo" color-interpolation-filters="sRGB">
+        <filter id={`orb-echo-${uid}`} color-interpolation-filters="sRGB">
           <feColorMatrix type="matrix" values={tintMatrix(echo.k, echo.col, echo.tint, echo.alpha)} />
         </filter>
-        <image href={ef} x={cx * s - (echo.d * s) / 2} y={cy * s - (echo.d * s) / 2} width={echo.d * s} height={echo.d * s} filter="url(#orb-echo)" data-module="jarvis-echo" />
+        <image href={ef} x={cx * s - (echo.d * s) / 2} y={cy * s - (echo.d * s) / 2} width={echo.d * s} height={echo.d * s} filter={`url(#orb-echo-${uid})`} data-module="jarvis-echo" />
       </>}
     </>
   );

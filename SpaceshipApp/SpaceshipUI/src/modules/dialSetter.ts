@@ -33,6 +33,7 @@ const ANSWER_MS = 5000;
 
 /** Sends dial.set to the host and waits for its dial.result with the same id. A refused or failed write is exit 1; a host that never answers rejects, so the dial shows NO HOST. */
 export function hostDialRunner(host: HostBridge): Runner {
+  // One caller, at module load: the onMessage listener below is never removed on purpose (a disposer would only matter with several runners).
   const waiting = new Map<number, (ran: boolean) => void>();
   host.onMessage((m) => {
     if (m.type !== 'dial.result' || typeof m.id !== 'number') return;

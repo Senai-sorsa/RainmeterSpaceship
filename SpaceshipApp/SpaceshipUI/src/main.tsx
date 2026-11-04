@@ -68,7 +68,8 @@ function Root() {
     // ?preview=1 in a plain browser (no WebView2 host) goes straight to the HUD with the skin's own apps, for screenshot checks
     const preview = q.get('preview') === '1' && !(globalThis as { chrome?: { webview?: unknown } }).chrome?.webview;
     if (preview) { setWiz(false); previewCatalog().then((c) => { catalogFeed.value = c; }); startPreviewFeed(); } else shouldShow(host).then(setWiz);
-    host.onMessage((m) => { if (m.type === 'setup.state') setWiz(m.done !== true); });
+    const off = host.onMessage((m) => { if (m.type === 'setup.state') setWiz(m.done !== true); });
+    return typeof off === 'function' ? off : undefined;
   }, []);
   if (wiz === null) return null;
   return wiz && panel !== 'control' ? <Wizard store={store} host={host} defs={DEFS} /> : <Shell standalone={panel === 'control'} />;
