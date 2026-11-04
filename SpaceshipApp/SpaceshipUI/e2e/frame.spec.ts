@@ -81,23 +81,3 @@ test('reduced motion: the orb light and the lens settle do not animate', async (
   expect(await dur('canvas.glass-layer')).toBe('0s');
   expect(await dur('.frame [data-layer=orblight]')).toBe('0s');
 });
-
-// Task 9: HullRender swaps the art and brings the live-tinted light passes (FULL), not the CSS spill
-const withCfg = (page: Page, c: Record<string, string>) => page.addInitScript((j) => localStorage.setItem('mockhost.v1', JSON.stringify({ config: JSON.parse(j), setupDone: true, aboutMe: '' })), JSON.stringify(c));
-const bg = (page: Page, l: string) => page.locator(`.frame [data-layer=${l}]`).evaluate((e) => getComputedStyle(e).backgroundColor);
-test('render hull swaps art and light', async ({ page }) => {
-  await withCfg(page, { HullRender: '1' });
-  await page.goto('/?host=mock');
-  await expect.poll(() => layers(page)).toEqual(['glass_fx', 'scan', 'shade', 'render_hull', 'mist', 'render_corners', 'sheen', 'bounce', 'vignette', 'light_screens', 'light_trim', 'light_orb', 'glass_reflect', 'grain']);
-});
-test('rendered light follows the theme and the JARVIS state colour', async ({ page }) => {
-  await withCfg(page, { HullRender: '1', ColorAccent: '10,20,30', JarvisColorListen: '200,100,50' });
-  await page.goto('/?preview=1&module=all&jarvis=listening');
-  await expect.poll(() => bg(page, 'light_screens')).toBe('rgb(10, 20, 30)');
-  await expect.poll(() => bg(page, 'light_orb')).toBe('rgb(200, 100, 50)');
-});
-test('HullRender on LOW swaps the hull art only', async ({ page }) => {
-  await withCfg(page, { HullRender: '1', PerfOverride: '2' });
-  await page.goto('/?host=mock');
-  await expect.poll(() => layers(page)).toEqual(['glass_fx', 'scan', 'shade', 'render_hull', 'mist', 'render_corners', 'sheen', 'bounce', 'vignette']);
-});

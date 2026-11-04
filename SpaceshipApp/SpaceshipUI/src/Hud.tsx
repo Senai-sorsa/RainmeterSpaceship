@@ -80,11 +80,14 @@ function Neon({ d }: { d: string }) {
 
 // svg units per CSS pixel (the viewBox fits the canvas to the window); Rainmeter is DPI-unaware, so the skin's Scale is in
 // logical screen pixels (0.67 fills a 150 % screen) and dividing by the fit draws the same at any display scale or zoom
+// the Scale setting is the skin's, tuned on a 2560x1600 panel at 150 %: Scale 0.67 means "fills the screen" (0.67 / DESIGN_FIT = 1.005). Dividing by the live fit instead kept the HUD one logical size,
+// so at 100 % or 125 % it covered only 67 to 84 % of the screen (live test U10).
+const DESIGN_FIT = 2 / 3;
 const fitOf = () => Math.min(innerWidth / canvas.w, innerHeight / canvas.h) || 1;
 
 export function Hud() {
   const pad = margins.module + margins.animationBleed;
-  const [fit, setFit] = useState(fitOf);
+  const [, setFit] = useState(fitOf); // a resize still re-renders, so the light canvas and the modules re-measure
   // the log is a pop-up in the skin (Overlay\Jarvis): closed until asked for; ?module=jarvislog alone opens it for dev
   const [logOpen, setLogOpen] = useState(() => new URLSearchParams(location.search).get('module') === 'jarvislog');
   // JARVIS's POP <n> open|close (muted speakers, STEALTH, "show me what you said"): the first one after a load is only remembered, as jarvis.lua does
@@ -111,7 +114,7 @@ export function Hud() {
   const light = bloomMode(perfTier.value, values);
   currentBloomMode.value = light;
   const lightRadius = Math.max(0.5, 1.6 * num(values, 'GlowWidth', 3.2) * 0.45 * num(values, 'Scale', 1) * LIGHT_SCALE);
-  values.Scale = String(num(values, 'Scale', 1) / fit);
+  values.Scale = String(num(values, 'Scale', 1) / DESIGN_FIT); // fit-independent: the svg and the frame already follow the window, so any display scale, zoom or resolution fills it
   const hide = hiddenZones(values); // the Off_ settings, as the skin's control.lua deactivates configs
   const shown = !hudHidden.value; // the console's OFF tab keeps only the top console
   return (

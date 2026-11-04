@@ -34,9 +34,10 @@ export function slotRowFrame(input: SlotInput, zone: Zone, st: Style): Op[] {
   // the plate is a small display lit from the emblem side (K2): bright by the emblem, falling off to the far edge
   const plate: [number, number][] = [[MX(0.26), Y(0.02)], [MX(0.96), Y(0.02)], rule[3], rule[2], [MX(0.26), Y(0.86)]];
   const [ar, ag, ab] = st.accent, [pr, pg, pb] = st.panel;
-  c.gradPoly(plate, { kind: 'linear', x1: MX(0.26), y1: 0, x2: MX(0.96), y2: 0,
+  // the two pinned-app rows (Chrome, Everything) go without the see-through plate (live test U2): a bare row on the hull with its rules
+  if (isCat) c.gradPoly(plate, { kind: 'linear', x1: MX(0.26), y1: 0, x2: MX(0.96), y2: 0,
     stops: [[0, [ar, ag, ab, 42]], [0.35, [pr, pg, pb, 80]], [1, [pr, pg, pb, 55]]] });
-  c.texture(plate);
+  if (isCat) c.texture(plate);
   // the lit bottom edge: light rising from the stepped rule
   c.gradPoly([rule[2], rule[3], [MX(0.96), Y(0.66)], [MX(0.362), Y(0.67)]], { kind: 'linear', x1: 0, y1: Y(0.84), x2: 0, y2: Y(0.66),
     stops: [[0, [ar, ag, ab, 46]], [1, [ar, ag, ab, 0]]] });

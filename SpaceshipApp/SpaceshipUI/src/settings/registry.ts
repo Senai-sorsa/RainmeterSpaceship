@@ -66,7 +66,6 @@ add('display', 'Theme', 'advanced', [
   ['DepthHaze', 'Depth haze', 'Windscreen holograms glow softer than the dash, as if further off.', tog, '1', O],
   ['ScreenBezel', 'Screen bezels', 'A dark recess and faint lip round each display.', tog, '1', O],
   ['StateLight', 'Orb light', 'The orb lights the hull more while JARVIS listens or speaks.', tog, '1', O],
-  ['HullRender', 'Rendered hull', 'Use the 3D-rendered cockpit shell, lit by the screens.', tog, '0', O],
   ['GlowWidth', 'Glow width', 'Width of the neon glow in pixels.', sl(1, 8, 0.1), '3.0'],
   ['TextGlow', 'Text glow', 'Size of the glow behind text in pixels.', sl(0, 12, 1), '4'],
   ['TextGlowAlpha', 'Text glow strength', 'Opacity of the text glow.', sl(0, 255, 5), '150'],

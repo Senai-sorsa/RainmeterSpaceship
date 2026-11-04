@@ -12,6 +12,24 @@ describe('regionsOf', () => {
     const boxes = Array.from({ length: 70 }, (_, i) => ({ left: i, top: 0, width: 1, height: 1 }));
     expect(regionsOf([{ left: 0, top: 0, width: 0, height: 9 }, ...boxes], 1)).toHaveLength(64);
   });
+  it('when over the cap the LAST boxes (the overlays on top) win, not the first', () => {
+    const hud = Array.from({ length: 60 }, (_, i) => ({ left: i * 30, top: 0, width: 10, height: 10 }));
+    const drawer = Array.from({ length: 12 }, (_, i) => ({ left: i * 30, top: 500, width: 10, height: 10 }));
+    const out = regionsOf([...hud, ...drawer], 1);
+    expect(out).toHaveLength(64);
+    for (const d of drawer) expect(out.some((r) => r[1] === 494 && r[0] === d.left - 6)).toBe(true); // every drawer box is kept
+  });
+  it('drops a box that lies wholly inside another one, and duplicates', () => {
+    const out = regionsOf([{ left: 0, top: 0, width: 100, height: 100 }, { left: 10, top: 10, width: 20, height: 20 }, { left: 0, top: 0, width: 100, height: 100 }], 1);
+    expect(out).toEqual([[-6, -6, 112, 112]]);
+  });
+  it('two stacked panels each keep all their rows, even when together they pass the cap', () => {
+    const panel = (x: number) => [{ left: x, top: 0, width: 300, height: 400 }, ...Array.from({ length: 40 }, (_, i) => ({ left: x + 5, top: i * 9, width: 290, height: 8 }))];
+    const out = regionsOf([...panel(0), ...panel(900)], 1);
+    expect(out.length).toBeLessThanOrEqual(64);
+    expect(out.filter((r) => r[0] < 400)).toHaveLength(1); // the rows sit inside the panel box
+    expect(out.filter((r) => r[0] >= 400)).toHaveLength(1);
+  });
   it('clamps far boxes so the host accepts them', () => {
     const [r] = regionsOf([{ left: 1e6, top: -1e6, width: 1e6, height: 10 }], 1);
     expect(messageProblem({ type: 'hit.regions', rects: [r], keyboard: false })).toBeNull();

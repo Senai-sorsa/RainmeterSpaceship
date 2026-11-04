@@ -398,7 +398,7 @@ sealed class Overlay : Form
     {
         var screens = Screen.AllScreens;
         var text = settings?.Get(new[] { "HomeSize" }).GetValueOrDefault("HomeSize") ?? "";
-        var index = HostRules.PickHomeDisplay(screens.Select(s => (s.Bounds.Width, s.Bounds.Height)).ToList(), HostRules.ParseSize(text, (2560, 1600)));
+        var index = HostRules.PickHomeDisplayNearest(screens.Select(s => (s.Bounds.Width, s.Bounds.Height)).ToList(), HostRules.ParseSize(text, (2560, 1600)));
         return index >= 0 ? screens[index] : Screen.PrimaryScreen!;
     }
 

@@ -229,5 +229,30 @@ html:has(.panel), body:has(.panel) { overflow: auto; }
 
 /* the light canvas (tasks/hyperrealism-plan.md Task 3): quarter-res glow stretched over the HUD; DOM pop-ups come later in the page, so they stay above it. Normal blending: it looks the same as screen over the dark HUD and costs the compositor less (Task 4) */
 .bloom-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
+/* live test 2026-11-03: the HUD read too bright against the main reference (dark, a few lit focal points); the trim lives in modules/style.ts (HUD_TRIM) and BloomLayer (LIGHT_TRIM) */
+/* (the HUD trim is now HUD_TRIM in modules/style.ts, applied per op; no opacity layer) */
 /* the lens's own light (Task 6): the HUD's spread light x lens dirt + a faint soft ghost, over the whole view */
 .glass-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
+
+/* ---- Control Center finish v2 (live test U6, 2026-11-03): the CARGO look, in CSS. Additive: delete this block to revert. ---- */
+/* solid lit glass instead of see-through blur (also drops a full-window backdrop blur) */
+.cc, .wiz { background: linear-gradient(180deg, rgb(5 18 28), rgb(3 10 17)); backdrop-filter: none; box-shadow: inset 0 0 60px color-mix(in srgb, var(--accent) 7%, transparent); }
+.cc-head { background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 17%, transparent), color-mix(in srgb, var(--accent) 3%, transparent)); border-bottom-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+/* section cards: a lit header band with an accent bar, a darker body */
+.group { background: linear-gradient(180deg, rgb(4 16 25 / .96), rgb(3 11 18 / .96)); border-color: color-mix(in srgb, var(--accent) 38%, transparent); }
+.group[open] { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+.group > summary { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 4%, transparent) 70%, transparent); box-shadow: inset 2px 0 0 var(--accent); letter-spacing: .14em; text-transform: uppercase; font-weight: 700; }
+/* rows: faint banding, and a lit bar at the left on hover or focus */
+.row { border-top-color: color-mix(in srgb, var(--dim) 55%, transparent); transition: background-color .12s, box-shadow .12s; }
+.row:nth-child(even) { background: color-mix(in srgb, var(--accent) 3.5%, transparent); }
+.row:hover, .row:focus-within { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+/* switches that read as lit when on */
+.ctl-switch { background: rgb(2 9 15); border: 1px solid color-mix(in srgb, var(--dim) 80%, transparent); height: 26px; }
+.ctl-switch[aria-checked='true'] { background: color-mix(in srgb, var(--accent) 26%, rgb(2 9 15)); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+/* inputs: inset dark, a glow when focused */
+.ctl-text, .ctl-select { background: rgb(2 8 13); box-shadow: inset 0 1px 6px rgb(0 0 0 / .6); transition: box-shadow .12s, border-color .12s; }
+.ctl-text:focus, .ctl-select:focus, .ctl-text:focus-visible, .ctl-select:focus-visible { border-color: var(--accent); box-shadow: inset 0 1px 6px rgb(0 0 0 / .6), 0 0 0 1px var(--accent), 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent); outline: none; }
+/* category rail: the active page is a lit strip */
+.rail-btn { transition: background-color .12s, color .12s; }
+.rail-btn:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.rail-btn[aria-current='page'] { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent); box-shadow: inset 3px 0 0 var(--accent); text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }

@@ -72,7 +72,6 @@ ScreenBezel=1
 ; orb light: the orb lights the hull a little more while JARVIS listens or speaks (FULL only)
 StateLight=1
 ; rendered hull: use the Blender-rendered cockpit shell with live-tinted light from the screens (FULL; LITE/LOW/STEALTH get the static art only)
-HullRender=0
 ; text glow: blur radius (px, 0 = off) and strength
 TextGlow=4
 TextGlowAlpha=150

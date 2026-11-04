@@ -185,15 +185,11 @@ FRAME_IMAGES = ["hull", "ship", "glass_fx", "glass_fx_pic", "glass_pic", "scan",
                 "corners", "window_mask"]
 
 
-# Task 9: the Blender passes in Images/Render/ (render_<x> = Render/<x>.png), hashed in beside the others
-RENDER_IMAGES = ["render_hull", "render_corners", "light_screens", "light_trim", "light_orb", "glass_reflect"]
-
-
 def frame_files(root):
     """{name: (hashed filename, source path)}; the hash is of the file content, so unchanged art keeps its URL."""
     out = {}
-    for n in FRAME_IMAGES + RENDER_IMAGES:
-        src = RES / "Images" / ("Render/" + n[7:] + ".png" if n.startswith("render_") else (("Render/" + n if n in RENDER_IMAGES else n) + ".png"))
+    for n in FRAME_IMAGES:
+        src = RES / "Images" / (n + ".png")
         out[n] = ("%s.%s.png" % (n, hashlib.sha256((root / src).read_bytes()).hexdigest()[:8]), src)
     return out
 

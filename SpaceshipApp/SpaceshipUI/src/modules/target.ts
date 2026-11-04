@@ -109,9 +109,10 @@ export function targetMove(state: TargetState, zone: Zone, input: TargetInput, s
     state.to = pickNext(zone, state.pos, rnd);
     const dist = Math.hypot(state.to[0] - state.from[0], state.to[1] - state.from[1]);
     state.t0 = now;
-    state.dur = Math.max(1.4, Math.min(3.2, dist / 220));
+    // calmer than target.lua (dist/220, 1.4-3.2 s): about 90 px/s average, so the quintic ease peaks near 170 px/s instead of 410
+    state.dur = Math.max(3.5, Math.min(8, dist / 90));
   }
-  state.rot = (state.rot + 1.6 * step) % 360;
+  state.rot = (state.rot + 0.9 * step) % 360; // about 14 deg/s at the full rate (target.lua: 1.6 per step)
 }
 
 export function targetFrame(state: TargetState, input: TargetInput, zone: Zone, st: Style, step = 1): Op[] {

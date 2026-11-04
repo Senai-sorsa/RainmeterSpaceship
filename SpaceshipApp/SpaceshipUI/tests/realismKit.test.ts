@@ -173,10 +173,10 @@ describe('R2 adoption: telemetry cells and rails', async () => {
 
 describe('R3 adoption: rows and blocks', async () => {
   const { slotRowFrame } = await import('../src/modules/slot');
-  it('a running app row is a textured lit plate with a filled status lamp in the good colour', () => {
+  it('a running pinned-app row has no see-through plate but keeps a filled status lamp in the good colour', () => {
     const st = style({ tier: 0 });
     const ops = slotRowFrame({ app: { id: 'x', name: 'X', short: 'X', icon: 'gear', missing: false } as never, state: 2, mirror: false }, { x: 0, y: 0, w: 400, h: 110 }, st);
-    expect(ops.some((o) => o.pattern === HUD_SCAN)).toBe(true);
+    expect(ops.some((o) => o.pattern === HUD_SCAN)).toBe(false); // live test U2: Chrome and Everything go without the plate
     expect(ops.some((o) => o.shape.kind === 'rect' && o.fill?.[1] === st.good[1] && o.fill?.[0] === st.good[0] && o.shape.h === 8)).toBe(true);
   });
   it('LOW keeps the rows free of texture', () => {

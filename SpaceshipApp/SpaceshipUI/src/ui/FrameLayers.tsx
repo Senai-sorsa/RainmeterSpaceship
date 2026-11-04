@@ -34,12 +34,7 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
   );
   const tintA = n(values, 'GlassTint', 66);
   const scan = values.ScanLines === '1';
-  // HullRender: the Blender shell replaces hull+corners on every tier; only FULL also gets the live-tinted light passes
-  // (they replace spill / trim spill / orb light there; LITE keeps today's CSS spill over the rendered art)
-  const rh = !pic && values.HullRender === '1';
   const tier = n(values, 'PerfTier', 0);
-  const lit = rh && tier === 0;
-  const screen = { mixBlendMode: 'screen' };
   // Frame.ini's Shape parts: Glass under everything (rendered only), Accents/Spill/Lights/Decor over it (Decor in both styles)
   const vars = { ...values, ColorAccent: rgb };
   return (
@@ -50,19 +45,13 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {img(pic ? 'glass_fx_pic' : 'glass_fx', alpha(n(values, 'GlassGlare', 12) * 21))}
       {scan && img(pic ? 'scan_pic' : 'scan', alpha(n(values, 'ScanAlpha', 6) * 18))}
       {img('shade', alpha(n(values, 'ShadeAlpha', 155)))}
-      {img(pic ? 'ship' : rh ? 'render_hull' : 'hull', hull, { filter: bright })}
+      {img(pic ? 'ship' : 'hull', hull, { filter: bright })}
       {tint(pic ? 'mist_pic' : 'mist', alpha(n(values, 'MistAlpha', 255)), 'alpha', accent)}
-      {!pic && img(rh ? 'render_corners' : 'corners', hull, { filter: bright })}
+      {!pic && img('corners', hull, { filter: bright })}
       {!pic && <Finish accent={accent} mask={url('window_mask')} glare={alpha(n(values, 'GlassGlare', 12) * 21)} hull={hull}
-        spill={lit ? '' : spillBackground(accent, tier, hiddenZones(values))}
-        orb={!lit && tier === 0 && values.StateLight !== '0' && !hiddenZones(values).split(',').includes('C_sphere')} />}
-      {lit && <>
-        {tint('light_screens', 0.5 * hull, 'luminance', accent, screen)}
-        {tint('light_trim', hull * 0.45, 'luminance', accent, screen)}
-        <OrbPass tint={tint} values={values} accent={accent} hull={hull} />
-        {tint('glass_reflect', 0.2, 'luminance', 'rgb(235 245 255)', screen)}
-      </>}
-      {!pic && tier < 2 && !lit && <TrimSpill vars={vars} mask={url('window_mask')} hull={hull} />}
+        spill={spillBackground(accent, tier, hiddenZones(values))}
+        orb={tier === 0 && values.StateLight !== '0' && !hiddenZones(values).split(',').includes('C_sphere')} />}
+      {!pic && tier < 2 && <TrimSpill vars={vars} mask={url('window_mask')} hull={hull} />}
       {!pic && n(values, 'PerfTier', 0) < 2 && <Grain mask={url('window_mask')} hull={hull} />}
       <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />
     </div>
@@ -139,16 +128,6 @@ function OrbLight({ accent, notGlass, hull }: { accent: string; notGlass: Return
   const on = st === 'speaking' || st === 'listening';
   return <div class="frame-layer" data-layer="orblight" data-on={on ? '1' : '0'}
     style={{ ...fill, ...notGlass, opacity: on ? hull : 0, mixBlendMode: 'screen', background: orbLightBackground(accent) }} />;
-}
-
-/** The rendered orb light pass, tinted by JARVIS's live state colour (empty setting = follow the theme); brighter while it
- *  listens or speaks. Its own component so only this layer re-renders on a state change. */
-function OrbPass({ tint, values, accent, hull }: { tint: (name: string, a: number, mode: 'alpha' | 'luminance', bg: string, extra?: Record<string, string>) => JSX.Element; values: Record<string, string>; accent: string; hull: number }) {
-  const st = jarvisFeed.value.state;
-  const key = st === 'listening' ? 'JarvisColorListen' : st === 'speaking' ? 'JarvisColorSpeak' : 'JarvisColorIdle';
-  const c = String(values[key] ?? '').trim();
-  const bg = c ? `rgb(${c.split(',').slice(0, 3).map((x) => Math.min(255, Math.max(0, Number(x) || 0))).join(',')})` : accent;
-  return tint('light_orb', (st === 'listening' || st === 'speaking' ? 0.6 : 0.25) * hull, 'luminance', bg, { mixBlendMode: 'screen' });
 }
 
 /** The hull: everything except the glass (a full layer minus the window mask, white = glass). */
