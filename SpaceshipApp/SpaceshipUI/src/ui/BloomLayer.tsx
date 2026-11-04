@@ -10,6 +10,7 @@ import { bootRunning } from './settle';
 // tile (Task 4): only an anchor whose ops or position changed is painted and blurred again; a frame is then just one
 // drawImage per tile. It draws only when the light changes (one frame at most), on resize and once the fonts are ready.
 export const SCALE = 0.25;
+const LIGHT_TRIM = 0.6; // overall glow trim toward the main reference (was a CSS opacity on the canvas)
 
 type Dev = { __bloomFar?: Record<string, boolean>; __glassDraws?: number; __bloomLast?: Record<string, BloomEntry['ctm']>; __bloomDraws?: number; __bloomTileBuilds?: number; __bloomBuiltBy?: Record<string, number> };
 type Tile = { box: Box; canvas: HTMLCanvasElement } | null;
@@ -64,7 +65,9 @@ export function BloomLayer({ mode, baseRadius, lens = false, haze = false }: { m
       const wait = cache.update(entries);
       if (wait && !retry) retry = window.setTimeout(() => { retry = 0; schedule(); }, wait); // the trailing rebuild
       out.clearRect(0, 0, w, h);
+      out.globalAlpha = LIGHT_TRIM; // the overall glow trim (live test): done in the draw, not as a CSS opacity layer, which cost a full-window composite
       for (const { tile } of cache.tiles.values()) if (tile) out.drawImage(tile.canvas, tile.box.x, tile.box.y);
+      out.globalAlpha = 1;
       paintGlassSoon();
       if (dev) {
         dev.__bloomLast = Object.fromEntries([...entries].map(([k, e]) => [k, e.ctm]));
