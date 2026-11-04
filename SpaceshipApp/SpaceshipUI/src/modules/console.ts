@@ -40,6 +40,7 @@ const PM: Record<string, string> = { quiet: 'QUIET', balance: 'BAL', balanced: '
 const SXR = 2560 / 1260, SYR = 1600 / 709;
 const RX = (x: number) => (x - 463) * SXR;
 const RY = (y: number) => (y - 10) * SYR;
+const ROW_GAP_FITTED = 0.6; // see consoleFrame
 const TABX = [549, 591, 630, 669, 711];
 const BOX = [[538, 559], [569, 589]];
 const TXT: [number, number][] = [[671, 51], [695, 50], [719, 49], [743, 48], [767, 47]];
@@ -83,12 +84,15 @@ function quickButtons(st: ConsoleState, cfg: ConsoleConfig) {
 
 export function consoleFrame(st: ConsoleState, cfg: ConsoleConfig, view: ConsoleView, zone: Zone, style: Style, now: number): ConsoleFrame {
   const c = new Canvas(zone, style);
+  // Picture (fitted): the first row sits on the groove under the picture's top plate and the second between the groove and the pocket roofs, so the
+  // gap between the rows is 0.6 of the skin's (the text keeps its size). The hit boxes use the same positions.
+  const ry = style.fitted ? (y: number) => RY(23) + (RY(y) - RY(23)) * ROW_GAP_FITTED : RY;
   const hits: Hit[] = [];
   const W = style.white, D = style.dim;
   const active = view.hudHidden ? 5 : hybridIndex(st);
   // tab row (reference: COMBAT STARMAP MINING GROUND OFF); the fifth tab is the HUD toggle
   [...TABS.map((t) => ({ id: t.id, tip: t.tip })), { id: 'OFF', tip: '' }].forEach((t, i) => {
-    const x = RX(TABX[i]), y = RY(23), on = i + 1 === active;
+    const x = RX(TABX[i]), y = ry(23), on = i + 1 === active;
     const armed = view.armed === i + 1;
     // the active mode sits on a soft lit plate with corner ticks, as the category tabs do; faint dividers between tabs
     if (on) {
@@ -107,7 +111,7 @@ export function consoleFrame(st: ConsoleState, cfg: ConsoleConfig, view: Console
   // CARGO and CFG: plain glowing labels with a short underline
   const boxes = [{ label: 'CARGO', hit: 6, tip: '' }, { label: 'CFG', hit: 7, tip: 'Control Center' }];
   boxes.forEach((b, i) => {
-    const x0 = RX(BOX[i][0]), x1 = RX(BOX[i][1]), y0 = RY(46), y1 = RY(55), cx = (x0 + x1) / 2;
+    const x0 = RX(BOX[i][0]), x1 = RX(BOX[i][1]), y0 = ry(46), y1 = ry(55), cx = (x0 + x1) / 2;
     c.text(cx, (y0 + y1) / 2, b.label, { size: 5.6, weight: 700, align: 'CenterCenter', color: style.accent });
     c.hair(cx - (x1 - x0) * 0.32, y1 + 2, cx + (x1 - x0) * 0.32, y1 + 2, style.accent, 1.2, 150);
     hits.push({ id: b.hit, x: x0, y: y0, w: x1 - x0, h: y1 - y0, tip: b.tip });
@@ -115,15 +119,15 @@ export function consoleFrame(st: ConsoleState, cfg: ConsoleConfig, view: Console
   // quick settings: MISL HEAT CLSN FUEL GFRC, the lit ones highlighted
   const bs = quickButtons(st, cfg);
   [bs[0], bs[1], bs[2], bs[3], bs[6]].forEach((b, i) => {
-    const x = RX(TXT[i][0]), y = RY(TXT[i][1]);
+    const x = RX(TXT[i][0]), y = ry(TXT[i][1]);
     c.text(x, y, b.label, { size: 5.6, weight: 700, clip: 64, align: 'CenterCenter', color: b.on ? style.hi : [160, 180, 195, 255] });
     hits.push({ id: 8 + i, x: x - 24, y: y - 10, w: 48, h: 20, tip: b.tip ?? '' });
   });
   // transient message between the two groups
   if (now - view.msgAt < 6000 && view.msg !== '') {
-    c.text(RX(630), RY(49), view.msg, { size: 6.5, weight: 700, align: 'CenterCenter', color: style.warn, clip: 150 });
+    c.text(RX(630), ry(49), view.msg, { size: 6.5, weight: 700, align: 'CenterCenter', color: style.warn, clip: 150 });
   }
-  hits.push({ id: 14, x: RX(612), y: RY(50), w: RX(648) - RX(612), h: RY(58) - RY(50), tip: `dGPU: ${st.dgpu !== '' ? st.dgpu : 'unknown'}` });
+  hits.push({ id: 14, x: RX(612), y: ry(50), w: RX(648) - RX(612), h: ry(58) - ry(50), tip: `dGPU: ${st.dgpu !== '' ? st.dgpu : 'unknown'}` });
   return { ops: c.flush(), hits };
 }
 

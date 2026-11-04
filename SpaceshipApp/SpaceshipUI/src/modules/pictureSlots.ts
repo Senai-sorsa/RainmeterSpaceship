@@ -6,9 +6,11 @@
 type Slot = { dx?: number; dy?: number; s?: number };
 
 export const PICTURE_SLOTS: Record<string, Slot> = {
-  // top: four stat boxes seated in the stepped band, two and two either side of the centre divider (centres y 195)
-  G1_cpu: { dx: 186, dy: 18, s: 0.78 }, G2_select: { dx: 50, dy: 18, s: 0.78 },
-  G3_select: { dx: -51, dy: 18, s: 0.78 }, G4_ram: { dx: -187, dy: 18, s: 0.78 },
+  // top: one stat box per main slot, at full size, centred in the slot (canvas x 770 / 1092 / 1468 / 1790): the two wing slots, shorter than the pockets so those boxes scale 0.85 to sit under the wing line, under the
+  // wing beams and the two centre pockets under the plate (pocket roof at y 143, interior y 150..226). The console (ECO HYBRID ..., CARGO CFG, hz FULL
+  // MASTER) drops 37 so its first row sits on the groove at y 103 under the plate; consoleFrame closes the gap between its rows in fitted mode.
+  G1_cpu: { dx: -23, dy: 19, s: 0.85 }, G2_select: { dx: -26, dy: 11 }, G3_select: { dx: 25, dy: 11 }, G4_ram: { dx: 22, dy: 19, s: 0.85 },
+  T_settings: { dy: 37 },
 };
 
 type SeatZone = { id?: string; x: number; y: number; w: number; h: number; matrix: number[] };

@@ -108,10 +108,10 @@ test('each frame mode keeps its own layout: only fitted re-seats the top boxes',
     const ctx = await browser.newContext({ viewport: { width: 1707, height: 1067 } });
     const page = await ctx.newPage();
     expect(await boot(page, cfg)).toEqual([]);
-    xs[mode] = (await page.locator('[data-module="graph-cpu"]').boundingBox())!.x;
+    xs[mode] = (await page.locator('[data-module="graph-a"]').boundingBox())!.x;
     await ctx.close();
   }
   expect(Math.abs(xs.picture - xs.rendered)).toBeLessThanOrEqual(1);
   expect(Math.abs(xs.none - xs.rendered)).toBeLessThanOrEqual(1);
-  expect(xs.fitted).toBeGreaterThan(xs.rendered + 60); // seated into the picture's band
+  expect(Math.abs(xs.fitted - xs.rendered)).toBeGreaterThan(10); // seated into its pocket
 });

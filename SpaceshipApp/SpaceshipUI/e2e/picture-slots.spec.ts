@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// "Picture (fitted)": the top stat boxes are seated in the picture's stepped band (canvas units 2560 x 1600: x 883..1677, y 147..243, split at
-// x 1280 by the centre divider). The side stacks are NOT moved: the user wants them where they were, and the two sides must mirror each other.
+// "Picture (fitted)": the four stat boxes sit one per main slot of the picture's top band (canvas units 2560 x 1600: wing slots and centre pockets, pocket
+// roofs at y 143), the console rides the groove at y 103, and cyan trim is traced on those edges. The side stacks are NOT moved: the user wants them where
+// they were, and the two sides must mirror each other.
 const SIZES: [number, number][] = [[1707, 1067], [2560, 1600], [1920, 1200]];
 
 type Box = { l: number; t: number; r: number; b: number };
@@ -33,16 +34,24 @@ for (const [w, h] of SIZES) {
     await open(page, w, h, { UseShipImage: '1', PictureFit: '1' });
     const fitted = await settledBoxes(page);
     const kk = Math.min(w / 2560, h / 1600), ox = (w - 2560 * kk) / 2, oy = (h - 1600 * kk) / 2; // css px per canvas unit, and the 16:10 area's origin
-    const bx = (c: number) => ox + kk * c, by = (c: number) => oy + kk * c;
-    // the four stat boxes inside the band, two and two either side of the divider
-    for (const n of ['graph-cpu', 'graph-a', 'graph-b', 'graph-ram']) {
-      expect(fitted[n].l, n).toBeGreaterThanOrEqual(bx(883) - 4 * kk);
-      expect(fitted[n].r, n).toBeLessThanOrEqual(bx(1677) + 4 * kk);
-      expect(fitted[n].t, n).toBeGreaterThanOrEqual(by(147) - 4 * kk);
-      expect(fitted[n].b, n).toBeLessThanOrEqual(by(243) + 4 * kk);
+    const by = (c: number) => oy + kk * c;
+    // one stat box per main slot, centred in it: wing (770), pocket (1092), pocket (1468), wing (1790); all between the beams and the band's bottom edge
+    const cx = (n: string) => ((fitted[n].l + fitted[n].r) / 2 - ox) / kk, cyc = (n: string) => ((fitted[n].t + fitted[n].b) / 2 - oy) / kk;
+    const SLOTS: [string, number][] = [['graph-cpu', 770], ['graph-a', 1092], ['graph-b', 1468], ['graph-ram', 1790]];
+    for (const [n, x] of SLOTS) {
+      expect(Math.abs(cx(n) - x), n + ' centre x').toBeLessThanOrEqual(22);
+      expect(cyc(n), n + ' centre y').toBeGreaterThanOrEqual(170);
+      expect(cyc(n), n + ' centre y').toBeLessThanOrEqual(215);
     }
-    expect(fitted['graph-a'].r).toBeLessThanOrEqual(bx(1280) + 3 * kk);
-    expect(fitted['graph-b'].l).toBeGreaterThanOrEqual(bx(1280) - 3 * kk);
+    // the pocket boxes are full size (232 canvas units wide, the skin's own size); no two boxes overlap
+    for (const n of ['graph-a', 'graph-b']) expect((fitted[n].r - fitted[n].l) / kk, n + ' width').toBeGreaterThanOrEqual(225);
+    const order = SLOTS.map(([n]) => fitted[n]);
+    for (let k = 0; k < 3; k++) expect(order[k].r, 'box ' + k + ' vs ' + (k + 1)).toBeLessThanOrEqual(order[k + 1].l);
+    // the console's lower row sits above the pocket roofs (y 143)
+    expect(fitted['console'].b).toBeLessThanOrEqual(by(150));
+    // the traced trim and the lower half of the HUD's own trim are drawn in fitted; plain picture has neither
+    expect(await page.locator('[data-part="fitted-trim"] path').count()).toBeGreaterThanOrEqual(8);
+    expect(await page.locator('[data-layer="decor-lower"]').count()).toBe(1);
     // the sides did not move: every side module sits exactly where plain picture mode puts it
     await page.evaluate(() => localStorage.setItem('mockhost.v1', JSON.stringify({ config: { UseShipImage: '1', PictureFit: '0' }, setupDone: true, aboutMe: '' })));
     await page.reload();
@@ -63,6 +72,8 @@ for (const [name, cfg] of [['line-art frame', { UseShipImage: '0' }], ['plain pi
   test(`${name} keeps the original layout (no picture slots)`, async ({ page }) => {
     await open(page, 1707, 1067, cfg);
     const b = await page.locator('[data-module="graph-cpu"]').boundingBox();
-    expect(b!.x).toBeLessThan(500); // the original CPU box starts left of the fitted band (883 canvas units = 589 css px)
+    expect(b!.x).toBeLessThan(500); // the original CPU box is at its skin position (the fitted one is seated in its wing slot)
+    expect(await page.locator('[data-part="fitted-trim"]').count()).toBe(0); // no fitted trim outside the fitted frame
+    expect(await page.locator('[data-layer="decor-lower"]').count()).toBe(0);
   });
 }

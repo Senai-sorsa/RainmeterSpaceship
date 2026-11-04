@@ -6,6 +6,7 @@ import type { FrameStyle } from '../settings/frameStyle';
 import { partShapes } from './frameParts';
 import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
+import { PictureTrim } from './PictureTrim';
 import { bootRunning } from './settle';
 import { hiddenZones } from '../modules/hidden';
 import grainUrl from '../assets/lens/bluenoise.png?url';
@@ -53,7 +54,13 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
         orb={tier === 0 && values.StateLight !== '0' && !hiddenZones(values).split(',').includes('C_sphere')} />}
       {!pic && tier < 2 && <TrimSpill vars={vars} mask={url('window_mask')} hull={hull} />}
       {!pic && n(values, 'PerfTier', 0) < 2 && <Grain mask={url('window_mask')} hull={hull} />}
-      <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />
+      {style === 'fitted' ? (
+        <>
+          {/* the top 330 units of the HUD's own trim are hidden: PictureTrim draws it along the picture's slots instead */}
+          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: 'inset(20.625% 0 0 0)' }}><Parts names={['Decor']} vars={vars} /></div>
+          <PictureTrim accent={accent} tier={tier} />
+        </>
+      ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} />}
     </div>
   );
 }
