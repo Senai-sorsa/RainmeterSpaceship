@@ -2954,6 +2954,15 @@ real_turn = j.turn
 j.turn = lambda tier, follow=0, woke=False: real_turn(tier, follow, True)
 assert talk(99, words="Thank you.") == 1 and len(asked) == m
 j.turn, j.heard_score[0] = real_turn, 0.0
+# refactor phase 6e: three fixed answers from code that no test covered (found by a mutation check): a lone yes with nothing
+# asked, the log commands, and "you can talk" when he is not in quiet mode. Never the model; state put back afterwards.
+_hist, _me, _lt = list(j.history), j.recent["me"], j.last_turn
+n, j.recent["me"] = len(prompts), "Ha, sir."
+for words, reply in (("Yes.", "There's nothing waiting for a yes, sir."), ("Close the log.", "Closing the log."),
+                     ("Show me what you've said.", "Here's everything we've said."), ("You can talk now.", "I'm not in quiet mode.")):
+    talk(99, words=words)                                          # (the ear stays open after a fixed reply: how often he listens is not the point)
+    assert len(prompts) == n and asked[-1] == reply, (words, asked[-1])
+j.history[:], j.recent["me"], j.last_turn = _hist, _me, _lt
 for words in ("Okay, thanks Jarvis!", "That’s all.", "no thank you", "Nope.", "I'm good."):
     assert j.ENDERS.fullmatch(" ".join(j.re.sub(r"[^a-z' ]", " ", words.lower().replace("’", "'")).split())), words
 for words in ("no am", "no, set it for 8", "thanks for the help with my essay"):
