@@ -90,10 +90,12 @@ def say_text_only(sentences, collected):
     """Speakers muted: stream the reply into the pop-up instead of speaking it."""
     S.set(state="speaking", pop="open")
     text, t0 = "", time.time()
-    for s in sentences:
-        if cancel.is_set():
-            break
-        text = (text + " " + s).strip()
-        live(text)
-        S.set(level=0.25 + 0.2 * abs(((time.time() - t0) * 2) % 2 - 1), force=False)
-    live("")
+    try:
+        for s in sentences:
+            if cancel.is_set():
+                break
+            text = (text + " " + s).strip()
+            live(text)
+            S.set(level=0.25 + 0.2 * abs(((time.time() - t0) * 2) % 2 - 1), force=False)
+    finally:
+        live("")
