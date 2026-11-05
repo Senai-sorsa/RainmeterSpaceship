@@ -9,11 +9,11 @@ import time
 from datetime import datetime
 
 from jarvislib.host_pipe import host_live
+from jarvislib.respath import pick_res
 
 
 # without argv: @Resources is two folders above jarvislib (this was ".." while it lived in jarvis.py)
-RES = (sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")).strip().strip('"')
-RES = os.path.abspath(RES)
+RES = pick_res(sys.argv, os.environ, os.path.dirname(os.path.abspath(__file__)))     # jarvislib/respath.py: a tool's own --flag is never a folder
 DATA = os.path.join(RES, "Data")
 STATE_FILE = os.path.join(DATA, "jarvis.txt")
 CMD_FILE = os.path.join(DATA, "jarvis_cmd.txt")

@@ -169,6 +169,16 @@ for heard, want in (("set volume to 30", ("set", 30)), ("volume 5 percent", ("se
                     ("turn down the music", ("step", -10))):
     assert j.route(heard)[:3] == ("act", "volume", want), heard
 assert j.route("set volume to 130") == ("say", None, None, "I can set it between 0 and 100.")
+for heard, want in (("turn it up to 30%", 30), ("bring it down to 10", 10), ("raise it to 50", 50), ("lower it to 10", 10), ("drop it to 10%", 10),
+                    ("make the volume 30 percent", 30), ("can you make the volume 30 percent", 30)):      # F5: natural ways to give a level
+    assert j.route(heard)[:3] == ("act", "volume", ("set", want)), heard
+for heard, act, want in (("brightness 50 percent", "brightness", 50), ("make the brightness 50 percent", "brightness", 50),
+                         ("microphone volume 40", "mic_level", 40), ("raise the mic to 50", "mic_level", 50), ("mic 30", "mic_level", 30)):   # F5
+    assert j.route(heard)[:3] == ("act", act, ("set", want)), heard
+for heard in ("brightness is too high", "the mic is broken", "mic level is low", "brightness", "the mic"):          # statements stay chat
+    assert j.route(heard)[0] == "chat", heard
+for heard in ("make it 10 minutes", "make it 70", "lower it to 5 pm"):                                      # no clean level, or no volume: not a volume
+    assert j.route(heard)[:2] != ("act", "volume"), heard
 for heard, want in (("pause", "playpause"), ("resume the music", "playpause"), ("stop the music", "playpause"),
                     ("next track", "next"), ("skip", "next"), ("previous song", "prev"), ("go back a song", "prev")):
     assert j.route(heard)[:3] == ("act", "media", want), heard
@@ -1672,6 +1682,31 @@ for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital 
     assert ear(["Set a timer for 10 minutes.", other]) == (2, 0) and len(j.load_reminders()) == 1, other   # one listen, no reply
     assert asked == ["Timer set for 10 minutes."], asked
     j.save_reminders([])
+# F5 (live): a second volume command in the undo window is a correction of the first, not room talk ("10%" then "30%" was ignored)
+acts, keep_ra = [], j.run_action
+j.run_action = lambda action, target, pending=None: (acts.append((action, target)), j.did_add(action, target)) and True   # records, like the real one
+for second, want in (("Change the volume to 30 percent.", ("set", 30)), ("Set the volume to 30.", ("set", 30)), ("Make it 30%.", ("set", 30)),
+                     ("About 30.", ("set", 30)), ("Jarvis, louder.", ("step", 10))):
+    j.did.clear()
+    acts.clear()
+    ear(["Set the volume to 10%.", second])
+    assert acts == [("volume", ("set", 10)), ("volume", want)], (second, acts)         # the second one was acted on, not dropped
+for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital of France?"):
+    j.did.clear()
+    acts.clear()
+    assert ear(["Set the volume to 10%.", other])[1] == 0 and acts == [("volume", ("set", 10))], (other, acts)   # anything else is still dropped
+j.did.clear()
+acts.clear()
+ear(["Set a timer for 10 minutes.", "Set the volume to 30."])                       # another command is taken too, like in the open ear
+assert [a for a in acts if a[0] == "volume"] == [("volume", ("set", 30))], acts
+j.save_reminders([])
+j.did.clear()
+acts.clear()
+ear(["Set the volume to 10%.", "And set a timer for 5 minutes."])                  # and a timer after a volume change
+assert len(j.load_reminders()) == 1 and acts == [("volume", ("set", 10))], (acts, j.load_reminders())
+j.run_action = keep_ra
+j.save_reminders([])
+j.did.clear()
 # Slice 3 fix: route() also classifies what the undo window hears; a timed mood said there is dropped and must not start
 import jarvislib.mood as _mood
 _mood.state["temp"] = None
@@ -2954,6 +2989,15 @@ real_turn = j.turn
 j.turn = lambda tier, follow=0, woke=False: real_turn(tier, follow, True)
 assert talk(99, words="Thank you.") == 1 and len(asked) == m
 j.turn, j.heard_score[0] = real_turn, 0.0
+# refactor phase 6e: three fixed answers from code that no test covered (found by a mutation check): a lone yes with nothing
+# asked, the log commands, and "you can talk" when he is not in quiet mode. Never the model; state put back afterwards.
+_hist, _me, _lt = list(j.history), j.recent["me"], j.last_turn
+n, j.recent["me"] = len(prompts), "Ha, sir."
+for words, reply in (("Yes.", "There's nothing waiting for a yes, sir."), ("Close the log.", "Closing the log."),
+                     ("Show me what you've said.", "Here's everything we've said."), ("You can talk now.", "I'm not in quiet mode.")):
+    talk(99, words=words)                                          # (the ear stays open after a fixed reply: how often he listens is not the point)
+    assert len(prompts) == n and asked[-1] == reply, (words, asked[-1])
+j.history[:], j.recent["me"], j.last_turn = _hist, _me, _lt
 for words in ("Okay, thanks Jarvis!", "That’s all.", "no thank you", "Nope.", "I'm good."):
     assert j.ENDERS.fullmatch(" ".join(j.re.sub(r"[^a-z' ]", " ", words.lower().replace("’", "'")).split())), words
 for words in ("no am", "no, set it for 8", "thanks for the help with my essay"):
@@ -3018,7 +3062,8 @@ j.hear, j.reply_line, j.heard_score[0] = real_hear, real_rl, 0.0
 j.setting = lambda name, default="": default
 same = lambda a, b: j.fix_route(a, j.route(a))[:3] == j.route(b)[:3]
 assert same("uh could you put volume on thirty please", "set the volume to 30")    # route() reads this one itself
-for heard, meant in (("set the volyum to 30", "set the volume to 30"), ("make the volume 30", "set the volume to 30"),
+assert same("make the volume 30", "set the volume to 30")                          # F5: and now this one too (it was a PHRASES fix)
+for heard, meant in (("set the volyum to 30", "set the volume to 30"),
                      ("set the value to 30", "set the volume to 30"), ("Jarvis, valume up", "volume up")):
     assert j.route(heard)[0] != "act" and same(heard, meant), (heard, j.fix_route(heard, j.route(heard)))
 for heard in ("set a tymer for 5 minutes", "set a time are for 5 minutes", "set an alarn for ate"):
@@ -3988,6 +4033,42 @@ assert len(prompts) == n and any("anything wrong" in a.lower() or "can't see" in
 _procs["procs"] = [{"name": "chrome.exe", "pid": 1, "cpu": 1600.0, "mem": 0, "io": 0}]     # a finding: the model gets findings only
 say("why is my pc slow")
 assert len(prompts) == n + 1 and "DIAGNOSIS FINDINGS" in prompts[-1] and "chrome" in prompts[-1], prompts[-1:]
+# 6f mutation checks: four rules of the command stage had no test (disable the line and the suite still passed)
+_keep6 = (j.run_action, j.muted, j.reply_line, j.listen, j.transcribe)
+seen6, mute6, opened6 = [], [False], [0]
+
+
+def spoken6(lines):
+    """Speak these lines one after the other (the mic opens for each); returns how often the mic opened."""
+    seq = iter(lines)
+    opened6[0] = 0
+    j.listen = lambda **k: opened6.__setitem__(0, opened6[0] + 1) or "audio"
+    j.transcribe = lambda a: next(seq, "")
+    j.offer.clear()
+    j.turn(0)
+    return opened6[0]
+
+
+j.reply_line = lambda text, quiet: seen6.append((text, quiet))
+j.run_action = lambda action, target, pending=None: (mute6.__setitem__(0, mute6[0] or action == "mute"), True)[1]   # a mute really mutes
+j.muted = lambda: mute6[0]
+say("mute")                                                        # the reply follows the NEW state: now silent, so it is shown, not spoken
+assert seen6 and seen6[-1][1] is True, seen6
+mute6[0] = False
+seen6.clear()
+say("mute and set a timer for 5 minutes")                          # several commands: the same, once all have run
+assert seen6 and seen6[-1][1] is True, seen6
+mute6[0] = False
+j.run_action = lambda action, target, pending=None: False         # a confirmed action that fails says so
+seen6.clear()
+spoken6(["Lock the computer.", "Yes, Jarvis."])
+assert (j.FX.FAILED, False) in seen6 and not any(t == j.FX.DONE for t, _ in seen6), seen6
+j.run_action = lambda action, target, pending=None: True
+seen6.clear()
+mute6[0] = False
+heard_n = spoken6(["Go into stealth mode.", "Yes."])              # stealth: pop-up only, so no voice and no open ear afterwards
+assert seen6 and seen6[-1][1] is True and heard_n == 2, (seen6, heard_n)
+j.run_action, j.muted, j.reply_line, j.listen, j.transcribe = _keep6
 assert "invent nothing" in prompts[-1], prompts[-1]
 n = len(prompts)
 say("tell me a joke")
@@ -4448,6 +4529,7 @@ class _FakeSD:
                 fake.events.append(("w", self.id))
                 if fake.on_write:
                     fake.on_write(len(fake.writes))
+                return fake.underflow(len(fake.writes)) if fake.underflow else None      # sounddevice: True = the device ran dry
 
             def __enter__(self):
                 fake.events.append(("start", self.id))
@@ -4464,7 +4546,7 @@ class _FakeSD:
 
             def close(self):
                 fake.events.append(("close", self.id))
-        self.WasapiSettings, self.OutputStream, self.on_write = WasapiSettings, OutputStream, None
+        self.WasapiSettings, self.OutputStream, self.on_write, self.underflow = WasapiSettings, OutputStream, None, None
 
     def query_hostapis(self):
         return [{"name": "MME", "default_output_device": 3}] + ([] if self.no_wasapi else [{"name": "Windows WASAPI", "default_output_device": 8}])
@@ -4512,6 +4594,20 @@ for _v, _want_lat in (("0", "low"), ("0.25", 0.25), ("9", 0.5), ("junk", 0.1)):
     PL.player.play(_tone2[:2000], 24000, None, 0)
     assert sd.opened[0]["latency"] == _want_lat, (_v, sd.opened)
 del _smooth["JarvisPlayerLatency"]
+PL.player.close()
+
+# F1 diagnostic: each clip logs its length, peak and how many writes the device reported as under-runs (counts only, no audio changes)
+_pl_log, _pl_keep = [], PL.log
+PL.log = _pl_log.append
+sd = _fresh_player()
+sd.underflow = lambda n: n in (3, 5)                           # the 3rd and 5th write ran dry
+PL.player.play(_tone2, 24000, None, 0)
+_line = [m for m in _pl_log if m.startswith("player: clip")]
+assert len(_line) == 1 and "peak 0.20" in _line[0] and _line[0].endswith("device under-runs 2"), _pl_log
+sd.underflow = None
+PL.player.play(_tone2[:2000], 24000, None, 0)
+assert [m for m in _pl_log if m.startswith("player: clip")][-1].endswith("device under-runs 0"), _pl_log
+PL.log = _pl_keep
 PL.player.close()
 
 # WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same

@@ -14,6 +14,7 @@ W = {  # weight of each flag: how bad it is for the user
     "SILENT": 5, "GUESSED": 4, "PROMISE": 4, "TOO_LONG": 3, "STOCK": 3, "FORMAT": 3, "TIME24": 2, "MULTI_Q": 2,
     "SIR_TWICE": 1, "NO_SIR": 0, "SORSA_OFF_TOPIC": 1, "OFFER": 1, "SAME_OPENER": 2, "EXCLAIM": 1, "SLOW": 1, "META": 3,
     "OVERJOKE": 4, "DRAMA": 3, "PROACTIVE_CLAIM": 5, "NO_DRY": 1,   # persona cases only (expect.dry / expect.readout)
+    "MISREAD": 5, "OVERASK": 3, "LITERAL_JOKE": 4, "NO_PLAYBACK": 3,   # F3 chat cases only (expect.clear / expect.joke)
 }
 CLAIM = re.compile(r"\b(?:I(?:'ve| have) (?:set|opened|locked|sent|ordered|booked|called|texted|posted|deleted|shut|turned|"
                    r"changed|added|scheduled|bought|played|emailed|saved|noted)|I just (?:sent|ordered|booked|called|deleted|"
@@ -35,6 +36,13 @@ DRYMARK = re.compile(r"respectfully|\bambitious|\bbold\b|\bbrave\b|\boptimis|\bI
                      re.I)
 ALARM = re.compile(r"alarming|critical|dire\b|danger|urgent|terrible|catastroph|panic|emergency|worrying|concerning|\bwarning\b", re.I)
 DONE = re.compile(r"\b(?:already|took the liberty|gone ahead|taken care of|I have (?:started|prepared|arranged|queued|begun))\b", re.I)
+# F3: "he assumed he misunderstood" and "he took the joke literally" (rules on wording; they run only where a case sets expect.clear / expect.joke)
+MISUNDERSTOOD = re.compile(r"did you mean|nothing close|couldn'?t (?:find|catch|make out)|didn'?t (?:catch|quite|understand)|"
+                           r"could you (?:repeat|say|rephrase|clarify)|say that again|not sure (?:what|which) you|"
+                           r"don'?t (?:recognize|understand|know what you)|pardon|what do you mean|which one\??", re.I)
+LITERAL = re.compile(r"\bas an ai\b|\bI(?:'m| am) (?:just )?(?:a|an) (?:ai|language model|program|assistant)\b|"
+                     r"\bI (?:can'?t|cannot|am unable to|don'?t|do not) (?:have|possess|own)\b|\bactually,|\bin fact,|"
+                     r"\bit is not (?:possible|true)\b", re.I)
 ASKED = re.compile(r"\?|pardon|didn'?t catch|not sure (?:what|which)|could you (?:repeat|say)|don'?t (?:recognize|understand|know what)", re.I)
 
 
@@ -79,6 +87,16 @@ def score_turn(turn, prev_model, case_tags, mood):
         flags.append("MUST")
     if e.get("ask") and said and not ASKED.search(said):
         flags.append("GUESSED")
+    if e.get("clear") and said:
+        if MISUNDERSTOOD.search(said) or (said.count("?") > 1):
+            flags.append("MISREAD")
+        elif "?" in said and kind in ("command", "info"):
+            flags.append("OVERASK")
+    if e.get("joke") and model:
+        if LITERAL.search(model) or len(sentences(model)) > 3:
+            flags.append("LITERAL_JOKE")
+        elif len(model.split()) <= 4 or STOCK.search(model):
+            flags.append("NO_PLAYBACK")   # proxy only: pure status / no play at all. Funniness is judged by the blind rating, not here.
     if model:
         cap = e.get("max_sent", 1 if mood == "brief" else 3)
         if len(sentences(model)) > cap:

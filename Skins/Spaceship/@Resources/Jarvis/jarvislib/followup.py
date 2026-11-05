@@ -9,7 +9,7 @@ import re
 import time
 from .base import log, setting, stopped
 from .mic import follow_name_wait, follow_wait, listen
-from .turnstate import offer, recent
+from .turnstate import DID, did, offer, recent
 
 UNDO_WAIT = 2.0                                                # seconds the ear stays open for "undo" after a command
 STOP_WAIT = 1.0                                                # seconds it stays open after a stop
@@ -67,9 +67,26 @@ def listen_for(mode, follow, woke):
     return (listen(patience=10) if woke else listen()), wait   # a wake: 10 s for the first word
 
 
-def only_undo(route_kind):
-    """In the undo window only an undo counts; `route_kind` is route(...)[0] of what was heard."""
-    ok = route_kind == "undo"
+SOUND_LINES = (DID["volume"], DID["mute"], DID["unmute"])
+SOUND_WORDS = re.compile(r"(?:%|\d|percent|volume|sound|louder|quieter|softer|lower|higher|turn it (?:up|down)|"
+                         r"bring it|make it|set it|change it|a (?:bit|little) (?:more|less))", re.I)
+CORRECTION_TTL = 30.0                                          # seconds after a command in which a correction still refers to it
+
+
+def takes(text, decision):
+    """What the undo window lets through: an undo, another command (the same test as the open ear's: it routes to something
+    that changes a thing, "set the volume to 30%" right after "...to 10%", "and a timer for 5 minutes"), or, right after a volume
+    change, words about the level ("make it 30", "a bit louder"). Chatter, questions and room talk are still dropped."""
+    kind, action = decision[0], (decision[1] if len(decision) > 1 else None)
+    if kind == "undo" or is_command(kind, action):
+        return True
+    return bool(did) and time.time() - did[-1][0] <= CORRECTION_TTL and did[-1][1] in SOUND_LINES and bool(SOUND_WORDS.search(text))
+
+
+def only_undo(route_kind, text="", decision=()):
+    """In the undo window only an undo or another command counts (takes); `route_kind` is route(...)[0] of what was heard
+    and `decision` the whole route(...) result."""
+    ok = takes(text, decision or (route_kind, None))
     if not ok:
         log("ear: not an undo - dropped")
     return ok

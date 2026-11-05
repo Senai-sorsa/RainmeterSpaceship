@@ -21,7 +21,7 @@ DID = {"lock": "locked the PC", "sleep": "put the PC to sleep", "restart": "star
        "todo": "added a to-do", "forget_all": "forgot all saved facts", "forget_talk": "forgot earlier talks",
        "forget_facts": "forgot saved facts", "replace_fact": "replaced a saved fact", "fact": "saved a fact",
        "forget": "forgot a saved fact", "cancel": "cancelled a reminder", "move": "moved a reminder", "flip": "moved a reminder to am or pm",
-       "snooze": "snoozed a reminder", "undo": "undid the last change", "reminder": "set a reminder"}
+       "snooze": "snoozed a reminder", "undo": "undid the last change", "reminder": "set a reminder", "mood": "changed his mood"}
 DID_ASK = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doing|run|change)|what actions|"
                      r"did you (?:\w+ )?(?:set|open|close|save|remember|change|cancel|mute|unmute|lock|add|turn|do|run|"
                      r"snooze|move|forget|undo|put)|have you (?:\w+ )?(?:set|opened|closed|saved|changed|cancelled|muted|"

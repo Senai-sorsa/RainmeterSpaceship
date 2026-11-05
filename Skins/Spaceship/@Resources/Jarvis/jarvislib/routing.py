@@ -669,8 +669,8 @@ def _rules_display(text, named, t, whole, cmd):
         return ("act", "theme", m.group(1) if not cmd.startswith(("turn off", "disable")) else ("light" if m.group(1) == "dark" else "dark"), None)
     bright = r"(?:the |my )?(?:screen |display )?brightness"      # 7c: "a bit" is 10 percent, 0 is allowed
     bit = r"(?: (?:a )?(?:bit|little|tad)| slightly| by (.+?)(?: ?%| percent)?)?"      # "by 20" like volume
-    m = (re.match(rf"(?:set|turn|change|put|bring) {bright}(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
-         or re.match(rf"{bright} (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+    m = (re.match(rf"(?:set|turn|change|put|bring|make|raise|lower|drop|take) {bright}(?: up| down)? (?:to |at )?(.+?)(?: ?%| percent)?$", cmd)
+         or re.match(rf"{bright} (?:to |at )?(.+?)(?: ?%| percent)?$", cmd)
          or re.match(r"(?:dim|brighten|darken)(?: (?:the |my )?(?:screen|display|brightness))? (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
     if m and _num(m.group(1)) is not None:
         n = _num(m.group(1))
@@ -693,8 +693,8 @@ def _rules_mic_level(text, named, t, whole, cmd):
             return ("act", "mic_unmute", None, None)
         return ("act", "mic_mute", None, "You want me to mute the microphone. I won't hear you after that; click me to "
                 "unmute it. Confirm with yes.")
-    m = (re.match(rf"(?:set|turn|change|put) {mic_word}(?: volume| level)?(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
-         or re.match(rf"{mic_word}(?: volume| level)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
+    m = (re.match(rf"(?:set|turn|change|put|bring|make|raise|lower|drop|take) {mic_word}(?: volume| level)?(?: up| down)? (?:to |at )?(.+?)(?: ?%| percent)?$", cmd)
+         or re.match(rf"{mic_word}(?: volume| level)? (?:to |at )?(.+?)(?: ?%| percent)?$", cmd))
     if m and _num(m.group(1)) is not None:
         n = _num(m.group(1))
         return ("act", "mic_level", ("set", int(n)), None) if n <= 100 else ("say", None, None, "I can set it between 0 and 100.")
@@ -712,9 +712,9 @@ def _rules_sound(text, named, t, whole, cmd):
     if m:
         return ("act", m.group(1), None, None)
     # "set the volume to 30 / thirty / max / half", "set it to 30", "max volume", "turn it all the way up"
-    m = (re.match(r"(?:i (?:want|need) |i'?d like )?(?:(?:set|turn|change|put|raise|lower|bring) )?(?:the )?volume(?: up| down)? "
+    m = (re.match(r"(?:i (?:want|need) |i'?d like )?(?:(?:set|turn|change|put|raise|lower|bring|make|take|drop) )?(?:the )?volume(?: up| down)? "
                   r"(?:to |at |on )?(?:the )?(.+?)(?: ?%| percent)?$", cmd)
-         or re.match(r"(?:set|turn|change|put) it (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+         or re.match(r"(?:set|turn|change|put|bring|raise|lower|drop|take|make) it (?:up |down )?(?:to|at) (.+?)(?: ?%| percent)?$", cmd)
          or re.match(r"(max|maximum|full|half) volume$|(?:turn |put )?(?:it|the (?:sound|music)) (all the way (?:up|down))$", cmd))
     if m:
         word = m.group(m.lastindex)

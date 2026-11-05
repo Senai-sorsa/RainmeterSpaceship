@@ -991,9 +991,11 @@ def _gate(text, follow, wait, mode, typed, left, way):
         log("ear: started late without his name - dropped")
         return
     answering = time.time() < offer.get("expires", 0) or asked_you(recent["me"])
-    if mode == "undo" and not followup.only_undo(route(strip_name(text))[0]):   # T2: after a command only "undo" counts
-        way.update(kind="ear", result="not an undo - quiet")
-        return
+    if mode == "undo":                                    # T2: after a command only "undo" or another command counts
+        said, decision = strip_name(text), route(strip_name(text))
+        if not followup.only_undo(decision[0], said, decision):
+            way.update(kind="ear", result="not an undo - quiet")
+            return
     heard_as = directed(text, answering) if mode in ("ear", "stop") else "yes"
     if heard_as != "yes":
         way.update(kind="ear", result="not for me - quiet" if heard_as == "no" else "asked if for me")
@@ -1013,6 +1015,280 @@ def _gate(text, follow, wait, mode, typed, left, way):
         left["again"] = not muted() and "ear"
         return
     return True
+
+
+class Turn:
+    """What the stages of one turn share: the words (text), whether he stays silent (quiet), the open-ear text (room),
+    and the two dicts exchange() owns (way: which path answered; left: what this turn leaves open)."""
+
+    def __init__(self, text, model, quiet, way, left):
+        self.text, self.model, self.quiet, self.room, self.way, self.left = text, model, quiet, None, way, left
+
+
+def _fixed(turn, reply):
+    """Say a fixed reply, keep it in the chat history, and listen once more unless he was told to drop it."""
+    global history, last_turn
+    way, left = turn.way, turn.left
+    way["result"] = ("refused - not built" if reply == CANT else "refused - unclear command" if reply == NEAR_MISS
+                     else way.get("result") or "said")
+    reply_line(reply, turn.quiet)
+    active(turn.text)
+    # stamped, so "7:00 AM tomorrow" in the reply still means the right day after midnight
+    history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {turn.text}"},
+                {"role": "assistant", "content": reply}]
+    last_turn = time.time()
+    # S2-10: after any reply the ear stays open ("undo" is just one thing it can hear); not after "Cancelled."
+    left["again"] = (not turn.quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
+                     and followup.mode_after(way.get("kind"), way.get("action")))
+
+
+def _preempt(turn, way, woke, left):
+    """Pre-route stage: answers that need no routing and no model: the yes to an offer or a room question, courtesies, control words, a new topic, quiet mode, the log commands. Returns True when the turn ended here (it already said or logged why)."""
+    fixed = lambda reply: _fixed(turn, reply)
+    # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
+    live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
+                  and (typed_turn[0] or heard_score[0] >= -1.0))
+    fact = offer.pop("fact", None) if live_offer else None
+    turn.room = offer.pop("room", None) if live_offer else None
+    closing = offer.pop("close", None) if live_offer else None
+    offer.clear()
+    plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(turn.text).lower()).split())
+    if turn.room and is_yes(turn.text):                              # "Are you talking to me, sir?" "Yes": answer what was said
+        turn.text = turn.room
+    if closing and is_yes(turn.text):                           # 9e: the yes to "Want me to close it?" is the confirmation
+        way.update(kind="act", action="close", via="rule", lane="command")
+        ok = run_action("close", closing, pending=("close", closing))
+        way["result"] = "done" if ok else "failed"
+        fixed(FX.DONE if ok else FX.FAILED)
+        return True
+    if fact and (is_yes(turn.text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
+        way.update(kind="memory", action="save", via="rule", lane="command")
+        res = fact_save(fact)                              # an older fact about the same thing asks "Replace?" first
+        if res[0] == "memory":
+            fixed(memory_reply("save", fact))
+        elif ask_yes(res[3], muted()):
+            ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
+            way["result"] = "done" if ok else "failed"
+            fixed(FX.DONE if ok else FX.FAILED)
+        else:
+            fixed(memory_reply("save", fact) + " I kept the old one too.")
+        return True
+    said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(turn.text).lower().replace("’", "'")).split())
+    polite = turn.text != turn.room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
+    if polite and not (woke and heard_score[0] < -1.0):  # a weak "Thank you." after a wake is Whisper's noise phrase
+        way.update(kind="courtesy", via="rule")
+        name = setting("JarvisCallMe", "").strip()
+        reply_line(polite.replace("{name}", f", {name}" if name else ""), turn.quiet)
+        left["again"] = not turn.quiet and polite.startswith("Hello") and "ear"   # a hello is the start of a talk
+        return True
+    if turn.text != turn.room and (polite or ENDERS.fullmatch(said)):
+        way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
+        log("control: ended by you")
+        return True
+    if turn.text != turn.room and is_yes(turn.text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
+        way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
+        fixed(FX.NOTHING_WAITING)
+        return True
+    m = NEW_TOPIC.match(strip_name(turn.text))
+    way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
+    if m:                                                  # files the window; "new topic, <question>" goes on without it
+        file_active()
+        last.clear()                                       # M1b: "cancel it" no longer points back
+        turn.text = strip_name(turn.text)[m.end():].strip()
+        if not turn.text:
+            fixed(FX.OKAY)
+            history.clear()                                # "new topic" / "Okay." is not talk to keep
+            return True
+    if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
+        way.update(kind="quiet", via="rule")
+        if not quiet_talk.talk():
+            fixed(FX.NOT_QUIET)
+            return True
+        turn.quiet = muted()
+        fixed(FX.CAN_TALK if not turn.quiet else FX.OKAY)
+        return True
+    # "show me what you've said" / "close the log": handled here, no model needed
+    way["kind"] = "log"
+    if HIDE_LOG.search(turn.text):
+        fixed(FX.CLOSING_LOG)
+        S.set(pop="close")                                 # after: a quiet reply_line opens it
+        return True
+    if SHOW_LOG.search(turn.text):
+        fixed(FX.ALL_SAID)
+        S.set(pop="open")
+        return True
+    return False
+
+
+def _command(turn, model, way, left):
+    """Command stage: understand the words (rules, follow-ups, the AI reread) and finish every kind that ends with a fixed reply: end, room, heard, again, empty data, confirmations, several commands, diagnostics, command replies, actions. Returns what the model path still needs, or None when the turn ended here."""
+    fixed = lambda reply: _fixed(turn, reply)
+    kind, action, target, prompt, via = understand(turn.text, model, turn.quiet, turn.room)
+    way.update(kind=kind, action=action, via=via)
+    if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
+        way.update(kind="control")
+        log("control: ended by you")
+        return
+    if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
+        log("transcript: not for me - stayed quiet")
+        return
+    if kind == "room":                                     # asked once; a "yes" answers it in full
+        log("transcript: not for me? asked")
+        reply_line(room_ask(), turn.quiet)
+        offer.update(room=turn.text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+        left["again"] = not turn.quiet and "ear"
+        return
+    if kind == "heard":
+        fixed(f"I heard: {recent['you']}" if recent["you"] else FX.HEARD_NOTHING)
+        return
+    if kind == "again":
+        fixed(recent["me"] or FX.SAID_NOTHING)
+        return
+    if cancel.is_set():                                    # stopped while the model read it: nothing runs
+        return
+    blocks = info_blocks(turn.text) if kind == "chat" else set()
+    lane = way["lane"] = lane_of(kind, blocks)
+    empty = no_data(turn.text, blocks) or (no_ability(turn.text) if kind == "chat" and not blocks else None)   # B2: can't-do requests, said by code
+    if empty:                                              # no data, no model
+        fixed(empty)
+        return
+    # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
+    recent["you"] = turn.text
+    extra, close_offer = "", None
+    if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
+        if not ask_yes(prompt, turn.quiet):                     # an act asks below, with the same prompt
+            way["result"] = "left - no yes"
+            log(f"{kind} {action} not confirmed (Whisper unsure)")
+            fixed(FX.CANCELLED)
+            return
+        prompt = None
+    if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
+        replies, steps = [], []
+        for part in target:                                # each part records its own undo: keep them all
+            seen = list(undo)
+            replies.append(command_reply(*part, turn.quiet))
+            if undo and list(undo) != seen:
+                steps.append(list(undo))
+        if len(steps) > 1:
+            undo[:] = [min(s[0] for s in steps), "multi", steps]
+        turn.quiet = muted()
+        fixed(" ".join(replies))
+        return
+    if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
+        if setting("JarvisDiagnose", "1") != "1":
+            fixed(FX.DIAG_OFF)
+            return
+        filler("diag", turn.quiet)
+        line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
+        top = items[0] if items else None                  # only the worst finding, and only when it is what was asked about
+        asked = {"cpu": "of the CPU", "memory": "of memory", "gpu": "the GPU"}.get(action, "")
+        exe = (top and top["closable"] and asked in top["text"] and running_window(top["app"])) or None
+        exe = None if exe and is_protected(exe) else exe
+        if line:
+            fixed(line + (" Want me to close it?" if exe else ""))
+            if exe:
+                offer.update(close=exe, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+            return
+        extra, close_offer = prompt_findings(items), exe
+    if kind != "act" or prompt is None:
+        reply = command_reply(kind, action, target, prompt, turn.quiet)
+        if reply is not None:
+            if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
+                turn.quiet = muted()
+            fixed(reply)
+            return
+    if kind == "act":
+        # two-phase: ask, and listen for the answer (15 s) without another click
+        if ask_yes(prompt, turn.quiet):
+            ok = run_action(action, target, pending=(action, target))
+            way["result"] = "done" if ok else "failed"
+            if action == "stealth":
+                turn.quiet = True                               # pop-up only: no voice, no open ear
+            fixed((FX.ADDED if action == "todo" else done_line(action, target)) if ok else FX.FAILED)
+        else:
+            way["result"] = "left - no yes"
+            log(f"action {action} not confirmed")
+            fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else FX.CANCELLED)
+        return
+    return kind, target, extra, lane, close_offer
+
+
+def _extras(turn, kind, target, extra):
+    """What a kind adds to the prompt: the note search, the installed-apps check, the guardrail, the briefing. Returns the new `extra`."""
+    if kind == "notes":
+        filler("notes", turn.quiet)
+        hits = smart_search(target or turn.text)
+        if hits is None:                                   # no ChromaDB: keyword search
+            root, hits = search_notes(target or turn.text)
+        else:
+            root = vault_dir()
+        if not root:
+            extra = "\nNOTE SEARCH: no vault is set (Control Center > CLOVER > NOTES VAULT)."
+        elif hits:
+            extra = "\nNOTE SEARCH RESULTS (from the user's vault - answer from these):\n" + "\n".join(
+                f"- {name}: {snip}" for _, name, snip in hits)
+        else:
+            extra = f"\nNOTE SEARCH: nothing in the vault matched '{target}'."
+    elif kind == "apps":
+        filler("apps", turn.quiet)
+        apps = start_apps()
+        names = sorted({n for n, _ in apps or []})
+        if apps is None:
+            extra = "\nINSTALLED APPS: the app list isn't ready yet (the HUD is still scanning)."
+        elif target:
+            app = best_app(target)
+            extra = f"\nINSTALLED APP CHECK: '{target}' -> " + (f"yes, installed as {app[0]}." if app else "not found in the Start menu.")
+        else:
+            extra = f"\nINSTALLED APPS ({len(names)}): " + ", ".join(names[:120])
+    elif kind == "guard":
+        extra = ("\nGUARDRAIL: this request is destructive or a joke. Nothing will be executed - you have no ability to "
+                 "run commands. Play along in character with dry wit if it's clearly playful, or decline politely if "
+                 "it's serious. Never claim to have actually done it.")
+        log("guardrail: request handled in persona only")
+    elif kind == "brief":
+        extra = "\n" + BRIEFING
+    return extra
+
+
+def _answer(turn, model, way, left, follow, typed, hud, reading, t_spoke, kind, target, extra, lane, close_offer):
+    """Model-answer stage: readings and mood into the prompt, the model's stream through the reply filters, spoken or shown, then recorded. Ends the turn itself on the crisis line."""
+    apart = kind in ("brief", "notes")                     # these neither send nor file the window
+    past = [] if apart else active(turn.text)
+    reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
+    # the question and the one before it pick the blocks, so "and tomorrow?" after a calendar question still has it
+    ask = turn.text + (" " + past[-2]["content"] if len(past) >= 2 else "")
+    readings = "\n".join(h for h in hud if h).splitlines()
+    want = wants(ask, kind)
+    if "pc" not in want:                                   # not a PC question: at most the schedule, and only if it's about time
+        readings = [r.replace("Pending:", "Pending (don't bring it up unless asked about alarms, reminders or timers):", 1)
+                    for r in readings if r.startswith("Pending:") and "pending" in want]
+    extra += "" if apart else recall(turn.text)                # M2: an earlier talk, only when the question is about it
+    extra += INFO_PROMPT if lane == "info" else ""
+    turn_key = mood.turn_mood(turn.text, mood_key(), counted=not follow)   # Phase 10: serious topic / class time; silent
+    adds = mood.additions(turn.text, past[-2]["content"] if len(past) >= 2 else "", turn_key) if lane == "chat" else []
+    if lane == "chat" and mood.crisis(turn.text):               # suicide / self-harm: a fixed line from code, never the model
+        way["result"] = "crisis line"
+        _fixed(turn, mood.CRISIS_LINE)
+        return
+    cap = mood.chat_cap(turn_key, adds) if lane == "chat" else None   # info answers (calendar, to-dos) are never cut
+    messages = fit_context([{"role": "system", "content": system_prompt(ask, kind, turn_key, adds) + "".join("\n" + r for r in readings) + extra}],
+                           past, {"role": "user", "content": turn.text})
+    collected, spoke = [], None
+    way["via"] = "model"
+    log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
+    temp = 0 if lane == "info" else 0.5
+    stream = no_pardon(lambda m: chat_stream(model, m, temp), messages,
+                       lane == "chat" and (typed is not None or heard_score[0] >= -1.0))   # clear words never get "Pardon?" (reply/pardon.py)
+    known = " ".join(m["content"] for m in messages)               # every reading he may quote must come from here
+    said = reply_chain(stream, collected, known, cap, turn_key == "serious")   # the filter order: jarvislib/reply/policy.py
+    if turn.quiet and setting("JarvisMutedPopup", "1") == "1":
+        say_text_only(said, collected)
+    else:
+        spoke = speak_all(said)
+    reply = mood.clean_reply("".join(collected).strip())
+    if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
+        reply = spoke
+    _record_chat(reply, model, t_spoke, turn.text, kind, apart, turn.quiet, close_offer, left, way)
 
 
 def exchange(tier, follow, woke, mode, left, typed=None):
@@ -1035,253 +1311,20 @@ def exchange(tier, follow, woke, mode, left, typed=None):
         if not _gate(text, follow, wait, mode, typed, left, way):   # not for him (or asked once): the turn ends here
             return
         convo_add("U", text)
-        quiet = muted()
+        turn = Turn(text, model, muted(), way, left)               # what the stages below share
         for k in ("kind", "via", "result"):                   # words came: each path below sets its own
             way.pop(k)
 
-        def fixed(reply):
-            """Say a fixed reply, keep it in the chat history, and listen once more unless he was told to drop it."""
-            global history, last_turn
-            way["result"] = ("refused - not built" if reply == CANT else "refused - unclear command" if reply == NEAR_MISS
-                             else way.get("result") or "said")
-            reply_line(reply, quiet)
-            active(text)
-            # stamped, so "7:00 AM tomorrow" in the reply still means the right day after midnight
-            history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {text}"},
-                        {"role": "assistant", "content": reply}]
-            last_turn = time.time()
-            # S2-10: after any reply the ear stays open ("undo" is just one thing it can hear); not after "Cancelled."
-            left["again"] = (not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
-                             and followup.mode_after(way.get("kind"), way.get("action")))
+        fixed = lambda reply: _fixed(turn, reply)                  # say a fixed reply (jarvis.py _fixed)
         S.set(err="")
-        # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
-        live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
-                      and (typed_turn[0] or heard_score[0] >= -1.0))
-        fact = offer.pop("fact", None) if live_offer else None
-        room = offer.pop("room", None) if live_offer else None
-        closing = offer.pop("close", None) if live_offer else None
-        offer.clear()
-        plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
-        if room and is_yes(text):                              # "Are you talking to me, sir?" "Yes": answer what was said
-            text = room
-        if closing and is_yes(text):                           # 9e: the yes to "Want me to close it?" is the confirmation
-            way.update(kind="act", action="close", via="rule", lane="command")
-            ok = run_action("close", closing, pending=("close", closing))
-            way["result"] = "done" if ok else "failed"
-            fixed(FX.DONE if ok else FX.FAILED)
+        if _preempt(turn, way, woke, left):
             return
-        if fact and (is_yes(text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
-            way.update(kind="memory", action="save", via="rule", lane="command")
-            res = fact_save(fact)                              # an older fact about the same thing asks "Replace?" first
-            if res[0] == "memory":
-                fixed(memory_reply("save", fact))
-            elif ask_yes(res[3], muted()):
-                ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
-                way["result"] = "done" if ok else "failed"
-                fixed(FX.DONE if ok else FX.FAILED)
-            else:
-                fixed(memory_reply("save", fact) + " I kept the old one too.")
+        res = _command(turn, model, way, left)
+        if res is None:
             return
-        said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(text).lower().replace("’", "'")).split())
-        polite = text != room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
-        if polite and not (woke and heard_score[0] < -1.0):  # a weak "Thank you." after a wake is Whisper's noise phrase
-            way.update(kind="courtesy", via="rule")
-            name = setting("JarvisCallMe", "").strip()
-            reply_line(polite.replace("{name}", f", {name}" if name else ""), quiet)
-            left["again"] = not quiet and polite.startswith("Hello") and "ear"   # a hello is the start of a talk
-            return
-        if text != room and (polite or ENDERS.fullmatch(said)):
-            way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
-            log("control: ended by you")
-            return
-        if text != room and is_yes(text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
-            way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
-            fixed(FX.NOTHING_WAITING)
-            return
-        m = NEW_TOPIC.match(strip_name(text))
-        way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
-        if m:                                                  # files the window; "new topic, <question>" goes on without it
-            file_active()
-            last.clear()                                       # M1b: "cancel it" no longer points back
-            text = strip_name(text)[m.end():].strip()
-            if not text:
-                fixed(FX.OKAY)
-                history.clear()                                # "new topic" / "Okay." is not talk to keep
-                return
-        if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
-            way.update(kind="quiet", via="rule")
-            if not quiet_talk.talk():
-                fixed(FX.NOT_QUIET)
-                return
-            quiet = muted()
-            fixed(FX.CAN_TALK if not quiet else FX.OKAY)
-            return
-        # "show me what you've said" / "close the log": handled here, no model needed
-        way["kind"] = "log"
-        if HIDE_LOG.search(text):
-            fixed(FX.CLOSING_LOG)
-            S.set(pop="close")                                 # after: a quiet reply_line opens it
-            return
-        if SHOW_LOG.search(text):
-            fixed(FX.ALL_SAID)
-            S.set(pop="open")
-            return
-        kind, action, target, prompt, via = understand(text, model, quiet, room)
-        way.update(kind=kind, action=action, via=via)
-        if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
-            way.update(kind="control")
-            log("control: ended by you")
-            return
-        if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
-            log("transcript: not for me - stayed quiet")
-            return
-        if kind == "room":                                     # asked once; a "yes" answers it in full
-            log("transcript: not for me? asked")
-            reply_line(room_ask(), quiet)
-            offer.update(room=text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
-            left["again"] = not quiet and "ear"
-            return
-        if kind == "heard":
-            fixed(f"I heard: {recent['you']}" if recent["you"] else FX.HEARD_NOTHING)
-            return
-        if kind == "again":
-            fixed(recent["me"] or FX.SAID_NOTHING)
-            return
-        if cancel.is_set():                                    # stopped while the model read it: nothing runs
-            return
-        blocks = info_blocks(text) if kind == "chat" else set()
-        lane = way["lane"] = lane_of(kind, blocks)
-        empty = no_data(text, blocks) or (no_ability(text) if kind == "chat" and not blocks else None)   # B2: can't-do requests, said by code
-        if empty:                                              # no data, no model
-            fixed(empty)
-            return
-        # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
-        recent["you"] = text
-        extra, close_offer = "", None
-        if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
-            if not ask_yes(prompt, quiet):                     # an act asks below, with the same prompt
-                way["result"] = "left - no yes"
-                log(f"{kind} {action} not confirmed (Whisper unsure)")
-                fixed(FX.CANCELLED)
-                return
-            prompt = None
-        if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
-            replies, steps = [], []
-            for part in target:                                # each part records its own undo: keep them all
-                seen = list(undo)
-                replies.append(command_reply(*part, quiet))
-                if undo and list(undo) != seen:
-                    steps.append(list(undo))
-            if len(steps) > 1:
-                undo[:] = [min(s[0] for s in steps), "multi", steps]
-            quiet = muted()
-            fixed(" ".join(replies))
-            return
-        if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
-            if setting("JarvisDiagnose", "1") != "1":
-                fixed(FX.DIAG_OFF)
-                return
-            filler("diag", quiet)
-            line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
-            top = items[0] if items else None                  # only the worst finding, and only when it is what was asked about
-            asked = {"cpu": "of the CPU", "memory": "of memory", "gpu": "the GPU"}.get(action, "")
-            exe = (top and top["closable"] and asked in top["text"] and running_window(top["app"])) or None
-            exe = None if exe and is_protected(exe) else exe
-            if line:
-                fixed(line + (" Want me to close it?" if exe else ""))
-                if exe:
-                    offer.update(close=exe, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
-                return
-            extra, close_offer = prompt_findings(items), exe
-        if kind != "act" or prompt is None:
-            reply = command_reply(kind, action, target, prompt, quiet)
-            if reply is not None:
-                if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
-                    quiet = muted()
-                fixed(reply)
-                return
-        if kind == "act":
-            # two-phase: ask, and listen for the answer (15 s) without another click
-            if ask_yes(prompt, quiet):
-                ok = run_action(action, target, pending=(action, target))
-                way["result"] = "done" if ok else "failed"
-                if action == "stealth":
-                    quiet = True                               # pop-up only: no voice, no open ear
-                fixed((FX.ADDED if action == "todo" else done_line(action, target)) if ok else FX.FAILED)
-            else:
-                way["result"] = "left - no yes"
-                log(f"action {action} not confirmed")
-                fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else FX.CANCELLED)
-            return
-        if kind == "notes":
-            filler("notes", quiet)
-            hits = smart_search(target or text)
-            if hits is None:                                   # no ChromaDB: keyword search
-                root, hits = search_notes(target or text)
-            else:
-                root = vault_dir()
-            if not root:
-                extra = "\nNOTE SEARCH: no vault is set (Control Center > CLOVER > NOTES VAULT)."
-            elif hits:
-                extra = "\nNOTE SEARCH RESULTS (from the user's vault - answer from these):\n" + "\n".join(
-                    f"- {name}: {snip}" for _, name, snip in hits)
-            else:
-                extra = f"\nNOTE SEARCH: nothing in the vault matched '{target}'."
-        elif kind == "apps":
-            filler("apps", quiet)
-            apps = start_apps()
-            names = sorted({n for n, _ in apps or []})
-            if apps is None:
-                extra = "\nINSTALLED APPS: the app list isn't ready yet (the HUD is still scanning)."
-            elif target:
-                app = best_app(target)
-                extra = f"\nINSTALLED APP CHECK: '{target}' -> " + (f"yes, installed as {app[0]}." if app else "not found in the Start menu.")
-            else:
-                extra = f"\nINSTALLED APPS ({len(names)}): " + ", ".join(names[:120])
-        elif kind == "guard":
-            extra = ("\nGUARDRAIL: this request is destructive or a joke. Nothing will be executed - you have no ability to "
-                     "run commands. Play along in character with dry wit if it's clearly playful, or decline politely if "
-                     "it's serious. Never claim to have actually done it.")
-            log("guardrail: request handled in persona only")
-        elif kind == "brief":
-            extra = "\n" + BRIEFING
-        apart = kind in ("brief", "notes")                     # these neither send nor file the window
-        past = [] if apart else active(text)
-        reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
-        # the question and the one before it pick the blocks, so "and tomorrow?" after a calendar question still has it
-        ask = text + (" " + past[-2]["content"] if len(past) >= 2 else "")
-        readings = "\n".join(h for h in hud if h).splitlines()
-        want = wants(ask, kind)
-        if "pc" not in want:                                   # not a PC question: at most the schedule, and only if it's about time
-            readings = [r.replace("Pending:", "Pending (don't bring it up unless asked about alarms, reminders or timers):", 1)
-                        for r in readings if r.startswith("Pending:") and "pending" in want]
-        extra += "" if apart else recall(text)                # M2: an earlier talk, only when the question is about it
-        extra += INFO_PROMPT if lane == "info" else ""
-        turn_key = mood.turn_mood(text, mood_key(), counted=not follow)   # Phase 10: serious topic / class time; silent
-        adds = mood.additions(text, past[-2]["content"] if len(past) >= 2 else "", turn_key) if lane == "chat" else []
-        if lane == "chat" and mood.crisis(text):               # suicide / self-harm: a fixed line from code, never the model
-            way["result"] = "crisis line"
-            fixed(mood.CRISIS_LINE)
-            return
-        cap = mood.chat_cap(turn_key, adds) if lane == "chat" else None   # info answers (calendar, to-dos) are never cut
-        messages = fit_context([{"role": "system", "content": system_prompt(ask, kind, turn_key, adds) + "".join("\n" + r for r in readings) + extra}],
-                               past, {"role": "user", "content": text})
-        collected, spoke = [], None
-        way["via"] = "model"
-        log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
-        temp = 0 if lane == "info" else 0.5
-        stream = no_pardon(lambda m: chat_stream(model, m, temp), messages,
-                           lane == "chat" and (typed is not None or heard_score[0] >= -1.0))   # clear words never get "Pardon?" (reply/pardon.py)
-        known = " ".join(m["content"] for m in messages)               # every reading he may quote must come from here
-        said = reply_chain(stream, collected, known, cap, turn_key == "serious")   # the filter order: jarvislib/reply/policy.py
-        if quiet and setting("JarvisMutedPopup", "1") == "1":
-            say_text_only(said, collected)
-        else:
-            spoke = speak_all(said)
-        reply = mood.clean_reply("".join(collected).strip())
-        if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
-            reply = spoke
-        _record_chat(reply, model, t_spoke, text, kind, apart, quiet, close_offer, left, way)
+        kind, target, extra, lane, close_offer = res
+        extra = _extras(turn, kind, target, extra)
+        _answer(turn, model, way, left, follow, typed, hud, reading, t_spoke, kind, target, extra, lane, close_offer)
     except urllib.error.URLError as e:
         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
         live("")

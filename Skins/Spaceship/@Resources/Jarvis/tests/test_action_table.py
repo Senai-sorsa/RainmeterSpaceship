@@ -16,7 +16,7 @@ from jarvislib.turnstate import DID  # noqa: E402
 BUILT_FROM_TARGET = {"open", "close"}
 # KNOWN GAP (found 2026-11-03, left as is: a refactor does not change what he says): did_add("mood") falls back to the bare word
 # "mood" because DID has no sentence for it. Fix = add DID["mood"] = "changed his mood" in turnstate.py, in its own commit.
-KNOWN_NO_DID = {"mood"}
+KNOWN_NO_DID = set()                                       # "mood" had none; turnstate.DID["mood"] fixed it
 # things that are in DID but are not table actions: reminders, memory and undo, logged by their own code
 NOT_ACTIONS = {"cancel", "fact", "flip", "forget", "move", "reminder", "snooze", "undo"}
 
