@@ -1,0 +1,1090 @@
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvis.py b/Skins/Spaceship/@Resources/Jarvis/jarvis.py
+index 523081b..8e2a835 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvis.py
+@@ -991,9 +991,11 @@ def _gate(text, follow, wait, mode, typed, left, way):
+         log("ear: started late without his name - dropped")
+         return
+     answering = time.time() < offer.get("expires", 0) or asked_you(recent["me"])
+-    if mode == "undo" and not followup.only_undo(route(strip_name(text))[0]):   # T2: after a command only "undo" counts
+-        way.update(kind="ear", result="not an undo - quiet")
+-        return
++    if mode == "undo":                                    # T2: after a command only "undo" or another command counts
++        said, decision = strip_name(text), route(strip_name(text))
++        if not followup.only_undo(decision[0], said, decision):
++            way.update(kind="ear", result="not an undo - quiet")
++            return
+     heard_as = directed(text, answering) if mode in ("ear", "stop") else "yes"
+     if heard_as != "yes":
+         way.update(kind="ear", result="not for me - quiet" if heard_as == "no" else "asked if for me")
+@@ -1015,6 +1017,280 @@ def _gate(text, follow, wait, mode, typed, left, way):
+     return True
+ 
+ 
++class Turn:
++    """What the stages of one turn share: the words (text), whether he stays silent (quiet), the open-ear text (room),
++    and the two dicts exchange() owns (way: which path answered; left: what this turn leaves open)."""
++
++    def __init__(self, text, model, quiet, way, left):
++        self.text, self.model, self.quiet, self.room, self.way, self.left = text, model, quiet, None, way, left
++
++
++def _fixed(turn, reply):
++    """Say a fixed reply, keep it in the chat history, and listen once more unless he was told to drop it."""
++    global history, last_turn
++    way, left = turn.way, turn.left
++    way["result"] = ("refused - not built" if reply == CANT else "refused - unclear command" if reply == NEAR_MISS
++                     else way.get("result") or "said")
++    reply_line(reply, turn.quiet)
++    active(turn.text)
++    # stamped, so "7:00 AM tomorrow" in the reply still means the right day after midnight
++    history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {turn.text}"},
++                {"role": "assistant", "content": reply}]
++    last_turn = time.time()
++    # S2-10: after any reply the ear stays open ("undo" is just one thing it can hear); not after "Cancelled."
++    left["again"] = (not turn.quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
++                     and followup.mode_after(way.get("kind"), way.get("action")))
++
++
++def _preempt(turn, way, woke, left):
++    """Pre-route stage: answers that need no routing and no model: the yes to an offer or a room question, courtesies, control words, a new topic, quiet mode, the log commands. Returns True when the turn ended here (it already said or logged why)."""
++    fixed = lambda reply: _fixed(turn, reply)
++    # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
++    live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
++                  and (typed_turn[0] or heard_score[0] >= -1.0))
++    fact = offer.pop("fact", None) if live_offer else None
++    turn.room = offer.pop("room", None) if live_offer else None
++    closing = offer.pop("close", None) if live_offer else None
++    offer.clear()
++    plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(turn.text).lower()).split())
++    if turn.room and is_yes(turn.text):                              # "Are you talking to me, sir?" "Yes": answer what was said
++        turn.text = turn.room
++    if closing and is_yes(turn.text):                           # 9e: the yes to "Want me to close it?" is the confirmation
++        way.update(kind="act", action="close", via="rule", lane="command")
++        ok = run_action("close", closing, pending=("close", closing))
++        way["result"] = "done" if ok else "failed"
++        fixed(FX.DONE if ok else FX.FAILED)
++        return True
++    if fact and (is_yes(turn.text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
++        way.update(kind="memory", action="save", via="rule", lane="command")
++        res = fact_save(fact)                              # an older fact about the same thing asks "Replace?" first
++        if res[0] == "memory":
++            fixed(memory_reply("save", fact))
++        elif ask_yes(res[3], muted()):
++            ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
++            way["result"] = "done" if ok else "failed"
++            fixed(FX.DONE if ok else FX.FAILED)
++        else:
++            fixed(memory_reply("save", fact) + " I kept the old one too.")
++        return True
++    said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(turn.text).lower().replace("’", "'")).split())
++    polite = turn.text != turn.room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
++    if polite and not (woke and heard_score[0] < -1.0):  # a weak "Thank you." after a wake is Whisper's noise phrase
++        way.update(kind="courtesy", via="rule")
++        name = setting("JarvisCallMe", "").strip()
++        reply_line(polite.replace("{name}", f", {name}" if name else ""), turn.quiet)
++        left["again"] = not turn.quiet and polite.startswith("Hello") and "ear"   # a hello is the start of a talk
++        return True
++    if turn.text != turn.room and (polite or ENDERS.fullmatch(said)):
++        way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
++        log("control: ended by you")
++        return True
++    if turn.text != turn.room and is_yes(turn.text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
++        way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
++        fixed(FX.NOTHING_WAITING)
++        return True
++    m = NEW_TOPIC.match(strip_name(turn.text))
++    way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
++    if m:                                                  # files the window; "new topic, <question>" goes on without it
++        file_active()
++        last.clear()                                       # M1b: "cancel it" no longer points back
++        turn.text = strip_name(turn.text)[m.end():].strip()
++        if not turn.text:
++            fixed(FX.OKAY)
++            history.clear()                                # "new topic" / "Okay." is not talk to keep
++            return True
++    if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
++        way.update(kind="quiet", via="rule")
++        if not quiet_talk.talk():
++            fixed(FX.NOT_QUIET)
++            return True
++        turn.quiet = muted()
++        fixed(FX.CAN_TALK if not turn.quiet else FX.OKAY)
++        return True
++    # "show me what you've said" / "close the log": handled here, no model needed
++    way["kind"] = "log"
++    if HIDE_LOG.search(turn.text):
++        fixed(FX.CLOSING_LOG)
++        S.set(pop="close")                                 # after: a quiet reply_line opens it
++        return True
++    if SHOW_LOG.search(turn.text):
++        fixed(FX.ALL_SAID)
++        S.set(pop="open")
++        return True
++    return False
++
++
++def _command(turn, model, way, left):
++    """Command stage: understand the words (rules, follow-ups, the AI reread) and finish every kind that ends with a fixed reply: end, room, heard, again, empty data, confirmations, several commands, diagnostics, command replies, actions. Returns what the model path still needs, or None when the turn ended here."""
++    fixed = lambda reply: _fixed(turn, reply)
++    kind, action, target, prompt, via = understand(turn.text, model, turn.quiet, turn.room)
++    way.update(kind=kind, action=action, via=via)
++    if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
++        way.update(kind="control")
++        log("control: ended by you")
++        return
++    if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
++        log("transcript: not for me - stayed quiet")
++        return
++    if kind == "room":                                     # asked once; a "yes" answers it in full
++        log("transcript: not for me? asked")
++        reply_line(room_ask(), turn.quiet)
++        offer.update(room=turn.text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
++        left["again"] = not turn.quiet and "ear"
++        return
++    if kind == "heard":
++        fixed(f"I heard: {recent['you']}" if recent["you"] else FX.HEARD_NOTHING)
++        return
++    if kind == "again":
++        fixed(recent["me"] or FX.SAID_NOTHING)
++        return
++    if cancel.is_set():                                    # stopped while the model read it: nothing runs
++        return
++    blocks = info_blocks(turn.text) if kind == "chat" else set()
++    lane = way["lane"] = lane_of(kind, blocks)
++    empty = no_data(turn.text, blocks) or (no_ability(turn.text) if kind == "chat" and not blocks else None)   # B2: can't-do requests, said by code
++    if empty:                                              # no data, no model
++        fixed(empty)
++        return
++    # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
++    recent["you"] = turn.text
++    extra, close_offer = "", None
++    if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
++        if not ask_yes(prompt, turn.quiet):                     # an act asks below, with the same prompt
++            way["result"] = "left - no yes"
++            log(f"{kind} {action} not confirmed (Whisper unsure)")
++            fixed(FX.CANCELLED)
++            return
++        prompt = None
++    if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
++        replies, steps = [], []
++        for part in target:                                # each part records its own undo: keep them all
++            seen = list(undo)
++            replies.append(command_reply(*part, turn.quiet))
++            if undo and list(undo) != seen:
++                steps.append(list(undo))
++        if len(steps) > 1:
++            undo[:] = [min(s[0] for s in steps), "multi", steps]
++        turn.quiet = muted()
++        fixed(" ".join(replies))
++        return
++    if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
++        if setting("JarvisDiagnose", "1") != "1":
++            fixed(FX.DIAG_OFF)
++            return
++        filler("diag", turn.quiet)
++        line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
++        top = items[0] if items else None                  # only the worst finding, and only when it is what was asked about
++        asked = {"cpu": "of the CPU", "memory": "of memory", "gpu": "the GPU"}.get(action, "")
++        exe = (top and top["closable"] and asked in top["text"] and running_window(top["app"])) or None
++        exe = None if exe and is_protected(exe) else exe
++        if line:
++            fixed(line + (" Want me to close it?" if exe else ""))
++            if exe:
++                offer.update(close=exe, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
++            return
++        extra, close_offer = prompt_findings(items), exe
++    if kind != "act" or prompt is None:
++        reply = command_reply(kind, action, target, prompt, turn.quiet)
++        if reply is not None:
++            if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
++                turn.quiet = muted()
++            fixed(reply)
++            return
++    if kind == "act":
++        # two-phase: ask, and listen for the answer (15 s) without another click
++        if ask_yes(prompt, turn.quiet):
++            ok = run_action(action, target, pending=(action, target))
++            way["result"] = "done" if ok else "failed"
++            if action == "stealth":
++                turn.quiet = True                               # pop-up only: no voice, no open ear
++            fixed((FX.ADDED if action == "todo" else done_line(action, target)) if ok else FX.FAILED)
++        else:
++            way["result"] = "left - no yes"
++            log(f"action {action} not confirmed")
++            fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else FX.CANCELLED)
++        return
++    return kind, target, extra, lane, close_offer
++
++
++def _extras(turn, kind, target, extra):
++    """What a kind adds to the prompt: the note search, the installed-apps check, the guardrail, the briefing. Returns the new `extra`."""
++    if kind == "notes":
++        filler("notes", turn.quiet)
++        hits = smart_search(target or turn.text)
++        if hits is None:                                   # no ChromaDB: keyword search
++            root, hits = search_notes(target or turn.text)
++        else:
++            root = vault_dir()
++        if not root:
++            extra = "\nNOTE SEARCH: no vault is set (Control Center > CLOVER > NOTES VAULT)."
++        elif hits:
++            extra = "\nNOTE SEARCH RESULTS (from the user's vault - answer from these):\n" + "\n".join(
++                f"- {name}: {snip}" for _, name, snip in hits)
++        else:
++            extra = f"\nNOTE SEARCH: nothing in the vault matched '{target}'."
++    elif kind == "apps":
++        filler("apps", turn.quiet)
++        apps = start_apps()
++        names = sorted({n for n, _ in apps or []})
++        if apps is None:
++            extra = "\nINSTALLED APPS: the app list isn't ready yet (the HUD is still scanning)."
++        elif target:
++            app = best_app(target)
++            extra = f"\nINSTALLED APP CHECK: '{target}' -> " + (f"yes, installed as {app[0]}." if app else "not found in the Start menu.")
++        else:
++            extra = f"\nINSTALLED APPS ({len(names)}): " + ", ".join(names[:120])
++    elif kind == "guard":
++        extra = ("\nGUARDRAIL: this request is destructive or a joke. Nothing will be executed - you have no ability to "
++                 "run commands. Play along in character with dry wit if it's clearly playful, or decline politely if "
++                 "it's serious. Never claim to have actually done it.")
++        log("guardrail: request handled in persona only")
++    elif kind == "brief":
++        extra = "\n" + BRIEFING
++    return extra
++
++
++def _answer(turn, model, way, left, follow, typed, hud, reading, t_spoke, kind, target, extra, lane, close_offer):
++    """Model-answer stage: readings and mood into the prompt, the model's stream through the reply filters, spoken or shown, then recorded. Ends the turn itself on the crisis line."""
++    apart = kind in ("brief", "notes")                     # these neither send nor file the window
++    past = [] if apart else active(turn.text)
++    reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
++    # the question and the one before it pick the blocks, so "and tomorrow?" after a calendar question still has it
++    ask = turn.text + (" " + past[-2]["content"] if len(past) >= 2 else "")
++    readings = "\n".join(h for h in hud if h).splitlines()
++    want = wants(ask, kind)
++    if "pc" not in want:                                   # not a PC question: at most the schedule, and only if it's about time
++        readings = [r.replace("Pending:", "Pending (don't bring it up unless asked about alarms, reminders or timers):", 1)
++                    for r in readings if r.startswith("Pending:") and "pending" in want]
++    extra += "" if apart else recall(turn.text)                # M2: an earlier talk, only when the question is about it
++    extra += INFO_PROMPT if lane == "info" else ""
++    turn_key = mood.turn_mood(turn.text, mood_key(), counted=not follow)   # Phase 10: serious topic / class time; silent
++    adds = mood.additions(turn.text, past[-2]["content"] if len(past) >= 2 else "", turn_key) if lane == "chat" else []
++    if lane == "chat" and mood.crisis(turn.text):               # suicide / self-harm: a fixed line from code, never the model
++        way["result"] = "crisis line"
++        _fixed(turn, mood.CRISIS_LINE)
++        return
++    cap = mood.chat_cap(turn_key, adds) if lane == "chat" else None   # info answers (calendar, to-dos) are never cut
++    messages = fit_context([{"role": "system", "content": system_prompt(ask, kind, turn_key, adds) + "".join("\n" + r for r in readings) + extra}],
++                           past, {"role": "user", "content": turn.text})
++    collected, spoke = [], None
++    way["via"] = "model"
++    log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
++    temp = 0 if lane == "info" else 0.5
++    stream = no_pardon(lambda m: chat_stream(model, m, temp), messages,
++                       lane == "chat" and (typed is not None or heard_score[0] >= -1.0))   # clear words never get "Pardon?" (reply/pardon.py)
++    known = " ".join(m["content"] for m in messages)               # every reading he may quote must come from here
++    said = reply_chain(stream, collected, known, cap, turn_key == "serious")   # the filter order: jarvislib/reply/policy.py
++    if turn.quiet and setting("JarvisMutedPopup", "1") == "1":
++        say_text_only(said, collected)
++    else:
++        spoke = speak_all(said)
++    reply = mood.clean_reply("".join(collected).strip())
++    if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
++        reply = spoke
++    _record_chat(reply, model, t_spoke, turn.text, kind, apart, turn.quiet, close_offer, left, way)
++
++
+ def exchange(tier, follow, woke, mode, left, typed=None):
+     """One turn. mode: None, or what the last one left open ("ear"); what this one leaves open goes in
+     left["again"] (a dict, not a return value: a `return` inside the try below would drop it)."""
+@@ -1035,253 +1311,20 @@ def exchange(tier, follow, woke, mode, left, typed=None):
+         if not _gate(text, follow, wait, mode, typed, left, way):   # not for him (or asked once): the turn ends here
+             return
+         convo_add("U", text)
+-        quiet = muted()
++        turn = Turn(text, model, muted(), way, left)               # what the stages below share
+         for k in ("kind", "via", "result"):                   # words came: each path below sets its own
+             way.pop(k)
+ 
+-        def fixed(reply):
+-            """Say a fixed reply, keep it in the chat history, and listen once more unless he was told to drop it."""
+-            global history, last_turn
+-            way["result"] = ("refused - not built" if reply == CANT else "refused - unclear command" if reply == NEAR_MISS
+-                             else way.get("result") or "said")
+-            reply_line(reply, quiet)
+-            active(text)
+-            # stamped, so "7:00 AM tomorrow" in the reply still means the right day after midnight
+-            history += [{"role": "user", "content": f"[{datetime.now():%a %d %b, %I:%M %p}] {text}"},
+-                        {"role": "assistant", "content": reply}]
+-            last_turn = time.time()
+-            # S2-10: after any reply the ear stays open ("undo" is just one thing it can hear); not after "Cancelled."
+-            left["again"] = (not quiet and not cancel.is_set() and not NO_FOLLOW.match(reply)
+-                             and followup.mode_after(way.get("kind"), way.get("action")))
++        fixed = lambda reply: _fixed(turn, reply)                  # say a fixed reply (jarvis.py _fixed)
+         S.set(err="")
+-        # an offer answers only on the channel it was made on, and a spoken yes needs a confident hearing (as ask_yes)
+-        live_offer = (time.time() < offer.get("expires", 0) and offer.pop("typed", None) == typed_turn[0]
+-                      and (typed_turn[0] or heard_score[0] >= -1.0))
+-        fact = offer.pop("fact", None) if live_offer else None
+-        room = offer.pop("room", None) if live_offer else None
+-        closing = offer.pop("close", None) if live_offer else None
+-        offer.clear()
+-        plain = " ".join(re.sub(r"[^a-z]+", " ", strip_name(text).lower()).split())
+-        if room and is_yes(text):                              # "Are you talking to me, sir?" "Yes": answer what was said
+-            text = room
+-        if closing and is_yes(text):                           # 9e: the yes to "Want me to close it?" is the confirmation
+-            way.update(kind="act", action="close", via="rule", lane="command")
+-            ok = run_action("close", closing, pending=("close", closing))
+-            way["result"] = "done" if ok else "failed"
+-            fixed(FX.DONE if ok else FX.FAILED)
+-            return
+-        if fact and (is_yes(text) or re.fullmatch(r"(?:yes )?(?:please )?(?:remember|save|note) (?:that|it)(?: please)?", plain)):
+-            way.update(kind="memory", action="save", via="rule", lane="command")
+-            res = fact_save(fact)                              # an older fact about the same thing asks "Replace?" first
+-            if res[0] == "memory":
+-                fixed(memory_reply("save", fact))
+-            elif ask_yes(res[3], muted()):
+-                ok = run_action("replace_fact", res[2], pending=("replace_fact", res[2]))
+-                way["result"] = "done" if ok else "failed"
+-                fixed(FX.DONE if ok else FX.FAILED)
+-            else:
+-                fixed(memory_reply("save", fact) + " I kept the old one too.")
+-            return
+-        said = " ".join(re.sub(r"[^a-z' ]", " ", strip_name(text).lower().replace("’", "'")).split())
+-        polite = text != room and next((r for rx, r in COURTESY if rx.fullmatch(said)), None)
+-        if polite and not (woke and heard_score[0] < -1.0):  # a weak "Thank you." after a wake is Whisper's noise phrase
+-            way.update(kind="courtesy", via="rule")
+-            name = setting("JarvisCallMe", "").strip()
+-            reply_line(polite.replace("{name}", f", {name}" if name else ""), quiet)
+-            left["again"] = not quiet and polite.startswith("Hello") and "ear"   # a hello is the start of a talk
+-            return
+-        if text != room and (polite or ENDERS.fullmatch(said)):
+-            way.update(kind="control", via="rule")             # control check before any routing: never reaches the model
+-            log("control: ended by you")
+-            return
+-        if text != room and is_yes(text) and not asked_you(recent["me"]):   # a yes with nothing asked: late, or meant elsewhere
+-            way.update(kind="lone_yes", via="rule")            # semi-live 2026-11-02: the model "locked" the PC in words
+-            fixed(FX.NOTHING_WAITING)
+-            return
+-        m = NEW_TOPIC.match(strip_name(text))
+-        way.update(kind="new_topic", via="rule")               # replaced below unless it was "new topic" alone
+-        if m:                                                  # files the window; "new topic, <question>" goes on without it
+-            file_active()
+-            last.clear()                                       # M1b: "cancel it" no longer points back
+-            text = strip_name(text)[m.end():].strip()
+-            if not text:
+-                fixed(FX.OKAY)
+-                history.clear()                                # "new topic" / "Okay." is not talk to keep
+-                return
+-        if quiet_talk.TALK.fullmatch(said):                    # 8c: "you can talk" ends QUIET for this class only
+-            way.update(kind="quiet", via="rule")
+-            if not quiet_talk.talk():
+-                fixed(FX.NOT_QUIET)
+-                return
+-            quiet = muted()
+-            fixed(FX.CAN_TALK if not quiet else FX.OKAY)
+-            return
+-        # "show me what you've said" / "close the log": handled here, no model needed
+-        way["kind"] = "log"
+-        if HIDE_LOG.search(text):
+-            fixed(FX.CLOSING_LOG)
+-            S.set(pop="close")                                 # after: a quiet reply_line opens it
++        if _preempt(turn, way, woke, left):
+             return
+-        if SHOW_LOG.search(text):
+-            fixed(FX.ALL_SAID)
+-            S.set(pop="open")
++        res = _command(turn, model, way, left)
++        if res is None:
+             return
+-        kind, action, target, prompt, via = understand(text, model, quiet, room)
+-        way.update(kind=kind, action=action, via=via)
+-        if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
+-            way.update(kind="control")
+-            log("control: ended by you")
+-            return
+-        if kind == "room" and setting("JarvisRoomAsk", "0") != "1":      # D6: quiet by default
+-            log("transcript: not for me - stayed quiet")
+-            return
+-        if kind == "room":                                     # asked once; a "yes" answers it in full
+-            log("transcript: not for me? asked")
+-            reply_line(room_ask(), quiet)
+-            offer.update(room=text, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+-            left["again"] = not quiet and "ear"
+-            return
+-        if kind == "heard":
+-            fixed(f"I heard: {recent['you']}" if recent["you"] else FX.HEARD_NOTHING)
+-            return
+-        if kind == "again":
+-            fixed(recent["me"] or FX.SAID_NOTHING)
+-            return
+-        if cancel.is_set():                                    # stopped while the model read it: nothing runs
+-            return
+-        blocks = info_blocks(text) if kind == "chat" else set()
+-        lane = way["lane"] = lane_of(kind, blocks)
+-        empty = no_data(text, blocks) or (no_ability(text) if kind == "chat" and not blocks else None)   # B2: can't-do requests, said by code
+-        if empty:                                              # no data, no model
+-            fixed(empty)
+-            return
+-        # shortcut: reminders and alarms are not read back (he says the time back and "undo" exists), add if needed
+-        recent["you"] = text
+-        extra, close_offer = "", None
+-        if kind in ("remind", "memory", "multi") and prompt and prompt.startswith("Did you say: "):
+-            if not ask_yes(prompt, quiet):                     # an act asks below, with the same prompt
+-                way["result"] = "left - no yes"
+-                log(f"{kind} {action} not confirmed (Whisper unsure)")
+-                fixed(FX.CANCELLED)
+-                return
+-            prompt = None
+-        if kind == "multi":                                    # "set an alarm for 7 and a timer for 10 minutes": in order
+-            replies, steps = [], []
+-            for part in target:                                # each part records its own undo: keep them all
+-                seen = list(undo)
+-                replies.append(command_reply(*part, quiet))
+-                if undo and list(undo) != seen:
+-                    steps.append(list(undo))
+-            if len(steps) > 1:
+-                undo[:] = [min(s[0] for s in steps), "multi", steps]
+-            quiet = muted()
+-            fixed(" ".join(replies))
+-            return
+-        if kind == "diag":                                     # 9a: code finds; it words the answer itself or hands over findings only
+-            if setting("JarvisDiagnose", "1") != "1":
+-                fixed(FX.DIAG_OFF)
+-                return
+-            filler("diag", quiet)
+-            line, items = diagnose(action, target, _whisper_dev[0] == "cpu" or ollama_on_cpu(model))
+-            top = items[0] if items else None                  # only the worst finding, and only when it is what was asked about
+-            asked = {"cpu": "of the CPU", "memory": "of memory", "gpu": "the GPU"}.get(action, "")
+-            exe = (top and top["closable"] and asked in top["text"] and running_window(top["app"])) or None
+-            exe = None if exe and is_protected(exe) else exe
+-            if line:
+-                fixed(line + (" Want me to close it?" if exe else ""))
+-                if exe:
+-                    offer.update(close=exe, typed=typed_turn[0], expires=time.time() + 30 + follow_wait())
+-                return
+-            extra, close_offer = prompt_findings(items), exe
+-        if kind != "act" or prompt is None:
+-            reply = command_reply(kind, action, target, prompt, quiet)
+-            if reply is not None:
+-                if action in ("mute", "unmute", "volume"):     # the reply follows the new state: shown if now silent
+-                    quiet = muted()
+-                fixed(reply)
+-                return
+-        if kind == "act":
+-            # two-phase: ask, and listen for the answer (15 s) without another click
+-            if ask_yes(prompt, quiet):
+-                ok = run_action(action, target, pending=(action, target))
+-                way["result"] = "done" if ok else "failed"
+-                if action == "stealth":
+-                    quiet = True                               # pop-up only: no voice, no open ear
+-                fixed((FX.ADDED if action == "todo" else done_line(action, target)) if ok else FX.FAILED)
+-            else:
+-                way["result"] = "left - no yes"
+-                log(f"action {action} not confirmed")
+-                fixed(memory_reply("save", target[1]) + " I kept the old one too." if action == "replace_fact" else FX.CANCELLED)
+-            return
+-        if kind == "notes":
+-            filler("notes", quiet)
+-            hits = smart_search(target or text)
+-            if hits is None:                                   # no ChromaDB: keyword search
+-                root, hits = search_notes(target or text)
+-            else:
+-                root = vault_dir()
+-            if not root:
+-                extra = "\nNOTE SEARCH: no vault is set (Control Center > CLOVER > NOTES VAULT)."
+-            elif hits:
+-                extra = "\nNOTE SEARCH RESULTS (from the user's vault - answer from these):\n" + "\n".join(
+-                    f"- {name}: {snip}" for _, name, snip in hits)
+-            else:
+-                extra = f"\nNOTE SEARCH: nothing in the vault matched '{target}'."
+-        elif kind == "apps":
+-            filler("apps", quiet)
+-            apps = start_apps()
+-            names = sorted({n for n, _ in apps or []})
+-            if apps is None:
+-                extra = "\nINSTALLED APPS: the app list isn't ready yet (the HUD is still scanning)."
+-            elif target:
+-                app = best_app(target)
+-                extra = f"\nINSTALLED APP CHECK: '{target}' -> " + (f"yes, installed as {app[0]}." if app else "not found in the Start menu.")
+-            else:
+-                extra = f"\nINSTALLED APPS ({len(names)}): " + ", ".join(names[:120])
+-        elif kind == "guard":
+-            extra = ("\nGUARDRAIL: this request is destructive or a joke. Nothing will be executed - you have no ability to "
+-                     "run commands. Play along in character with dry wit if it's clearly playful, or decline politely if "
+-                     "it's serious. Never claim to have actually done it.")
+-            log("guardrail: request handled in persona only")
+-        elif kind == "brief":
+-            extra = "\n" + BRIEFING
+-        apart = kind in ("brief", "notes")                     # these neither send nor file the window
+-        past = [] if apart else active(text)
+-        reading.join(1.5)                                      # a stuck sensor never holds the reply: its lines are left out
+-        # the question and the one before it pick the blocks, so "and tomorrow?" after a calendar question still has it
+-        ask = text + (" " + past[-2]["content"] if len(past) >= 2 else "")
+-        readings = "\n".join(h for h in hud if h).splitlines()
+-        want = wants(ask, kind)
+-        if "pc" not in want:                                   # not a PC question: at most the schedule, and only if it's about time
+-            readings = [r.replace("Pending:", "Pending (don't bring it up unless asked about alarms, reminders or timers):", 1)
+-                        for r in readings if r.startswith("Pending:") and "pending" in want]
+-        extra += "" if apart else recall(text)                # M2: an earlier talk, only when the question is about it
+-        extra += INFO_PROMPT if lane == "info" else ""
+-        turn_key = mood.turn_mood(text, mood_key(), counted=not follow)   # Phase 10: serious topic / class time; silent
+-        adds = mood.additions(text, past[-2]["content"] if len(past) >= 2 else "", turn_key) if lane == "chat" else []
+-        if lane == "chat" and mood.crisis(text):               # suicide / self-harm: a fixed line from code, never the model
+-            way["result"] = "crisis line"
+-            fixed(mood.CRISIS_LINE)
+-            return
+-        cap = mood.chat_cap(turn_key, adds) if lane == "chat" else None   # info answers (calendar, to-dos) are never cut
+-        messages = fit_context([{"role": "system", "content": system_prompt(ask, kind, turn_key, adds) + "".join("\n" + r for r in readings) + extra}],
+-                               past, {"role": "user", "content": text})
+-        collected, spoke = [], None
+-        way["via"] = "model"
+-        log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
+-        temp = 0 if lane == "info" else 0.5
+-        stream = no_pardon(lambda m: chat_stream(model, m, temp), messages,
+-                           lane == "chat" and (typed is not None or heard_score[0] >= -1.0))   # clear words never get "Pardon?" (reply/pardon.py)
+-        known = " ".join(m["content"] for m in messages)               # every reading he may quote must come from here
+-        said = reply_chain(stream, collected, known, cap, turn_key == "serious")   # the filter order: jarvislib/reply/policy.py
+-        if quiet and setting("JarvisMutedPopup", "1") == "1":
+-            say_text_only(said, collected)
+-        else:
+-            spoke = speak_all(said)
+-        reply = mood.clean_reply("".join(collected).strip())
+-        if spoke is not None and cancel.is_set():              # 8-A2: talked over: keep only what he got to say
+-            reply = spoke
+-        _record_chat(reply, model, t_spoke, text, kind, apart, quiet, close_offer, left, way)
++        kind, target, extra, lane, close_offer = res
++        extra = _extras(turn, kind, target, extra)
++        _answer(turn, model, way, left, follow, typed, hud, reading, t_spoke, kind, target, extra, lane, close_offer)
+     except urllib.error.URLError as e:
+         problem(f"Lost the connection to Ollama ({e.reason}) - is it still running?")
+         live("")
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/base.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/base.py
+index 41bd2c0..5820ff5 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/base.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/base.py
+@@ -9,11 +9,11 @@ import time
+ from datetime import datetime
+ 
+ from jarvislib.host_pipe import host_live
++from jarvislib.respath import pick_res
+ 
+ 
+ # without argv: @Resources is two folders above jarvislib (this was ".." while it lived in jarvis.py)
+-RES = (sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")).strip().strip('"')
+-RES = os.path.abspath(RES)
++RES = pick_res(sys.argv, os.environ, os.path.dirname(os.path.abspath(__file__)))     # jarvislib/respath.py: a tool's own --flag is never a folder
+ DATA = os.path.join(RES, "Data")
+ STATE_FILE = os.path.join(DATA, "jarvis.txt")
+ CMD_FILE = os.path.join(DATA, "jarvis_cmd.txt")
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py
+index 55fdb0b..d851d2b 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py
+@@ -9,7 +9,7 @@ import re
+ import time
+ from .base import log, setting, stopped
+ from .mic import follow_name_wait, follow_wait, listen
+-from .turnstate import offer, recent
++from .turnstate import DID, did, offer, recent
+ 
+ UNDO_WAIT = 2.0                                                # seconds the ear stays open for "undo" after a command
+ STOP_WAIT = 1.0                                                # seconds it stays open after a stop
+@@ -67,9 +67,26 @@ def listen_for(mode, follow, woke):
+     return (listen(patience=10) if woke else listen()), wait   # a wake: 10 s for the first word
+ 
+ 
+-def only_undo(route_kind):
+-    """In the undo window only an undo counts; `route_kind` is route(...)[0] of what was heard."""
+-    ok = route_kind == "undo"
++SOUND_LINES = (DID["volume"], DID["mute"], DID["unmute"])
++SOUND_WORDS = re.compile(r"(?:%|\d|percent|volume|sound|louder|quieter|softer|lower|higher|turn it (?:up|down)|"
++                         r"bring it|make it|set it|change it|a (?:bit|little) (?:more|less))", re.I)
++CORRECTION_TTL = 30.0                                          # seconds after a command in which a correction still refers to it
++
++
++def takes(text, decision):
++    """What the undo window lets through: an undo, another command (the same test as the open ear's: it routes to something
++    that changes a thing, "set the volume to 30%" right after "...to 10%", "and a timer for 5 minutes"), or, right after a volume
++    change, words about the level ("make it 30", "a bit louder"). Chatter, questions and room talk are still dropped."""
++    kind, action = decision[0], (decision[1] if len(decision) > 1 else None)
++    if kind == "undo" or is_command(kind, action):
++        return True
++    return bool(did) and time.time() - did[-1][0] <= CORRECTION_TTL and did[-1][1] in SOUND_LINES and bool(SOUND_WORDS.search(text))
++
++
++def only_undo(route_kind, text="", decision=()):
++    """In the undo window only an undo or another command counts (takes); `route_kind` is route(...)[0] of what was heard
++    and `decision` the whole route(...) result."""
++    ok = takes(text, decision or (route_kind, None))
+     if not ok:
+         log("ear: not an undo - dropped")
+     return ok
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/respath.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/respath.py
+new file mode 100644
+index 0000000..7e5a8cb
+--- /dev/null
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/respath.py
+@@ -0,0 +1,16 @@
++"""respath: which folder is @Resources for this process. No imports of jarvislib and no side effects, so it can be tested without
++creating a Data folder (the trap in the refactor plan, section 6: a tool that keeps its own flag, `--cases x`, used to get RES="--cases").
++
++  1. the first command-line argument, when it is a folder (the host starts `jarvis.py <@Resources>`); an argument that starts with "-" is
++     a tool's own flag and is never a folder;
++  2. the JARVIS_RES environment variable, for tools and tests that keep their own arguments;
++  3. @Resources two folders above jarvislib (the skin's own, as before)."""
++import os
++
++
++def pick_res(argv, env, here):
++    arg = argv[1].strip().strip('"') if len(argv) > 1 else ""
++    if arg.startswith("-"):
++        arg = ""
++    override = (env.get("JARVIS_RES") or "").strip().strip('"')
++    return os.path.abspath(arg or override or os.path.join(here, "..", ".."))
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py
+index 9b92ec3..0d1c547 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py
+@@ -669,8 +669,8 @@ def _rules_display(text, named, t, whole, cmd):
+         return ("act", "theme", m.group(1) if not cmd.startswith(("turn off", "disable")) else ("light" if m.group(1) == "dark" else "dark"), None)
+     bright = r"(?:the |my )?(?:screen |display )?brightness"      # 7c: "a bit" is 10 percent, 0 is allowed
+     bit = r"(?: (?:a )?(?:bit|little|tad)| slightly| by (.+?)(?: ?%| percent)?)?"      # "by 20" like volume
+-    m = (re.match(rf"(?:set|turn|change|put|bring) {bright}(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+-         or re.match(rf"{bright} (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
++    m = (re.match(rf"(?:set|turn|change|put|bring|make|raise|lower|drop|take) {bright}(?: up| down)? (?:to |at )?(.+?)(?: ?%| percent)?$", cmd)
++         or re.match(rf"{bright} (?:to |at )?(.+?)(?: ?%| percent)?$", cmd)
+          or re.match(r"(?:dim|brighten|darken)(?: (?:the |my )?(?:screen|display|brightness))? (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
+     if m and _num(m.group(1)) is not None:
+         n = _num(m.group(1))
+@@ -693,8 +693,8 @@ def _rules_mic_level(text, named, t, whole, cmd):
+             return ("act", "mic_unmute", None, None)
+         return ("act", "mic_mute", None, "You want me to mute the microphone. I won't hear you after that; click me to "
+                 "unmute it. Confirm with yes.")
+-    m = (re.match(rf"(?:set|turn|change|put) {mic_word}(?: volume| level)?(?: up| down)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+-         or re.match(rf"{mic_word}(?: volume| level)? (?:to|at) (.+?)(?: ?%| percent)?$", cmd))
++    m = (re.match(rf"(?:set|turn|change|put|bring|make|raise|lower|drop|take) {mic_word}(?: volume| level)?(?: up| down)? (?:to |at )?(.+?)(?: ?%| percent)?$", cmd)
++         or re.match(rf"{mic_word}(?: volume| level)? (?:to |at )?(.+?)(?: ?%| percent)?$", cmd))
+     if m and _num(m.group(1)) is not None:
+         n = _num(m.group(1))
+         return ("act", "mic_level", ("set", int(n)), None) if n <= 100 else ("say", None, None, "I can set it between 0 and 100.")
+@@ -712,9 +712,9 @@ def _rules_sound(text, named, t, whole, cmd):
+     if m:
+         return ("act", m.group(1), None, None)
+     # "set the volume to 30 / thirty / max / half", "set it to 30", "max volume", "turn it all the way up"
+-    m = (re.match(r"(?:i (?:want|need) |i'?d like )?(?:(?:set|turn|change|put|raise|lower|bring) )?(?:the )?volume(?: up| down)? "
++    m = (re.match(r"(?:i (?:want|need) |i'?d like )?(?:(?:set|turn|change|put|raise|lower|bring|make|take|drop) )?(?:the )?volume(?: up| down)? "
+                   r"(?:to |at |on )?(?:the )?(.+?)(?: ?%| percent)?$", cmd)
+-         or re.match(r"(?:set|turn|change|put) it (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
++         or re.match(r"(?:set|turn|change|put|bring|raise|lower|drop|take|make) it (?:up |down )?(?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+          or re.match(r"(max|maximum|full|half) volume$|(?:turn |put )?(?:it|the (?:sound|music)) (all the way (?:up|down))$", cmd))
+     if m:
+         word = m.group(m.lastindex)
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+index 5f72077..97442df 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/voice/player.py
+@@ -199,17 +199,20 @@ class Player:
+                         self._drop()
+                         return
+                     self.out.write(np.zeros(shape, dtype=np.float32) if left >= block else np.zeros((left,) + shape[1:], np.float32))
++                under = 0                                      # diagnostic only: device under-runs (write() returns True)
+                 for i in range(0, len(a), block):
+                     if cancel.is_set():
+                         self._drop()                           # abort: silent now, not after the buffer; the next clip re-opens
+                         return
+                     chunk = np.ascontiguousarray(a[i:i + block], dtype=np.float32)
+                     out = chunk * gain if gain < 1.0 else chunk
+-                    self.out.write(out)
++                    if self.out.write(out) is True:
++                        under += 1
+                     far_add(out, rate)                         # the echo reference is what really played
+                     S.set(level=min(1.0, float(np.sqrt(np.mean(chunk * chunk)) + 1e-9) / 0.18), force=False)
+                     if progress:
+                         progress(min(1.0, (i + block) / len(a)))
++                log(f"player: clip {len(a) / rate:.1f} s, peak {float(np.max(np.abs(a))) if len(a) else 0.0:.2f}, device under-runs {under}")
+                 self.last = time.time()
+                 self._arm()
+             except Exception:
+diff --git a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+index 6cde2e8..c29cbe2 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+@@ -169,6 +169,16 @@ for heard, want in (("set volume to 30", ("set", 30)), ("volume 5 percent", ("se
+                     ("turn down the music", ("step", -10))):
+     assert j.route(heard)[:3] == ("act", "volume", want), heard
+ assert j.route("set volume to 130") == ("say", None, None, "I can set it between 0 and 100.")
++for heard, want in (("turn it up to 30%", 30), ("bring it down to 10", 10), ("raise it to 50", 50), ("lower it to 10", 10), ("drop it to 10%", 10),
++                    ("make the volume 30 percent", 30), ("can you make the volume 30 percent", 30)):      # F5: natural ways to give a level
++    assert j.route(heard)[:3] == ("act", "volume", ("set", want)), heard
++for heard, act, want in (("brightness 50 percent", "brightness", 50), ("make the brightness 50 percent", "brightness", 50),
++                         ("microphone volume 40", "mic_level", 40), ("raise the mic to 50", "mic_level", 50), ("mic 30", "mic_level", 30)):   # F5
++    assert j.route(heard)[:3] == ("act", act, ("set", want)), heard
++for heard in ("brightness is too high", "the mic is broken", "mic level is low", "brightness", "the mic"):          # statements stay chat
++    assert j.route(heard)[0] == "chat", heard
++for heard in ("make it 10 minutes", "make it 70", "lower it to 5 pm"):                                      # no clean level, or no volume: not a volume
++    assert j.route(heard)[:2] != ("act", "volume"), heard
+ for heard, want in (("pause", "playpause"), ("resume the music", "playpause"), ("stop the music", "playpause"),
+                     ("next track", "next"), ("skip", "next"), ("previous song", "prev"), ("go back a song", "prev")):
+     assert j.route(heard)[:3] == ("act", "media", want), heard
+@@ -1672,6 +1682,31 @@ for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital
+     assert ear(["Set a timer for 10 minutes.", other]) == (2, 0) and len(j.load_reminders()) == 1, other   # one listen, no reply
+     assert asked == ["Timer set for 10 minutes."], asked
+     j.save_reminders([])
++# F5 (live): a second volume command in the undo window is a correction of the first, not room talk ("10%" then "30%" was ignored)
++acts, keep_ra = [], j.run_action
++j.run_action = lambda action, target, pending=None: (acts.append((action, target)), j.did_add(action, target)) and True   # records, like the real one
++for second, want in (("Change the volume to 30 percent.", ("set", 30)), ("Set the volume to 30.", ("set", 30)), ("Make it 30%.", ("set", 30)),
++                     ("About 30.", ("set", 30)), ("Jarvis, louder.", ("step", 10))):
++    j.did.clear()
++    acts.clear()
++    ear(["Set the volume to 10%.", second])
++    assert acts == [("volume", ("set", 10)), ("volume", want)], (second, acts)         # the second one was acted on, not dropped
++for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital of France?"):
++    j.did.clear()
++    acts.clear()
++    assert ear(["Set the volume to 10%.", other])[1] == 0 and acts == [("volume", ("set", 10))], (other, acts)   # anything else is still dropped
++j.did.clear()
++acts.clear()
++ear(["Set a timer for 10 minutes.", "Set the volume to 30."])                       # another command is taken too, like in the open ear
++assert [a for a in acts if a[0] == "volume"] == [("volume", ("set", 30))], acts
++j.save_reminders([])
++j.did.clear()
++acts.clear()
++ear(["Set the volume to 10%.", "And set a timer for 5 minutes."])                  # and a timer after a volume change
++assert len(j.load_reminders()) == 1 and acts == [("volume", ("set", 10))], (acts, j.load_reminders())
++j.run_action = keep_ra
++j.save_reminders([])
++j.did.clear()
+ # Slice 3 fix: route() also classifies what the undo window hears; a timed mood said there is dropped and must not start
+ import jarvislib.mood as _mood
+ _mood.state["temp"] = None
+@@ -2954,6 +2989,15 @@ real_turn = j.turn
+ j.turn = lambda tier, follow=0, woke=False: real_turn(tier, follow, True)
+ assert talk(99, words="Thank you.") == 1 and len(asked) == m
+ j.turn, j.heard_score[0] = real_turn, 0.0
++# refactor phase 6e: three fixed answers from code that no test covered (found by a mutation check): a lone yes with nothing
++# asked, the log commands, and "you can talk" when he is not in quiet mode. Never the model; state put back afterwards.
++_hist, _me, _lt = list(j.history), j.recent["me"], j.last_turn
++n, j.recent["me"] = len(prompts), "Ha, sir."
++for words, reply in (("Yes.", "There's nothing waiting for a yes, sir."), ("Close the log.", "Closing the log."),
++                     ("Show me what you've said.", "Here's everything we've said."), ("You can talk now.", "I'm not in quiet mode.")):
++    talk(99, words=words)                                          # (the ear stays open after a fixed reply: how often he listens is not the point)
++    assert len(prompts) == n and asked[-1] == reply, (words, asked[-1])
++j.history[:], j.recent["me"], j.last_turn = _hist, _me, _lt
+ for words in ("Okay, thanks Jarvis!", "That’s all.", "no thank you", "Nope.", "I'm good."):
+     assert j.ENDERS.fullmatch(" ".join(j.re.sub(r"[^a-z' ]", " ", words.lower().replace("’", "'")).split())), words
+ for words in ("no am", "no, set it for 8", "thanks for the help with my essay"):
+@@ -3018,7 +3062,8 @@ j.hear, j.reply_line, j.heard_score[0] = real_hear, real_rl, 0.0
+ j.setting = lambda name, default="": default
+ same = lambda a, b: j.fix_route(a, j.route(a))[:3] == j.route(b)[:3]
+ assert same("uh could you put volume on thirty please", "set the volume to 30")    # route() reads this one itself
+-for heard, meant in (("set the volyum to 30", "set the volume to 30"), ("make the volume 30", "set the volume to 30"),
++assert same("make the volume 30", "set the volume to 30")                          # F5: and now this one too (it was a PHRASES fix)
++for heard, meant in (("set the volyum to 30", "set the volume to 30"),
+                      ("set the value to 30", "set the volume to 30"), ("Jarvis, valume up", "volume up")):
+     assert j.route(heard)[0] != "act" and same(heard, meant), (heard, j.fix_route(heard, j.route(heard)))
+ for heard in ("set a tymer for 5 minutes", "set a time are for 5 minutes", "set an alarn for ate"):
+@@ -3988,6 +4033,42 @@ assert len(prompts) == n and any("anything wrong" in a.lower() or "can't see" in
+ _procs["procs"] = [{"name": "chrome.exe", "pid": 1, "cpu": 1600.0, "mem": 0, "io": 0}]     # a finding: the model gets findings only
+ say("why is my pc slow")
+ assert len(prompts) == n + 1 and "DIAGNOSIS FINDINGS" in prompts[-1] and "chrome" in prompts[-1], prompts[-1:]
++# 6f mutation checks: four rules of the command stage had no test (disable the line and the suite still passed)
++_keep6 = (j.run_action, j.muted, j.reply_line, j.listen, j.transcribe)
++seen6, mute6, opened6 = [], [False], [0]
++
++
++def spoken6(lines):
++    """Speak these lines one after the other (the mic opens for each); returns how often the mic opened."""
++    seq = iter(lines)
++    opened6[0] = 0
++    j.listen = lambda **k: opened6.__setitem__(0, opened6[0] + 1) or "audio"
++    j.transcribe = lambda a: next(seq, "")
++    j.offer.clear()
++    j.turn(0)
++    return opened6[0]
++
++
++j.reply_line = lambda text, quiet: seen6.append((text, quiet))
++j.run_action = lambda action, target, pending=None: (mute6.__setitem__(0, mute6[0] or action == "mute"), True)[1]   # a mute really mutes
++j.muted = lambda: mute6[0]
++say("mute")                                                        # the reply follows the NEW state: now silent, so it is shown, not spoken
++assert seen6 and seen6[-1][1] is True, seen6
++mute6[0] = False
++seen6.clear()
++say("mute and set a timer for 5 minutes")                          # several commands: the same, once all have run
++assert seen6 and seen6[-1][1] is True, seen6
++mute6[0] = False
++j.run_action = lambda action, target, pending=None: False         # a confirmed action that fails says so
++seen6.clear()
++spoken6(["Lock the computer.", "Yes, Jarvis."])
++assert (j.FX.FAILED, False) in seen6 and not any(t == j.FX.DONE for t, _ in seen6), seen6
++j.run_action = lambda action, target, pending=None: True
++seen6.clear()
++mute6[0] = False
++heard_n = spoken6(["Go into stealth mode.", "Yes."])              # stealth: pop-up only, so no voice and no open ear afterwards
++assert seen6 and seen6[-1][1] is True and heard_n == 2, (seen6, heard_n)
++j.run_action, j.muted, j.reply_line, j.listen, j.transcribe = _keep6
+ assert "invent nothing" in prompts[-1], prompts[-1]
+ n = len(prompts)
+ say("tell me a joke")
+@@ -4448,6 +4529,7 @@ class _FakeSD:
+                 fake.events.append(("w", self.id))
+                 if fake.on_write:
+                     fake.on_write(len(fake.writes))
++                return fake.underflow(len(fake.writes)) if fake.underflow else None      # sounddevice: True = the device ran dry
+ 
+             def __enter__(self):
+                 fake.events.append(("start", self.id))
+@@ -4464,7 +4546,7 @@ class _FakeSD:
+ 
+             def close(self):
+                 fake.events.append(("close", self.id))
+-        self.WasapiSettings, self.OutputStream, self.on_write = WasapiSettings, OutputStream, None
++        self.WasapiSettings, self.OutputStream, self.on_write, self.underflow = WasapiSettings, OutputStream, None, None
+ 
+     def query_hostapis(self):
+         return [{"name": "MME", "default_output_device": 3}] + ([] if self.no_wasapi else [{"name": "Windows WASAPI", "default_output_device": 8}])
+@@ -4514,6 +4596,20 @@ for _v, _want_lat in (("0", "low"), ("0.25", 0.25), ("9", 0.5), ("junk", 0.1)):
+ del _smooth["JarvisPlayerLatency"]
+ PL.player.close()
+ 
++# F1 diagnostic: each clip logs its length, peak and how many writes the device reported as under-runs (counts only, no audio changes)
++_pl_log, _pl_keep = [], PL.log
++PL.log = _pl_log.append
++sd = _fresh_player()
++sd.underflow = lambda n: n in (3, 5)                           # the 3rd and 5th write ran dry
++PL.player.play(_tone2, 24000, None, 0)
++_line = [m for m in _pl_log if m.startswith("player: clip")]
++assert len(_line) == 1 and "peak 0.20" in _line[0] and _line[0].endswith("device under-runs 2"), _pl_log
++sd.underflow = None
++PL.player.play(_tone2[:2000], 24000, None, 0)
++assert [m for m in _pl_log if m.startswith("player: clip")][-1].endswith("device under-runs 0"), _pl_log
++PL.log = _pl_keep
++PL.player.close()
++
+ # WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same
+ sd = _fresh_player(wasapi_fails=True)
+ PL.player.play(_tone2[:2000], 24000, None, 0)
+diff --git a/Skins/Spaceship/@Resources/Jarvis/tests/test_respath.py b/Skins/Spaceship/@Resources/Jarvis/tests/test_respath.py
+new file mode 100644
+index 0000000..4d29680
+--- /dev/null
++++ b/Skins/Spaceship/@Resources/Jarvis/tests/test_respath.py
+@@ -0,0 +1,22 @@
++"""respath.pick_res (refactor phase 9): the folder argument wins, a tool's own flag is never a folder, JARVIS_RES is the explicit override,
++and with neither it is @Resources two folders above jarvislib. Imports only respath: nothing is created on disk."""
++import os
++import sys
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++sys.path.insert(0, os.path.dirname(HERE))
++from jarvislib.respath import pick_res  # noqa: E402
++
++here = os.path.join(os.path.dirname(HERE), "jarvislib")
++skin = os.path.abspath(os.path.join(here, "..", ".."))
++tmp = os.path.abspath(os.path.join(HERE, "some", "folder"))
++
++assert pick_res(["jarvis.py", tmp], {}, here) == tmp                              # the host's argument
++assert pick_res(["jarvis.py", f'"{tmp}"'], {}, here) == tmp                       # quoted, as the host passes it
++assert pick_res(["jarvis.py"], {}, here) == skin and pick_res([], {}, here) == skin    # no argument: the skin's own, as before
++assert pick_res(["tool.py", "--cases", "x.jsonl"], {}, here) == skin              # the trap: a flag was RES="--cases"
++assert pick_res(["tool.py", "-v"], {}, here) == skin
++assert pick_res(["tool.py", "--cases", "x"], {"JARVIS_RES": tmp}, here) == tmp    # a tool that keeps its flags names the folder in the environment
++assert pick_res(["jarvis.py", os.path.join(tmp, "arg")], {"JARVIS_RES": tmp}, here) == os.path.join(tmp, "arg")   # an explicit argument still wins
++assert pick_res(["x", ""], {"JARVIS_RES": "  "}, here) == skin                    # blanks are nothing
++print("respath: OK")
+diff --git a/SpaceshipApp/ShipCore.App/NvmlGpu.cs b/SpaceshipApp/ShipCore.App/NvmlGpu.cs
+new file mode 100644
+index 0000000..d486967
+--- /dev/null
++++ b/SpaceshipApp/ShipCore.App/NvmlGpu.cs
+@@ -0,0 +1,38 @@
++using System.Runtime.InteropServices;
++using ShipCore.Core;
++
++// NVIDIA's own driver library (nvml.dll, installed in System32 with the driver; the same source nvidia-smi uses). Read-only: init, ask the
++// first card for load, temperature, graphics clock and power, nothing else. No NVIDIA card or driver: Read() stays null and nothing is logged.
++sealed class NvmlGpu : IGpuTelemetry
++{
++    [StructLayout(LayoutKind.Sequential)] struct Utilization { public uint Gpu, Memory; }
++    const string Lib = "nvml.dll";
++    [DllImport(Lib, EntryPoint = "nvmlInit_v2"), DefaultDllImportSearchPaths(DllImportSearchPath.System32)] static extern int Init();
++    [DllImport(Lib, EntryPoint = "nvmlDeviceGetHandleByIndex_v2"), DefaultDllImportSearchPaths(DllImportSearchPath.System32)] static extern int GetHandle(uint index, out IntPtr device);
++    [DllImport(Lib, EntryPoint = "nvmlDeviceGetUtilizationRates"), DefaultDllImportSearchPaths(DllImportSearchPath.System32)] static extern int GetUtilization(IntPtr device, out Utilization u);
++    [DllImport(Lib, EntryPoint = "nvmlDeviceGetTemperature"), DefaultDllImportSearchPaths(DllImportSearchPath.System32)] static extern int GetTemperature(IntPtr device, int sensor, out uint celsius);
++    [DllImport(Lib, EntryPoint = "nvmlDeviceGetClockInfo"), DefaultDllImportSearchPaths(DllImportSearchPath.System32)] static extern int GetClock(IntPtr device, int clock, out uint mhz);
++    [DllImport(Lib, EntryPoint = "nvmlDeviceGetPowerUsage"), DefaultDllImportSearchPaths(DllImportSearchPath.System32)] static extern int GetPower(IntPtr device, out uint milliwatts);
++
++    bool _tried, _ok;
++    IntPtr _device;
++
++    public GpuReading? Read()
++    {
++        try
++        {
++            if (!_tried) { _tried = true; _ok = Init() == 0 && GetHandle(0, out _device) == 0; }
++            if (!_ok) return null;
++            double? load = GetUtilization(_device, out var u) == 0 ? u.Gpu : null;
++            double? temp = GetTemperature(_device, 0, out var t) == 0 ? t : null;       // 0 = the GPU die
++            double? clock = GetClock(_device, 0, out var c) == 0 ? c : null;            // 0 = graphics clock
++            double? power = GetPower(_device, out var mw) == 0 ? mw / 1000.0 : null;
++            return new GpuReading(load, temp, clock, power);
++        }
++        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException or SEHException)
++        {
++            _ok = false;                                                                  // no driver library: never asked again
++            return null;
++        }
++    }
++}
+diff --git a/SpaceshipApp/ShipCore.App/Program.cs b/SpaceshipApp/ShipCore.App/Program.cs
+index 3fc9a4a..473bbc5 100644
+--- a/SpaceshipApp/ShipCore.App/Program.cs
++++ b/SpaceshipApp/ShipCore.App/Program.cs
+@@ -147,6 +147,7 @@ sealed class Overlay : Form
+     readonly WasapiLoopback _loopback = new();
+     long _audioRetryAt, _audioCheckAt;
+     readonly PdhCounterArray _gpu = new(PdhCounterArray.Gpu);
++    readonly NvmlGpu _nvml = new();
+     // the targeter's busiest processes (Target.ini UsageMonitor: CPU and RAM aliases)
+     readonly PdhCounterArray _procCpu = new(@"\Process(*)\% Processor Time", noCap: true), _procRam = new(@"\Process(*)\Working Set - Private");
+     string? _topSent;
+@@ -200,7 +201,7 @@ sealed class Overlay : Form
+     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean, EventWaitHandle openControl)
+     {
+         _marker = marker;
+-        _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames(), _gpu);
++        _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames(), _gpu, _nvml);
+         FormBorderStyle = FormBorderStyle.None;
+         ShowInTaskbar = false;
+         StartPosition = FormStartPosition.Manual;
+@@ -369,6 +370,7 @@ sealed class Overlay : Form
+         // shortcut: unverified with WS_EX_NOREDIRECTIONBITMAP; if the first live run shows nothing, drop WS_EX_LAYERED and this call.
+         SetLayeredWindowAttributes(Handle, 0, 255, LWA_ALPHA);
+         AttachToDesktopLayer();
++        ExcludeFromPeek();
+         if (_hostState?.Stopped != true) Start();
+     }
+ 
+@@ -390,6 +392,11 @@ sealed class Overlay : Form
+     // shortcut: Show Desktop (Win+D) covers the HUD; Rainmeter lifts its skins under the topmost windows then. Add it if wanted.
+     void AttachToDesktopLayer() => SetWindowPos(Handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+ 
++    // Aero Peek (hovering a taskbar thumbnail) hides every window except the one previewed; the HUD is a desktop layer and should stay.
++    // DWMWA_EXCLUDED_FROM_PEEK = 12. Best effort: if Windows refuses, the HUD simply behaves as before.
++    void ExcludeFromPeek() { var on = 1; _ = DwmSetWindowAttribute(Handle, 12, ref on, sizeof(int)); }
++    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
++
+     const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010;
+     static readonly IntPtr HWND_BOTTOM = 1;
+ 
+diff --git a/SpaceshipApp/ShipCore.Core.Tests/SystemSamplerTests.cs b/SpaceshipApp/ShipCore.Core.Tests/SystemSamplerTests.cs
+index 0b9428d..cd88c0a 100644
+--- a/SpaceshipApp/ShipCore.Core.Tests/SystemSamplerTests.cs
++++ b/SpaceshipApp/ShipCore.Core.Tests/SystemSamplerTests.cs
+@@ -135,6 +135,46 @@ public sealed class SystemSamplerTests
+         Assert.Equal(2, gpu.Reads);
+     }
+ 
++    private sealed class FakeTelemetry(GpuReading? reading) : IGpuTelemetry
++    {
++        public GpuReading? Read() => reading;
++    }
++
++    [Fact]
++    public void TheDriversLoadRaisesTheGpuFigureButNeverLowersIt()
++    {
++        var m = new FakeMetrics();
++        m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
++        var busy = new SystemSampler(m, new FakeRegistry(new()), gpu: new FakeGpu(), telemetry: new FakeTelemetry(new GpuReading(95, null, null, null)));
++        Assert.Equal(95.0, busy.Sample(new Dictionary<string, string>(), 1).GpuPercent);        // CUDA work the engine counters miss
++        var m2 = new FakeMetrics();
++        m2.Cpu.Enqueue(new CpuTimes(0, 0, 0));
++        var quiet = new SystemSampler(m2, new FakeRegistry(new()), gpu: new FakeGpu(), telemetry: new FakeTelemetry(new GpuReading(10, null, null, null)));
++        Assert.Equal(70.0, quiet.Sample(new Dictionary<string, string>(), 1).GpuPercent);       // the busiest Windows engine still counts
++        var m3 = new FakeMetrics();
++        m3.Cpu.Enqueue(new CpuTimes(0, 0, 0));
++        var only = new SystemSampler(m3, new FakeRegistry(new()), telemetry: new FakeTelemetry(new GpuReading(88, null, null, null)));
++        Assert.Equal(88.0, only.Sample(new Dictionary<string, string>(), 1).GpuPercent);        // and it works without the counters at all
++    }
++
++    [Fact]
++    public void TheDriverFillsInGpuTemperatureClockAndPowerOnlyWhereHwinfoGivesNothing()
++    {
++        var m = new FakeMetrics();
++        m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
++        var registry = new FakeRegistry(new() { [4] = "61.0 C" });
++        var settings = new Dictionary<string, string> { ["HW_GpuTemp"] = "4", ["HW_GpuClock"] = "-1", ["HW_CpuTemp"] = "-1" };
++        var f = new SystemSampler(m, registry, telemetry: new FakeTelemetry(new GpuReading(50, 78, 2910, 104.5))).Sample(settings, 1);
++        Assert.Equal(61.0, f.Hw["HW_GpuTemp"]);          // HWiNFO's value wins
++        Assert.Equal(2910.0, f.Hw["HW_GpuClock"]);       // unmapped: the driver's
++        Assert.Equal(104.5, f.Hw["HW_GpuPower"]);        // not even a key in the settings: the driver's
++        Assert.Null(f.Hw["HW_CpuTemp"]);                 // the driver knows nothing about the CPU
++        var m2 = new FakeMetrics();
++        m2.Cpu.Enqueue(new CpuTimes(0, 0, 0));
++        var none = new SystemSampler(m2, new FakeRegistry(new()), telemetry: new FakeTelemetry(null)).Sample(settings, 1);
++        Assert.Null(none.Hw["HW_GpuClock"]);             // no NVIDIA card or driver: as before
++    }
++
+     private sealed class SlowMetrics : ISystemMetrics
+     {
+         public int AudioReads, DriveReads;
+diff --git a/SpaceshipApp/ShipCore.Core/GpuTelemetry.cs b/SpaceshipApp/ShipCore.Core/GpuTelemetry.cs
+new file mode 100644
+index 0000000..a58a0ef
+--- /dev/null
++++ b/SpaceshipApp/ShipCore.Core/GpuTelemetry.cs
+@@ -0,0 +1,10 @@
++namespace ShipCore.Core;
++
++/// <summary>What a GPU vendor's own driver reports for the card: load, temperature, graphics clock, power draw. Null where the driver gives nothing.</summary>
++public readonly record struct GpuReading(double? LoadPercent, double? TempC, double? ClockMHz, double? PowerW);
++
++/// <summary>
++/// A second opinion on the GPU that does not depend on Windows' per-engine counters (which show 3D, copy and video engines but can miss
++/// compute work such as CUDA) or on HWiNFO. The Windows host implements it with NVML for NVIDIA; null when there is no such card or driver.
++/// </summary>
++public interface IGpuTelemetry { GpuReading? Read(); }
+diff --git a/SpaceshipApp/ShipCore.Core/SystemSampler.cs b/SpaceshipApp/ShipCore.Core/SystemSampler.cs
+index a358a40..6099a28 100644
+--- a/SpaceshipApp/ShipCore.Core/SystemSampler.cs
++++ b/SpaceshipApp/ShipCore.Core/SystemSampler.cs
+@@ -7,13 +7,14 @@ public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPer
+     (ulong Total, ulong Free)? Drive = null, double? DiskIo = null, int? RefreshHz = null, AudioLevel? Speaker = null, AudioLevel? Mic = null, uint? BatteryLifeSec = null, int? Wifi = null);
+ 
+ /// <summary>Builds one frame per call. Keeps the previous CPU and network samples, which the rates need.</summary>
+-public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null)
++public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null, IGpuTelemetry? telemetry = null)
+ {
+     private CpuTimes? _prev;
+     private NetCounters? _prevNet;
+     private Dictionary<string, int> _auto = new();
+     private int _autoAge = 59; // the first sample matches at once
+     private double? _gpu;
++    private GpuReading? _nv;
+     private long _gpuAt = -2;
+     // slow readings, held between reads: audio every 2 s (a dial turn shows within that), the drive and refresh rate every 30 s
+     private (ulong, ulong)? _drive;
+@@ -62,12 +63,20 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
+         {
+             _gpuAt = seq;
+             if (gpu is not null) _gpu = GpuLoad.Busiest(gpu.Read());
++            _nv = telemetry?.Read();                           // the driver's own load also counts: Windows' engine counters can miss compute (CUDA) work
++            if (_nv?.LoadPercent is { } nl && double.IsFinite(nl)) _gpu = Math.Max(_gpu ?? 0, Math.Clamp(nl, 0, 100));
+             _speaker = metrics.ReadAudio(false); _mic = metrics.ReadAudio(true);
+             _disk = metrics.DiskBytesPerSec();
+             _wifi = metrics.WifiQuality();
+         }
+         if (seq - _slowAt >= 30) { _slowAt = seq; _drive = metrics.ReadDrive(); _hz = metrics.RefreshHz(); }
+ 
++        if (_nv is { } g)                                      // HWiNFO's value always wins; the driver fills in only what it is not giving
++        {
++            foreach (var (name, v) in new (string, double?)[] { ("HW_GpuTemp", g.TempC), ("HW_GpuClock", g.ClockMHz), ("HW_GpuPower", g.PowerW) })
++                if (v is { } x && double.IsFinite(x) && (!hw.TryGetValue(name, out var cur) || cur is null)) hw[name] = x;
++        }
++
+         var running = processes is null ? null : WatchedNames(settings).ToDictionary(name => name, processes.IsRunning);
+ 
+         return new SystemFrame(seq, cpuPercent, SystemMetrics.MemoryPercent(total, available), metrics.UptimeMs(), power.OnAc, power.BatteryPercent, hw, rate, spectrum?.Latest, running, _gpu,

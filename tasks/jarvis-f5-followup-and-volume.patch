@@ -1,0 +1,117 @@
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py
+index 55fdb0b..d851d2b 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/followup.py
+@@ -9,7 +9,7 @@ import re
+ import time
+ from .base import log, setting, stopped
+ from .mic import follow_name_wait, follow_wait, listen
+-from .turnstate import offer, recent
++from .turnstate import DID, did, offer, recent
+ 
+ UNDO_WAIT = 2.0                                                # seconds the ear stays open for "undo" after a command
+ STOP_WAIT = 1.0                                                # seconds it stays open after a stop
+@@ -67,9 +67,26 @@ def listen_for(mode, follow, woke):
+     return (listen(patience=10) if woke else listen()), wait   # a wake: 10 s for the first word
+ 
+ 
+-def only_undo(route_kind):
+-    """In the undo window only an undo counts; `route_kind` is route(...)[0] of what was heard."""
+-    ok = route_kind == "undo"
++SOUND_LINES = (DID["volume"], DID["mute"], DID["unmute"])
++SOUND_WORDS = re.compile(r"(?:%|\d|percent|volume|sound|louder|quieter|softer|lower|higher|turn it (?:up|down)|"
++                         r"bring it|make it|set it|change it|a (?:bit|little) (?:more|less))", re.I)
++CORRECTION_TTL = 30.0                                          # seconds after a command in which a correction still refers to it
++
++
++def takes(text, decision):
++    """What the undo window lets through: an undo, another command (the same test as the open ear's: it routes to something
++    that changes a thing, "set the volume to 30%" right after "...to 10%", "and a timer for 5 minutes"), or, right after a volume
++    change, words about the level ("make it 30", "a bit louder"). Chatter, questions and room talk are still dropped."""
++    kind, action = decision[0], (decision[1] if len(decision) > 1 else None)
++    if kind == "undo" or is_command(kind, action):
++        return True
++    return bool(did) and time.time() - did[-1][0] <= CORRECTION_TTL and did[-1][1] in SOUND_LINES and bool(SOUND_WORDS.search(text))
++
++
++def only_undo(route_kind, text="", decision=()):
++    """In the undo window only an undo or another command counts (takes); `route_kind` is route(...)[0] of what was heard
++    and `decision` the whole route(...) result."""
++    ok = takes(text, decision or (route_kind, None))
+     if not ok:
+         log("ear: not an undo - dropped")
+     return ok
+diff --git a/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py b/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py
+index 9b92ec3..2f454d2 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py
++++ b/Skins/Spaceship/@Resources/Jarvis/jarvislib/routing.py
+@@ -712,9 +712,9 @@ def _rules_sound(text, named, t, whole, cmd):
+     if m:
+         return ("act", m.group(1), None, None)
+     # "set the volume to 30 / thirty / max / half", "set it to 30", "max volume", "turn it all the way up"
+-    m = (re.match(r"(?:i (?:want|need) |i'?d like )?(?:(?:set|turn|change|put|raise|lower|bring) )?(?:the )?volume(?: up| down)? "
++    m = (re.match(r"(?:i (?:want|need) |i'?d like )?(?:(?:set|turn|change|put|raise|lower|bring|make|take|drop) )?(?:the )?volume(?: up| down)? "
+                   r"(?:to |at |on )?(?:the )?(.+?)(?: ?%| percent)?$", cmd)
+-         or re.match(r"(?:set|turn|change|put) it (?:to|at) (.+?)(?: ?%| percent)?$", cmd)
++         or re.match(r"(?:set|turn|change|put|bring|raise|lower|drop|take|make) it (?:up |down )?(?:to|at) (.+?)(?: ?%| percent)?$", cmd)
+          or re.match(r"(max|maximum|full|half) volume$|(?:turn |put )?(?:it|the (?:sound|music)) (all the way (?:up|down))$", cmd))
+     if m:
+         word = m.group(m.lastindex)
+diff --git a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+index 3274d96..965c028 100644
+--- a/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
++++ b/Skins/Spaceship/@Resources/Jarvis/test_jarvis.py
+@@ -169,6 +169,11 @@ for heard, want in (("set volume to 30", ("set", 30)), ("volume 5 percent", ("se
+                     ("turn down the music", ("step", -10))):
+     assert j.route(heard)[:3] == ("act", "volume", want), heard
+ assert j.route("set volume to 130") == ("say", None, None, "I can set it between 0 and 100.")
++for heard, want in (("turn it up to 30%", 30), ("bring it down to 10", 10), ("raise it to 50", 50), ("lower it to 10", 10), ("drop it to 10%", 10),
++                    ("make the volume 30 percent", 30), ("can you make the volume 30 percent", 30)):      # F5: natural ways to give a level
++    assert j.route(heard)[:3] == ("act", "volume", ("set", want)), heard
++for heard in ("make it 10 minutes", "make it 70", "lower it to 5 pm"):                                      # no clean level, or no volume: not a volume
++    assert j.route(heard)[:2] != ("act", "volume"), heard
+ for heard, want in (("pause", "playpause"), ("resume the music", "playpause"), ("stop the music", "playpause"),
+                     ("next track", "next"), ("skip", "next"), ("previous song", "prev"), ("go back a song", "prev")):
+     assert j.route(heard)[:3] == ("act", "media", want), heard
+@@ -1672,6 +1677,31 @@ for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital
+     assert ear(["Set a timer for 10 minutes.", other]) == (2, 0) and len(j.load_reminders()) == 1, other   # one listen, no reply
+     assert asked == ["Timer set for 10 minutes."], asked
+     j.save_reminders([])
++# F5 (live): a second volume command in the undo window is a correction of the first, not room talk ("10%" then "30%" was ignored)
++acts, keep_ra = [], j.run_action
++j.run_action = lambda action, target, pending=None: (acts.append((action, target)), j.did_add(action, target)) and True   # records, like the real one
++for second, want in (("Change the volume to 30 percent.", ("set", 30)), ("Set the volume to 30.", ("set", 30)), ("Make it 30%.", ("set", 30)),
++                     ("About 30.", ("set", 30)), ("Jarvis, louder.", ("step", 10))):
++    j.did.clear()
++    acts.clear()
++    ear(["Set the volume to 10%.", second])
++    assert acts == [("volume", ("set", 10)), ("volume", want)], (second, acts)         # the second one was acted on, not dropped
++for other in ("Uh huh.", "Mom the pasta is boiling over.", "What is the capital of France?"):
++    j.did.clear()
++    acts.clear()
++    assert ear(["Set the volume to 10%.", other])[1] == 0 and acts == [("volume", ("set", 10))], (other, acts)   # anything else is still dropped
++j.did.clear()
++acts.clear()
++ear(["Set a timer for 10 minutes.", "Set the volume to 30."])                       # another command is taken too, like in the open ear
++assert [a for a in acts if a[0] == "volume"] == [("volume", ("set", 30))], acts
++j.save_reminders([])
++j.did.clear()
++acts.clear()
++ear(["Set the volume to 10%.", "And set a timer for 5 minutes."])                  # and a timer after a volume change
++assert len(j.load_reminders()) == 1 and acts == [("volume", ("set", 10))], (acts, j.load_reminders())
++j.run_action = keep_ra
++j.save_reminders([])
++j.did.clear()
+ # Slice 3 fix: route() also classifies what the undo window hears; a timed mood said there is dropped and must not start
+ import jarvislib.mood as _mood
+ _mood.state["temp"] = None
+@@ -3027,7 +3057,8 @@ j.hear, j.reply_line, j.heard_score[0] = real_hear, real_rl, 0.0
+ j.setting = lambda name, default="": default
+ same = lambda a, b: j.fix_route(a, j.route(a))[:3] == j.route(b)[:3]
+ assert same("uh could you put volume on thirty please", "set the volume to 30")    # route() reads this one itself
+-for heard, meant in (("set the volyum to 30", "set the volume to 30"), ("make the volume 30", "set the volume to 30"),
++assert same("make the volume 30", "set the volume to 30")                          # F5: and now this one too (it was a PHRASES fix)
++for heard, meant in (("set the volyum to 30", "set the volume to 30"),
+                      ("set the value to 30", "set the volume to 30"), ("Jarvis, valume up", "volume up")):
+     assert j.route(heard)[0] != "act" and same(heard, meant), (heard, j.fix_route(heard, j.route(heard)))
+ for heard in ("set a tymer for 5 minutes", "set a time are for 5 minutes", "set an alarn for ate"):
