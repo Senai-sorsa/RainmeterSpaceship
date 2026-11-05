@@ -135,6 +135,46 @@ public sealed class SystemSamplerTests
         Assert.Equal(2, gpu.Reads);
     }
 
+    private sealed class FakeTelemetry(GpuReading? reading) : IGpuTelemetry
+    {
+        public GpuReading? Read() => reading;
+    }
+
+    [Fact]
+    public void TheDriversLoadRaisesTheGpuFigureButNeverLowersIt()
+    {
+        var m = new FakeMetrics();
+        m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var busy = new SystemSampler(m, new FakeRegistry(new()), gpu: new FakeGpu(), telemetry: new FakeTelemetry(new GpuReading(95, null, null, null)));
+        Assert.Equal(95.0, busy.Sample(new Dictionary<string, string>(), 1).GpuPercent);        // CUDA work the engine counters miss
+        var m2 = new FakeMetrics();
+        m2.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var quiet = new SystemSampler(m2, new FakeRegistry(new()), gpu: new FakeGpu(), telemetry: new FakeTelemetry(new GpuReading(10, null, null, null)));
+        Assert.Equal(70.0, quiet.Sample(new Dictionary<string, string>(), 1).GpuPercent);       // the busiest Windows engine still counts
+        var m3 = new FakeMetrics();
+        m3.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var only = new SystemSampler(m3, new FakeRegistry(new()), telemetry: new FakeTelemetry(new GpuReading(88, null, null, null)));
+        Assert.Equal(88.0, only.Sample(new Dictionary<string, string>(), 1).GpuPercent);        // and it works without the counters at all
+    }
+
+    [Fact]
+    public void TheDriverFillsInGpuTemperatureClockAndPowerOnlyWhereHwinfoGivesNothing()
+    {
+        var m = new FakeMetrics();
+        m.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var registry = new FakeRegistry(new() { [4] = "61.0 C" });
+        var settings = new Dictionary<string, string> { ["HW_GpuTemp"] = "4", ["HW_GpuClock"] = "-1", ["HW_CpuTemp"] = "-1" };
+        var f = new SystemSampler(m, registry, telemetry: new FakeTelemetry(new GpuReading(50, 78, 2910, 104.5))).Sample(settings, 1);
+        Assert.Equal(61.0, f.Hw["HW_GpuTemp"]);          // HWiNFO's value wins
+        Assert.Equal(2910.0, f.Hw["HW_GpuClock"]);       // unmapped: the driver's
+        Assert.Equal(104.5, f.Hw["HW_GpuPower"]);        // not even a key in the settings: the driver's
+        Assert.Null(f.Hw["HW_CpuTemp"]);                 // the driver knows nothing about the CPU
+        var m2 = new FakeMetrics();
+        m2.Cpu.Enqueue(new CpuTimes(0, 0, 0));
+        var none = new SystemSampler(m2, new FakeRegistry(new()), telemetry: new FakeTelemetry(null)).Sample(settings, 1);
+        Assert.Null(none.Hw["HW_GpuClock"]);             // no NVIDIA card or driver: as before
+    }
+
     private sealed class SlowMetrics : ISystemMetrics
     {
         public int AudioReads, DriveReads;

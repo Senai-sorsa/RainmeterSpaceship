@@ -147,6 +147,7 @@ sealed class Overlay : Form
     readonly WasapiLoopback _loopback = new();
     long _audioRetryAt, _audioCheckAt;
     readonly PdhCounterArray _gpu = new(PdhCounterArray.Gpu);
+    readonly NvmlGpu _nvml = new();
     // the targeter's busiest processes (Target.ini UsageMonitor: CPU and RAM aliases)
     readonly PdhCounterArray _procCpu = new(@"\Process(*)\% Processor Time", noCap: true), _procRam = new(@"\Process(*)\Working Set - Private");
     string? _topSent;
@@ -200,7 +201,7 @@ sealed class Overlay : Form
     public Overlay(bool hotkeyRegistered, RunMarker marker, bool lastRunUnclean, EventWaitHandle openControl)
     {
         _marker = marker;
-        _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames(), _gpu);
+        _sampler = new(new WindowsMetrics(), new WindowsHwinfoRegistry(), new WindowsNetwork(), _loopback, new WindowsProcessNames(), _gpu, _nvml);
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
@@ -369,6 +370,7 @@ sealed class Overlay : Form
         // shortcut: unverified with WS_EX_NOREDIRECTIONBITMAP; if the first live run shows nothing, drop WS_EX_LAYERED and this call.
         SetLayeredWindowAttributes(Handle, 0, 255, LWA_ALPHA);
         AttachToDesktopLayer();
+        ExcludeFromPeek();
         if (_hostState?.Stopped != true) Start();
     }
 
@@ -389,6 +391,11 @@ sealed class Overlay : Form
     // Not a WorkerW child: that sits under the icon view, which then takes every click, and 24H2 changed that tree.
     // shortcut: Show Desktop (Win+D) covers the HUD; Rainmeter lifts its skins under the topmost windows then. Add it if wanted.
     void AttachToDesktopLayer() => SetWindowPos(Handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+
+    // Aero Peek (hovering a taskbar thumbnail) hides every window except the one previewed; the HUD is a desktop layer and should stay.
+    // DWMWA_EXCLUDED_FROM_PEEK = 12. Best effort: if Windows refuses, the HUD simply behaves as before.
+    void ExcludeFromPeek() { var on = 1; _ = DwmSetWindowAttribute(Handle, 12, ref on, sizeof(int)); }
+    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
 
     const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010;
     static readonly IntPtr HWND_BOTTOM = 1;

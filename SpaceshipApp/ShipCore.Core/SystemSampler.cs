@@ -7,13 +7,14 @@ public sealed record SystemFrame(long Seq, double? CpuPercent, double? MemoryPer
     (ulong Total, ulong Free)? Drive = null, double? DiskIo = null, int? RefreshHz = null, AudioLevel? Speaker = null, AudioLevel? Mic = null, uint? BatteryLifeSec = null, int? Wifi = null);
 
 /// <summary>Builds one frame per call. Keeps the previous CPU and network samples, which the rates need.</summary>
-public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null)
+public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry registry, INetworkCounters? network = null, ISpectrumSource? spectrum = null, IProcessNames? processes = null, IGpuCounters? gpu = null, IGpuTelemetry? telemetry = null)
 {
     private CpuTimes? _prev;
     private NetCounters? _prevNet;
     private Dictionary<string, int> _auto = new();
     private int _autoAge = 59; // the first sample matches at once
     private double? _gpu;
+    private GpuReading? _nv;
     private long _gpuAt = -2;
     // slow readings, held between reads: audio every 2 s (a dial turn shows within that), the drive and refresh rate every 30 s
     private (ulong, ulong)? _drive;
@@ -62,11 +63,19 @@ public sealed class SystemSampler(ISystemMetrics metrics, IHwinfoRegistry regist
         {
             _gpuAt = seq;
             if (gpu is not null) _gpu = GpuLoad.Busiest(gpu.Read());
+            _nv = telemetry?.Read();                           // the driver's own load also counts: Windows' engine counters can miss compute (CUDA) work
+            if (_nv?.LoadPercent is { } nl && double.IsFinite(nl)) _gpu = Math.Max(_gpu ?? 0, Math.Clamp(nl, 0, 100));
             _speaker = metrics.ReadAudio(false); _mic = metrics.ReadAudio(true);
             _disk = metrics.DiskBytesPerSec();
             _wifi = metrics.WifiQuality();
         }
         if (seq - _slowAt >= 30) { _slowAt = seq; _drive = metrics.ReadDrive(); _hz = metrics.RefreshHz(); }
+
+        if (_nv is { } g)                                      // HWiNFO's value always wins; the driver fills in only what it is not giving
+        {
+            foreach (var (name, v) in new (string, double?)[] { ("HW_GpuTemp", g.TempC), ("HW_GpuClock", g.ClockMHz), ("HW_GpuPower", g.PowerW) })
+                if (v is { } x && double.IsFinite(x) && (!hw.TryGetValue(name, out var cur) || cur is null)) hw[name] = x;
+        }
 
         var running = processes is null ? null : WatchedNames(settings).ToDictionary(name => name, processes.IsRunning);
 
