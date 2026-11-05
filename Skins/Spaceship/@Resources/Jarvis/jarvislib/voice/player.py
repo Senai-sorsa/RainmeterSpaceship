@@ -199,17 +199,20 @@ class Player:
                         self._drop()
                         return
                     self.out.write(np.zeros(shape, dtype=np.float32) if left >= block else np.zeros((left,) + shape[1:], np.float32))
+                under = 0                                      # diagnostic only: device under-runs (write() returns True)
                 for i in range(0, len(a), block):
                     if cancel.is_set():
                         self._drop()                           # abort: silent now, not after the buffer; the next clip re-opens
                         return
                     chunk = np.ascontiguousarray(a[i:i + block], dtype=np.float32)
                     out = chunk * gain if gain < 1.0 else chunk
-                    self.out.write(out)
+                    if self.out.write(out) is True:
+                        under += 1
                     far_add(out, rate)                         # the echo reference is what really played
                     S.set(level=min(1.0, float(np.sqrt(np.mean(chunk * chunk)) + 1e-9) / 0.18), force=False)
                     if progress:
                         progress(min(1.0, (i + block) / len(a)))
+                log(f"player: clip {len(a) / rate:.1f} s, peak {float(np.max(np.abs(a))) if len(a) else 0.0:.2f}, device under-runs {under}")
                 self.last = time.time()
                 self._arm()
             except Exception:

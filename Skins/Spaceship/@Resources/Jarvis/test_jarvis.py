@@ -4448,6 +4448,7 @@ class _FakeSD:
                 fake.events.append(("w", self.id))
                 if fake.on_write:
                     fake.on_write(len(fake.writes))
+                return fake.underflow(len(fake.writes)) if fake.underflow else None      # sounddevice: True = the device ran dry
 
             def __enter__(self):
                 fake.events.append(("start", self.id))
@@ -4464,7 +4465,7 @@ class _FakeSD:
 
             def close(self):
                 fake.events.append(("close", self.id))
-        self.WasapiSettings, self.OutputStream, self.on_write = WasapiSettings, OutputStream, None
+        self.WasapiSettings, self.OutputStream, self.on_write, self.underflow = WasapiSettings, OutputStream, None, None
 
     def query_hostapis(self):
         return [{"name": "MME", "default_output_device": 3}] + ([] if self.no_wasapi else [{"name": "Windows WASAPI", "default_output_device": 8}])
@@ -4512,6 +4513,20 @@ for _v, _want_lat in (("0", "low"), ("0.25", 0.25), ("9", 0.5), ("junk", 0.1)):
     PL.player.play(_tone2[:2000], 24000, None, 0)
     assert sd.opened[0]["latency"] == _want_lat, (_v, sd.opened)
 del _smooth["JarvisPlayerLatency"]
+PL.player.close()
+
+# F1 diagnostic: each clip logs its length, peak and how many writes the device reported as under-runs (counts only, no audio changes)
+_pl_log, _pl_keep = [], PL.log
+PL.log = _pl_log.append
+sd = _fresh_player()
+sd.underflow = lambda n: n in (3, 5)                           # the 3rd and 5th write ran dry
+PL.player.play(_tone2, 24000, None, 0)
+_line = [m for m in _pl_log if m.startswith("player: clip")]
+assert len(_line) == 1 and "peak 0.20" in _line[0] and _line[0].endswith("device under-runs 2"), _pl_log
+sd.underflow = None
+PL.player.play(_tone2[:2000], 24000, None, 0)
+assert [m for m in _pl_log if m.startswith("player: clip")][-1].endswith("device under-runs 0"), _pl_log
+PL.log = _pl_keep
 PL.player.close()
 
 # WASAPI refuses: the old default path takes over, and says so; no WASAPI at all: same
