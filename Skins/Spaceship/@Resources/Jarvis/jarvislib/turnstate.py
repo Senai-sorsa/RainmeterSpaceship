@@ -29,7 +29,9 @@ DID_ASK = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doin
 
 
 # the open question "what did you do?" is answered from code; "did you set a timer?" (yes/no) still goes to the model with the list in its prompt
-DID_WHAT = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doing|run|change)|what actions)\b", re.I)
+# small talk is not a recap: "what did you do last weekend", "what were you doing yesterday", "what did you do for fun"
+DID_WHAT = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doing|run|change)|what actions)\b"
+                      r"(?! (?:last|this|over|on|at|in|during|yesterday|today|tonight|before|when|with|for fun|growing|as|after|back)\b)", re.I)
 
 
 def did_report(limit=4):
