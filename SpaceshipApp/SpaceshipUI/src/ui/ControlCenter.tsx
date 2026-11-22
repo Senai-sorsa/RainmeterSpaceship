@@ -1,0 +1,118 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import type { HostBridge } from '../host/HostBridge';
+import { CATEGORIES } from '../settings/registry';
+import type { SettingsStore } from '../settings/store';
+import type { CategoryId, SettingDef } from '../settings/types';
+import { controlCat } from '../modules/overlays';
+import { sysInfo } from '../host/sysInfo';
+import { About } from './About';
+import { HelpCenter } from './HelpCenter';
+import { CategoryRail } from './CategoryRail';
+import { HelpPanel } from './HelpPanel';
+import { SettingsPanel } from './SettingsPanel';
+
+/** Text with the matched part of the search wrapped in <mark>; plain text nodes only. */
+function Mark({ text, q }: { text: string; q: string }) {
+  const s = q.trim().toLowerCase(), i = s ? text.toLowerCase().indexOf(s) : -1;
+  return i < 0 ? <>{text}</> : <>{text.slice(0, i)}<mark>{text.slice(i, i + s.length)}</mark>{text.slice(i + s.length)}</>;
+}
+
+type P = { store: SettingsStore; host: HostBridge; defs: SettingDef[]; onClose: () => void };
+const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && (t as HTMLInputElement).type !== 'range');
+
+/** The category last open, kept in the page's own storage (blocked storage just means the first one). */
+const remembered = () => { try { return localStorage.getItem('ui.cat.v1'); } catch { return null; } };
+
+export function ControlCenter({ store, host, defs, onClose }: P) {
+  const [cat, setCat] = useState<CategoryId>(CATEGORIES.find((c) => c.id === (controlCat.peek() ?? remembered()))?.id ?? CATEGORIES[0].id);
+  const [jump, setJump] = useState<string | null>(null);
+  const [help, setHelp] = useState<string | null>(null);
+  const pane = useRef<HTMLDivElement>(null);
+  const scrolls = useRef<Record<string, number>>({}); // scroll position per category, for this session
+  const q = store.query.value;
+  const adv = store.level.value === 'advanced';
+  const results = q.trim() ? store.search(q).filter((d) => adv || d.level !== 'advanced').slice(0, 30) : [];
+  const groups = [...new Set(defs.filter((d) => d.category === cat && !d.hidden && (adv || d.level !== 'advanced')).map((d) => d.group))];
+
+  const go = (id: CategoryId) => { if (pane.current) scrolls.current[cat] = pane.current.scrollTop; setCat(id); try { localStorage.setItem('ui.cat.v1', id); } catch { /* blocked storage: not remembered */ } };
+  /** Edge fades show only on the side that has more content. */
+  const edges = () => {
+    const el = pane.current;
+    if (!el) return;
+    el.dataset.top = el.scrollTop > 0 ? '1' : '0';
+    el.dataset.bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1 ? '1' : '0';
+  };
+  // Back to this category's saved position (top the first time). A search jump scrolls afterwards and wins.
+  useLayoutEffect(() => { if (pane.current) pane.current.scrollTop = scrolls.current[cat] ?? 0; edges(); }, [cat, q.trim() === '']);
+  useLayoutEffect(edges);
+
+  // After the panel re-renders for a clicked result: open its group, then scroll to and focus its primary control.
+  useEffect(() => {
+    if (!jump) return;
+    const el = [...document.querySelectorAll<HTMLElement>('.cc [data-key]')].find((n) => n.dataset.key === jump);
+    el?.closest('details')?.setAttribute('open', '');
+    el?.scrollIntoView({ block: 'center' });
+    el?.querySelector<HTMLElement>('[data-primary]')?.focus();
+    setJump(null);
+  }, [jump]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { if (help) setHelp(null); else if (store.query.value) store.query.value = ''; else onClose(); e.preventDefault(); return; }
+      if (e.key === '/' && !typing(e.target)) { e.preventDefault(); document.querySelector<HTMLInputElement>('.cc-search')?.focus(); return; }
+      if (!e.ctrlKey || typing(e.target)) return; // inside a text field Ctrl+Z stays the browser's own
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { store.undo(); e.preventDefault(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { store.redo(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [store, onClose, help]);
+
+  const pick = (d: SettingDef) => { go(d.category); store.query.value = ''; setJump(d.key); };
+  const label = (id: string) => CATEGORIES.find((c) => c.id === id)?.label ?? id;
+
+  return (
+    <div class="cc" data-hit="keyboard" role="dialog" aria-label="Control Center">
+      <header class="cc-head">
+        <span class="label cc-title">Control Center</span>
+        <span class="cc-save" role="status" aria-live="polite" data-saving={store.saving.value > 0 ? '1' : '0'}>{store.saving.value > 0 ? 'Saving…' : 'Saved'}</span>
+        <input class="ctl-text cc-search" type="search" placeholder="Search settings ( / )" aria-label="Search settings" value={q}
+          onInput={(e) => { store.query.value = (e.target as HTMLInputElement).value; }} />
+        <button type="button" class="ctl-action cc-btn" aria-label="Undo" disabled={!store.canUndo.value} onClick={() => store.undo()}>Undo</button>
+        <button type="button" class="ctl-action cc-btn" aria-label="Redo" disabled={!store.canRedo.value} onClick={() => store.redo()}>Redo</button>
+        <span class="label cc-level">Advanced
+          <button type="button" class="ctl-switch" role="switch" aria-checked={adv} aria-label="Advanced settings"
+            onClick={() => { store.level.value = adv ? 'normal' : 'advanced'; }}><i /></button>
+        </span>
+        <button type="button" class="ctl-action cc-btn" aria-label="Close Control Center" onClick={onClose}>Close</button>
+      </header>
+      <div class="cc-body">
+        <CategoryRail active={cat} onSelect={(id) => { go(id); store.query.value = ''; }} />
+        <div class="cc-pane" ref={pane} tabIndex={0} role="region" aria-label="Settings" onScroll={edges} onClick={() => setTimeout(edges, 0)}>
+          {q.trim() ? (
+            <ul class="cc-results" aria-label="Search results">
+              {results.map((d) => (
+                <li><button type="button" class="rail-btn" onClick={() => pick(d)}>
+                  <span class="label"><Mark text={d.label} q={q} /></span> <small>{label(d.category)} / {d.group}</small>
+                </button></li>
+              ))}
+              {results.length === 0 && <li class="label empty">No setting matches "{q.trim()}".</li>}
+            </ul>
+          ) : !store.loaded.value ? (
+            <p class="label empty cc-wait" role="status">Connecting to host…</p>
+          ) : (
+            <>
+              <div class="cc-resets">
+                {groups.map((g) => <button type="button" class="ctl-action cc-btn" aria-label={`Reset group ${g}`} onClick={() => store.resetGroup(cat, g)}>Reset {g}</button>)}
+              </div>
+              {cat === 'system' && <><About version={sysInfo.value.version} /><HelpCenter host={host} /></>}
+              <SettingsPanel store={store} host={host} defs={defs} categories={[cat]} mode="center" onHelp={setHelp} />
+            </>
+          )}
+        </div>
+      </div>
+      {help && <HelpPanel sectionId={help} onClose={() => setHelp(null)} />}
+    </div>
+  );
+}

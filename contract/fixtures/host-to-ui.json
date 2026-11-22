@@ -1,0 +1,113 @@
+[
+ {
+  "name": "full frame",
+  "valid": true,
+  "msg": {
+   "type": "system.metrics",
+   "seq": 12,
+   "cpuPercent": 37.5,
+   "memoryPercent": 61.2,
+   "uptimeMs": 123456789,
+   "onAc": true,
+   "batteryPercent": 80,
+   "netDown": 1200000,
+   "netUp": 35000,
+   "spectrum": [0.1, 0.4, 0.9, 0.7, 0.3, 0.2, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+   "processes": { "Spotify": true, "obs64": false },
+   "gpuPercent": 42.5,
+   "memoryTotal": 34359738368,
+   "memoryUsed": 21028159488,
+   "idleMs": 4200,
+   "driveTotal": 1000202039296,
+   "driveFree": 412316860416,
+   "diskIo": 52000,
+   "refreshHz": 240,
+   "volume": 35,
+   "volumeMuted": false,
+   "audioDevice": "Speakers (Realtek(R) Audio)",
+   "mic": 80,
+   "micMuted": true,
+   "batteryLife": null,
+   "wifi": 72,
+   "hw": { "HW_CpuTemp": 48.5, "HW_Fan1": null }
+  }
+ },
+ {
+  "name": "a Wi-Fi quality over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": false, "batteryPercent": 50, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "wifi": 140, "hw": {} }
+ },
+ {
+  "name": "a negative battery time left",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": false, "batteryPercent": 50, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "batteryLife": -5, "hw": {} }
+ },
+ {
+  "name": "an audio device name that is not a string",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": null, "batteryPercent": null, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "audioDevice": 7, "hw": {} }
+ },
+ {
+  "name": "a volume over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": null, "batteryPercent": null, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "volume": 101, "hw": {} }
+ },
+ {
+  "name": "first frame: no CPU sample yet, no battery, nothing mapped",
+  "valid": true,
+  "msg": {
+   "type": "system.metrics",
+   "seq": 1,
+   "cpuPercent": null,
+   "memoryPercent": 40,
+   "uptimeMs": 0,
+   "onAc": null,
+   "batteryPercent": null,
+   "netDown": null,
+   "netUp": null,
+   "spectrum": null,
+   "processes": {},
+   "hw": {}
+  }
+ },
+ {
+  "name": "gpu over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": null, "batteryPercent": null, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "gpuPercent": 140, "hw": {} }
+ },
+ {
+  "name": "negative memory",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": null, "memoryPercent": 40, "uptimeMs": 0, "onAc": null, "batteryPercent": null, "netDown": null, "netUp": null, "spectrum": null, "processes": {}, "memoryUsed": -1, "hw": {} }
+ },
+ {
+  "name": "wrong type",
+  "valid": false,
+  "msg": { "type": "telemetry", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": {} }
+ },
+ {
+  "name": "cpu as text",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": "37", "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": {} }
+ },
+ {
+  "name": "negative uptime",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": -5, "onAc": null, "batteryPercent": null, "hw": {} }
+ },
+ {
+  "name": "hw is a list",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": [] }
+ },
+ {
+  "name": "hw value is text",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": null, "hw": { "HW_CpuTemp": "48" } }
+ },
+ {
+  "name": "battery over 100",
+  "valid": false,
+  "msg": { "type": "system.metrics", "seq": 1, "cpuPercent": 1, "memoryPercent": 1, "uptimeMs": 1, "onAc": null, "batteryPercent": 140, "hw": {} }
+ }
+]

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Standalone Spaceship app (replaces the Rainmeter host). Windows only. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!-- the Windows 10 API projection is for the wallpaper encoder (Windows.Media.Transcoding); the exe stays where the scripts and shortcuts look -->
+    <OutputPath>bin\$(Configuration)\net10.0-windows\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>CSpace</AssemblyName>
+    <Product>CSpace</Product>
+    <!-- A full version resource: an exe without one is a reputation and AV heuristic flag. -->
+    <Version>0.1.0</Version>
+    <Company>Senai</Company>
+    <Authors>Senai</Authors>
+    <Description>CSpace desktop HUD</Description>
+    <Copyright>Copyright (c) 2026 Senai</Copyright>
+    <ApplicationIcon>Assets\cspace.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" />
+    <ProjectReference Include="..\ShipCore.Core\ShipCore.Core.csproj" />
+  </ItemGroup>
+
+</Project>

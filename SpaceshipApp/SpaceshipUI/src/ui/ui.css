@@ -1,0 +1,267 @@
+/* Shared settings components. Only the theme variables from tokens.css; DOM, thin lines, chamfered corners. */
+/* only the standalone panel page scrolls; the panel inside the control center / wizard must not unlock the HUD page */
+html:has(#app > .panel), body:has(#app > .panel) { overflow: auto; }
+.panel { --cut: 8px; max-width: 640px; margin: 0 auto; padding: 16px; color: var(--text); font: 600 13px/1.3 Oxanium, sans-serif; display: grid; gap: 10px; }
+.group { background: var(--panel); border: 1px solid var(--dim); clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.group[open] { border-color: var(--accent); }
+.group > summary { cursor: pointer; padding: 8px 12px; min-height: 28px; box-sizing: border-box; color: var(--accent); list-style: none; }
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary::before { content: '+ '; }
+.group[open] > summary::before { content: '- '; }
+.group > summary:hover, .group > summary:focus-visible { color: var(--white); outline: 1px solid var(--accent); outline-offset: -2px; }
+.group-body { padding: 0 12px 8px; display: grid; }
+.group .group { margin-top: 8px; }
+.row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 55%) 20px; gap: 8px; align-items: center; min-height: 34px; border-top: 1px solid var(--dim); padding: 3px 0; }
+.row-label { position: relative; display: flex; gap: 6px; align-items: center; min-width: 0; }
+.row-label .label { fill: none; color: var(--text); overflow-wrap: anywhere; }
+.row-help { display: none; position: absolute; top: 100%; left: 0; z-index: 5; max-width: 280px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--accent); color: var(--white); font-size: 12px; }
+.row:hover .row-help, .row:focus-within .row-help { display: block; }
+.row-ctl { display: flex; justify-content: flex-end; min-width: 0; }
+.row-state { display: flex; justify-content: center; }
+.row-err { grid-column: 1 / -1; color: var(--alert); font-size: 12px; }
+.badge { border: 1px solid var(--warn); color: var(--warn); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; padding: 1px 4px; }
+.dot { width: 12px; height: 12px; min-width: 12px; padding: 0; border: 1px solid var(--accent); border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent); cursor: pointer; }
+.dot:hover, .dot:focus-visible { background: var(--white); outline: none; }
+.help-btn { width: 20px; height: 20px; padding: 0; background: none; color: var(--dim); border: 1px solid var(--dim); cursor: pointer; }
+.help-btn:hover, .help-btn:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+:is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn, .ctl-slider input) { box-sizing: border-box; min-height: 28px; font: inherit; color: var(--text); background: transparent; border: 1px solid var(--dim); }
+:is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn):hover, :is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn):focus-visible, .ctl-slider input:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 6px var(--dim); }
+.ctl-switch { position: relative; width: 48px; cursor: pointer; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+.ctl-switch i { position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; background: var(--dim); }
+.ctl-switch[aria-checked='true'] { border-color: var(--accent); }
+.ctl-switch[aria-checked='true'] i { left: 25px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.ctl-select, .ctl-text, .ctl-action { padding: 0 8px; width: 100%; }
+.ctl-action { cursor: pointer; text-transform: uppercase; letter-spacing: .2em; font-size: 11px; }
+.ctl-slider { display: flex; gap: 8px; align-items: center; width: 100%; }
+.ctl-slider input { flex: 1; min-width: 0; padding: 0; accent-color: var(--accent); }
+.ctl-slider output { min-width: 44px; text-align: right; color: var(--white); }
+.ctl-color { display: flex; gap: 8px; width: 100%; align-items: center; }
+.ctl-path { display: flex; gap: 8px; width: 100%; align-items: center; }
+.ctl-path .ctl-text { flex: 1; min-width: 0; }
+.ctl-path .ctl-browse { width: auto; flex: none; padding: 0 12px; }
+.swatch { flex: none; width: 28px; height: 28px; border: 1px solid var(--dim); box-sizing: border-box; }
+.rail { display: grid; gap: 4px; }
+.rail-btn { text-align: left; padding: 0 12px; cursor: pointer; color: var(--dim); fill: none; }
+.rail-btn[aria-current='page'] { color: var(--accent); border-color: var(--accent); }
+.empty { color: var(--dim); }
+/* Control Center shell */
+.cc-open { position: fixed; top: 8px; right: 8px; z-index: 10; width: auto; padding: 0 12px; background: var(--panel); }
+.cc { --cut: 10px; position: fixed; inset: 16px; margin: auto; width: min(1000px, calc(100vw - 32px)); height: min(700px, calc(100vh - 32px)); z-index: 20; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); border: 1px solid var(--accent); color: var(--text); font: 600 13px/1.3 Oxanium, sans-serif; clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.cc-head { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--dim); }
+.cc-title { color: var(--accent); margin-right: auto; font: 700 16px/1 Michroma, sans-serif; letter-spacing: .08em; }
+.cc-search { width: 220px; }
+.cc-btn { width: auto; padding: 0 10px; cursor: pointer; flex: none; white-space: nowrap; }
+.cc-btn:disabled { color: var(--dim); cursor: default; }
+.cc-level { display: flex; gap: 8px; align-items: center; color: var(--text); }
+.cc-body { display: grid; grid-template-columns: 190px minmax(0, 1fr); min-height: 0; }
+.cc-body > .rail { align-content: start; padding: 12px; border-right: 1px solid var(--dim); }
+.cc-pane { overflow: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--accent) transparent; outline: none;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft, 0px), #000 calc(100% - var(--fb, 0px)), transparent 100%); }
+.cc-pane[data-top='1'] { --ft: 18px; }
+.cc-pane[data-bottom='1'] { --fb: 18px; }
+.cc-pane:focus-visible { box-shadow: inset 0 0 0 1px var(--dim); }
+.cc-resets { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; gap: 6px; padding: 12px 16px 0; max-width: 640px; margin: 0 auto; }
+.cc-results { list-style: none; margin: 0 auto; padding: 16px; max-width: 640px; display: grid; gap: 6px; }
+.cc-results .rail-btn { width: 100%; display: flex; gap: 12px; justify-content: space-between; align-items: center; color: var(--text); }
+.cc-results small { color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+.badge.adv { border-color: var(--dim); color: var(--dim); }
+/* First-run wizard */
+.wiz { position: fixed; inset: 0; z-index: 30; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--bg); color: var(--text); font: 600 13px/1.3 Oxanium, sans-serif; }
+.wiz-head { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid var(--dim); }
+.wiz-title { color: var(--accent); font: 700 16px/1 Michroma, sans-serif; }
+.wiz-dots { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.wiz-dots li { width: 12px; height: 12px; border: 1px solid var(--dim); border-radius: 50%; }
+.wiz-dots li.done { background: var(--dim); }
+.wiz-dots li.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.wiz-main { overflow: auto; min-height: 0; max-width: 640px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 16px; display: grid; gap: 10px; align-content: start; }
+.wiz-main .panel { padding: 0; width: 100%; }
+.wiz-intro { margin: 0; color: var(--text); }
+.wiz-about { display: grid; gap: 6px; }
+.wiz-about textarea { height: auto; padding: 8px; resize: vertical; }
+.wiz-about small, .wiz-changes small { color: var(--dim); }
+.wiz-preview { margin: 0; color: var(--white); }
+.wiz-preview b { color: var(--accent); }
+.wiz-bad { margin: 0; color: var(--alert); }
+.wiz-flows { display: flex; gap: 8px; flex-wrap: wrap; }
+.wiz-flows .ctl-action { width: auto; padding: 0 12px; }
+.wiz-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.wiz-foot { display: flex; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--dim); }
+.wiz-gap { flex: 1; }
+.wiz-btn { width: auto; padding: 0 14px; cursor: pointer; }
+.wiz-btn:disabled { color: var(--dim); cursor: default; }
+.wiz-primary { border-color: var(--accent); color: var(--accent); }
+/* Cockpit frame: same 16:10 box the HUD svg uses (viewBox meet), under it */
+/* Frame.ini X=0 Y=0: anchored at the top-left of the canvas the #hud svg letterboxes (xMidYMid meet), so Scale grows it right and down like the modules */
+.frame, .frame-trim { position: fixed; left: calc((100vw - min(100vw, 160vh)) / 2); top: calc((100vh - min(100vw, 160vh) * 0.625) / 2); width: min(100vw, 160vh); aspect-ratio: 16 / 10; pointer-events: none; }
+/* Help panel (HUD guide section) over the Control Center */
+.help { position: absolute; top: 48px; right: 0; bottom: 0; width: min(420px, 60%); z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--bg); border-left: 1px solid var(--accent); }
+.help-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--dim); }
+.help-title { color: var(--accent); }
+.help-body { overflow: auto; padding: 8px 16px 16px; }
+.help-body p { margin: 0 0 8px; overflow-wrap: anywhere; }
+/* Motion: short, opacity/transform only, nothing running while idle except the FULL-tier scan sweep; off for reduced motion */
+.scan { animation: scan 7.3s linear infinite; } /* category.lua: 1.5% of the zone per Update=100 frame (~109 ms in Rainmeter) */
+@keyframes scan { to { transform: translateY(var(--scan)); } }
+:is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn, .help-btn, .dot, .group, .group > summary) { transition: color .12s, border-color .12s, box-shadow .12s, background-color .12s; }
+.ctl-switch i { transition: left .15s ease-out, background-color .15s, box-shadow .15s; }
+.cc, .wiz { animation: hud-open .22s ease-out; }
+.help { animation: hud-slide .2s ease-out; }
+.row-help { animation: hud-fade .12s ease-out; }
+/* a HUD pop-up powers on like a screen (realism kit K9): a short on-off-on flicker, once when it opens, opacity only */
+.power-on { animation: power-on .18s steps(1, end); }
+.frame-layer[data-layer="orblight"] { transition: opacity .25s ease-out; } /* the orb's light follows JARVIS's state */
+/* the lens settles after the start-up sequence: off at once when it starts (it can start after the frame is up), a fade in when it ends */
+.glass-layer[data-settled="1"], .frame-layer[data-layer="grain"][data-settled="1"] { transition: opacity .9s ease-out; }
+/* K9: a readout whose value changed flickers on once (FULL tier only; the ops carry the class) */
+.shimmer { animation: shimmer .12s steps(1, end); }
+@keyframes shimmer { 0% { opacity: .3; } 33% { opacity: 1; } 66% { opacity: .45; } }
+@keyframes power-on { 0% { opacity: .15; } 30% { opacity: .85; } 50% { opacity: .35; } 70% { opacity: 1; } }
+.cc::after { content: ''; position: absolute; inset: 0 0 auto; height: 40%; pointer-events: none; opacity: 0; background: linear-gradient(transparent, color-mix(in srgb, var(--accent) 18%, transparent), transparent); animation: hud-sweep .5s ease-out; }
+@keyframes hud-open { from { opacity: 0; transform: scale(.985); } }
+@keyframes hud-slide { from { opacity: 0; transform: translateX(16px); } }
+@keyframes hud-fade { from { opacity: 0; } }
+@keyframes hud-sweep { from { opacity: 1; transform: translateY(-100%); } to { opacity: 0; transform: translateY(250%); } }
+@media (prefers-reduced-motion: reduce) {
+  .scan, .cc, .cc::after, .wiz, .help, .row-help, .power-on, .shimmer { animation: none; }
+  .frame-layer[data-layer="orblight"], .glass-layer[data-settled], .frame-layer[data-layer="grain"][data-settled] { transition: none; }
+  * { transition: none !important; }
+}
+/* the Reduce motion setting: the same, without waiting for the OS flag */
+:root[data-reduce-motion="1"] .scan, :root[data-reduce-motion="1"] .cc, :root[data-reduce-motion="1"] .cc::after, :root[data-reduce-motion="1"] .wiz, :root[data-reduce-motion="1"] .help, :root[data-reduce-motion="1"] .row-help, :root[data-reduce-motion="1"] .power-on, :root[data-reduce-motion="1"] .shimmer { animation: none; }
+:root[data-reduce-motion="1"] .frame-layer[data-layer="orblight"], :root[data-reduce-motion="1"] .glass-layer[data-settled], :root[data-reduce-motion="1"] .frame-layer[data-layer="grain"][data-settled] { transition: none; }
+:root[data-reduce-motion="1"] * { transition: none !important; }
+/* the skin's typed-input boxes (Control.ini mInput / mAsk) use Rajdhani */
+.ctl-text { font: 600 15px/1 Rajdhani, sans-serif; }
+
+/* HUD kit (src/ui/kit): glass panel, status pill, ship, reticle. Static: no animation loops. */
+:root { --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --glass: rgb(4 18 30 / .85); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hp { --cut: 10px; position: relative; background: var(--glass); border: 1px solid var(--dim); color: var(--text); font: 600 13px/1.3 Oxanium, sans-serif;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.hp::before, .hp::after { content: ''; position: absolute; width: 10px; height: 10px; border: 0 solid var(--accent); pointer-events: none; }
+.hp::before { right: 0; top: 0; border-width: 2px 2px 0 0; }
+.hp::after { left: 0; bottom: 0; border-width: 0 0 2px 2px; }
+.hp-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--dim); }
+.hp-index { font: 700 11px/1 'B612 Mono', monospace; color: var(--dim); letter-spacing: .2em; }
+.hp-title { margin: 0 auto 0 0; font: 700 13px/1 Michroma, sans-serif; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+.hp-body { padding: var(--sp-3); }
+.pill { display: inline-block; padding: 2px 8px; font: 700 10px/1.4 'B612 Mono', monospace; letter-spacing: .15em; text-transform: uppercase; border: 1px solid var(--dim); color: var(--text); }
+.pill-linked { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 6px var(--dim); }
+.pill-warn { border-color: var(--warn); color: var(--warn); }
+.pill-error { border-color: var(--alert); color: var(--alert); }
+.ship, .reticle { display: block; }
+.ship-line { stroke-width: 1; }
+.ship-dim .ship-line { stroke: var(--dim); }
+.ship-lit .ship-line { stroke: var(--core, var(--accent)); }
+.ship-halo { stroke: var(--accent); stroke-width: 2.6; stroke-opacity: .35; }
+.ship-lit, .ret-on { transition: stroke .15s ease-out; }
+.ret-off { stroke: var(--dim); stroke-width: 1.4; }
+.ret-on { stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 2px var(--accent)); }
+.ret-thin { stroke: var(--dim); stroke-width: .6; }
+.kit-demo { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-4); padding: var(--sp-4); color: var(--text); }
+
+/* Control Center re-skin: glass frame, indexed rail, sub-panel groups, MOD tag, 32px hit targets */
+.cc { background: var(--glass); backdrop-filter: blur(6px); }
+.cc::before { content: ''; position: absolute; right: 0; top: 0; width: 14px; height: 14px; border: solid var(--accent); border-width: 2px 2px 0 0; pointer-events: none; }
+.cc-head { background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 10%, transparent), transparent); }
+.cc-save { font: 700 10px/1 'B612 Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: var(--text); min-width: 72px; }
+.cc-save[data-saving='1'] { color: var(--warn); }
+.cc-wait { padding: 24px; }
+.cc mark, .cc-results mark { background: none; color: var(--accent); text-decoration: underline; }
+:is(.ctl-switch, .ctl-select, .ctl-text, .ctl-action, .rail-btn, .ctl-slider input) { min-height: 32px; }
+.rail-btn { display: flex; align-items: center; gap: 8px; border-color: transparent; border-left: 2px solid var(--dim); }
+.rail-btn[aria-current='page'] { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: -4px 0 8px -4px var(--accent); }
+.rail-n { font: 700 10px/1 'B612 Mono', monospace; color: var(--dim); letter-spacing: .1em; }
+.rail-btn:not([aria-current='page']) { color: var(--text); } /* --dim on glass is under 4.5:1; dim stays decorative */
+.group { background: var(--glass); }
+.group > summary { font-family: 'B612 Mono', monospace; letter-spacing: .25em; min-height: 32px; display: flex; align-items: center; }
+.group > summary::before { content: '\25B8'; margin-right: 8px; display: inline-block; transition: transform .12s; }
+.group[open] > summary::before { content: '\25B8'; transform: rotate(90deg); }
+.row-label .label { font: 600 14px/1.2 Rajdhani, sans-serif; letter-spacing: .04em; text-transform: none; }
+.ctl-slider output, .ctl-text, .ctl-color input { font-family: 'B612 Mono', monospace; }
+.ctl-text { font-size: 13px; }
+.ctl-slider input { -webkit-appearance: none; appearance: none; height: 32px; background: linear-gradient(var(--dim), var(--dim)) center / 100% 2px no-repeat, repeating-linear-gradient(90deg, var(--dim) 0 1px, transparent 1px 10%) center / 100% 8px no-repeat; border: 0; }
+.ctl-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 18px; background: var(--accent); box-shadow: 0 0 6px var(--accent); border: 0; }
+.ctl-select { -webkit-appearance: none; appearance: none; padding-right: 24px; background: transparent linear-gradient(135deg, transparent 50%, var(--accent) 50%) right 10px center / 5px 5px no-repeat; }
+.ctl-select option { background: var(--bg); color: var(--text); }
+.dot { width: auto; height: 20px; min-width: 32px; border-radius: 0; background: none; box-shadow: none; color: var(--accent); font: 700 9px/1 'B612 Mono', monospace; letter-spacing: .15em; }
+.dot:hover, .dot:focus-visible { background: var(--accent); color: var(--bg); }
+.row-state { min-width: 36px; }
+.row { grid-template-columns: minmax(0, 1fr) minmax(120px, 55%) 40px; }
+.row-err { background: color-mix(in srgb, var(--alert) 12%, transparent); border-left: 2px solid var(--alert); padding: 4px 8px; }
+.help { background: var(--glass); }
+
+/* Pre-flight wizard: craft bay (reticle, ship, launch) beside the open module */
+.wiz { grid-template-rows: none; grid-template-columns: 320px minmax(0, 1fr); gap: var(--sp-5); padding: var(--sp-5); box-sizing: border-box; }
+.wiz-bay { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; overflow: auto; }
+.wiz-craft { position: relative; width: 200px; height: 200px; margin: 0 auto; flex: none; }
+.wiz-craft .ship { position: absolute; inset: 40px; }
+.wiz-h { margin: 0; text-align: center; font: 700 16px/1 Michroma, sans-serif; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; }
+.wiz-bay .wiz-intro { font-size: 12px; }
+.wiz-launch { width: 100%; margin-top: auto; }
+.wiz-link { background: none; border: 0; color: var(--text); text-decoration: underline; cursor: pointer; font: inherit; min-height: 32px; }
+.wiz-link:disabled { color: var(--dim); }
+.wiz-work { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--sp-3); min-height: 0; }
+.wiz-mods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
+.wiz-mod { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: var(--sp-2) var(--sp-3); min-height: 32px; cursor: pointer; background: var(--glass); color: var(--text); border: 1px solid var(--dim); border-left: 2px solid var(--dim); font: 700 12px/1 Michroma, sans-serif; text-transform: uppercase; letter-spacing: .06em; }
+.wiz-mod[aria-current='step'] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: 0 0 8px -2px var(--accent); }
+.wiz-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.wiz-panel .hp-body { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; padding: 0; }
+.wiz-panel .wiz-main { max-width: none; margin: 0; }
+.wiz-panel .wiz-foot { border-top: 1px solid var(--dim); padding: var(--sp-2) var(--sp-3); justify-content: flex-end; }
+.wiz-main { overflow: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+@media (max-width: 1100px) {
+  .wiz { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); overflow: auto; }
+  .wiz-bay { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .wiz-craft, .wiz-bay .wiz-intro { display: none; }
+  .wiz-mods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.wiz-panel .wiz-main { padding: var(--sp-3); }
+
+.about-body { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.about-body small { color: var(--text); flex-basis: 100%; }
+
+.notices { position: fixed; right: var(--sp-4); bottom: var(--sp-4); width: 320px; display: grid; gap: var(--sp-2); z-index: 20; }
+.notice p { margin: 0 0 var(--sp-2); color: var(--text); }
+
+.helpc-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; }
+.helpc-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.helpc-list .ctl-action, .helpc-ask .ctl-action { width: auto; }
+.helpc-ask { display: flex; gap: 8px; }
+.helpc-ask .ctl-text { flex: 1; }
+.helpc small { display: block; margin-top: 8px; color: var(--text); }
+
+/* the light canvas (tasks/hyperrealism-plan.md Task 3): quarter-res glow stretched over the HUD; DOM pop-ups come later in the page, so they stay above it. Normal blending: it looks the same as screen over the dark HUD and costs the compositor less (Task 4) */
+.bloom-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
+/* live test 2026-11-03: the HUD read too bright against the main reference (dark, a few lit focal points); the trim lives in modules/style.ts (HUD_TRIM) and BloomLayer (LIGHT_TRIM) */
+/* (the HUD trim is now HUD_TRIM in modules/style.ts, applied per op; no opacity layer) */
+/* the lens's own light (Task 6): the HUD's spread light x lens dirt + a faint soft ghost, over the whole view */
+.glass-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
+
+/* ---- Control Center finish v2 (live test U6, 2026-11-03): the CARGO look, in CSS. Additive: delete this block to revert. ---- */
+/* solid lit glass instead of see-through blur (also drops a full-window backdrop blur) */
+.cc, .wiz { background: linear-gradient(180deg, rgb(5 18 28), rgb(3 10 17)); backdrop-filter: none; box-shadow: inset 0 0 60px color-mix(in srgb, var(--accent) 7%, transparent); }
+.cc-head { background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 17%, transparent), color-mix(in srgb, var(--accent) 3%, transparent)); border-bottom-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+/* section cards: a lit header band with an accent bar, a darker body */
+.group { background: linear-gradient(180deg, rgb(4 16 25 / .96), rgb(3 11 18 / .96)); border-color: color-mix(in srgb, var(--accent) 38%, transparent); }
+.group[open] { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+.group > summary { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 4%, transparent) 70%, transparent); box-shadow: inset 2px 0 0 var(--accent); letter-spacing: .14em; text-transform: uppercase; font-weight: 700; }
+/* rows: faint banding, and a lit bar at the left on hover or focus */
+.row { border-top-color: color-mix(in srgb, var(--dim) 55%, transparent); transition: background-color .12s, box-shadow .12s; }
+.row:nth-child(even) { background: color-mix(in srgb, var(--accent) 3.5%, transparent); }
+.row:hover, .row:focus-within { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+/* switches that read as lit when on */
+.ctl-switch { background: rgb(2 9 15); border: 1px solid color-mix(in srgb, var(--dim) 80%, transparent); height: 26px; }
+.ctl-switch[aria-checked='true'] { background: color-mix(in srgb, var(--accent) 26%, rgb(2 9 15)); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+/* inputs: inset dark, a glow when focused */
+.ctl-text, .ctl-select { background: rgb(2 8 13); box-shadow: inset 0 1px 6px rgb(0 0 0 / .6); transition: box-shadow .12s, border-color .12s; }
+.ctl-text:focus, .ctl-select:focus, .ctl-text:focus-visible, .ctl-select:focus-visible { border-color: var(--accent); box-shadow: inset 0 1px 6px rgb(0 0 0 / .6), 0 0 0 1px var(--accent), 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent); outline: none; }
+/* category rail: the active page is a lit strip */
+.rail-btn { transition: background-color .12s, color .12s; }
+.rail-btn:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.rail-btn[aria-current='page'] { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent); box-shadow: inset 3px 0 0 var(--accent); text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+/* a drawn label must not catch the mouse: the click shape under it does (it ends up below labels that are re-added) */ svg text { pointer-events: none; }
+/* feedback on the HUD click shapes: a faint tint on hover, a stronger one while pressed, and a ring for keyboard focus */
+rect[data-hit][aria-label]:hover { fill: color-mix(in srgb, var(--accent) 7%, transparent); }
+rect[data-hit][aria-label]:active { fill: color-mix(in srgb, var(--accent) 16%, transparent); }
+rect[data-hit][aria-label]:focus-visible { outline: 1.5px solid var(--accent); outline-offset: -2px; }

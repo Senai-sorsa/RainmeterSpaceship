@@ -1,0 +1,121 @@
+import { signal } from '@preact/signals';
+import type { UpkeepInput } from '../modules/upkeep';
+import type { DevInput } from '../modules/dev';
+import type { ConsoleState } from '../modules/console';
+
+// The host's status.update messages (Scripts\upkeep.ps1 and dev.ps1 output). -1 = unknown, which the blocks show as --.
+const count = (v: unknown) => (Number.isInteger(v) && (v as number) >= -1 ? (v as number) : undefined);
+
+export const upkeepStatus = signal<UpkeepInput>({ mailWhy: 'no host data' });
+export const devStatus = signal<DevInput>({});
+/** status.ps1 (Legion Toolkit and the NVIDIA device), lower-cased by the host. '' = unknown. */
+/** The host's speed test (SpeedRunner): '' = none run in this session. The result itself lands in LinkDownMbps / LinkUpMbps. */
+export type SpeedStatus = { state: '' | 'testing' | 'done' | 'error'; why: string };
+export const speedStatus = signal<SpeedStatus>({ state: '', why: '' });
+export const consoleStatus = signal<ConsoleState>({ hybrid: '', power: '', refresh: '', battery: '', dgpu: '' });
+const word = (v: unknown) => (typeof v === 'string' && /^[a-z0-9 ._-]{0,40}$/.test(v) ? v : '');
+
+export function acceptStatusUpdate(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'status.update') return;
+  if (o.kind === 'mail') {
+    // the host's IMAP check (MailRunner): a count, or a short reason the block shows as '!' ('off' shows '-')
+    const n = Number.isInteger(o.unread) && (o.unread as number) >= 0 ? (o.unread as number) : undefined;
+    const why = typeof o.why === 'string' && /^[A-Za-z0-9 .,'_-]{0,80}$/.test(o.why) ? o.why : 'bad reply';
+    upkeepStatus.value = { ...upkeepStatus.value, mail: n, mailWhy: n === undefined ? why || 'no data' : undefined };
+  } else if (o.kind === 'upkeep') upkeepStatus.value = { ...upkeepStatus.value, updates: count(o.updates) };
+  else if (o.kind === 'dev') devStatus.value = { wsl: count(o.wsl), llm: count(o.llm) };
+  else if (o.kind === 'speed' && (o.state === 'testing' || o.state === 'done' || o.state === 'error'))
+    speedStatus.value = { state: o.state, why: typeof o.why === 'string' && /^[a-z ]{0,40}$/.test(o.why) ? o.why : '' };
+  else if (o.kind === 'llt') consoleStatus.value = { hybrid: word(o.hybrid), power: word(o.power), refresh: word(o.refresh), battery: word(o.battery), dgpu: word(o.dgpu) };
+}
+
+/** The host's net.update: ping in ms (0 = lost), LAN and WAN ('' = none / lookup failed). null = not read yet. */
+export type NetStatus = { ping: number | null; lan: string | null; wan: string | null };
+export const netStatus = signal<NetStatus>({ ping: null, lan: null, wan: null });
+
+const ipv4 = (v: unknown) => (v === '' || (typeof v === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(v)) ? v : null);
+
+export function acceptNetUpdate(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'net.update') return;
+  const ping = Number.isInteger(o.ping) && (o.ping as number) >= 0 ? (o.ping as number) : null;
+  netStatus.value = { ping, lan: ipv4(o.lan), wan: ipv4(o.wan) };
+}
+
+/** The rows sysinfo.lua shows: NONE without a LAN address, OFFLINE when the ping is lost and the WAN lookup failed, ... while waiting. Masked digits become X (IpMask). */
+export function netRows(n: NetStatus, mask: boolean): { ping?: number; lan?: string; wan?: string } {
+  const hide = (ip: string) => (mask ? ip.replace(/\d/g, 'X') : ip);
+  const lost = n.ping === 0;
+  return {
+    ping: n.ping ?? undefined,
+    lan: n.lan === null ? undefined : n.lan === '' ? 'NONE' : hide(n.lan),
+    // the host skips the public-IP lookup while masked, so a masked WAN shows the mask once the ping is in
+    wan: n.wan === null ? (lost ? 'OFFLINE' : mask && n.ping != null ? 'XX.XXX.XX.XX' : undefined) : n.wan === '' ? (lost ? 'OFFLINE' : '...') : hide(n.wan),
+  };
+}
+
+/** The host's spx.update (Yahoo ^GSPC): the centre HUD's day-change tape. Empty until the first good reply. */
+export type SpxStatus = { spxPrice?: number; spxPrev?: number; spxOpen?: boolean };
+export const spxStatus = signal<SpxStatus>({});
+
+const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+export function acceptSpxUpdate(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'spx.update' || !positive(o.price) || !positive(o.prev)) return;
+  spxStatus.value = { spxPrice: o.price as number, spxPrev: o.prev as number, spxOpen: o.open === true };
+}
+
+/** The host's apps.state (AppStates.cs): per Apps.ini Proc, 2 = app window, 1 = running without one, 0 = not running. */
+export const appStates = signal<Record<string, number>>({});
+const exeName = /^[a-z0-9 _.()+-]{1,64}\.exe$/;
+
+export function acceptAppsState(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'apps.state' || typeof o.states !== 'object' || o.states === null) return;
+  const next: Record<string, number> = {};
+  for (const [k, v] of Object.entries(o.states)) if (exeName.test(k) && (v === 0 || v === 1 || v === 2)) next[k] = v;
+  appStates.value = next;
+}
+
+/** The host's procs.top (TopProcs.cs): the five busiest processes, cpu as a share of the whole machine, ram in bytes. */
+export type TopProc = { name: string; cpu: number; ram: number };
+export const topProcs = signal<TopProc[]>([]);
+const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+
+export function acceptTopProcs(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'procs.top' || !Array.isArray(o.top)) return;
+  topProcs.value = o.top.slice(0, 5).filter((p): p is TopProc => typeof p === 'object' && p !== null
+    && typeof p.name === 'string' && p.name.length <= 64 && num(p.cpu) && num(p.ram));
+}
+
+/** An Apps.ini Proc= value's state, keyed as the host sends it (lower case, with .exe). */
+export function appState(states: Record<string, number>, proc: string | undefined): number {
+  if (!proc) return 0;
+  const p = proc.trim().toLowerCase();
+  return states[p.endsWith('.exe') ? p : p + '.exe'] ?? 0;
+}
+
+/** The host's todo.update (ObsidianTodo note, TodoNote.cs): open count and the first few items, soonest due first. */
+export type TodoItem = { text: string; due: number | null; timed: boolean };
+export type TodoStatus = { count: number; items: TodoItem[] };
+export const todoStatus = signal<TodoStatus>({ count: 0, items: [] });
+
+export function acceptTodoUpdate(m: unknown): void {
+  if (typeof m !== 'object' || m === null) return;
+  const o = m as Record<string, unknown>;
+  if (o.type !== 'todo.update' || !Number.isInteger(o.count) || (o.count as number) < 0 || !Array.isArray(o.items)) return;
+  const items = o.items.slice(0, 4).flatMap((it: unknown): TodoItem[] => {
+    const t = it as Record<string, unknown> | null;
+    if (!t || typeof t.text !== 'string' || t.text === '') return [];
+    return [{ text: t.text.slice(0, 120), due: Number.isInteger(t.due) ? (t.due as number) : null, timed: t.timed === true }];
+  });
+  todoStatus.value = { count: Math.max(o.count as number, items.length), items };
+}

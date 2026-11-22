@@ -1,0 +1,182 @@
+/* Visual finish (2026-11-02): lit glass, one type scale, quieter chrome. Loaded after ui.css; same DOM, same hit sizes.
+   Words: Rajdhani; values: B612 Mono; no wide tracking on body text. Structure is hairlines at partial accent, the full
+   accent is kept for what is active. Everything follows the theme through --accent / --text / --white / --dim. */
+:root {
+  --line: color-mix(in srgb, var(--accent) 28%, transparent);
+  --line-hi: color-mix(in srgb, var(--accent) 55%, transparent);
+  --glass-hi: color-mix(in srgb, var(--accent) 7%, rgb(6 20 32 / .94));
+  --glass-lo: rgb(2 9 16 / .95);
+  --ui-font: 600 14px/1.3 Rajdhani, sans-serif;
+  --chamfer-6: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  --chamfer-4: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+/* DOM pop-ups: the shared .label (B612 Mono, .3em tracking) reads as letters floating apart; small caps in the text
+   face instead. :where keeps it at class weight so every specific label rule below still wins. */
+:where(.cc, .wiz, .notices, .help) .label { font: 700 12px/1.25 Rajdhani, sans-serif; letter-spacing: .12em; }
+
+/* the browser-only Settings button was inheriting the page's serif */
+.cc-open { font: 700 12px/1 Rajdhani, sans-serif; letter-spacing: .14em; border-color: var(--line-hi); }
+
+/* ---- Control Center shell ---- */
+.cc { font: var(--ui-font); border-color: var(--line-hi);
+  background:
+    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 3%, transparent) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 45%, transparent), inset 0 0 60px rgb(0 0 0 / .45); }
+.cc::before { width: 22px; height: 22px; border-width: 2px 2px 0 0; filter: drop-shadow(0 0 4px var(--accent)); }
+.cc-head { gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 90%); }
+.cc-title { font: 700 20px/1 Rajdhani, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--white);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent); }
+.cc-title::before { content: ''; display: inline-block; width: 6px; height: 14px; margin-right: 10px; vertical-align: -1px;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent); clip-path: polygon(0 0, 100% 20%, 100% 80%, 0 100%); }
+.cc-save { font: 600 11px/1 'B612 Mono', monospace; letter-spacing: .12em; color: color-mix(in srgb, var(--good) 75%, var(--text)); }
+.cc-save::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%;
+  background: currentColor; box-shadow: 0 0 6px currentColor; }
+.cc-level { font: 600 12px/1 Rajdhani, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+
+/* ---- controls: chamfered, quiet until hovered ---- */
+html :is(.ctl-select, .ctl-text, .ctl-action, .ctl-switch) { border-color: var(--line); background-color: rgb(0 0 0 / .28); }
+html .ctl-action { font: 700 12px/1 Rajdhani, sans-serif; letter-spacing: .14em; color: var(--text); clip-path: var(--chamfer-6);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent) 3%, transparent)); }
+html .ctl-action:hover:not(:disabled), html .ctl-action:focus-visible { color: var(--white); border-color: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent) 8%, transparent)); }
+html .ctl-action:disabled { opacity: .6; color: color-mix(in srgb, var(--text) 55%, transparent); }
+html :is(.ctl-select, .ctl-text):focus-visible, html .ctl-switch:focus-visible { border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 0 12px -2px var(--accent); }
+html .ctl-select { font: 600 14px/1 Rajdhani, sans-serif; color: var(--white); }
+html .ctl-text { color: var(--white); }
+html .ctl-text::placeholder { color: color-mix(in srgb, var(--text) 45%, transparent); }
+html .cc-search { padding-left: 28px; background: rgb(0 0 0 / .32) no-repeat 9px center / 12px 12px
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%2300d2ff' stroke-width='1.4'%3E%3Ccircle cx='5' cy='5' r='3.6'/%3E%3Cpath d='M7.7 7.7 11 11'/%3E%3C/svg%3E"); }
+html .ctl-switch { width: 46px; background: rgb(0 0 0 / .35); }
+html .ctl-switch i { top: calc(50% - 7px); left: 6px; width: 14px; height: 14px; background: color-mix(in srgb, var(--text) 35%, transparent);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px); }
+html .ctl-switch[aria-checked='true'] { background: color-mix(in srgb, var(--accent) 22%, rgb(0 0 0 / .35)); }
+html .ctl-switch[aria-checked='true'] i { left: 24px; background: var(--white); box-shadow: 0 0 8px var(--accent); }
+html .ctl-slider input { background:
+    linear-gradient(var(--line-hi), var(--line-hi)) center / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 10%) center / 100% 7px no-repeat; }
+html .ctl-slider input::-webkit-slider-thumb { width: 6px; height: 20px; background: var(--white);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 10px var(--accent); }
+html .ctl-slider output { font: 700 14px/1 Rajdhani, sans-serif; font-variant-numeric: tabular-nums; color: var(--white); } /* B612 Mono spaced decimals as "0. 67" */
+html .swatch { border-color: var(--line-hi); box-shadow: inset 0 0 0 2px rgb(0 0 0 / .4); }
+html .help-btn { width: 18px; height: 18px; font: 700 11px/1 Rajdhani, sans-serif; border-color: var(--line); border-radius: 50%;
+  color: color-mix(in srgb, var(--text) 60%, transparent); }
+html .dot { font: 700 10px/1 Rajdhani, sans-serif; letter-spacing: .12em; border: 1px solid var(--line-hi); clip-path: var(--chamfer-4); }
+.badge { font: 700 10px/1.3 Rajdhani, sans-serif; letter-spacing: .1em; }
+
+/* ---- rail: no boxes; an index, a tick and a lit band for the open category ---- */
+.cc-body > .rail { padding: 14px 10px; gap: 2px; border-right: 1px solid var(--line); background: linear-gradient(90deg, rgb(0 0 0 / .25), transparent); }
+html .rail-btn { font: 600 14px/1 Rajdhani, sans-serif; letter-spacing: .1em; text-transform: uppercase; border: 0; border-left: 2px solid transparent;
+  min-height: 34px; padding: 0 10px; color: color-mix(in srgb, var(--text) 78%, transparent); }
+html .rail-btn:hover { color: var(--white); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+html .rail-btn[aria-current='page'] { color: var(--white); border-left-color: var(--accent); box-shadow: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent 85%);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
+.rail-n { font: 600 10px/1 'B612 Mono', monospace; color: var(--line-hi); min-width: 18px; }
+html .rail-btn[aria-current='page'] .rail-n { color: var(--accent); }
+
+/* ---- pane: groups are sub-panels with a lit title rule; rows split by hairlines ---- */
+.cc-pane { scrollbar-color: var(--line-hi) transparent; }
+.cc-resets { flex-wrap: wrap; overflow: visible; gap: 6px; padding: 16px 16px 2px; }
+html .cc-resets .cc-btn { min-height: 26px; font-size: 11px; letter-spacing: .1em; padding: 0 10px; background: transparent;
+  color: color-mix(in srgb, var(--text) 80%, transparent); }
+.group { border: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, transparent), rgb(0 0 0 / .18));
+  box-shadow: inset 0 0 0 1px var(--line); }
+.group[open] { box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 var(--line-hi); }
+.group > summary { font: 700 12px/1 Rajdhani, sans-serif; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); padding: 10px 14px; gap: 10px; }
+.group > summary::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-hi), transparent); }
+.group > summary:hover, .group > summary:focus-visible { outline: none; color: var(--white); text-shadow: 0 0 8px var(--accent); }
+.group-body { padding: 0 14px 10px; }
+.row { border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent); min-height: 40px; }
+.row:hover { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 70%); }
+.row-label .label { font: 600 15px/1.2 Rajdhani, sans-serif; color: var(--white); letter-spacing: .03em; }
+.row-help { font: 500 13px/1.35 Rajdhani, sans-serif; background: var(--glass-lo); border-color: var(--line-hi); box-shadow: 0 8px 24px rgb(0 0 0 / .5); }
+.cc-results .rail-btn { border-left: 2px solid var(--line); }
+.cc-results small { font: 600 11px/1 Rajdhani, sans-serif; letter-spacing: .12em; }
+
+/* ---- the help sheet slides over the pane as a second pane of glass ---- */
+.help { background: linear-gradient(180deg, var(--glass-hi), var(--glass-lo)); border-left-color: var(--line-hi);
+  box-shadow: -20px 0 40px rgb(0 0 0 / .45); font: 500 14px/1.45 Rajdhani, sans-serif; }
+.help-head { border-bottom-color: var(--line); }
+.help-title { font: 700 13px/1 Rajdhani, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+
+/* ---- kit panel (wizard modules, notices, About, Help) ---- */
+.hp { font: var(--ui-font); border-color: var(--line);
+  background: linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+.hp::before, .hp::after { width: 16px; height: 16px; filter: drop-shadow(0 0 3px var(--accent)); }
+.hp-head { border-bottom-color: var(--line); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent); }
+.hp-index { font: 600 11px/1 'B612 Mono', monospace; color: var(--line-hi); letter-spacing: .1em; }
+.hp-title { font: 700 16px/1 Rajdhani, sans-serif; letter-spacing: .16em; color: var(--white); text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent); }
+.pill { font: 700 10px/1.5 Rajdhani, sans-serif; letter-spacing: .14em; border-color: var(--line); clip-path: var(--chamfer-4);
+  background: rgb(0 0 0 / .3); }
+.pill-linked { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+
+/* ---- pre-flight wizard ---- */
+.wiz { font: var(--ui-font);
+  background:
+    radial-gradient(60% 50% at 12% 18%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    radial-gradient(80% 60% at 70% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 60%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 2.5%, transparent) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, rgb(4 14 24), rgb(1 5 10)); }
+.wiz-h { font: 700 24px/1 Rajdhani, sans-serif; letter-spacing: .24em; color: var(--white); text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 65%, transparent); }
+.wiz-bay .wiz-intro { font: 500 14px/1.45 Rajdhani, sans-serif; color: color-mix(in srgb, var(--text) 85%, transparent); }
+.wiz-bay .label { color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+html .wiz-mod { font: 700 16px/1 Rajdhani, sans-serif; letter-spacing: .14em; border: 1px solid var(--line); border-left: 2px solid var(--line-hi);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), rgb(0 0 0 / .25)); clip-path: var(--chamfer-6); }
+html .wiz-mod:hover { border-color: var(--line-hi); color: var(--white); }
+html .wiz-mod[aria-current='step'] { color: var(--white); border-color: var(--accent); box-shadow: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 24%, transparent), color-mix(in srgb, var(--accent) 6%, transparent)); }
+html .wiz-mod .hp-index { color: color-mix(in srgb, var(--accent) 60%, transparent); }
+html .wiz-primary { color: var(--white); border-color: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 34%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
+  text-shadow: 0 0 8px var(--accent); }
+html .wiz-launch { min-height: 44px; font-size: 15px; letter-spacing: .22em; }
+.wiz-link { font: 600 14px/1 Rajdhani, sans-serif; color: color-mix(in srgb, var(--text) 75%, transparent); text-underline-offset: 3px; }
+.wiz-link:hover { color: var(--white); }
+.wiz-about textarea { font: 500 15px/1.4 Rajdhani, sans-serif; }
+.wiz-preview b { text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+.wiz-panel .wiz-foot { border-top-color: var(--line); }
+
+/* ---- notices: small glass cards stacked bottom-right ---- */
+.notices .hp { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 40%, transparent), 0 10px 30px rgb(0 0 0 / .45); }
+.notice p { font: 500 14px/1.4 Rajdhani, sans-serif; }
+
+/* ---- HUD hover caption: a small glass tag with a lit edge (placement stays inline in Caption.tsx) ---- */
+.hud-caption { padding: 5px 12px 5px 14px; color: var(--white); font: 600 14px/1.25 Rajdhani, sans-serif; letter-spacing: .06em;
+  text-transform: uppercase; clip-path: var(--chamfer-6); border: 1px solid var(--line-hi);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent) 0 3px, transparent 3px),
+    linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent); animation: hud-fade .12s ease-out; }
+:root[data-reduce-motion="1"] .hud-caption { animation: none; }
+@media (prefers-reduced-motion: reduce) { .hud-caption { animation: none; } }
+
+/* ---- System tab: About and Help sit in the same 640px column as the setting groups ---- */
+.cc-pane > .hp { max-width: 640px; margin: 12px auto 0; box-sizing: border-box; }
+.cc-pane .about-body small, .cc-pane .helpc small { font: 500 13px/1.4 Rajdhani, sans-serif; color: color-mix(in srgb, var(--text) 80%, transparent); }
+
+/* ---- realism kit K12 (2026-11-02): the DOM surfaces as lit hardware - a faint scan texture on the glass, light from the
+   header, a specular top line, and the active items as lit keys with a white-hot edge. Text stays crisp: no fringe, no
+   flicker. The Control Center keeps its clip-path, so it gets no outer glow (that would need a wrapper element). ---- */
+.hp {
+  background:
+    radial-gradient(110% 45% at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 2.5%, transparent) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 30%, var(--accent)), inset 0 0 40px rgb(0 0 0 / .35); }
+.notices .hp { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 30%, var(--accent)), 0 10px 30px rgb(0 0 0 / .45), 0 0 18px -6px var(--accent); }
+.help {
+  background:
+    radial-gradient(90% 30% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 2.5%, transparent) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  box-shadow: -20px 0 40px rgb(0 0 0 / .45), inset 0 1px 0 color-mix(in srgb, var(--white) 25%, var(--accent)); }
+.cc { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 40%, var(--accent)), inset 0 0 60px rgb(0 0 0 / .45); }
+/* lit keys: the open category, the current wizard step and the primary action burn along one edge */
+html .rail-btn[aria-current='page'] { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--white) 65%, var(--accent)), -6px 0 14px -8px var(--accent); }
+html .wiz-mod[aria-current='step'] { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--white) 60%, var(--accent)); }
+html .wiz-primary { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--white) 55%, var(--accent)), inset 0 1px 0 color-mix(in srgb, var(--white) 25%, transparent); }

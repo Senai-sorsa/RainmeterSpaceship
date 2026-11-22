@@ -1,0 +1,1032 @@
+[
+ {
+  "name": "config.get one key",
+  "valid": true,
+  "msg": {
+   "type": "config.get",
+   "keys": [
+    "Scale"
+   ]
+  }
+ },
+ {
+  "name": "config.get no keys",
+  "valid": true,
+  "msg": {
+   "type": "config.get",
+   "keys": []
+  }
+ },
+ {
+  "name": "config.get keys not array",
+  "valid": false,
+  "msg": {
+   "type": "config.get",
+   "keys": "Scale"
+  }
+ },
+ {
+  "name": "config.get key with bad chars",
+  "valid": false,
+  "msg": {
+   "type": "config.get",
+   "keys": [
+    "Sca le"
+   ]
+  }
+ },
+ {
+  "name": "config.get too many keys",
+  "valid": false,
+  "msg": {
+   "type": "config.get",
+   "keys": [
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A"
+   ]
+  }
+ },
+ {
+  "name": "config.set ok",
+  "valid": true,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "0.67",
+   "id": 1
+  }
+ },
+ {
+  "name": "config.set empty value",
+  "valid": true,
+  "msg": {
+   "type": "config.set",
+   "key": "AssistantLabel",
+   "value": "",
+   "id": 2
+  }
+ },
+ {
+  "name": "config.set missing id",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "1"
+  }
+ },
+ {
+  "name": "config.set negative id",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "1",
+   "id": -1
+  }
+ },
+ {
+  "name": "config.set fractional id",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "1",
+   "id": 1.5
+  }
+ },
+ {
+  "name": "config.set number value",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": 1,
+   "id": 3
+  }
+ },
+ {
+  "name": "config.set newline in value",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "1\nEvil=1",
+   "id": 4
+  }
+ },
+ {
+  "name": "config.set NUL in value",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "1\u0000",
+   "id": 5
+  }
+ },
+ {
+  "name": "config.set value too long",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "id": 6
+  }
+ },
+ {
+  "name": "config.set key injection",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale=1\nX",
+   "value": "1",
+   "id": 7
+  }
+ },
+ {
+  "name": "config.set empty key",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "",
+   "value": "1",
+   "id": 8
+  }
+ },
+ {
+  "name": "setup.get",
+  "valid": true,
+  "msg": {
+   "type": "setup.get"
+  }
+ },
+ {
+  "name": "setup.finish defaults",
+  "valid": true,
+  "msg": {
+   "type": "setup.finish",
+   "mode": "defaults"
+  }
+ },
+ {
+  "name": "setup.finish custom",
+  "valid": true,
+  "msg": {
+   "type": "setup.finish",
+   "mode": "custom"
+  }
+ },
+ {
+  "name": "setup.finish bad mode",
+  "valid": false,
+  "msg": {
+   "type": "setup.finish",
+   "mode": "yolo"
+  }
+ },
+ {
+  "name": "setup.finish no mode",
+  "valid": false,
+  "msg": {
+   "type": "setup.finish"
+  }
+ },
+ {
+  "name": "aboutme.get",
+  "valid": true,
+  "msg": {
+   "type": "aboutme.get"
+  }
+ },
+ {
+  "name": "aboutme.set ok",
+  "valid": true,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "I like space.\nSecond line."
+  }
+ },
+ {
+  "name": "aboutme.set max length",
+  "valid": true,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+ },
+ {
+  "name": "aboutme.set too long",
+  "valid": false,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+ },
+ {
+  "name": "aboutme.set not text",
+  "valid": false,
+  "msg": {
+   "type": "aboutme.set",
+   "text": [
+    "x"
+   ]
+  }
+ },
+ {
+  "name": "aboutme.set NUL",
+  "valid": false,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "a\u0000b"
+  }
+ },
+ {
+  "name": "action edit.toggle",
+  "valid": true,
+  "msg": {
+   "type": "action",
+   "id": "edit.toggle"
+  }
+ },
+ {
+  "name": "action setup.rerun",
+  "valid": true,
+  "msg": {
+   "type": "action",
+   "id": "setup.rerun"
+  }
+ },
+ {
+  "name": "action not on the allowlist",
+  "valid": false,
+  "msg": {
+   "type": "action",
+   "id": "sys.powerAction"
+  }
+ },
+ {
+  "name": "action with extra shell field accepted as unknown id",
+  "valid": false,
+  "msg": {
+   "type": "action",
+   "id": "shell.open"
+  }
+ },
+ {
+  "name": "action id not text",
+  "valid": false,
+  "msg": {
+   "type": "action",
+   "id": 5
+  }
+ },
+ {
+  "name": "flow.open gmail",
+  "valid": true,
+  "msg": {
+   "type": "flow.open",
+   "flow": "gmail"
+  }
+ },
+ {
+  "name": "flow.open calendars",
+  "valid": true,
+  "msg": {
+   "type": "flow.open",
+   "flow": "calendars"
+  }
+ },
+ {
+  "name": "flow.open obsidian",
+  "valid": true,
+  "msg": {
+   "type": "flow.open",
+   "flow": "obsidian"
+  }
+ },
+ {
+  "name": "flow.open unknown flow",
+  "valid": false,
+  "msg": {
+   "type": "flow.open",
+   "flow": "https://evil.example"
+  }
+ },
+ {
+  "name": "unknown type",
+  "valid": false,
+  "msg": {
+   "type": "sys.powerAction",
+   "action": "shutdown"
+  }
+ },
+ {
+  "name": "no type",
+  "valid": false,
+  "msg": {
+   "key": "Scale"
+  }
+ },
+ {
+  "name": "type not text",
+  "valid": false,
+  "msg": {
+   "type": 7
+  }
+ },
+ {
+  "name": "null",
+  "valid": false,
+  "msg": null
+ },
+ {
+  "name": "array",
+  "valid": false,
+  "msg": [
+   1,
+   2
+  ]
+ },
+ {
+  "name": "string",
+  "valid": false,
+  "msg": "config.get"
+ },
+ {
+  "name": "config.set lone surrogate in value",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "\ud800",
+   "id": 1
+  }
+ },
+ {
+  "name": "aboutme.set lone surrogate",
+  "valid": false,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "hi \udc00"
+  }
+ },
+ {
+  "name": "config.set id beyond safe integer",
+  "valid": false,
+  "msg": {
+   "type": "config.set",
+   "key": "Scale",
+   "value": "1",
+   "id": 1e+20
+  }
+ },
+ {
+  "name": "bare action flow.open without a flow",
+  "valid": false,
+  "msg": {
+   "type": "action",
+   "id": "flow.open"
+  }
+ },
+ {
+  "name": "aboutme.set vertical tab",
+  "valid": false,
+  "msg": {
+   "type": "aboutme.set",
+   "text": "a\u000bb"
+  }
+ },
+ {
+  "name": "dial.set brightness 40",
+  "valid": true,
+  "msg": {
+   "type": "dial.set",
+   "id": 4,
+   "control": "brightness",
+   "value": 40
+  }
+ },
+ {
+  "name": "dial.set power quiet",
+  "valid": true,
+  "msg": {
+   "type": "dial.set",
+   "id": 5,
+   "control": "power",
+   "value": "quiet"
+  }
+ },
+ {
+  "name": "dial.set refresh 165",
+  "valid": true,
+  "msg": {
+   "type": "dial.set",
+   "id": 6,
+   "control": "refresh",
+   "value": "165"
+  }
+ },
+ {
+  "name": "dial.set volume 101",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 7,
+   "control": "volume",
+   "value": 101
+  }
+ },
+ {
+  "name": "dial.set power godmode",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 8,
+   "control": "power",
+   "value": "godmode"
+  }
+ },
+ {
+  "name": "dial.set refresh as a number",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 9,
+   "control": "refresh",
+   "value": 165
+  }
+ },
+ {
+  "name": "dial.set negative id",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": -1,
+   "control": "mic",
+   "value": 10
+  }
+ },
+ {
+  "name": "dial.set unknown control",
+  "valid": false,
+  "msg": {
+   "type": "dial.set",
+   "id": 10,
+   "control": "shutdown",
+   "value": 10
+  }
+ },
+ { "name": "hit.regions two rects", "valid": true, "msg": { "type": "hit.regions", "rects": [[0, 0, 100, 50], [-20, 300, 40, 40]], "keyboard": false } },
+ { "name": "hit.regions none", "valid": true, "msg": { "type": "hit.regions", "rects": [], "keyboard": true } },
+ { "name": "hit.regions no keyboard", "valid": false, "msg": { "type": "hit.regions", "rects": [] } },
+ { "name": "hit.regions keyboard as string", "valid": false, "msg": { "type": "hit.regions", "rects": [], "keyboard": "true" } },
+ { "name": "hit.regions rects not array", "valid": false, "msg": { "type": "hit.regions", "rects": {}, "keyboard": false } },
+ { "name": "hit.regions rect of three", "valid": false, "msg": { "type": "hit.regions", "rects": [[0, 0, 10]], "keyboard": false } },
+ { "name": "hit.regions fractional", "valid": false, "msg": { "type": "hit.regions", "rects": [[0.5, 0, 10, 10]], "keyboard": false } },
+ { "name": "hit.regions zero width", "valid": false, "msg": { "type": "hit.regions", "rects": [[0, 0, 0, 10]], "keyboard": false } },
+ { "name": "hit.regions too far", "valid": false, "msg": { "type": "hit.regions", "rects": [[16385, 0, 10, 10]], "keyboard": false } },
+ { "name": "hit.regions string number", "valid": false, "msg": { "type": "hit.regions", "rects": [["0", 0, 10, 10]], "keyboard": false } },
+ { "name": "app.launch id", "valid": true, "msg": { "type": "app.launch", "id": "chrome" } },
+ { "name": "app.launch path", "valid": false, "msg": { "type": "app.launch", "id": "C:\\Windows\\System32\\cmd.exe" } },
+ { "name": "app.launch no id", "valid": false, "msg": { "type": "app.launch" } },
+ { "name": "app.launch number", "valid": false, "msg": { "type": "app.launch", "id": 5 } },
+ { "name": "target.open taskmgr", "valid": true, "msg": { "type": "target.open", "what": "taskmgr" } },
+ { "name": "target.open todo", "valid": true, "msg": { "type": "target.open", "what": "todo" } },
+ { "name": "target.open audionext", "valid": true, "msg": { "type": "target.open", "what": "audionext" } },
+ { "name": "target.open jarvislog", "valid": true, "msg": { "type": "target.open", "what": "jarvislog" } },
+ { "name": "target.open other program", "valid": false, "msg": { "type": "target.open", "what": "cmd.exe" } },
+ { "name": "target.open no what", "valid": false, "msg": { "type": "target.open" } },
+ { "name": "jarvis.cmd wake", "valid": true, "msg": { "type": "jarvis.cmd", "cmd": "wake" } },
+ { "name": "jarvis.cmd start", "valid": true, "msg": { "type": "jarvis.cmd", "cmd": "start" } },
+ { "name": "jarvis.cmd ask", "valid": true, "msg": { "type": "jarvis.cmd", "cmd": "ask", "text": "what time is it" } },
+ { "name": "jarvis.cmd ask no text", "valid": false, "msg": { "type": "jarvis.cmd", "cmd": "ask" } },
+ { "name": "jarvis.cmd ask too long", "valid": false, "msg": { "type": "jarvis.cmd", "cmd": "ask", "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } },
+ { "name": "jarvis.cmd other verb", "valid": false, "msg": { "type": "jarvis.cmd", "cmd": "shutdown" } },
+ { "name": "jarvis.cmd upper case", "valid": false, "msg": { "type": "jarvis.cmd", "cmd": "QUIT" } },
+ { "name": "llt.set refresh", "valid": true, "msg": { "type": "llt.set", "id": 1, "feature": "refresh", "value": "165" } },
+ { "name": "llt.set hybrid mode", "valid": true, "msg": { "type": "llt.set", "id": 2, "feature": "hybrid", "value": "ECO" } },
+ { "name": "llt.set other feature", "valid": false, "msg": { "type": "llt.set", "id": 3, "feature": "fan", "value": "max" } },
+ { "name": "llt.set shell text", "valid": false, "msg": { "type": "llt.set", "id": 4, "feature": "power", "value": "quiet & calc" } },
+ { "name": "llt.set no id", "valid": false, "msg": { "type": "llt.set", "feature": "power", "value": "quiet" } },
+ { "name": "status.refresh", "valid": true, "msg": { "type": "status.refresh" } },
+ { "name": "status.refresh mail", "valid": true, "msg": { "type": "status.refresh", "kind": "mail" } },
+ { "name": "status.refresh calendar", "valid": true, "msg": { "type": "status.refresh", "kind": "calendar" } },
+ { "name": "status.refresh unknown kind", "valid": false, "msg": { "type": "status.refresh", "kind": "upkeep.ps1" } },
+ { "name": "status.refresh kind not text", "valid": false, "msg": { "type": "status.refresh", "kind": 1 } },
+ { "name": "config.set max safe id", "valid": true, "msg": { "type": "config.set", "key": "Scale", "value": "1", "id": 9007199254740991 } },
+ { "name": "config.set id above safe range", "valid": false, "msg": { "type": "config.set", "key": "Scale", "value": "1", "id": 9007199254740992 } },
+ { "name": "config.set id int64 max", "valid": false, "msg": { "type": "config.set", "key": "Scale", "value": "1", "id": 9223372036854775807 } },
+ { "name": "llt.set max safe id", "valid": true, "msg": { "type": "llt.set", "feature": "refresh", "value": "165", "id": 9007199254740991 } },
+ { "name": "llt.set id above safe range", "valid": false, "msg": { "type": "llt.set", "feature": "refresh", "value": "165", "id": 9007199254740992 } },
+ { "name": "llt.set id int64 max", "valid": false, "msg": { "type": "llt.set", "feature": "refresh", "value": "165", "id": 9223372036854775807 } },
+ { "name": "dial.set max safe id", "valid": true, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9007199254740991 } },
+ { "name": "dial.set id above safe range", "valid": false, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9007199254740992 } },
+ { "name": "dial.set id int64 max", "valid": false, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9223372036854775807 } },
+ { "name": "speed.run", "valid": true, "msg": { "type": "speed.run" } },
+ { "name": "file.pick file setting", "valid": true, "msg": { "type": "file.pick", "key": "WallpaperFile" } },
+ { "name": "file.pick folder setting", "valid": true, "msg": { "type": "file.pick", "key": "ObsidianVault" } },
+ { "name": "file.pick a setting that is not a path", "valid": false, "msg": { "type": "file.pick", "key": "Scale" } },
+ { "name": "file.pick a path instead of a key", "valid": false, "msg": { "type": "file.pick", "key": "C:\\Windows" } },
+ { "name": "file.pick no key", "valid": false, "msg": { "type": "file.pick" } }
+]

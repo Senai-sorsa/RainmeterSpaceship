@@ -1,0 +1,126 @@
+"""Static inventory for the refactor (plan phase 0.5). Reads source with ast only: nothing is imported or run.
+
+    python -B tools/inventory.py            # write tests/golden/inventory.md
+    python -B tools/inventory.py --print    # print it instead
+
+Lists: module-level mutable state, setting(...) call sites with their defaults (and keys read with different defaults),
+canned (fixed) reply strings, names tests fake with `j.X =`, thread entry points, and jarvis.py's jarvislib imports.
+The counts are the checklist the later phases tick off: they must only go down."""
+import ast
+import os
+import re
+import sys
+from collections import defaultdict
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+JARVIS_DIR = os.path.dirname(HERE)
+OUT = os.path.join(JARVIS_DIR, "tests", "golden", "inventory.md")
+MUTABLE_CALLS = {"list", "dict", "set", "deque", "defaultdict", "Counter", "OrderedDict", "Event", "Lock", "RLock",
+                 "Queue", "Semaphore", "Condition"}
+CANNED_CALLS = {"fixed", "reply_line", "speak_all", "say_text_only", "speak"}
+
+
+def sources():
+    files = ["jarvis.py"] + sorted(os.path.join("jarvislib", f) for f in os.listdir(os.path.join(JARVIS_DIR, "jarvislib"))
+                                   if f.endswith(".py"))
+    for rel in files:
+        path = os.path.join(JARVIS_DIR, rel)
+        src = open(path, encoding="utf-8").read()
+        yield rel.replace(os.sep, "/"), src, ast.parse(src)
+
+
+def call_name(node):
+    f = node.func
+    return f.attr if isinstance(f, ast.Attribute) else f.id if isinstance(f, ast.Name) else ""
+
+
+def is_mutable(v):
+    if isinstance(v, (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)):
+        return True
+    return isinstance(v, ast.Call) and call_name(v) in MUTABLE_CALLS
+
+
+def lit(node, src):
+    return repr(node.value) if isinstance(node, ast.Constant) else "<" + (ast.get_source_segment(src, node) or "?")[:60] + ">"
+
+
+def build():
+    mutables, settings, canned, threads = [], [], [], []
+    for rel, src, tree in sources():
+        for node in tree.body:                                 # module level only
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+            value = getattr(node, "value", None)
+            for t in targets:
+                names = [t] if isinstance(t, ast.Name) else [e for e in getattr(t, "elts", []) if isinstance(e, ast.Name)]
+                for n in names:
+                    if value is not None and is_mutable(value):
+                        mutables.append((rel, node.lineno, n.id))
+                    elif isinstance(value, ast.Constant) and isinstance(value.value, str) and n.id.isupper() \
+                            and len(value.value.split()) >= 2 and re.search(r"[.!?]$", value.value.strip()):
+                        canned.append((rel, node.lineno, n.id, value.value))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = call_name(node)
+            if name == "setting" and node.args:
+                key = lit(node.args[0], src)
+                default = lit(node.args[1], src) if len(node.args) > 1 else "(none)"
+                settings.append((rel, node.lineno, key, default))
+            elif name == "on" and node.args and isinstance(node.args[0], ast.Constant):   # mood.on(name, default="1")
+                default = lit(node.args[1], src) if len(node.args) > 1 else "'1' (on() default)"
+                settings.append((rel, node.lineno, lit(node.args[0], src), default))
+            elif name in CANNED_CALLS:
+                for a in node.args:
+                    for c in ([a] if isinstance(a, ast.Constant) else getattr(a, "elts", [])):
+                        if isinstance(c, ast.Constant) and isinstance(c.value, str) and c.value.strip():
+                            canned.append((rel, node.lineno, f"{name}(...)", c.value))
+            elif name == "Thread":
+                for kw in node.keywords:
+                    if kw.arg == "target":
+                        threads.append((rel, node.lineno, (ast.get_source_segment(src, kw.value) or "?")[:60]))
+    test_src = open(os.path.join(JARVIS_DIR, "test_jarvis.py"), encoding="utf-8").read()
+    fakes = defaultdict(int)
+    for m in re.finditer(r"\bj\.([A-Za-z_]\w*)\s*=(?!=)", test_src):
+        fakes[m.group(1)] += 1
+    jsrc = open(os.path.join(JARVIS_DIR, "jarvis.py"), encoding="utf-8").read()
+    imports = len(re.findall(r"^from jarvislib", jsrc, re.M))
+    return mutables, settings, canned, threads, fakes, imports
+
+
+def render():
+    mutables, settings, canned, threads, fakes, imports = build()
+    by_key = defaultdict(set)
+    for _, _, k, d in settings:
+        by_key[k].add(d)
+    differ = {k: sorted(v) for k, v in by_key.items() if len(v) > 1 and not k.startswith("<")}   # <expr>: a wrapper, not a key
+    L = ["# JARVIS refactor inventory (generated by tools/inventory.py; do not edit by hand)", "",
+         "| Count | What |", "|---|---|",
+         f"| {sum(1 for m in mutables if not m[2].isupper())} | module-level mutable STATE (lower-case names: what Session must absorb) |",
+         f"| {sum(1 for m in mutables if m[2].isupper())} | module-level UPPER-CASE tables of a mutable type (constants by convention) |",
+         f"| {len(settings)} | setting()/on() call sites ({len(by_key)} keys) |",
+         f"| {len(differ)} | keys read with more than one default |",
+         f"| {len(canned)} | canned reply strings (UPPERCASE constants + literals passed to {', '.join(sorted(CANNED_CALLS))}) |",
+         f"| {sum(fakes.values())} | `j.X =` fakes in test_jarvis.py ({len(fakes)} names) |",
+         f"| {len(threads)} | Thread(target=...) sites |",
+         f"| {imports} | `from jarvislib` import lines in jarvis.py |", "",
+         "## Keys read with different defaults (resolve to today's live value, never a new one)"]
+    L += [f"- {k}: {', '.join(v)}" for k, v in sorted(differ.items())] or ["- none"]
+    L += ["", "## Module-level mutable state (lower-case)"] + [f"- {r}:{n} `{x}`" for r, n, x in mutables if not x.isupper()]
+    L += ["", "## Module-level UPPER-CASE tables"] + [f"- {r}:{n} `{x}`" for r, n, x in mutables if x.isupper()]
+    L += ["", "## setting() call sites"] + [f"- {r}:{n} {k} default {d}" for r, n, k, d in settings]
+    L += ["", "## Canned strings"] + [f"- {r}:{n} {x}: {v[:100]!r}" for r, n, x, v in canned]
+    L += ["", "## Thread entry points"] + [f"- {r}:{n} {t}" for r, n, t in threads]
+    L += ["", "## Test fakes (`j.X =` in test_jarvis.py, count)"] + [f"- {k}: {v}" for k, v in sorted(fakes.items())]
+    return "\n".join(L) + "\n"
+
+
+if __name__ == "__main__":
+    text = render()
+    if "--print" in sys.argv:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        print(text)
+    else:
+        with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        print(f"wrote {os.path.relpath(OUT, JARVIS_DIR)}")
+        print("\n".join(text.splitlines()[2:12]))

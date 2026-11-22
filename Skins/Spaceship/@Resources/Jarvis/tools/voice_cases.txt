@@ -1,0 +1,35 @@
+# One reply per line (what the model might say). Blank lines and lines starting with # are skipped.
+# acks and short fixed lines
+Certainly.
+Opening Spotify.
+Timer set for 10 minutes.
+Volume is at 40 percent.
+Right away.
+As you wish, sir.
+# one and two sentences
+Good morning, sir. The time is 1:48 AM.
+You have three meetings today, and the first is at nine.
+I can perform various tasks to assist you, sir.
+Light from the Sun takes about eight minutes and twenty seconds to reach us.
+I can't reach your phone from here. I can set that on this PC, though.
+That's an ambitious goal, sir. You have about 17 minutes left until 4:09 AM.
+Yes, sir, you have four unread emails.
+# numbers, times, names
+Your physics quiz is at 3:30 PM, Mr. Sorsa, and the study group meets tomorrow at 9.
+Disk usage is at 91 percent, so I would clear something soon.
+The network is running at 41.6 megabits down and 7.2 up, sir.
+# longer explanations
+It is quite late, sir, and you have an early class tomorrow, so I would suggest getting some rest.
+The loop has no valid exit condition, or the condition is never met, which is why it runs forever.
+A nuclear reactor splits heavy atoms to release heat, which boils water, and the steam turns a turbine that makes electricity.
+Specific impulse measures how much thrust you get per unit of propellant, so a higher number means a more efficient engine, sir.
+# status readout, joke, serious
+You have three tasks remaining, sir: the physics lab report, an email to Professor Lim, and the parking permit.
+A bold plan, sir. History suggests that the night before is rarely kind to projects.
+I'm sorry to hear that, sir. Take a breath, and we can go through it one step at a time.
+# fragment-prone (the 83 percent case: a 5-word start cut mid-clause)
+I can help with that, but I will need a moment to look it up.
+Of course, sir, though I should mention that the battery is at 12 percent.
+The meeting with Professor Lim, which you moved twice already, is now set for Thursday at ten.
+Honestly, sir, the best thing you can do right now is close a few of those tabs.
+Pardon, sir, what did you say?

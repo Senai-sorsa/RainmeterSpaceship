@@ -1,0 +1,92 @@
+"""followup: what his ear does after he has spoken (Phase 10B T2, T3). One place for the rule, so jarvis.py only asks.
+
+  "ear"   after a chat or info answer, a fixed reply, a question: the open ear of S2-10 (direct window, then his name).
+  "undo"  after a direct command (act, reminder, alarm, timer, a saved or forgotten fact): a short window in which only
+          "undo" counts. Everything else is dropped without a word.
+  "stop"  right after a stop word or the End key: one second, and what you say counts as a follow-up.
+Typed turns, muted turns and JarvisFollowUp=0 never listen again (the caller checks those)."""
+import re
+import time
+from .base import log, setting, stopped
+from .mic import follow_name_wait, follow_wait, listen
+from .turnstate import DID, did, offer, recent
+
+UNDO_WAIT = 2.0                                                # seconds the ear stays open for "undo" after a command
+STOP_WAIT = 1.0                                                # seconds it stays open after a stop
+STOPS = ("stop word", "stop key")                              # a click or a barge-in is not "stop": the click starts a new turn
+REMIND_CHANGES = ("set", "cancel", "move", "flip", "snooze")   # reminder actions that change something; "list" is a question
+MEMORY_CHANGES = ("save", "forget")                            # memory actions that change something; a recall is an answer
+
+
+def is_command(kind, action=None):
+    """A direct command: it changes something, so the answer is "Done" and the only follow-up worth having is an undo."""
+    if kind in ("act", "multi", "undo"):
+        return True
+    if kind == "remind":
+        return action in REMIND_CHANGES
+    return kind == "memory" and action in MEMORY_CHANGES
+
+
+def mode_after(kind, action=None):
+    """What stays open after a reply of this kind."""
+    return "undo" if is_command(kind, action) else "ear"
+
+
+def after_stop():
+    """T3: "stop" while he spoke -> "stop" (listen one second), else None. A click or QUIT ends the turn as before."""
+    why, when = stopped
+    return "stop" if why in STOPS and time.time() - when < 3 else None
+
+
+RHETORICAL = re.compile(r"(?:sir,? )?(?:did you know|have you ever (?:wondered|heard)|ever wonder|guess what|who knew|"
+                        r"isn'?t (?:it|that)|wouldn'?t you (?:say|agree)|can you (?:believe|imagine))\b", re.I)
+
+
+def asked_you(reply):
+    """His reply ends with a real question to you (so the next words are likely an answer). A fun fact told as
+    "Did you know that ...?" is not one (semi-live 2026-11-02: it made room talk after a fun fact count as for him)."""
+    last = re.split(r"(?<=[.!?])\s+", (reply or "").strip())[-1]
+    return last.endswith("?") and not RHETORICAL.match(last)
+
+
+def ear_wait():
+    """S2-10: the open-ear window after a reply: JarvisFollowUpWait (3 s); 8 s when he asked or offered something."""
+    asked = asked_you(recent["me"]) or time.time() < offer.get("expires", 0)
+    return max(follow_wait(), 8.0) if asked else follow_wait()
+
+
+def listen_for(mode, follow, woke):
+    """Open the microphone for the window `mode` names. Returns (audio, wait): wait is the direct window in seconds."""
+    if mode == "undo":
+        return listen(patience=UNDO_WAIT), UNDO_WAIT
+    if mode == "stop":
+        return listen(patience=STOP_WAIT), STOP_WAIT
+    wait = ear_wait()
+    if follow:                                                 # 8a: the direct window, then only with his name, up to JarvisFollowNameWindow
+        return listen(patience=max(wait, follow_name_wait()), dim_after=wait), wait
+    return (listen(patience=10) if woke else listen()), wait   # a wake: 10 s for the first word
+
+
+SOUND_LINES = (DID["volume"], DID["mute"], DID["unmute"])
+SOUND_WORDS = re.compile(r"(?:%|\d|percent|volume|sound|louder|quieter|softer|lower|higher|turn it (?:up|down)|"
+                         r"bring it|make it|set it|change it|a (?:bit|little) (?:more|less))", re.I)
+CORRECTION_TTL = 30.0                                          # seconds after a command in which a correction still refers to it
+
+
+def takes(text, decision):
+    """What the undo window lets through: an undo, another command (the same test as the open ear's: it routes to something
+    that changes a thing, "set the volume to 30%" right after "...to 10%", "and a timer for 5 minutes"), or, right after a volume
+    change, words about the level ("make it 30", "a bit louder"). Chatter, questions and room talk are still dropped."""
+    kind, action = decision[0], (decision[1] if len(decision) > 1 else None)
+    if kind == "undo" or is_command(kind, action):
+        return True
+    return bool(did) and time.time() - did[-1][0] <= CORRECTION_TTL and did[-1][1] in SOUND_LINES and bool(SOUND_WORDS.search(text))
+
+
+def only_undo(route_kind, text="", decision=()):
+    """In the undo window only an undo or another command counts (takes); `route_kind` is route(...)[0] of what was heard
+    and `decision` the whole route(...) result."""
+    ok = takes(text, decision or (route_kind, None))
+    if not ok:
+        log("ear: not an undo - dropped")
+    return ok

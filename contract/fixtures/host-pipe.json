@@ -1,0 +1,20 @@
+{
+  "_about": "Shared by ShipCore.Core.Tests (HostPipeWireTests) and Skins/Spaceship/@Resources/Jarvis/test_host_pipe.py. Host <-> JARVIS pipe: newline-delimited JSON, one hello from JARVIS, then 'ready' from the host.",
+  "pipe_names": [
+    { "name": "SpaceshipHost-Senai-0123456789abcdef0123456789abcdef", "valid": true },
+    { "name": "SpaceshipHost-a.b_c-0123456789abcdef0123456789abcdef", "valid": true },
+    { "name": "SpaceshipHost-Senai-0123456789ABCDEF0123456789abcdef", "valid": false },
+    { "name": "SpaceshipHost-Senai-0123456789abcdef", "valid": false },
+    { "name": "SpaceshipHost-a/b-0123456789abcdef0123456789abcdef", "valid": false },
+    { "name": "..\\evil-0123456789abcdef0123456789abcdef", "valid": false },
+    { "name": "\\\\.\\pipe\\SpaceshipHost-Senai-0123456789abcdef0123456789abcdef", "valid": false },
+    { "name": "SpaceshipHost-Senai-0123456789abcdef0123456789abcdef\n", "valid": false }
+  ],
+  "hellos": [
+    { "name": "valid hello", "line": "{\"type\":\"hello\",\"nonce\":\"n1\",\"pid\":42,\"session\":\"s1\"}", "valid": true },
+    { "name": "wrong type", "line": "{\"type\":\"config\"}", "valid": false },
+    { "name": "not json", "line": "{x", "valid": false },
+    { "name": "pid as string", "line": "{\"type\":\"hello\",\"nonce\":\"n1\",\"pid\":\"42\",\"session\":\"s1\"}", "valid": false },
+    { "name": "missing nonce", "line": "{\"type\":\"hello\",\"pid\":42,\"session\":\"s1\"}", "valid": false }
+  ]
+}

@@ -1,0 +1,350 @@
+import { arcPts, Canvas, FONT_SCALE, heat, mix, type Op, type Style, type Zone } from '../draw/canvas';
+import type { Pt } from '../lib/geometry';
+import { popupChip, popupClose, popupFrame, popupRule } from '../draw/popup';
+import { parseColor, type RGBA } from '../lib/theme';
+
+// Port of Skins/Spaceship/@Resources/Scripts/jarvis.lua (the centre core) and jarvislog.lua (the log window).
+// Ported: the 3D plexus shell, the two tilted orbit rings with satellites, the HUD dial, the side data bars, the
+// status label, the conversation log, and the orb's level smoothing and voice echo (orbStep, orbEcho; JarvisModule.tsx draws
+// the Images\Jarvis frames). The clicks and keys live in JarvisModule.tsx; the Python service and auto-start are the host's.
+// Not here: the MUTED file write. The text is copied as written in the Lua and is queued for the
+// Phase 10 hand review.
+// shortcut: the side bars are not smoothed, upgrade: a per-bar smoother like orbStep's.
+
+/** Same centre as the old globe, in the Lua's zone units (jarvis.lua line 16). */
+export const CX = ((746 - 514) / 2) * (2560 / 1260);
+export const CY = (491 - 407) * (1600 / 709);
+const RP = 168;             // plexus shell radius
+const OCC = 330 * 0.4;      // anything behind the orb, inside this radius, is hidden by it
+const STALE_S = 8;          // a feed older than this is offline
+
+export type JarvisState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'offline';
+export const LABEL: Record<JarvisState, string> = { idle: 'STANDBY', listening: 'LISTENING', thinking: 'THINKING', speaking: 'SPEAKING', offline: 'OFFLINE' };
+// live test: the core turned too fast; every rotation of it (rings, plexus, the ball) runs at 2/3 of the skin's rate
+const SPIN_TRIM = 2 / 3;
+const SPIN: Record<string, number> = { idle: 1, listening: 0.7, thinking: 3, speaking: 1.4, offline: 0.3 };
+
+export type Feed = { state: string; level: number; note?: string }; // note: the host's caption (STARTING, NO PYTHON...) in place of the state's
+
+/** Data\jarvis.txt lines (T, STATE, LEVEL). No file, or one older than 8 s, means offline. */
+export function feedFrom(text: string | undefined, nowS: number): Feed {
+  if (text === undefined) return { state: 'offline', level: 0 };
+  let state = 'idle', level = 0, t = 0;
+  for (const line of text.split('\n')) {
+    const m = /^([A-Z]+) ?(.*)$/.exec(line);
+    if (!m) continue;
+    if (m[1] === 'T') t = Number(m[2]) || 0;
+    else if (m[1] === 'STATE') state = m[2];
+    else if (m[1] === 'LEVEL') level = Number(m[2]) || 0;
+  }
+  if (nowS - t > STALE_S) return { state: 'offline', level: 0 };
+  return { state, level };
+}
+
+type P3 = [number, number, number];
+
+/** Points spread evenly on a sphere (slightly jittered, the same seed as the Lua), each linked to its 3 nearest. */
+export function plexus(n = 56) {
+  const nodes: P3[] = [];
+  let seed = 7;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (2 * (i + 0.5)) / n;
+    const r = Math.sqrt(1 - y * y);
+    const th = Math.PI * (3 - Math.sqrt(5)) * i;
+    const j = 0.9 + 0.2 * rnd();
+    nodes.push([Math.cos(th) * r * j, y * j, Math.sin(th) * r * j]);
+  }
+  const edges: [number, number][] = [];
+  const seen = new Set<string>();
+  nodes.forEach((a, i) => {
+    const near = nodes
+      .map((b, k) => ({ k, d: (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2 }))
+      .filter((p) => p.k !== i)
+      .sort((p, q) => p.d - q.d);
+    for (let m = 0; m < Math.min(3, near.length); m++) {
+      const k = near[m].k;
+      const key = `${Math.min(i, k)}:${Math.max(i, k)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        edges.push([i, k]);
+      }
+    }
+  });
+  return { nodes, edges };
+}
+const PLEXUS = plexus();
+
+/** 3D to screen: yaw about Y, then tilt about X, light perspective. Returns x, y and depth (-1 back .. 1 front). */
+function proj(p: P3, r: number, yw: number, tilt: number, cx: number, cy: number): [number, number, number] {
+  let [x, y, z] = p;
+  const cyw = Math.cos(yw), syw = Math.sin(yw);
+  [x, z] = [x * cyw + z * syw, -x * syw + z * cyw];
+  const ct = Math.cos(tilt), st = Math.sin(tilt);
+  [y, z] = [y * ct - z * st, y * st + z * ct];
+  const f = 1 / (1 - z * 0.18);
+  return [cx + x * r * f, cy - y * r * f, z];
+}
+
+const hiddenBy = (x: number, y: number, z: number, cx: number, cy: number) =>
+  z < 0 && (x - cx) ** 2 + (y - cy) ** 2 < OCC * OCC;
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+/** JarvisColorIdle / Listen / Speak, empty or unreadable = the theme default (jarvis.lua colorSetting). */
+export type JarvisColors = { idle?: string; listen?: string; speak?: string };
+
+/** The state colour, as jarvis.lua lines 312-316: offline is the idle colour dimmed. */
+export function stateColor(state: string, style: Style, cols: JarvisColors = {}): RGBA {
+  const idle = parseColor(cols.idle, style.accent);
+  if (state === 'listening') return parseColor(cols.listen, mix(style.accent, [0, 70, 210, 255], 0.55));
+  if (state === 'speaking') return parseColor(cols.speak, idle);
+  return state === 'offline' ? mix(style.dim, idle, 0.45) : idle;
+}
+
+/** The orb's motion between ticks: smoothed voice level, echo strength, and the Idle and Active frame positions. */
+export type OrbMotion = { lvl: number; act: number; fIdle: number; fAct: number };
+const ORB_SPEED: Record<string, number> = { idle: 1, listening: 0.6, thinking: 1.5, offline: 0.35 };
+
+/** One orb update over `dt` frames (jarvis.lua lines 317-329): fast attack, slow release, the echo swells while he speaks. */
+export function orbStep(m: OrbMotion, state: string, level: number, dt: number): OrbMotion {
+  const target = state === 'speaking' || state === 'listening' ? clamp(Number.isFinite(level) ? level : 0, 0, 1) : 0;
+  const lvl = m.lvl + (target - m.lvl) * (target > m.lvl ? 0.55 : 0.18);
+  const want = state === 'speaking' ? 0.55 + 0.45 * lvl : state === 'thinking' ? 0.25 : 0;
+  const speed = (state === 'speaking' ? 1 + 1.6 * lvl : ORB_SPEED[state] ?? 1) * SPIN_TRIM;
+  return { lvl, act: m.act + (want - m.act) * 0.25, fIdle: m.fIdle + dt * speed, fAct: m.fAct + dt * (1 + 1.2 * lvl) };
+}
+
+/** The voice echo sprite (jarvis.lua lines 346-350), or null when it would be invisible (alpha under 3). */
+export function orbEcho(m: OrbMotion, col: RGBA, white: RGBA, size: number, bright: number) {
+  if (m.act * 255 < 3) return null;
+  return { d: 330 * size * (1.12 + 0.28 * m.lvl), col: mix(col, white, 0.4), alpha: m.act * 150, k: 1.1 * bright, tint: 0.3 };
+}
+
+/**
+ * One frame of the core, drawn on a canvas-sized zone with the centre at (cx, cy). `frame` is the update count.
+ * Layers back to front: plexus shell, orbit rings, dial, thinking sweep, side bars, name and status label.
+ * `name` is the dotted assistant label (none when empty); `lb` the label corner in the zone's units.
+ */
+export function jarvisFrame(frame: number, feed: Feed, style: Style, zone: Zone, cx: number, cy: number, name = '', lb?: [number, number], cols: JarvisColors = {}): Op[] {
+  const c = new Canvas(zone, style);
+  const state = feed.state in LABEL ? (feed.state as JarvisState) : 'idle';
+  const dim = state === 'offline';
+  // live test: when he listens, thinks or speaks only the main inner animation (the ball, orbStep/Orb) reacts. The outer parts drawn here (the geometric
+  // shell, the orbit rings, the spinning dial and the side bars) stay as they are at rest: no voice level, no per-state spin or colour, no thinking sweep.
+  // Only offline dims them. The status label (text and dot) still follows the real state.
+  const lvl = 0;
+  const outer: JarvisState = dim ? 'offline' : 'idle';
+  const A1 = style.accent, W = style.white, D = style.dim;
+  const col = stateColor(state, style, cols); // the status dot and label
+  const rc = dim ? D : stateColor(outer, style, cols);
+  const hot = mix(rc, W, 0.45);
+  const spin = (SPIN[outer] ?? 1) * SPIN_TRIM;
+  const yaw = (frame * 0.006 * spin) % (2 * Math.PI);
+  const rot1 = (frame * 0.5 * spin) % 360, rot2 = (frame * 0.8 * spin) % 360, rot3 = (-frame * 0.25 * spin) % 360;
+
+  // 3D plexus shell
+  const r = RP * (1 + 0.07 * lvl);
+  const tilt = 0.38 + 0.08 * Math.sin(frame * 0.006);
+  const ea = dim ? 0.6 : 1 + 0.8 * lvl;
+  const P = PLEXUS.nodes.map((n) => {
+    const [x, y, z] = proj(n, r, yaw, tilt, cx, cy);
+    return { x, y, z, hid: hiddenBy(x, y, z, cx, cy) };
+  });
+  for (const [i, k] of PLEXUS.edges) {
+    const a = P[i], b = P[k];
+    if (a.hid || b.hid) continue;
+    const z = (a.z + b.z) / 2;
+    let alpha = z >= 0 ? 70 + 110 * z : 22 + 30 * (1 + z);
+    const mx = (a.x + b.x) / 2 - cx, my = (a.y + b.y) / 2 - cy;
+    if (mx * mx + my * my < OCC * OCC * 0.8) alpha *= 0.4;
+    c.hair(a.x, a.y, b.x, b.y, z >= 0 ? hot : rc, z >= 0 ? 1.1 : 0.8, clamp(alpha * ea, 0, 235));
+  }
+  for (const p of P) {
+    if (p.hid || p.z <= -0.35) continue;
+    c.dot(p.x, p.y, p.z > 0.3 ? 1.5 + 1.2 * lvl : 1, p.z > 0.3 ? W : hot, clamp((120 + 120 * p.z) * ea, 30, 255));
+  }
+
+  // two tilted orbit rings with satellites; the part behind the core is hidden, the front part glows
+  const rings = [
+    { R: 200, inc: (13 * Math.PI) / 180, ph: ((rot1 * 0.9) * Math.PI) / 180, roll: (16 * Math.PI) / 180 },
+    { R: 184, inc: (24 * Math.PI) / 180, ph: ((-rot2 * 0.7) * Math.PI) / 180, roll: (-24 * Math.PI) / 180 },
+  ];
+  for (const R of rings) {
+    const rr = R.R * (1 + 0.04 * lvl);
+    const toScreen = (x: number, y: number, z: number) => {
+      const xr = x * Math.cos(R.roll) - y * Math.sin(R.roll), yr = x * Math.sin(R.roll) + y * Math.cos(R.roll);
+      return proj([xr, yr, z], rr, 0, 0, cx, cy);
+    };
+    const pts: { x: number; y: number; front: boolean | null }[] = [];
+    for (let s = 0; s <= 64; s++) {
+      const a = (s / 64) * 2 * Math.PI;
+      const [sx, sy, sz] = toScreen(Math.cos(a), Math.sin(a) * Math.sin(R.inc), Math.sin(a) * Math.cos(R.inc));
+      pts.push({ x: sx, y: sy, front: hiddenBy(sx, sy, sz, cx, cy) ? null : sz >= 0 });
+    }
+    // runs of one depth; each run starts on the last point of the one before, so the pieces join
+    const runs: { pts: Pt[]; front: boolean | null }[] = [];
+    let cur: Pt[] = [], curFront: boolean | null | undefined;
+    for (const q of pts) {
+      if (q.front !== curFront || cur.length === 0) {
+        if (cur.length > 1) runs.push({ pts: cur, front: curFront ?? null });
+        cur = cur.length ? [cur[cur.length - 1]] : [];
+        curFront = q.front;
+      }
+      cur.push([q.x, q.y]);
+    }
+    if (cur.length > 1) runs.push({ pts: cur, front: curFront ?? null });
+    for (const run of runs) {
+      if (run.front === true) c.poly(run.pts, hot, 1.4, dim ? 130 : 210);
+      else if (run.front === false) c.hairPoly(run.pts, rc, dim ? 45 : 70, 1);
+    }
+    for (const k of [0, 1]) {
+      const a = R.ph + k * Math.PI;
+      const [sx, sy, sz] = toScreen(Math.cos(a), Math.sin(a) * Math.sin(R.inc), Math.sin(a) * Math.cos(R.inc));
+      if (!hiddenBy(sx, sy, sz, cx, cy)) c.dot(sx, sy, sz >= 0 ? 3 : 1.8, sz >= 0 ? W : rc, sz >= 0 ? 255 : 110);
+    }
+  }
+
+  // HUD dial: outer hairline, segmented arcs, tick ring, dashed ring
+  c.circle(cx, cy, 203, rc, 1, dim ? 70 : 90);
+  for (let q = 0; q < 3; q++) {
+    // each segment is a filled band (K10) that runs from its tail to a white-hot head, with a wide bloom (K5) when live
+    const a0 = q * 120 + rot1, a1 = a0 + 52, bw = (3.6 + 1.5 * lvl) / 2 + 0.6;
+    c.arc(cx, cy, 196, a0, a1, rc, 3.6 + 1.5 * lvl, dim ? 90 : 130);
+    const [p0] = arcPts(cx, cy, 196, 196, a0, a0, 1), [p1] = arcPts(cx, cy, 196, 196, a1, a1, 1), hh = heat(style, rc, 1);
+    c.gradPoly([...arcPts(cx, cy, 196 + bw, 196 + bw, a0, a1, 12), ...arcPts(cx, cy, 196 - bw, 196 - bw, a1, a0, 12)], { kind: 'linear', x1: p0[0], y1: p0[1], x2: p1[0], y2: p1[1],
+      stops: [[0, [rc[0], rc[1], rc[2], dim ? 70 : 110]], [0.7, [rc[0], rc[1], rc[2], dim ? 150 : 230]], [1, [hh[0], hh[1], hh[2], dim ? 170 : 255]]] });
+    if (!dim) c.hot(arcPts(cx, cy, 196, 196, a0, a1, 12), rc, 3, 110);
+  }
+  for (let q = 0; q < 6; q++) c.arc(cx, cy, 196, q * 60 + rot1 + 70, q * 60 + rot1 + 74, hot, 3.6, dim ? 130 : 200);
+  const seg = (189 * 2 * Math.PI) / 120;
+  c.dashArc(cx, cy, 189, rot3, rot3 + 360, rc, 4, dim ? 75 : 110, seg * 0.12, seg * 0.88, true);
+
+  // side data bars: a little life of their own (they no longer follow his voice)
+  const nb = 11;
+  for (let side = 0; side < 2; side++) {
+    for (let i = 1; i <= nb; i++) {
+      const key = side * nb + i;
+      const a = ((side === 0 ? 180 : 0) + (i - (nb + 1) / 2) * 5.2) * (Math.PI / 180);
+      const wob = 0.5 + 0.5 * Math.sin(frame * 0.11 + key * 1.7);
+      const h = 3 + (dim ? 0 : 4 * wob + 22 * lvl * (0.5 + 0.5 * Math.sin(frame * 0.35 + key * 2.3)));
+      const r0 = 212;
+      c.hair(cx + r0 * Math.cos(a), cy + r0 * Math.sin(a), cx + (r0 + h) * Math.cos(a), cy + (r0 + h) * Math.sin(a),
+        i === (nb + 1) / 2 ? W : rc, 2.6, dim ? 110 : 200);
+    }
+  }
+
+  // name and status label at the bottom left of the hologram's zone (lb is that corner; the zone's own corner without it)
+  const [lx, ly] = lb ?? [0, zone.h];
+  const labelCol = state === 'listening' ? mix(col, W, 0.35) : state === 'offline' ? mix(col, W, 0.2) : W;
+  // a callout: name and state over a rule, joined to the orb's ring by a leader line ending in a dot
+  if (name) c.text(lx + 8, ly - 28, name, { size: 5.6, weight: 700, align: 'LeftBottom', color: mix(A1, W, 0.3) });
+  c.dot(lx + 11, ly - 15.5, 2.2, col, dim ? 120 : 230);
+  c.text(lx + 17, ly - 11, feed.note || LABEL[state], { size: 4.4, weight: 600, align: 'LeftBottom', color: labelCol, glow: false });
+  const ruleY = ly - 6, ruleX1 = lx + 92, ra = (128 * Math.PI) / 180, rr = 205;
+  const [tx, ty] = [cx + rr * Math.cos(ra), cy + rr * Math.sin(ra)];
+  c.hair(lx + 8, ruleY, ruleX1, ruleY, A1, 0.9, 200);
+  c.hair(lx + 8, ruleY - 3, lx + 8, ruleY + 1, A1, 1, 200);
+  if (tx > ruleX1) {
+    c.hairPoly([[ruleX1, ruleY], [ruleX1 + Math.min(18, tx - ruleX1), ruleY], [tx, ty]], A1, dim ? 80 : 180, 0.9);
+    c.dot(tx, ty, 1.8, rc, dim ? 110 : 220);
+  }
+  return c.flush();
+}
+
+// ---- conversation log (jarvislog.lua) ----
+
+export type LogLine = { who: string; text: string; first: boolean };
+
+/** Monospace-style wrap by character count: long words are cut, short ones are joined up to the width. */
+export function wrap(text: string, width: number): string[] {
+  const out: string[] = [];
+  let line = '';
+  for (let word of text.match(/\S+/g) ?? []) {
+    while (word.length > width) {
+      if (line !== '') {
+        out.push(line);
+        line = '';
+      }
+      out.push(word.slice(0, width));
+      word = word.slice(width);
+    }
+    if (line === '') line = word;
+    else if (line.length + 1 + word.length <= width) line += ' ' + word;
+    else {
+      out.push(line);
+      line = word;
+    }
+  }
+  if (line !== '') out.push(line);
+  if (out.length === 0) out.push('');
+  return out;
+}
+
+/** Data\jarvis_log.txt lines (U|unix|text, J|unix|text, S|unix|text), then the reply being written (Data\jarvis_live.txt). */
+export function logLines(log: string, live: string, width: number): LogLine[] {
+  const lines: LogLine[] = [];
+  const add = (who: string, text: string) => {
+    wrap(text, width).forEach((l, i) => lines.push({ who, text: l, first: i === 0 }));
+    lines.push({ who: '', text: '', first: false });
+  };
+  for (const m of log.matchAll(/([UJS])\|(\d+)\|([^\n]*)/g)) add(m[1], m[3]);
+  const lm = /([UJ])\|(\d+)\|([^\n]*)/.exec(live);
+  if (lm && lm[3] !== '') add('L', lm[3] + ' _');
+  return lines;
+}
+
+const LOG_ROWS = 20, LOG_RH = 26, LOG_TOP = 66, LX = 40, TX = 150;
+
+/** The log window, newest at the bottom; JarvisLogModule scrolls it and has the TYPE box. The mic box is not ported. */
+/** scroll: lines scrolled up from the bottom; clamped here as jarvislog.lua does. */
+export function logScrollMax(log: string, live: string, w: number, style: Style): number {
+  return Math.max(0, logLines(log, live, logWidth(w, style)).length - LOG_ROWS);
+}
+
+// characters per line: 0.6 em for a monospaced face; the proportional display faces average narrower (0.5 em incl. scale)
+const logWidth = (w: number, style: Style) => Math.max(20, Math.floor((w - TX - 90) / (8.6 * style.textSmall * (96 / 72) * (FONT_SCALE[style.fontText] ? 0.5 : 0.6))));
+
+export function jarvisLogFrame(log: string, live: string, muted: boolean, assistant: string, style: Style, zone: Zone, scroll = 0): Op[] {
+  const c = new Canvas(zone, style);
+  const { w, h } = zone;
+  const A1 = style.accent, D = style.dim, T = style.text, W = style.white;
+  const lines = logLines(log, live, logWidth(w, style));
+  const n = lines.length, maxScroll = Math.max(0, n - LOG_ROWS);
+  const sc = Math.min(Math.max(scroll, 0), maxScroll);
+  popupFrame(c, style, w, h);
+  // header: the name, a channel caption, the TYPE chip (hit box w-330..w-240) and the close chip (w-44..w-12)
+  c.text(LX, 14, assistant.toUpperCase().split('').join('.'), { size: 13, font: style.fontTitle, weight: 700, color: W });
+  c.text(w - 360, 18, muted ? 'SPEAKERS MUTED  //  TEXT ONLY' : 'COMMS  //  CONVERSATION LOG', { size: 7, align: 'RightTop', color: muted ? style.warn : mix(A1, D, 0.4) });
+  popupChip(c, style, w - 330, 10, 90, 30, true);
+  c.text(w - 285, 25, 'TYPE', { size: 7.5, weight: 700, align: 'CenterCenter', color: W });
+  popupClose(c, style, w - 44, 10);
+  popupRule(c, style, LX - 10, w - 30, 50);
+  // the speaker rail: a faint column rule between the tags and the text
+  c.hair(TX - 14, LOG_TOP - 4, TX - 14, h - 24, D, 1, 70);
+  if (lines.length === 0) {
+    c.text(w / 2, h / 2, 'Nothing said yet - click the hologram and talk', { size: 8, align: 'CenterCenter', color: mix(A1, D, 0.5) });
+  }
+  lines.slice(Math.max(0, n - LOG_ROWS - sc), n - sc).forEach((L, r) => {
+    const y = LOG_TOP + r * LOG_RH;
+    if (L.text === '') return;
+    if (L.first && L.who !== '') {
+      const tag = L.who === 'U' ? 'YOU' : L.who === 'S' ? 'SYSTEM' : assistant.toUpperCase();
+      const tc = L.who === 'U' ? mix(A1, D, 0.5) : L.who === 'S' ? style.warn : A1;
+      c.text(LX, y, tag, { size: 7.2, weight: 700, color: tc, glow: false });
+      c.dot(TX - 14, y + 9, 2, tc, 220); // the turn's mark on the rail
+    }
+    c.text(TX, y, L.text, { size: 8.6, color: L.who === 'U' ? T : L.who === 'S' ? style.warn : W, glow: false });
+  });
+  if (maxScroll > 0) {
+    // scroll bar on the right
+    const barH = (h - LOG_TOP - 24) * LOG_ROWS / n;
+    const pos = (h - LOG_TOP - 24 - barH) * (1 - sc / maxScroll);
+    c.line(w - 30, LOG_TOP, w - 30, h - 24, D, 1, 120);
+    c.line(w - 30, LOG_TOP + pos, w - 30, LOG_TOP + pos + barH, A1, 3, 230);
+  }
+  return c.flush();
+}

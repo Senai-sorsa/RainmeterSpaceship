@@ -1,0 +1,197 @@
+"""hearing: moved verbatim from jarvis.py (refactor). See JARVIS-Repair-Plan.txt, REFACTOR."""
+import os
+import re
+import sys
+import threading
+import time
+from .base import S, busy, log, problem, setting
+from .gpu import cpu_in_use, cpu_threads, gpu
+
+
+# ------------------------------------------------------------------ speech to text
+_whisper = None
+_whisper_dev = [None]          # "cuda" or "cpu": where _whisper runs
+_whisper_lock = threading.Lock()
+_gpu_try = [0.0, False]        # when the card was last tried, and whether that failure is already logged
+
+
+def _cuda_dlls():
+    """The pip nvidia-* wheels keep cuBLAS / cuDNN / the CUDA runtime in their own bin folders, which Windows does not search."""
+    import glob
+    for d in [d for p in sys.path for d in glob.glob(os.path.join(p, "nvidia", "*", "bin"))]:
+        if d not in os.environ["PATH"]:
+            os.add_dll_directory(d)
+            os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
+
+
+def _load_whisper(device):
+    from faster_whisper import WhisperModel
+    size = setting("JarvisWhisper", "small.en")
+    if device == "cpu":
+        return WhisperModel(size, device="cpu", compute_type="int8", cpu_threads=cpu_threads())
+    _cuda_dlls()
+    try:
+        return WhisperModel(size, device="cuda", compute_type="float16")
+    except Exception as e:                                     # A-05: a card without float16 (or short of memory) keeps the GPU with int8
+        log(f"whisper: float16 not available on the GPU ({type(e).__name__}) - trying int8_float16")
+        return WhisperModel(size, device="cuda", compute_type="int8_float16")
+
+
+def whisper():
+    global _whisper
+    with _whisper_lock:                                        # the preload and a turn never load it twice
+        if _whisper is None:
+            dev = setting("JarvisWhisperDevice", "auto").lower()
+            why = f"JarvisWhisperDevice={dev}"
+            if dev in ("auto", "cuda"):
+                try:
+                    _whisper, _whisper_dev[0] = _load_whisper("cuda"), "cuda"
+                    log(f"whisper {setting('JarvisWhisper', 'small.en')} on GPU")
+                    return _whisper
+                except Exception as e:
+                    why = e
+            _whisper, _whisper_dev[0], _gpu_try[0] = _load_whisper("cpu"), "cpu", time.time()
+            if dev in ("auto", "cuda") and not gpu():
+                problem("RTX is off - switch the laptop to hybrid graphics", popup=False)
+            else:
+                cpu_in_use("speech recognition", why)
+        return _whisper
+
+
+def gpu_watch(now):
+    """Whisper fell back to the CPU: between turns, at most once a minute, move it to the card once it is back.
+    gpu() is asked last, since it starts CUDA."""
+    if (_whisper is None or _whisper_dev[0] != "cpu" or busy.locked() or now - _gpu_try[0] < 60
+            or setting("JarvisWhisperDevice", "auto").lower() not in ("auto", "cuda") or not gpu()):
+        return False
+    _gpu_try[0] = now
+    threading.Thread(target=_whisper_to_gpu, daemon=True).start()
+    return True
+
+
+def _whisper_to_gpu():
+    global _whisper
+    t0 = time.time()
+    try:
+        m = _load_whisper("cuda")                              # outside the lock: a turn meanwhile keeps the CPU model
+    except Exception as e:
+        if not _gpu_try[1]:
+            _gpu_try[1] = True
+            log(f"whisper: the GPU is still unavailable ({type(e).__name__})")
+        return
+    with _whisper_lock:
+        if _whisper is None or _whisper_dev[0] != "cpu":       # unloaded or moved meanwhile
+            return
+        _whisper, _whisper_dev[0], _gpu_try[1] = m, "cuda", False
+    log(f"whisper moved to GPU ({time.time() - t0:.1f} s)")
+    if S.err.startswith(("RTX is off", "CPU in use - speech recognition")):
+        S.set(err="")                                          # only our own warning; other problems stay up
+
+
+# what Whisper writes on noise or near-silence: treated as silence
+PHANTOM = re.compile(r"[\W_]*(?:(?:thanks|thank you)(?: so much)? for watching|subtitles? by\b.*|you)?[\W_]*", re.I)
+
+
+def real_words(text):
+    if text and PHANTOM.fullmatch(text):
+        log("transcript: dropped (phantom)")
+        return ""
+    return text
+
+
+heard_score = [0.0]            # how sure Whisper was of the last transcript (confidence()): below -1.0 it was unsure
+HINT = "Hey Clover, set a timer for ten minutes. Clover, turn the volume down."   # words he should expect
+
+
+def confidence(segs):
+    """U1: the words' average avg_logprob, each segment weighted by its word count. A one-word tail after longer talk (a
+    breath, a chair creak) no longer drags a clear command below the -1.0 line; when all parts are one word (a bare
+    "yes") they all count."""
+    rows = [(max(1, len(getattr(s, "text", "").split())), getattr(s, "avg_logprob", 0.0)) for s in segs]
+    longer = [r for r in rows if r[0] > 1]
+    use = longer or rows
+    return sum(n * lp for n, lp in use) / sum(n for n, _ in use) if use else 0.0
+
+
+missed = [0]                   # U5: how many turns in a row ended with speech heard but no words
+QUIET_PEAK = 0.025             # shortcut: unmeasured (speech starts at 0.012); the log prints the peak of each miss, tune from it
+LOUD_PEAK = 0.08               # speech clearly there (a normal voice at the mic is far above this): only then does one miss get a "Pardon?"
+
+
+def missed_line(peak, call=""):
+    """U5: what to say when speech came out as no words. Returns (line, open_type_box). A near-silent level points at the
+    microphone; a loud miss gets a short "Pardon?" and a second in a row opens the type box; a weak miss gets a short non-apologetic
+    "Yes?" (then "I'm listening.", then the type box)."""
+    missed[0] += 1
+    log(f"transcript: no words (level {peak:.3f}, miss {missed[0]})")           # numbers only
+    if peak < QUIET_PEAK:
+        return "I barely heard anything - check the microphone.", False
+    pardon = f"Pardon{', ' + call if call else ''}?"
+    if peak >= LOUD_PEAK:                                      # clearly spoken but no words came out: ask once, then offer the type box
+        return ("Still nothing. You can type to me here.", True) if missed[0] >= 2 else (pardon, False)
+    # weak speech (a murmur, a breath, a far-off voice) always gets an answer, but not "sorry, what did you say?": that is kept
+    # for loud speech that came out as nothing. A short prompt keeps the ear open; the third miss in a row opens the type box.
+    if missed[0] >= 3:
+        return "Still nothing. You can type to me here.", True
+    return ("I'm listening.", False) if missed[0] == 2 else ("Yes?", False)
+
+
+def _decode(model, audio):
+    """Whisper told what to expect. VAD trims the silence; when it leaves nothing (it can cut a short "yes") the audio
+    is decoded once more without it, and without the hint, which Whisper can say back on near-silence."""
+    opts = dict(beam_size=5 if _whisper_dev[0] == "cuda" else 3, language="en", condition_on_previous_text=False,
+                temperature=0.0)                               # J3: no hotter retries of a noisy clip (slower, and where loops come from)
+    segs = list(model.transcribe(audio, vad_filter=True, hotwords="Clover Jarvis", initial_prompt=HINT, **opts)[0])
+    if not segs:
+        segs = list(model.transcribe(audio, vad_filter=False, **opts)[0])
+    segs = no_loops(segs)
+    heard_score[0] = confidence(segs)
+    return real_words(no_repeats(" ".join(s.text for s in segs).strip()))
+
+
+def no_loops(segs):
+    """FR5 N2: drop the segments Whisper itself rates as a loop or as silence (its own limits: compression ratio
+    above 2.4; no-speech above 0.6 while unsure, avg log-prob below -1). Only counts go to the log."""
+    keep = [s for s in segs if getattr(s, "compression_ratio", 0.0) <= 2.4
+            and not (getattr(s, "no_speech_prob", 0.0) > 0.6 and getattr(s, "avg_logprob", 0.0) < -1.0)]
+    if len(keep) < len(segs):
+        log(f"transcript: dropped (loop) {len(segs) - len(keep)} of {len(segs)} parts")
+    return keep
+
+
+LOOP_WORDS = re.compile(r"\b(\w[\w']*(?: \w[\w']*){0,3})(?:[ ,]+\1\b){3,}", re.I)   # a 1-4 word phrase 4+ times in a row
+
+
+def no_repeats(text):
+    """"Okay. Okay. Okay." -> "Okay.": a sentence said 3+ times in a row is kept once (Whisper's repetition loop)."""
+    text = LOOP_WORDS.sub(r"\1", text)                         # J3: "thank you thank you thank you thank you" -> once
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    same = [re.sub(r"[^\w']+", "", p.lower()) for p in parts]  # "Okay." and "okay" are the same sentence
+    res, i = [], 0
+    while i < len(parts):
+        k = i
+        while k + 1 < len(parts) and same[k + 1] == same[i]:
+            k += 1
+        res += parts[i:k + 1] if k - i < 2 else [parts[i]]
+        i = k + 1
+    return " ".join(res)
+
+
+def transcribe(audio):
+    if audio is None:
+        return ""
+    try:
+        return _decode(whisper(), audio)
+    except Exception as e:
+        if "cuda" in str(e).lower() or "cublas" in str(e).lower() or "cudnn" in str(e).lower():
+            global _whisper
+            cpu_in_use("speech recognition", e)
+            try:
+                with _whisper_lock:                            # gpu_watch() moves it back to the card later
+                    m = _whisper = _load_whisper("cpu")
+                    _whisper_dev[0], _gpu_try[0] = "cpu", time.time()
+                return _decode(m, audio)
+            except Exception as cpu_e:
+                log(f"whisper CPU fallback also failed: {cpu_e}")
+                raise cpu_e
+        raise

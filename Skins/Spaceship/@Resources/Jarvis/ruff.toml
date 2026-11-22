@@ -1,0 +1,11 @@
+# Lint for JARVIS (OpenJarvis idea: ruff in CI). Deliberately small: only real-bug rules (syntax errors, pyflakes: unused names,
+# undefined names, redefinitions). No formatter and no style rules, so no existing file gets churned.
+#   ruff check --config ruff.toml .
+target-version = "py312"
+line-length = 160
+extend-exclude = ["kokoro", "voices", "vosk", "wake", "tools/semi-live-results", "Data"]
+
+[lint]
+select = ["E9", "F"]
+# jarvis.py re-exports names on purpose (tests fake by name across modules, see ARCHITECTURE.md "Known traps")
+ignore = ["F401", "F403", "F405", "F811", "F841"]
