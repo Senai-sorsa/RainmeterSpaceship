@@ -422,7 +422,11 @@ def route(text):
     # "set the volume to 30, no, 40" / "to 30, I mean 40": the last number is the one meant
     fixed_num = re.match(r"(.+?\b(?:to|at|for|by)) [\w.%]+(?: percent)?,? (?:no|actually|i mean|i meant|make that|sorry),? ([\w.%]+(?: percent)?)$", t)
     if fixed_num:
-        t = fixed_num.group(1) + " " + fixed_num.group(2)
+        fix = fixed_num.group(2)
+        if re.search(r"\d", fix) or _num(fix.split()[0].rstrip("%")) is not None:
+            t = fixed_num.group(1) + " " + fix
+        elif route(fix)[0] not in ("chat", "say"):         # "set the volume to 30, no, mute": the correction is a whole command
+            t = fix
     if DANGER.search(t) and not DANGER_ASK.match(t):
         return ("guard", None, None, None)
     # actions only for commands ("lock my computer", "jarvis, could you open chrome"), never for questions about them
