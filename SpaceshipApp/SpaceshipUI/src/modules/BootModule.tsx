@@ -3,6 +3,7 @@ import layout from '../generated/layout.json';
 import type { Style } from '../draw/canvas';
 import { OpsView } from '../draw/ops';
 import { readingsFrom, systemMetrics } from '../host/systemMetrics';
+import { netStatus } from '../host/statusFeed';
 import { scheduler } from '../host/scheduler';
 import { bootFrame, bootRows, bootTimeline, FRAME_MS } from './boot';
 import { bootRunning } from '../ui/settle';
@@ -40,6 +41,7 @@ export function BootModule({ style }: { style: Style }) {
     return bootRows({
       cpu: r.mCPU, gpu: r.mGPU, mem: r.mRamPct, onAc: m?.onAc ?? undefined, bat: r.mBattPct,
       driveTotal: r.mD1Total, driveFree: r.mD1Free, netDown: r.netDown, netUp: r.netUp, volume: m?.volume ?? undefined, muted: m?.volumeMuted ?? undefined,
+      ping: netStatus.value.ping ?? undefined, lan: netStatus.value.lan ?? undefined,
     });
   }, [checking]);
   if (f >= tl.done) return null;

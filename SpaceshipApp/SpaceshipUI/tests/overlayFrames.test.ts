@@ -48,7 +48,7 @@ describe('boot overlay', () => {
   });
 
   it('feeds storage, network, audio and GPU from the host readings', () => {
-    const rows = bootRows({ cpu: 10, gpu: 5, mem: 20, onAc: true, bat: 90, driveTotal: 1000, driveFree: 400, netDown: 0, netUp: 0, volume: 35, muted: false });
+    const rows = bootRows({ cpu: 10, gpu: 5, mem: 20, onAc: true, bat: 90, driveTotal: 1000, driveFree: 400, netDown: 0, netUp: 0, ping: 14, lan: '192.168.1.5', volume: 35, muted: false });
     expect(rows.map((r) => [r.label, r.value, r.sev])).toEqual([
       ['CPU / GPU', '10% / 5%', 'ok'], ['MEMORY', '20%', 'ok'], ['STORAGE', '40% FREE', 'ok'],
       ['NETWORK', 'ONLINE', 'ok'], ['AUDIO', '35%', 'ok'], ['POWER', 'AC 90%', 'ok'],
@@ -56,6 +56,14 @@ describe('boot overlay', () => {
     expect(bootVerdict(rows).text).toBe('ALL SYSTEMS NOMINAL');
     expect(bootRows({ driveTotal: 1000, driveFree: 50 })[2].sev).toBe('warn');
     expect(bootRows({ volume: 35, muted: true })[4].value).toBe('MUTED');
+  });
+  it('reports NETWORK from connectivity, not from a zero traffic reading', () => {
+    const net = (i: Parameters<typeof bootRows>[0]) => { const r = bootRows(i)[3]; return [r.value, r.sev]; };
+    expect(net({ netDown: 0, netUp: 0 })).toEqual(['--', 'unknown']);
+    expect(net({ netDown: 0, netUp: 0, ping: 0 })).toEqual(['OFFLINE', 'warn']);
+    expect(net({ netDown: 5000, netUp: 0, lan: '' })).toEqual(['OFFLINE', 'warn']);
+    expect(net({ netDown: 5000, netUp: 0 })).toEqual(['ONLINE', 'ok']);
+    expect(net({ ping: 20 })).toEqual(['ONLINE', 'ok']);
   });
 
   it('a frame draws the ignition, then the check panel and verdict once due', () => {

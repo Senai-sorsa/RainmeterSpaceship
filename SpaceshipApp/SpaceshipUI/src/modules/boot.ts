@@ -45,13 +45,15 @@ export type BootInput = {
   cpu?: number; gpu?: number; mem?: number; onAc?: boolean; bat?: number;
   /** Drive C: bytes, network rates in bytes per second, speaker level 0..100 and mute flag. Left out when the host has no reading. */
   driveTotal?: number; driveFree?: number; netDown?: number; netUp?: number; volume?: number; muted?: boolean;
+  /** The host's net.update: ping in ms (0 = lost) and LAN address ('' = none). Left out until the host has checked. */
+  ping?: number; lan?: string;
 };
 
 const pct = (v: number) => `${Math.round(v)}%`;
 
 /** The six rows of the system check. Unknown readings show -- and are not counted as faults. */
 export function bootRows(input: BootInput): CheckRow[] {
-  const { cpu, gpu, mem, onAc, bat, driveTotal, driveFree, netDown, netUp, volume, muted } = input;
+  const { cpu, gpu, mem, onAc, bat, driveTotal, driveFree, netDown, netUp, ping, lan, volume, muted } = input;
   const power: { value: string; sev: Sev } = onAc === undefined && bat === undefined
     ? { value: '--', sev: 'unknown' }
     : {
@@ -61,8 +63,11 @@ export function bootRows(input: BootInput): CheckRow[] {
   const freePct = driveTotal && driveFree !== undefined ? (driveFree / driveTotal) * 100 : undefined;
   const storage: CheckRow = freePct === undefined ? { label: 'STORAGE', value: '--', sev: 'unknown' }
     : { label: 'STORAGE', value: `${pct(freePct)} FREE`, sev: freePct < 10 ? 'warn' : 'ok' };
-  const network: CheckRow = netDown === undefined && netUp === undefined ? { label: 'NETWORK', value: '--', sev: 'unknown' }
-    : { label: 'NETWORK', value: 'ONLINE', sev: 'ok' };
+  // Connectivity comes from the host's net.update (ping 0 = lost, LAN '' = no address). Traffic alone only proves a link when it is above 0.
+  const traffic = (netDown ?? 0) + (netUp ?? 0);
+  const network: CheckRow = ping === 0 || lan === '' ? { label: 'NETWORK', value: 'OFFLINE', sev: 'warn' }
+    : ping !== undefined || traffic > 0 ? { label: 'NETWORK', value: 'ONLINE', sev: 'ok' }
+    : { label: 'NETWORK', value: '--', sev: 'unknown' };
   const audio: CheckRow = volume === undefined ? { label: 'AUDIO', value: '--', sev: 'unknown' }
     : { label: 'AUDIO', value: muted ? 'MUTED' : pct(volume), sev: 'ok' };
   return [
