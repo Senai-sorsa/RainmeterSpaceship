@@ -988,14 +988,11 @@ def _hear(tier, follow, woke, mode, left, typed, way):
     if not text and not follow and not cancel.is_set():   # spoke but nothing came out: ask once (silence on a follow-up just ends)
         way.update(result="asked again")
         quiet = muted()
-        line, box = hearing.missed_line(mic_peak[0], setting("JarvisCallMe", "").strip())
-        if line:                                           # "" = a weak miss: nothing said, only counted in the log
-            reply_line(line, quiet)
-        else:
-            way.update(result="no words - quiet")
+        line, box = hearing.missed_line(mic_peak[0], setting("JarvisCallMe", "").strip())   # always a line (U5: a weak miss still gets "Yes?")
+        reply_line(line, quiet)
         if box:
             S.set(pop="open")                              # the type box is in the pop-up (T5)
-        left["again"] = bool(line) and not quiet and "ear"
+        left["again"] = not quiet and "ear"
         return
     if not text or cancel.is_set():
         return
