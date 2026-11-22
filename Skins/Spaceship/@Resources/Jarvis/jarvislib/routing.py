@@ -496,12 +496,19 @@ def _rules_followups(text, named, t, whole, cmd):
     op = reminder_cmd(t, cmd, time.time())
     if op:
         return ("remind", op[0], op[1:], None)
+    # "make it 50" follows the context (your choice, 2026-11-22): right after a timer it changes the timer (a bare number is minutes),
+    # right after a volume change it sets the volume; with nothing just changed it is not a command (the model answers)
     m = re.fullmatch(r"(?:make|change|set) (?:it|that|this)(?: to| for)? (.+)", cmd)
-    if m and undo and undo[1] == "reminder" and time.time() < undo[0] and undo[2] and undo[2][-1][2] == "timer":
-        said = "make the timer " + m.group(1)                  # only right after a timer was set; "make it 50" is still a volume
+    live = bool(m) and bool(undo) and time.time() < undo[0]
+    if live and undo[1] == "reminder" and undo[2] and undo[2][-1][2] == "timer":
+        said = "make the timer " + m.group(1) + (" minutes" if re.fullmatch(r"\d+", m.group(1)) else "")
         op = reminder_cmd(said, said, time.time())
         if op:
             return ("remind", op[0], op[1:], None)
+    if live and undo[1] == "volume":
+        r = route("set the volume to " + m.group(1))
+        if r[:2] == ("act", "volume"):
+            return r
     m = re.match(r"(?:please )?(?:remember to|don'?t let me forget to|do not let me forget to|make sure (?:i|that i) remember to) (.+)", cmd)
     if m:                                                      # the model can't keep this promise; the reminder code can
         said = "remind me to " + m.group(1)
