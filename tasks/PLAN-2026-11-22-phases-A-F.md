@@ -386,6 +386,40 @@ mic frames -> VAD -> wake / follow-up gate -> streaming STT (faster-whisper)
 
 ---
 
+
+## Research adopted (Gemini deep research, 2026-11-22)
+
+Source: `Local Voice Assistant Architecture Research.docx` (Downloads). Only MIT, Apache-2.0 or BSD code is copied, with its licence header kept. Claims in it were checked against this repo where possible; unchecked claims are marked.
+
+| Plan step | What we take | From (licence) |
+|---|---|---|
+| D2 / E1 wake | One gate: feed exact 1280-sample int16 chunks at 16 kHz, openWakeWord's own `vad_threshold=0.5`, one-frame threshold near 0.25 plus a cooldown, a pre-roll ring buffer so the first word is not cut. Drop the transcript name veto. Tune offline with `openwakeword.utils.bulk_predict` on the replay bank (false accepts per hour, recall). Issue #350: 0.5 caught 48% of wakes, 0.25 caught 83%. | openWakeWord (Apache-2.0 code; the `hey_jarvis` weights are CC BY-NC-SA, fine for personal use) |
+| D1 room talk | Remove the 25-word filter for wake-started turns. Room-talk check only in follow-up mode: qwen3 with `think=False` and a one-boolean JSON schema, plus exit phrases ("never mind", "not you"). | pattern only |
+| E0 pipeline | Typed frames: system frames (cancel, interruption) jump the queue, data frames keep order. A per-stage watchdog. Per-stage latency spans like Pipecat's `UserBotLatencyObserver`. | Pipecat `frames.py`, `task.py` (BSD-2) |
+| E2 hearing | Streaming policy from `whisper_online.py` (`OnlineASRProcessor`) ported onto faster-whisper; sliding-window segment confirmation from WhisperLive. Settings: `int8`, `beam_size=1`, `temperature=0`, `condition_on_previous_text=False`, `cpu_threads<=4`, a warm-up clip. Test `hotwords` vs `initial_prompt` on the replay bank (research says `initial_prompt` can cause name hallucinations). | ufal/whisper_streaming, collabora/WhisperLive (MIT) |
+| E3 understanding | Tier 1: hassil-style templates with `requires_context` ("make it 50" only matches when the topic is a timer or volume). Tier 2: semantic-router over **nomic-embed-text** with a top-1 vs top-2 margin. Tier 3: Ollama native `/api/chat` with a JSON schema in `format`, `temperature=0`, `think=False`. Dialogue state as an event log of slot sets (Rasa tracker idea, under 100 lines). | hassil (Apache-2.0), semantic-router (MIT), Rasa (pattern) |
+| E4 action gate | Order: deny tools / deny argument patterns, then confirm tools, then allow tools with bounds checks, else fail closed to confirm. One pending action, bound to a sha256 of its exact arguments, with a TTL; consumed once; the policy is re-checked after approval. Only a HUD click or a deterministic voice "yes" can approve; the LLM can never call approve. | OpenHands `confirmation_policy.py`, OpenAI Agents SDK `needs_approval` (MIT) |
+| E5 memory | One SQLite file: numpy cosine over float32 blobs (under ~10k facts) plus FTS5, merged by reciprocal rank fusion; retrieval only when the turn refers to the past. A tiny pinned core-facts list in the static prompt. Not mem0 (an extra LLM call per turn). | sqlite-vec (MIT) optional; pattern |
+| E6 speaking | Start TTS on the first stable clause (`stream2sentence` settings `quick_yield_single_sentence_fragment`, `minimum_first_fragment_length`). On barge-in, flush the resampler so old audio does not leak into the next reply (pipecat#6806). | stream2sentence (Apache-2.0), RealtimeTTS (MIT) |
+| Latency | Keep the system prompt byte-identical across turns so Ollama reuses its cache; always send `keep_alive` (one request without it resets the timer to 5 min). Never use `/v1/chat/completions` (drops `keep_alive` and `think`). | ollama issues #5272, #9577 |
+| F stage 2 | UI Automation first, vision only as a fallback (UFO²). pywinauto (BSD-3) for windows and tabs; Windows-MCP (MIT) as the reference for consent countdown and takeover hotkey. Avatar as a separate small WPF layered window, not a click-through WebView2. | UFO (MIT), Windows-MCP (MIT), pywinauto (BSD-3) |
+
+**Checked against this repo today:**
+- `llm.py` already uses native `/api/chat` and `/api/generate` and sends `keep_alive` on each call. Good.
+- `hearing.py:31` already uses `int8` and `cpu_threads()`. `hearing.py:144` passes both `hotwords` and `initial_prompt` with `vad_filter=True`. E2 tests which helps.
+- `JarvisPipe.cs:39` already uses `PipeOptions.Asynchronous`, so the named-pipe deadlock in the research does not apply.
+- Only `onnxruntime-gpu` 1.23.2 is installed (not both), as the research advises.
+- `av` 19.0.1 is installed with faster-whisper 1.2.1. The research says that pair fails when faster-whisper decodes a file. JARVIS passes numpy audio, so it is probably not hit; E0 adds a test that decodes a wav through `decode_audio` to confirm. **Not yet verified.**
+- Research says `vad_filter=True` zeroes the last 64 samples of the buffer in place (#1688). E2 checks whether any buffer is reused after transcribe. **Not yet verified.**
+
+**Needs your yes (new models, nothing downloaded):**
+- Pipecat Smart Turn v3.2 (BSD-2, 8 MB int8 ONNX): an end-of-turn detector for long pauses. Recommended by the research; it would replace the fixed silence timer in E2.
+- Silero VAD v6 (MIT, about 2 MB): only if the bundled one is older. Check first which version openWakeWord ships.
+- OmniParser v2 (1.4 GB): stage 2 only, and only if UI Automation is not enough. Not recommended now.
+- Skip: the LiveKit turn detector (its licence forbids use outside LiveKit), Open Interpreter 01 (AGPL).
+
+**Licensing note:** piper is GPL (piper1-gpl). Keep it as a separate process or keep Kokoro as the main voice, and copy none of its code.
+
 ## Order and gates
 
 A, then B, then C1, then C2, then C3, then D1, then D2, then D3, then E (the most time), then F.
