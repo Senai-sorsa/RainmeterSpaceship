@@ -1104,9 +1104,18 @@ sealed class Overlay : Form
 
     // The Control Center's Browse button (file.pick): the standard Windows file or folder dialog for one of the path settings (FilePick.Keys), owned by a hidden
     // topmost form for the same reason as ConfirmAsync. Starts where the setting already points. Returns the chosen path, or null when the person cancels.
+    bool _picking;
     string? PickFile(string key)
     {
-        if (!FilePick.Keys.TryGetValue(key, out var spec)) return null;
+        // The modal dialog pumps messages, so a second Browse click would open a second dialog on top; ignore it while one is open.
+        if (_picking || !FilePick.Keys.TryGetValue(key, out var spec)) return null;
+        _picking = true;
+        try { return PickFileOnce(key, spec); }
+        finally { _picking = false; }
+    }
+
+    string? PickFileOnce(string key, PickSpec spec)
+    {
         var current = (_settings?.Get(new[] { key }).GetValueOrDefault(key) ?? "").Trim().Trim('"');
         using var top = new Form { TopMost = true, ShowInTaskbar = false };
         if (spec.Folder)
