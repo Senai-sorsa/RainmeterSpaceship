@@ -8,7 +8,7 @@ YES = {"yes", "yeah", "yep", "yup", "sure", "confirm", "confirmed", "do it", "go
        "okay", "please do", "yes please", "yes do it", "yes go ahead", "yes confirm", "yes i confirm", "i confirm", "continue", "carry on",
        "yeah sure", "yes sure", "sure thing", "go for it", "absolutely", "ok do it", "okay do it", "yeah do it", "yeah go ahead",
        "yes please do", "yes absolutely", "yes definitely", "definitely"}
-DANGER = re.compile(r"self[- ]?destruct|system ?32|format (my|the|c)\b|wipe (my|the)\b|delete (all|every|my files|windows)\b|rm -rf|"
+DANGER = re.compile(r"self[- ]?destruct|system ?32|format (?:my |the |this )?(?:[a-z]:|[c-h] drive|c\b|(?:hard |main |system |boot |whole )?(?:drive|disk|ssd|hdd|computer|pc|laptop|partition|volume|machine))|wipe (my|the)\b|delete (all|every|my files|windows)\b|rm -rf|"
                     r"disable (the )?(antivirus|defender|firewall)|\bhack\b|\bbrick\b|\bdestroy\b|\bnuke\b|blow up\b(?! (?:a |an |the |this |my )?(?:balloons?|tires?|tyres?|pool|raft|air mattress|inflatables?))|kill (all|every)\b", re.I)
 # a question or a request to explain is not a destructive order: "what is a nuke", "how do I delete all my emails in gmail"
 DANGER_ASK = re.compile(r"(?:(?:hey |ok |okay )?(?:jarvis |clover )?(?:please |can you |could you )?)?(?:how|what|why|who|when|where|which|whose|"
