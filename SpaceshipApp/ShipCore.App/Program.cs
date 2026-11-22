@@ -625,8 +625,10 @@ sealed class Overlay : Form
 
     // Wallpaper diagnostics (live test 2026-11-05: nothing shows). Log lines only, in the perf log; no behaviour changes. What is logged: what the page asked the
     // wallpaper host for and the answer, the page's own warnings and errors, and (3 s and 10 s after a wallpaper is sent) the state of the wallpaper element in the page.
-    int _wallLogLines;
+    int _wallLogLines, _pageLogLines;
     void WallLog(string what) { if (_wallLogLines++ < 80) _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_{what}"); }
+    // Page console errors get their own cap so a noisy page cannot use up the lines meant for SYNC/SHOW/PROBE.
+    void PageLog(string what) { if (_pageLogLines++ < 40) _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_{what}"); }
 
     void WatchWallpaper()
     {
@@ -645,7 +647,7 @@ sealed class Overlay : Form
                 if (level is not ("error" or "warning")) return;
                 var text = e.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
                 var url = e.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
-                WallLog($"PAGE_{level!.ToUpperInvariant()},{(text.Length > 200 ? text[..200] : text).ReplaceLineEndings(" ")} {(url.Length > 120 ? url[..120] : url)}");
+                PageLog($"PAGE_{level!.ToUpperInvariant()},{(text.Length > 200 ? text[..200] : text).ReplaceLineEndings(" ")} {(url.Length > 120 ? url[..120] : url)}");
             };
             _ = web.CallDevToolsProtocolMethodAsync("Log.enable", "{}");
         }
