@@ -670,6 +670,9 @@ def chime():
     return 0.0
 
 
+STUCK = "A turn is stuck - restart JARVIS"
+
+
 def watchdog(started):
     """A turn that hangs (stuck microphone, frozen model) is cancelled after 3 minutes. It follows turn_started, which only
     exchange() writes (an alarm ringing refreshes turn_id as "activity" and must not switch the watchdog off). A cancel only
@@ -683,7 +686,11 @@ def watchdog(started):
                 if not busy.locked() or started != turn_started[0]:
                     return
             log("watchdog: the turn did not end after the cancel")
-            S.set(err="A turn is stuck - restart JARVIS")
+            S.set(err=STUCK)
+            while busy.locked() and started == turn_started[0]:
+                time.sleep(2)
+            if S.err == STUCK:                                 # it ended after all: take back only our own warning
+                S.set(err="")
             return
         time.sleep(2)
 

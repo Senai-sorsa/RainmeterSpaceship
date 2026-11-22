@@ -51,6 +51,7 @@ REAL_REPLY_LINE = jarvis.reply_line
 REAL_PREPARE_FILLERS = jarvis.prepare_fillers
 REAL_SENTENCES_FROM = jarvis.sentences_from   # later tests fake j.sentences_from; the smooth-chunking tests need the real one
 REAL_CONTEXT = j.context      # later tests fake j.context; the privacy test needs the real one
+REAL_WATCHDOG = jarvis.watchdog   # later tests stub it; the A6 test needs the real one
 real_convo_add = jarvis.convo_add                                 # faked further down; the BUG-05 test needs the real one
 j.DUCK_FILE = os.path.join(tempfile.mkdtemp(), "duck.txt")       # never the real Data folder
 j.MICS_FILE = os.path.join(tempfile.mkdtemp(), "mics.txt")
@@ -4875,5 +4876,42 @@ j.speak_all = lambda s, *a: "Late result."
 REAL_REPLY_LINE("Late result.", False)
 assert j.recent["me"] == "Late result." and len(_ca) == 1
 j.speak_all, j.convo_add, j.filler_done, j.recent["me"] = _keep3
+
+# A6: the "turn is stuck" warning is taken back when that turn does end, and only if it is still ours (fake clock, no real sleep)
+class _Clock:
+    def __init__(self, free_after):
+        self.now, self.sleeps, self.free_after = 1000.0, 0, free_after
+
+    def time(self):
+        return self.now
+
+    def sleep(self, s):
+        self.now += s
+        self.sleeps += 1
+        if self.sleeps == self.free_after:
+            j.busy.release()
+
+
+class _Hud:
+    """Only the err line; with `other`, a different problem replaces the stuck warning as soon as it shows."""
+    def __init__(self, other):
+        self.err, self.other = "", other
+
+    def set(self, err=None, **k):
+        if err is not None:
+            self.err = "Microphone missing" if self.other and err == jarvis.STUCK else err
+
+
+for other in (False, True):
+    _keep6 = (jarvis.time, j.turn_started[0], jarvis.S, jarvis.log)
+    _c, _h = _Clock(free_after=91 + 15 + 3), _Hud(other)       # past 3 min, the 15 polls after the cancel, then 3 more while stuck
+    jarvis.time, jarvis.S, jarvis.log = _c, _h, (lambda *a: None)
+    j.busy.acquire()
+    j.turn_started[0] = _c.now
+    REAL_WATCHDOG(_c.now)
+    jarvis.time, j.turn_started[0], jarvis.S, jarvis.log = _keep6
+    assert not j.busy.locked() and j.cancel.is_set() and _c.sleeps == _c.free_after, (_c.sleeps, j.busy.locked())
+    assert _h.err == ("Microphone missing" if other else ""), _h.err
+    j.cancel.clear()
 
 print("test_jarvis: OK")
