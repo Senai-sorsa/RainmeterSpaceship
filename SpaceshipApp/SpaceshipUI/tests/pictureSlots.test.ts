@@ -13,7 +13,7 @@ const centre = (z: ReturnType<typeof zone>) => {
 
 describe('seatInPicture', () => {
   it('leaves a zone with no slot untouched (same object)', () => {
-    const z = zone('T_power');
+    const z = zone('T_alert');
     expect(seatInPicture(z)).toBe(z);
   });
   it('moves the drawn centre by exactly dx, dy and scales about it', () => {
@@ -29,6 +29,15 @@ describe('seatInPicture', () => {
     const [a, , c, , e] = out.matrix;
     const x = a * (z.x + z.w / 2 + 100) + c * (z.y + z.h / 2) + e;
     expect(x - cx1).toBeCloseTo(50);
+    delete PICTURE_SLOTS.__t;
+  });
+  it('gw lengthens the zone evenly about its centre', () => {
+    PICTURE_SLOTS.__t = { gw: 40 };
+    const z = zone('__t');
+    const out = seatInPicture(z);
+    expect(out.w).toBe(z.w + 40);
+    expect(out.x + out.w / 2).toBeCloseTo(z.x + z.w / 2);
+    expect(out.matrix).toEqual(z.matrix);
     delete PICTURE_SLOTS.__t;
   });
   it("keeps a skewed zone's centre on the shift (the skew does not move it)", () => {
@@ -63,8 +72,8 @@ describe('seatInPicture', () => {
     expect(seatInPicture(z)).toBe(z);
     delete PICTURE_SLOTS.__t;
   });
-  it('the side stacks are never moved: every left/right zone of the real layout except the wing tabs comes back untouched', () => {
-    const sides = layout.zones.filter((z) => /^(L_|R_)/.test(z.id) && !/_tabs$/.test(z.id));
+  it('the side stacks are never moved: every left/right zone of the real layout except the wing tabs and the app symbol displays comes back untouched', () => {
+    const sides = layout.zones.filter((z) => /^(L_|R_)/.test(z.id) && !/_tabs$|_category$/.test(z.id));
     expect(sides.length).toBeGreaterThan(12);
     for (const z of sides) expect(seatInPicture(z as never), z.id).toBe(z);
   });
@@ -82,7 +91,7 @@ describe('seatInPicture', () => {
 });
 
 describe('visible with the picture frame', () => {
-  const Z = { a: zone('G1_cpu'), b: zone('T_power'), list: [zone('G2_select'), zone('G3_select')] };
+  const Z = { a: zone('G1_cpu'), b: zone('T_alert'), list: [zone('G2_select'), zone('G3_select')] };
   it('does nothing extra without pic', () => {
     expect(visible(Z, '')).toBe(Z);
     expect(visible(Z, '', false)).toBe(Z);

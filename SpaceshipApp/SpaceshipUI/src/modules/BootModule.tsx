@@ -37,7 +37,10 @@ export function BootModule({ style }: { style: Style }) {
   const rows = useMemo(() => {
     const m = systemMetrics.value;
     const r = m ? readingsFrom(m) : {};
-    return bootRows({ cpu: r.mCPU, mem: r.mRamPct, onAc: m?.onAc ?? undefined, bat: r.mBattPct });
+    return bootRows({
+      cpu: r.mCPU, gpu: r.mGPU, mem: r.mRamPct, onAc: m?.onAc ?? undefined, bat: r.mBattPct,
+      driveTotal: r.mD1Total, driveFree: r.mD1Free, netDown: r.netDown, netUp: r.netUp, volume: m?.volume ?? undefined, muted: m?.volumeMuted ?? undefined,
+    });
   }, [checking]);
   if (f >= tl.done) return null;
   const fade = f >= tl.fade ? Math.max(0, (tl.done - f) / (tl.done - tl.fade)) : 1;

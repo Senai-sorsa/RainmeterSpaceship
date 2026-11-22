@@ -1,0 +1,11 @@
+venv test_jarvis exit 0: tripwires hit: 0
+py3 test_jarvis exit 0: tripwires hit: 0
+host_pipe: failed: 0
+ok   test_settings_schema.py (0.1s): settings schema: 66 keys, 66 read, problems: 0
+ok   test_wake_train_guard.py (0.2s): one wake training at a time: OK
+tests: OK
+phrases: 834, AI rereads asked (faked): 34, other model calls: 0, tripwires: 0
+routes.jsonl: 0 diffs over 834 lines
+replays: 2512, tripwires: 0
+replies.jsonl: 0 diffs over 2512 lines
+GATE baseline rc=0

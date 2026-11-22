@@ -1023,5 +1023,10 @@
  { "name": "dial.set max safe id", "valid": true, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9007199254740991 } },
  { "name": "dial.set id above safe range", "valid": false, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9007199254740992 } },
  { "name": "dial.set id int64 max", "valid": false, "msg": { "type": "dial.set", "control": "brightness", "value": 40, "id": 9223372036854775807 } },
- { "name": "speed.run", "valid": true, "msg": { "type": "speed.run" } }
+ { "name": "speed.run", "valid": true, "msg": { "type": "speed.run" } },
+ { "name": "file.pick file setting", "valid": true, "msg": { "type": "file.pick", "key": "WallpaperFile" } },
+ { "name": "file.pick folder setting", "valid": true, "msg": { "type": "file.pick", "key": "ObsidianVault" } },
+ { "name": "file.pick a setting that is not a path", "valid": false, "msg": { "type": "file.pick", "key": "Scale" } },
+ { "name": "file.pick a path instead of a key", "valid": false, "msg": { "type": "file.pick", "key": "C:\\Windows" } },
+ { "name": "file.pick no key", "valid": false, "msg": { "type": "file.pick" } }
 ]

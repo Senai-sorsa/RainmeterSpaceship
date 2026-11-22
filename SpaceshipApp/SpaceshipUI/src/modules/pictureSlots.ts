@@ -3,7 +3,7 @@
 // dx, dy move the zone (from its DRAWN centre; skew moves it), s scales it about that centre.
 // The side stacks are deliberately NOT here: the user wants them where they were (not lifted above the rail). Left and right are already mirrors
 // of each other (their drawn centres match row for row), and tests/pictureSlots.test.ts and e2e/picture-slots.spec.ts keep it that way.
-type Slot = { dx?: number; dy?: number; s?: number; /** an extra vertical-only scale on top of s (the width stays) */ sy?: number };
+type Slot = { dx?: number; dy?: number; s?: number; /** an extra vertical-only scale on top of s (the width stays) */ sy?: number; /** extra layout width, grown evenly on both ends (the zone's content stays the same size, only longer) */ gw?: number };
 
 export const PICTURE_SLOTS: Record<string, Slot> = {
   // top: one stat box per main slot, at full size, centred in the slot (canvas x 770 / 1092 / 1468 / 1790): the two wing slots, shorter than the pockets so those boxes scale 0.85 to sit under the wing line, under the
@@ -14,7 +14,11 @@ export const PICTURE_SLOTS: Record<string, Slot> = {
   G3_select: { dx: 25, dy: 19, sy: 0.9 }, G4_ram: { dx: 22, dy: 23, s: 0.85, sy: 0.94 },
   // the wing tabs (OROCKET..., SOLIDWORKS...) move away from the centre into the slanted channels near the screen edges (x 20..400 and 2160..2540,
   // falling about 0.2 to the centre); their drawn ink is centred about x 213 and 2347 so the two groups mirror
-  L_tabs: { dx: -130, dy: -37 }, R_tabs: { dx: 117, dy: -26 },
+  L_tabs: { dx: -118, dy: -31 }, R_tabs: { dx: 105, dy: -20 },
+  // the large app symbol display (box, scanner and hologram all live in the category zone): 30 further out from the centre
+  L_category: { dx: -30 }, R_category: { dx: 30 },
+  // the power draw bar (left) and the PWR battery bar (right): each moved a little further out and made longer
+  T_power: { dx: -80, dy: -3, gw: 40 }, T_battery: { dx: 80, dy: -3, gw: 40 },
   T_settings: { dy: 41 },
   // bottom: the two status strips are seated in the middle of the console band (centre y 1507 at their x); both strips follow the arch with their skew
   B_stripL: { dy: 21 }, B_stripR: { dy: 26 },
@@ -26,9 +30,9 @@ type SeatZone = { id?: string; x: number; y: number; w: number; h: number; matri
 export function seatInPicture<Z extends SeatZone>(z: Z): Z {
   const slot = z.id ? PICTURE_SLOTS[z.id] : undefined;
   if (!slot || z.matrix.length !== 6) return z;
-  const { dx = 0, dy = 0, s = 1, sy = 1 } = slot, sv = s * sy;
+  const { dx = 0, dy = 0, s = 1, sy = 1, gw = 0 } = slot, sv = s * sy;
   const [a, b, c, d, e, f] = z.matrix;
   const px = z.x + z.w / 2, py = z.y + z.h / 2;
   const cx = a * px + c * py + e, cy = b * px + d * py + f; // where the zone's centre is drawn now
-  return { ...z, matrix: [s * a, sv * b, s * c, sv * d, s * e + (1 - s) * cx + dx, sv * f + (1 - sv) * cy + dy] };
+  return { ...z, x: z.x - gw / 2, w: z.w + gw, matrix: [s * a, sv * b, s * c, sv * d, s * e + (1 - s) * cx + dx, sv * f + (1 - sv) * cy + dy] };
 }

@@ -1,0 +1,27 @@
+M01 lone yes: caught  [85s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: ('Yes.', "You're welcome, sir.")
+M02 late in ear, no name: caught  [72s]            ^^^^^^^^^^^^^^^^^^^^^ | AssertionError: (5.0, 'Tell me a joke.', 2)
+M03 undo window only undo: caught  [48s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: Uh huh.
+M04 whisper unsure: never act: caught  [62s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AttributeError: 'NoneType' object has no attribute 'startswith'
+M05 typed ask not confirmed by mic: SKIPPED snippet found 0x
+M06 own prompt echo ignored: SURVIVED (no test caught it)  [176s] test_jarvis: OK | tripwires hit: 0
+M07 crisis line: SURVIVED (no test caught it)  [176s] test_jarvis: OK | tripwires hit: 0
+M08 stopped while model read: caught  [175s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: (['volume'], [1])
+M09 offer channel check: SURVIVED (no test caught it)  [178s] test_jarvis: OK | tripwires hit: 0
+M10 directed no -> quiet: caught  [55s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M11 level after volume only: caught  [62s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M12 50 facts cap: caught  [37s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M13 danger guard: caught  [0s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M14 protected process: caught  [0s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: 9e: protected process refused
+M15 volume > 100 guard: caught  [0s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M16 yes expires: caught  [0s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: expired
+M17 correction TTL: SURVIVED (no test caught it)  [177s] test_jarvis: OK | tripwires hit: 0
+M18 mode_after undo: caught  [49s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: Mom the pasta is boiling over.
+M19 UNDO_WAIT shorter: caught  [60s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: [None, 0.5]
+M20 crisis setting gate: caught  [178s]            ^^^^^^^^^^^^ | AssertionError: I want to kill myself.
+M21 phantom transcript: caught  [175s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: Thanks for watching!
+M22 weak thank-you after wake: caught  [83s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M23 unsure ask -> quiet: caught  [57s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M24 replace-fact prompt: caught  [36s]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M25 busy lock: caught  [3s]          ^^^^^^ | RuntimeError: release unlocked lock
+M26 spoken yes needs confident hearing: SURVIVED (no test caught it)  [176s] test_jarvis: OK | tripwires hit: 0
+MUT_DONE

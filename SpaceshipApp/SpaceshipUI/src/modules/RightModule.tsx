@@ -7,7 +7,7 @@ import { readingsFrom, systemMetrics } from '../host/systemMetrics';
 import { appState, appStates, devStatus, netRows, netStatus, speedStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed } from './appsSource';
-import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabsFrame } from './category';
+import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabAt, tabsFrame } from './category';
 import { HitRect, launch, openSlot, slotTip, usePanel } from './hit';
 import { devFrame } from './dev';
 import { type Readings } from './readings';
@@ -68,10 +68,10 @@ export function RightModule({ style, hide = '', catalog = catalogFeed.value, mas
   return (
     <>
       {place(Z.tabs, ops.tabs, 'tabs', 'right-tabs', Z.tabs && nTabs > 0 && (() => {
-        const tab = (x: number) => first - 1 + Math.max(0, Math.min(nTabs - 1, Math.floor(((x - 16) / (Z.tabs!.w - 32)) * nTabs))); // shortcut: equal shares, not the justified label spans
+        const tab = (x: number) => first - 1 + tabAt(cat, first, Z.tabs!, style, x); // the drawn label spans, not equal shares
         return <HitRect zone={Z.tabs} s={style.s} label="Category tabs" on={{ click: (x) => choose(cat, tab(x)), menu: (x) => launch(cat?.apps[tab(x)]), wheel: (d) => choose(cat, ai + d) }} />;
       })())}
-      {place(Z.category, ops.cat, 'cat', 'right-category', Z.category && (
+      {place(Z.category, ops.cat, 'rcat', 'right-category', Z.category && (
         <HitRect zone={Z.category} s={style.s} label="Launch the selected app" tip={app && `${app.name}${app.missing ? '   not found' : ''}`} on={{ click: () => launch(app), menu: () => launch(app), wheel: (d) => choose(cat, ai + d) }} />
       ))}
       {Z.category && ops.scan && (

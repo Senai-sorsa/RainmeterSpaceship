@@ -3,6 +3,7 @@ import os
 import re
 import time
 from .base import setting
+from .untrusted import sensitive_name
 
 
 def vault_dir():
@@ -28,7 +29,7 @@ def search_notes(query, limit=3):
     for dirpath, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if not d.startswith(".")]          # skip .obsidian, .trash
         for fn in files:
-            if not fn.lower().endswith(".md"):
+            if not fn.lower().endswith(".md") or sensitive_name(fn):      # A-09: password / secret notes are never searched
                 continue
             path = os.path.join(dirpath, fn)
             try:

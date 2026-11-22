@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { schematicFrame, dotsFrame, scanFrame, tabsFrame } from '../src/modules/category';
+import { schematicFrame, dotsFrame, scanFrame, tabAt, tabsFrame } from '../src/modules/category';
 import { fakeCatalog } from '../src/modules/appsSource';
 import { slotRowFrame, slotStatus } from '../src/modules/slot';
 import { upkeepFrame } from '../src/modules/upkeep';
@@ -33,6 +33,14 @@ describe('left column frames', () => {
     expect(slotRowFrame({ app: chrome, state: 1, mirror: true }, zone, st).length).toBeGreaterThan(0);
   });
 
+  it('tab clicks follow the drawn labels: first at the left, last at the right, one tab per share of a short label row', () => {
+    const z = { x: 0, y: 0, w: 210, h: 30 };
+    expect(tabAt(dev, 1, z, st, 0)).toBe(0);
+    expect(tabAt(dev, 1, z, st, z.w)).toBe(Math.min(4, dev.apps.length) - 1);
+    const idx = Array.from({ length: z.w }, (_, x) => tabAt(dev, 1, z, st, x));
+    expect(idx).toEqual([...idx].sort((a, b) => a - b));
+  });
+
   it('tabs, schematic and dots draw for a category and for an empty one', () => {
     expect(tabsFrame(dev, { first: 1, sel: 1 }, { x: 0, y: 0, w: 210, h: 30 }, st).length).toBeGreaterThan(0);
     expect(schematicFrame(chrome, dev, true, zone, st).length).toBeGreaterThan(0);
@@ -46,5 +54,13 @@ describe('left column frames', () => {
     expect(upkeepFrame({ updates: 0, mail: 3 }, zone, st).length).toBeGreaterThan(0);
     // status_block.lua n2: an unknown count is a single dash
     expect(JSON.stringify(upkeepFrame({ mailWhy: 'off' }, zone, st))).toContain('"text":"-"');
+  });
+
+  it('the tab rail keeps its four end dots, except in the fitted picture frame (live test, 2026-11-05)', () => {
+    const z = { x: 0, y: 0, w: 210, h: 30 };
+    const dots = (style: typeof st) => tabsFrame(dev, { first: 1, sel: 1 }, z, style).filter((o) => o.shape.kind === 'ellipse').length;
+    const fitted = styleFrom({ UseShipImage: '1', PictureFit: '1' });
+    expect(fitted.fitted).toBe(true);
+    expect(dots(st)).toBeGreaterThanOrEqual(dots(fitted) + 4);
   });
 });

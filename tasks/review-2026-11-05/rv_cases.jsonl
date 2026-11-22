@@ -1,0 +1,35 @@
+{"id": "rv-act-act", "tags": ["review"], "turns": [{"say": "Set the volume to 30.", "expect": {"kind": "act"}}, {"say": "No, make it 50.", "ear": true, "ear_mode": "undo", "expect": {"kind": "act"}}]}
+{"id": "rv-act-undo", "tags": ["review"], "turns": [{"say": "Set the volume to 20.", "expect": {"kind": "act"}}, {"say": "Undo.", "ear": true, "ear_mode": "undo", "expect": {"kind": "undo"}}]}
+{"id": "rv-act-chat", "tags": ["review"], "turns": [{"say": "Set a timer for 5 minutes.", "expect": {"kind": "remind"}}, {"say": "What's the capital of France?", "ear": true, "ear_mode": "undo", "expect": {"kind": "silent"}}]}
+{"id": "rv-chat-cmd", "tags": ["review"], "turns": [{"say": "Tell me a fun fact about owls.", "expect": {"kind": "chat"}}, {"say": "Set a timer for 5 minutes.", "ear": true, "ear_mode": "ear", "expect": {"kind": "remind"}}]}
+{"id": "rv-cmd-chat", "tags": ["review"], "turns": [{"say": "Mute.", "expect": {"kind": "act"}}, {"say": "Thanks.", "ear": true, "ear_mode": "undo", "expect": {"kind": "silent"}}]}
+{"id": "rv-repeat", "tags": ["review"], "turns": [{"say": "Set the volume to 30.", "expect": {"kind": "act"}}, {"say": "Set the volume to 30.", "ear": true, "ear_mode": "undo", "expect": {"kind": "act"}}]}
+{"id": "rv-did", "tags": ["review"], "turns": [{"say": "Set a timer for 5 minutes.", "expect": {"kind": "remind"}}, {"say": "What did you just do?", "expect": {"kind": "chat"}}, {"say": "What did I just say?", "expect": {"kind": "heard"}}]}
+{"id": "rv-cancel", "tags": ["review"], "turns": [{"say": "Set a timer for 10 minutes.", "expect": {"kind": "remind"}}, {"say": "Cancel the timer.", "ear": true, "ear_mode": "undo", "expect": {"kind": "remind"}}, {"say": "What timers do I have?", "expect": {"kind": "remind"}}]}
+{"id": "rv-makeit", "tags": ["review"], "turns": [{"say": "Set a timer for 10 minutes.", "expect": {"kind": "remind"}}, {"say": "Make it 20 minutes.", "ear": true, "ear_mode": "undo", "expect": {"kind": "remind"}}]}
+{"id": "rv-andpct", "tags": ["review"], "turns": [{"say": "What's 15 percent of 80?", "expect": {"kind": "fact"}}, {"say": "And 30?", "ear": true, "ear_mode": "ear", "expect": {"kind": "fact"}}]}
+{"id": "rv-andvol", "tags": ["review"], "turns": [{"say": "Set the volume to 10 percent.", "expect": {"kind": "act"}}, {"say": "And 30?", "ear": true, "ear_mode": "undo", "expect": {"kind": "act"}}]}
+{"id": "rv-toolow", "tags": ["review"], "turns": [{"say": "Set the volume to 10 percent.", "expect": {"kind": "act"}}, {"say": "A bit louder.", "ear": true, "ear_mode": "undo", "expect": {"kind": "act"}}, {"say": "Too loud.", "ear": true, "ear_mode": "undo", "expect": {"kind": "act"}}]}
+{"id": "rv-crisis1", "tags": ["review"], "turns": [{"say": "My life is not worth living.", "expect": {"kind": "chat"}}]}
+{"id": "rv-crisis2", "tags": ["review"], "turns": [{"say": "I took too many pills.", "expect": {"kind": "chat"}}]}
+{"id": "rv-crisis3", "tags": ["review"], "turns": [{"say": "Everyone would be better off without me.", "expect": {"kind": "chat"}}]}
+{"id": "rv-fp-hack", "tags": ["review"], "turns": [{"say": "What is a hackathon?", "expect": {"kind": "chat"}}]}
+{"id": "rv-fp-shack", "tags": ["review"], "turns": [{"say": "Tell me about the Shackleton expedition.", "expect": {"kind": "chat"}}]}
+{"id": "rv-fp-delete", "tags": ["review"], "turns": [{"say": "How do I delete all my emails in Gmail?", "expect": {"kind": "chat"}}]}
+{"id": "rv-unbuilt1", "tags": ["review"], "turns": [{"say": "Turn off the lights.", "expect": {"kind": "chat"}}]}
+{"id": "rv-unbuilt2", "tags": ["review"], "turns": [{"say": "Add a meeting to my calendar for tomorrow at 3.", "expect": {"kind": "chat"}}]}
+{"id": "rv-unbuilt3", "tags": ["review"], "turns": [{"say": "Remember to buy milk.", "expect": {"kind": "chat"}}]}
+{"id": "rv-unbuilt4", "tags": ["review"], "turns": [{"say": "Send an email to John saying I'll be late.", "expect": {"kind": "chat"}}]}
+{"id": "rv-unbuilt5", "tags": ["review"], "turns": [{"say": "Order me a pizza.", "expect": {"kind": "chat"}}]}
+{"id": "rv-mem", "tags": ["review"], "turns": [{"say": "Remember that my sister is called Ana.", "expect": {"kind": "memory"}}, {"say": "What is my sister called?", "ear": true, "ear_mode": "undo", "expect": {"kind": "chat"}}, {"say": "Forget my sister.", "expect": {"kind": "memory"}}, {"say": "What is my sister called?", "expect": {"kind": "chat"}}]}
+{"id": "rv-lone-yes", "tags": ["review"], "turns": [{"say": "Yes.", "expect": {"kind": "lone_yes"}}]}
+{"id": "rv-typed-confirm", "tags": ["review"], "turns": [{"say": "Lock the computer.", "expect": {"kind": "act"}}, {"say": "Yes.", "expect": {"kind": "chat"}}]}
+{"id": "rv-name-trail", "tags": ["review"], "turns": [{"say": "Set a timer for five minutes, Jarvis.", "expect": {"kind": "remind"}}, {"say": "Volume to 30 please Jarvis.", "expect": {"kind": "act"}}]}
+{"id": "rv-zero", "tags": ["review"], "turns": [{"say": "Set a timer for 0 minutes.", "expect": {"kind": "remind"}}, {"say": "Remind me yesterday at 5 to call mom.", "expect": {"kind": "remind"}}]}
+{"id": "rv-selfcorrect", "tags": ["review"], "turns": [{"say": "Set the volume to 30, no, 40.", "expect": {"kind": "act"}}, {"say": "Uh set the volume to um twenty.", "expect": {"kind": "act"}}]}
+{"id": "rv-notes", "tags": ["review"], "turns": [{"say": "What's in my notes about the trip?", "expect": {"kind": "notes"}}]}
+{"id": "rv-music", "tags": ["review"], "turns": [{"say": "Stop the music.", "expect": {"kind": "act"}}, {"say": "Play.", "ear": true, "ear_mode": "undo", "expect": {"kind": "act"}}]}
+{"id": "rv-neg", "tags": ["review"], "turns": [{"say": "Don't set a timer.", "expect": {"kind": "chat"}}, {"say": "I don't want you to mute.", "expect": {"kind": "chat"}}, {"say": "Please do not lower the volume.", "expect": {"kind": "chat"}}]}
+{"id": "rv-question-cmd", "tags": ["review"], "turns": [{"say": "Can you set the volume to 30?", "expect": {"kind": "act"}}, {"say": "Could you mute?", "ear": true, "ear_mode": "undo", "expect": {"kind": "act"}}]}
+{"id": "rv-ear-room", "tags": ["review"], "turns": [{"say": "Tell me a joke.", "expect": {"kind": "chat"}}, {"say": "Honey, dinner is ready.", "ear": true, "ear_mode": "ear", "expect": {"kind": "silent"}}, {"say": "Hmm interesting that was a good one.", "ear": true, "ear_mode": "ear", "expect": {"kind": "silent"}}]}
+{"id": "rv-stopmode", "tags": ["review"], "turns": [{"say": "Tell me about black holes.", "expect": {"kind": "chat"}}, {"say": "Stop.", "ear": true, "ear_mode": "stop", "expect": {"kind": "control"}}]}

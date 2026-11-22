@@ -148,6 +148,28 @@ public sealed class MessageRouterTests : IDisposable
     }
 
     [Fact]
+    public async Task FilePickAsksForOnePathSettingAndAnswersWithTheChosenPath()
+    {
+        var schema = Repo.Schema();
+        var asked = new List<string>();
+        string? chosen = "C:\\Users\\me\\wall.mp4";
+        var router = new MessageRouter(schema, new ConfigStore(_dir, schema), new ActionGate(_power, _shell), _ => Task.FromResult(true), pick: k => { asked.Add(k); return chosen; });
+        var r = await router.HandleAsync("{\"type\":\"file.pick\",\"key\":\"WallpaperFile\"}");
+        Assert.Null(r.Problem);
+        using var d = System.Text.Json.JsonDocument.Parse(r.Reply!);
+        Assert.Equal("file.picked", d.RootElement.GetProperty("type").GetString());
+        Assert.Equal("WallpaperFile", d.RootElement.GetProperty("key").GetString());
+        Assert.Equal(chosen, d.RootElement.GetProperty("path").GetString());
+        chosen = null; // cancelled: no reply, nothing changes
+        var c = await router.HandleAsync("{\"type\":\"file.pick\",\"key\":\"ObsidianVault\"}");
+        Assert.Null(c.Problem); Assert.Null(c.Reply);
+        // only the path settings: not another setting, not a path
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"file.pick\",\"key\":\"Scale\"}")).Problem);
+        Assert.NotNull((await router.HandleAsync("{\"type\":\"file.pick\",\"key\":\"C:\\\\Windows\"}")).Problem);
+        Assert.Equal(["WallpaperFile", "ObsidianVault"], asked);
+    }
+
+    [Fact]
     public async Task TargetOpenPassesOnlyTheFixedTargets()
     {
         var schema = Repo.Schema();

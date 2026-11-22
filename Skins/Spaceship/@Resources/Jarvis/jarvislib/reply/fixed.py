@@ -38,6 +38,7 @@ COULDNT = register("couldnt", "I couldn't read that.")
 # jarvis.py: results of a command, confirmations and small control replies
 DONE = register("done", "Done.")
 FAILED = register("failed", "That didn't work.")
+TYPED_CONFIRM = register("typed_confirm", "That needs a spoken yes, sir. Say it out loud and I'll do it.")
 OKAY = register("okay", "Okay.")
 ADDED = register("added", "Added.")
 CANCELLED = register("cancelled", "Cancelled.")

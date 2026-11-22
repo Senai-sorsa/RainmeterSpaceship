@@ -229,9 +229,25 @@ def promise(reply):
 
 # ------------------------------------------------------------------ semi-live 2026-11-02: code polish of the spoken answer
 # Each rule here came from a real model reply in the semi-live test (llama3.1:8b and llama3.2:3b): code, not more prompt.
-CRISIS = re.compile(r"\b(?:kill(?:ing)? myself|suicid\w*|end (?:it all|my life)|take my (?:own )?life|want to die|"
-                    r"wanna die|better off dead|hurt(?:ing)? myself|self[- ]?harm|cut(?:ting)? myself|"
-                    r"don'?t want to (?:live|be alive|wake up))\b", re.I)
+CRISIS = re.compile(r"\b(?:kill(?:ing)? myself|suicid\w*|end (?:it all|my life|everything)|ending it all|take my (?:own )?life|"
+                    r"want to die|wanna die|better off dead|hurt(?:ing)? myself|self[- ]?harm|cut(?:ting)? myself|"
+                    r"don'?t want to (?:live|be alive|wake up|be here|exist)|"
+                    r"(?:my )?life (?:is|isn'?t|is not) worth (?:living|it)|not worth living|"
+                    r"(?:no|don'?t see (?:a|the|any)) (?:point|reason) (?:in |to |of )?(?:living|go(?:ing)? on|being alive|life)|"
+                    r"(?:better|best) off without me|"
+                    r"(?:took|taken|swallowed) (?:too many|a bunch of|all (?:my|the)) (?:pills|tablets|meds|medication)|"
+                    r"took an overdose|overdosed on|i(?:'m| am) overdosing|"
+                    r"wish i (?:was|were) dead|wish i (?:would|could) (?:just )?(?:die|not wake up)|"
+                    r"disappear forever|give up on life|"
+                    r"(?:hang|shoot|poison|drown|stab) myself|(?:slit|cut) my (?:wrists?|throat))\b", re.I)
+# C1b: figures of speech and titles that contain the words but are not a person in trouble. They are removed before the
+# match, so "I'm going to kill myself laughing" and "what is Suicide Squad about" never get the crisis line.
+CRISIS_IDIOM = re.compile(r"\b(?:kill(?:ing)? myself (?:laughing|with (?:laughter|work|stress|worry))|"
+                          r"(?:die|dying|dead|death) (?:of|from|laughing|with) (?:laughter|laughing|embarrassment|boredom|shame|cringe)|"
+                          r"die laughing|dying of laughter|to die for|"
+                          r"(?:social|career|political|commercial|professional) suicide|"
+                          r"suicide (?:squad|mission|prawn|bomber|bombers|king|run|sprints?)|"
+                          r"(?:movie|film|game|band|album|song|show|series) (?:called |named )?suicide)\b", re.I)
 FILLER = re.compile(r"(?:is there anything else|how (?:can|may) I (?:help|assist)|what can I (?:do|help) (?:for|with)|"
                     r"let me know if|feel free to|don'?t hesitate|I'?m (?:here|happy|glad) to (?:help|assist)|"
                     r"I'?d be (?:happy|glad) to help)", re.I)
@@ -243,7 +259,7 @@ SIR_TAG = re.compile(r",\s*sir(?=\s*[.!?,])|^sir,\s*|(?<=[.!?] )sir,\s*", re.I)
 def crisis(text):
     """Words about suicide or self-harm: he answers with CRISIS_LINE from code, never the model (the 3B model gave a
     retired hotline number, the 8B one a refusal and "1. 2. 3. 4.")."""
-    return on("JarvisSeriousTopics") and bool(CRISIS.search(text or ""))
+    return bool(CRISIS.search(CRISIS_IDIOM.sub(" ", text or "")))     # not behind JarvisSeriousTopics: that only controls the mood
 
 
 def chat_cap(mood, adds):

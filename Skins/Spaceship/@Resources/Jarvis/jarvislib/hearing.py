@@ -30,7 +30,11 @@ def _load_whisper(device):
     if device == "cpu":
         return WhisperModel(size, device="cpu", compute_type="int8", cpu_threads=cpu_threads())
     _cuda_dlls()
-    return WhisperModel(size, device="cuda", compute_type="float16")
+    try:
+        return WhisperModel(size, device="cuda", compute_type="float16")
+    except Exception as e:                                     # A-05: a card without float16 (or short of memory) keeps the GPU with int8
+        log(f"whisper: float16 not available on the GPU ({type(e).__name__}) - trying int8_float16")
+        return WhisperModel(size, device="cuda", compute_type="int8_float16")
 
 
 def whisper():
@@ -111,18 +115,25 @@ def confidence(segs):
 
 missed = [0]                   # U5: how many turns in a row ended with speech heard but no words
 QUIET_PEAK = 0.025             # shortcut: unmeasured (speech starts at 0.012); the log prints the peak of each miss, tune from it
+LOUD_PEAK = 0.08               # speech clearly there (a normal voice at the mic is far above this): only then does one miss get a "Pardon?"
 
 
 def missed_line(peak, call=""):
     """U5: what to say when speech came out as no words. Returns (line, open_type_box). A near-silent level points at the
-    microphone; the first miss is a short "Pardon?"; the second in a row opens the type box instead of asking again."""
+    microphone; a loud miss gets a short "Pardon?" and a second in a row opens the type box; a weak miss gets a short non-apologetic
+    "Yes?" (then "I'm listening.", then the type box)."""
     missed[0] += 1
     log(f"transcript: no words (level {peak:.3f}, miss {missed[0]})")           # numbers only
     if peak < QUIET_PEAK:
         return "I barely heard anything - check the microphone.", False
-    if missed[0] >= 2:
+    pardon = f"Pardon{', ' + call if call else ''}?"
+    if peak >= LOUD_PEAK:                                      # clearly spoken but no words came out: ask once, then offer the type box
+        return ("Still nothing. You can type to me here.", True) if missed[0] >= 2 else (pardon, False)
+    # weak speech (a murmur, a breath, a far-off voice) always gets an answer, but not "sorry, what did you say?": that is kept
+    # for loud speech that came out as nothing. A short prompt keeps the ear open; the third miss in a row opens the type box.
+    if missed[0] >= 3:
         return "Still nothing. You can type to me here.", True
-    return f"Pardon{', ' + call if call else ''}?", False
+    return ("I'm listening.", False) if missed[0] == 2 else ("Yes?", False)
 
 
 def _decode(model, audio):

@@ -5,6 +5,7 @@ import threading
 import time
 from .base import DATA, log, setting
 from .notes import vault_dir
+from .untrusted import sensitive_name
 
 
 # ------------------------------------------------------------------ smart note search (ChromaDB)
@@ -62,7 +63,7 @@ def chroma_index(force=False):
             for dirpath, dirs, files in os.walk(root):
                 dirs[:] = [d for d in dirs if not d.startswith(".")]
                 for fn in files:
-                    if not fn.lower().endswith(".md"):
+                    if not fn.lower().endswith(".md") or sensitive_name(fn):   # A-09: never indexed
                         continue
                     path = os.path.join(dirpath, fn)
                     present.add(path)

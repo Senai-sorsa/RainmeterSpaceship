@@ -27,22 +27,16 @@ export function selIndex(cat: Cat | undefined, state: Record<string, string>): n
   return sel >= 1 && sel <= n ? sel - 1 : 0;
 }
 
-/** The tab rail: up to four labels justified along the rail, the selected one in the accent colour. */
-export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st: Style): Op[] {
-  const c = new Canvas(zone, st);
-  const { w, h } = zone;
-  c.line(10, 4, w - 4, 4, st.accent, 1.3, 220);
-  c.line(4, h - 4, w - 8, h - 4, st.accent, 1.3, 220);
-  c.dot(10, 4, 3, st.accent); c.dot(4, h - 4, 3, st.accent);
-  c.dot(w - 4, 4, 3, st.accent); c.dot(w - 8, h - 4, 3, st.accent);
+/** Where the tab labels sit on the rail: the text size, each label's width, the gap between them and the first label's x. The click map (tabAt) and the drawing share it. */
+function tabSpans(cat: Cat | undefined, first: number, zone: Zone, st: Style) {
   const n = cat?.apps.length ?? 0;
   const vis = Math.min(MAXTABS, n);
-  const x0 = 16, len = w - 32;
+  const len = zone.w - 32;
   let size = 6.2;
   const labels: string[] = [], widths: number[] = [];
   let total = 0;
   for (let t = 0; t < vis; t++) {
-    labels.push(cat!.apps[state.first + t - 1]?.short ?? '');
+    labels.push(cat!.apps[first + t - 1]?.short ?? '');
     widths.push(textWidth(st, labels[t], size));
     total += widths[t];
   }
@@ -55,7 +49,31 @@ export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st:
   }
   const gap = vis > 1 ? Math.min(MAXGAP, (len - total) / (vis - 1)) : 0;
   const span = total + gap * Math.max(0, vis - 1);
-  let x = x0 + (len - span) / 2;
+  return { vis, size, labels, widths, gap, x0: 16 + (len - span) / 2 };
+}
+
+/** The tab (0-based, among the visible ones) under x, in zone units from the zone's left: each label owns the space out to the halfway point of the gap to its neighbour, as drawn. */
+export function tabAt(cat: Cat | undefined, first: number, zone: Zone, st: Style, x: number): number {
+  const { vis, widths, gap, x0 } = tabSpans(cat, first, zone, st);
+  let edge = x0;
+  for (let t = 0; t < vis - 1; t++) {
+    edge += widths[t] + gap / 2;
+    if (x < edge) return t;
+    edge += gap / 2;
+  }
+  return Math.max(0, vis - 1);
+}
+
+/** The tab rail: up to four labels justified along the rail, the selected one in the accent colour. */
+export function tabsFrame(cat: Cat | undefined, state: CatState, zone: Zone, st: Style): Op[] {
+  const c = new Canvas(zone, st);
+  const { w, h } = zone;
+  c.line(10, 4, w - 4, 4, st.accent, 1.3, 220);
+  c.line(4, h - 4, w - 8, h - 4, st.accent, 1.3, 220);
+  // end dots on the rail's lines; the fitted picture frame draws the rail without them (live test, 2026-11-05)
+  if (!st.fitted) { c.dot(10, 4, 3, st.accent); c.dot(4, h - 4, 3, st.accent); c.dot(w - 4, 4, 3, st.accent); c.dot(w - 8, h - 4, 3, st.accent); }
+  const { vis, size, labels, widths, gap, x0 } = tabSpans(cat, state.first, zone, st);
+  let x = x0;
   for (let t = 0; t < vis; t++) {
     const i = state.first + t;
     const on = i === state.sel;

@@ -6,7 +6,7 @@ import { OpsView } from '../draw/ops';
 import { appState, appStates, upkeepStatus } from '../host/statusFeed';
 import { entryOf, type Catalog } from './apps';
 import { catalogFeed } from './appsSource';
-import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabsFrame } from './category';
+import { dotsFrame, MAXTABS, scanFrame, schematicFrame, selIndex, tabAt, tabsFrame } from './category';
 import { HitRect, launch, openSlot, slotTip, usePanel } from './hit';
 import { slotRowFrame } from './slot';
 import { visible } from './hidden';
@@ -59,7 +59,7 @@ export function LeftModule({ style, hide = '', catalog = catalogFeed.value }: { 
   return (
     <>
       {place(Z.tabs, ops.tabs, 'tabs', 'left-tabs', Z.tabs && nTabs > 0 && (() => {
-        const tab = (x: number) => first - 1 + Math.max(0, Math.min(nTabs - 1, Math.floor(((x - 16) / (Z.tabs!.w - 32)) * nTabs))); // shortcut: equal shares, not the justified label spans
+        const tab = (x: number) => first - 1 + tabAt(cat, first, Z.tabs!, style, x); // the drawn label spans, not equal shares
         return <HitRect zone={Z.tabs} s={style.s} label="Category tabs" on={{ click: (x) => choose(cat, tab(x)), menu: (x) => launch(cat?.apps[tab(x)]), wheel: (d) => choose(cat, ai + d) }} />;
       })())}
       {place(Z.category, ops.cat, 'cat', 'left-category', Z.category && (

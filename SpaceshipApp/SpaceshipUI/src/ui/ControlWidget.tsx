@@ -1,7 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { HostBridge } from '../host/HostBridge';
 import type { SettingsStore } from '../settings/store';
 import type { SettingDef } from '../settings/types';
+import { PICK_KEYS } from '../settings/pick';
 
 type P = { def: SettingDef; store: SettingsStore; host: HostBridge; describedBy?: string };
 
@@ -15,6 +16,22 @@ function TextInput({ def, store, describedBy }: Omit<P, 'host'>) {
       onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
       onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
       onBlur={commit} />
+  );
+}
+
+/** A path setting: the text box plus a Browse button that opens the host's Windows file (or folder) dialog; the chosen path comes back as file.picked and is set like typed text. */
+function PathInput({ def, store, host, describedBy }: P) {
+  const folder = PICK_KEYS[def.key] === 'folder';
+  useEffect(() => {
+    const off = host.onMessage((m) => { if (m.type === 'file.picked' && m.key === def.key && typeof m.path === 'string' && m.path) store.set(def.key, m.path); });
+    return () => { if (typeof off === 'function') off(); };
+  }, [host, store, def.key]);
+  return (
+    <span class="ctl-path">
+      <TextInput def={def} store={store} describedBy={describedBy} />
+      <button type="button" class="ctl-action ctl-browse" aria-label={`Browse for ${def.label}`} title={folder ? 'Choose a folder' : 'Choose a file'}
+        onClick={() => host.send({ type: 'file.pick', key: def.key })}>Browse</button>
+    </span>
   );
 }
 
@@ -50,7 +67,7 @@ export function ControlWidget({ def, store, host, describedBy }: P) {
       return <span class="ctl-color"><i class="swatch" style={{ background: `rgb(${rgb})` }} /><TextInput def={def} store={store} describedBy={describedBy} /></span>;
     }
     case 'text':
-      return <TextInput def={def} store={store} describedBy={describedBy} />;
+      return Object.prototype.hasOwnProperty.call(PICK_KEYS, def.key) ? <PathInput def={def} store={store} host={host} describedBy={describedBy} /> : <TextInput def={def} store={store} describedBy={describedBy} />;
     case 'action':
       return <button type="button" class="ctl-action" data-primary aria-describedby={describedBy} onClick={() => host.send(c.id === 'flow.open' ? { type: 'flow.open', flow: FLOW_OF[def.key] } : { type: 'action', id: c.id })}>{def.label}</button>;
   }

@@ -8,7 +8,7 @@ import { popupFrame } from '../draw/popup';
 // dashed counter-ring and a tick ring flicker on, and INITIALIZING counts up over a bar. Then the system check panel
 // (the pop-ups' lit glass) lists six rows, each flickering in and filling a small bar before its status, and a verdict
 // band; then the overlay fades out. Elements enter with a short flicker, as film and game start-ups do. Not ported: the panel fade-ins (the live modules are the panels here, not the old meters), the
-// boot sound (an OS action), and the Storage / Audio / Network readings (no host feed yet: they show --).
+// boot sound (an OS action), and (the Storage, Network and Audio rows read the host's drive, network and volume feeds; they show -- only while the host has no reading).
 // shortcut: the panel count is the 29 modules in Data/zones.lua, copied as a constant, upgrade: read it from the layout.
 
 export const FRAME_MS = skinMs(16); // the skin's Update=16, which Rainmeter runs at ~32 fps
@@ -41,25 +41,36 @@ export function flicker(f: number, a: number): number {
 
 export type Sev = 'ok' | 'warn' | 'alert' | 'unknown';
 export type CheckRow = { label: string; value: string; sev: Sev };
-export type BootInput = { cpu?: number; mem?: number; onAc?: boolean; bat?: number };
+export type BootInput = {
+  cpu?: number; gpu?: number; mem?: number; onAc?: boolean; bat?: number;
+  /** Drive C: bytes, network rates in bytes per second, speaker level 0..100 and mute flag. Left out when the host has no reading. */
+  driveTotal?: number; driveFree?: number; netDown?: number; netUp?: number; volume?: number; muted?: boolean;
+};
 
 const pct = (v: number) => `${Math.round(v)}%`;
 
 /** The six rows of the system check. Unknown readings show -- and are not counted as faults. */
 export function bootRows(input: BootInput): CheckRow[] {
-  const { cpu, mem, onAc, bat } = input;
+  const { cpu, gpu, mem, onAc, bat, driveTotal, driveFree, netDown, netUp, volume, muted } = input;
   const power: { value: string; sev: Sev } = onAc === undefined && bat === undefined
     ? { value: '--', sev: 'unknown' }
     : {
       value: [onAc === undefined ? '' : onAc ? 'AC' : 'BAT', bat === undefined ? '--' : pct(bat)].filter(Boolean).join(' '),
       sev: onAc === false && bat !== undefined && bat < 20 ? 'warn' : 'ok',
     };
+  const freePct = driveTotal && driveFree !== undefined ? (driveFree / driveTotal) * 100 : undefined;
+  const storage: CheckRow = freePct === undefined ? { label: 'STORAGE', value: '--', sev: 'unknown' }
+    : { label: 'STORAGE', value: `${pct(freePct)} FREE`, sev: freePct < 10 ? 'warn' : 'ok' };
+  const network: CheckRow = netDown === undefined && netUp === undefined ? { label: 'NETWORK', value: '--', sev: 'unknown' }
+    : { label: 'NETWORK', value: 'ONLINE', sev: 'ok' };
+  const audio: CheckRow = volume === undefined ? { label: 'AUDIO', value: '--', sev: 'unknown' }
+    : { label: 'AUDIO', value: muted ? 'MUTED' : pct(volume), sev: 'ok' };
   return [
-    { label: 'CPU / GPU', value: cpu === undefined ? '--' : `${pct(cpu)} / --`, sev: cpu === undefined ? 'unknown' : cpu >= 90 ? 'warn' : 'ok' },
+    { label: 'CPU / GPU', value: cpu === undefined ? '--' : `${pct(cpu)} / ${gpu === undefined ? '--' : pct(gpu)}`, sev: cpu === undefined ? 'unknown' : cpu >= 90 ? 'warn' : 'ok' },
     { label: 'MEMORY', value: mem === undefined ? '--' : pct(mem), sev: mem === undefined ? 'unknown' : mem >= 90 ? 'warn' : 'ok' },
-    { label: 'STORAGE', value: '--', sev: 'unknown' },
-    { label: 'NETWORK', value: '--', sev: 'unknown' },
-    { label: 'AUDIO', value: '--', sev: 'unknown' },
+    storage,
+    network,
+    audio,
     { label: 'POWER', ...power },
   ];
 }

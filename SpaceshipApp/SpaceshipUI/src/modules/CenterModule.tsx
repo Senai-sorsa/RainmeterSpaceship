@@ -51,7 +51,7 @@ export function CenterModule({ style, sphere = true, hide = '', link = 0, linkUp
       return;
     }
     return scheduler.every(FRAME_MS * (tier === 1 ? 2 : 1), () => {
-      if (Z.target && tgt.current) targetMove(tgt.current, Z.target, { name: pNow.current?.name }, 1, Math.random);
+      if (Z.target && tgt.current) targetMove(tgt.current, Z.target, { name: pNow.current?.name }, 1, Math.random, !Z.hud);
       setTick((n) => n + 1);
     });
   }, [tier, Z]);

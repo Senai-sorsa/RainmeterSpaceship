@@ -13,6 +13,9 @@ import haze from '../../../../Skins/Spaceship/@Resources/Images/haze.png?url';
 const SXR = 2560 / 1260, SYR = 1600 / 709;
 const ZX = 412, ZY = 108; // zone origin in reference px (ref_layout C_target) and the windscreen's slanted sides
 const WIN_TOP = 104, WIN_LX0 = 342.3, WIN_RX0 = 917.7, SLOPE = (500.8 - 342.3) / (365.5 - 104);
+// With the centre HUD off the reticle may roam down the whole glass; the glass ends at the slope's foot (ref y 365.5), kept clear by the same 2 px margin
+const WIN_BOT = 365.5, EDGE = 2;
+const MIN_DY = 30; // each new spot is at least this far above or below the last (zone px), so it never glides along one level
 const EXT_L = 126, EXT_R = 102, EXT_U = 102, EXT_D = 102; // reticle extents from its centre, zone px (box + readout on the left)
 const RED: [number, number, number, number] = [255, 70, 52, 255], HOT: [number, number, number, number] = [255, 150, 130, 255];
 
@@ -62,9 +65,9 @@ export const targetState = (zone: Zone): TargetState => {
 };
 
 /** Is the reticle centred at zone px (x, y) fully on the windscreen glass? The lowest point decides: the glass narrows down. */
-export function inside(zone: Zone, x: number, y: number): boolean {
-  if (x - EXT_L < 0 || x + EXT_R > zone.w || y - EXT_U < 0 || y + EXT_D > zone.h) return false;
+export function inside(zone: Zone, x: number, y: number, free = false): boolean {
   const yr = ZY + (y + EXT_D) / SYR;
+  if (x - EXT_L < 0 || x + EXT_R > zone.w || y - EXT_U < 0 || (free ? yr > WIN_BOT - EDGE : y + EXT_D > zone.h)) return false;
   if (yr < WIN_TOP) return false;
   const left = WIN_LX0 + (yr - WIN_TOP) * SLOPE;
   const right = WIN_RX0 - (yr - WIN_TOP) * SLOPE;
@@ -72,11 +75,12 @@ export function inside(zone: Zone, x: number, y: number): boolean {
 }
 
 /** A random inside spot at least 140 px (Manhattan) from where it is now; the zone centre when forty tries fail. */
-export function pickNext(zone: Zone, from: Pt, rnd: Rnd): Pt {
+export function pickNext(zone: Zone, from: Pt, rnd: Rnd, free = false): Pt {
+  const h = free ? (WIN_BOT - EDGE - ZY) * SYR : zone.h; // the glass's own bottom instead of the zone's
   for (let i = 0; i < 40; i++) {
     const x = EXT_L + rnd() * (zone.w - EXT_L - EXT_R);
-    const y = EXT_U + rnd() * (zone.h - EXT_U - EXT_D);
-    if (inside(zone, x, y) && Math.abs(x - from[0]) + Math.abs(y - from[1]) > 140) return [x, y];
+    const y = EXT_U + rnd() * (h - EXT_U - EXT_D);
+    if (inside(zone, x, y, free) && Math.abs(x - from[0]) + Math.abs(y - from[1]) > 140 && Math.abs(y - from[1]) > MIN_DY) return [x, y];
   }
   return [zone.w / 2, zone.h / 2];
 }
@@ -85,7 +89,7 @@ export function pickNext(zone: Zone, from: Pt, rnd: Rnd): Pt {
 const smoother = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
 /** One step of the roam. step 0 parks it (LOW and STEALTH tiers), 1 is the full rate, 2 the lite rate. */
-export function targetMove(state: TargetState, zone: Zone, input: TargetInput, step: number, rnd: Rnd) {
+export function targetMove(state: TargetState, zone: Zone, input: TargetInput, step: number, rnd: Rnd, free = false) {
   state.frame += 1;
   const now = state.frame * 0.05;
   // the lock pulse advances once per move, not once per draw; set below, so the first frame after a lock still draws it in full
@@ -95,6 +99,7 @@ export function targetMove(state: TargetState, zone: Zone, input: TargetInput, s
     state.lockAnim = 18;
   }
   if (step === 0) return;
+  if (state.to && !free && !inside(zone, state.to[0], state.to[1])) { state.to = null; state.dwellUntil = 0; } // the HUD came back on while heading low: pick a new spot
   if (state.to) {
     const k = Math.min(1, (now - state.t0) / state.dur);
     const e = smoother(k);
@@ -108,7 +113,7 @@ export function targetMove(state: TargetState, zone: Zone, input: TargetInput, s
     }
   } else if (now >= state.dwellUntil) {
     state.from = [state.pos[0], state.pos[1]];
-    state.to = pickNext(zone, state.pos, rnd);
+    state.to = pickNext(zone, state.pos, rnd, free);
     const dist = Math.hypot(state.to[0] - state.from[0], state.to[1] - state.from[1]);
     state.t0 = now;
     // calmer than target.lua (dist/220, 1.4-3.2 s): about 90 px/s average, so the quintic ease peaks near 170 px/s instead of 410

@@ -5,6 +5,7 @@ import queue
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.request
 from .base import MODELS_FILE, NO_WINDOW, OLLAMA, cancel, log, setting
 from .gpu import cpu_in_use, cpu_threads, gpu
@@ -14,7 +15,7 @@ def ctx_tokens():
     """The model's context window (JarvisContext, default 2048 - less memory and a faster first word)."""
     try:
         return max(1024, min(32768, int(float(setting("JarvisContext", "2048")))))
-    except ValueError:
+    except (ValueError, OverflowError):
         return 2048
 
 
@@ -85,7 +86,7 @@ def pick_model(tier):
 def keep_alive():
     try:
         return f"{max(1, int(float(setting('JarvisKeepAlive', '10'))))}m"
-    except ValueError:
+    except (ValueError, OverflowError):
         return "10m"
 
 
@@ -151,6 +152,12 @@ def chat_json(model, schema, system, user, predict, timeout):
     return json.loads(out["message"]["content"])
 
 
+def _transient(e):
+    """A-04: a dropped or reset connection (not an HTTP error answer) is worth one more try before anything was heard."""
+    reason = getattr(e, "reason", e)
+    return not isinstance(e, urllib.error.HTTPError) and isinstance(reason, (ConnectionError, TimeoutError))
+
+
 def chat_stream(model, messages, temperature=0.5):
     opts = dict(load_options(), temperature=temperature, num_predict=160)
     body = json.dumps({"model": model, "messages": messages, "stream": True, "keep_alive": keep_alive(),
@@ -161,15 +168,25 @@ def chat_stream(model, messages, temperature=0.5):
     lines, gone = queue.Queue(), threading.Event()
 
     def pump():
-        try:
-            with urllib.request.urlopen(req, timeout=120) as r:
-                for raw in r:
-                    if gone.is_set():
-                        return
-                    lines.put(raw)
-            lines.put(None)
-        except Exception as e:
-            lines.put(e)
+        got, tries = False, 0
+        while True:
+            try:
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    for raw in r:
+                        if gone.is_set():
+                            return
+                        got = True
+                        lines.put(raw)
+                lines.put(None)
+                return
+            except Exception as e:
+                if not got and tries == 0 and _transient(e) and not gone.is_set():
+                    tries = 1                                  # one retry, only before the first piece came
+                    log(f"ollama: {type(e).__name__} before the first piece - trying once more")
+                    time.sleep(0.5)
+                    continue
+                lines.put(e)
+                return
 
     threading.Thread(target=pump, daemon=True).start()
     try:
@@ -188,6 +205,8 @@ def chat_stream(model, messages, temperature=0.5):
             if not raw:
                 continue
             obj = json.loads(raw)
+            if obj.get("error"):                               # Ollama reports a failure inside the stream (out of memory, model gone)
+                raise RuntimeError("Ollama says: " + str(obj["error"])[:90])
             piece = obj.get("message", {}).get("content", "")
             if piece:
                 yield piece

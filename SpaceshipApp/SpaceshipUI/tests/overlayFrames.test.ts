@@ -47,6 +47,17 @@ describe('boot overlay', () => {
     expect(bootVerdict(bootRows({ cpu: 10, mem: 20, onAc: true, bat: 90 }))).toEqual({ text: 'NO FAULTS, 3 NOT FED', warn: false });
   });
 
+  it('feeds storage, network, audio and GPU from the host readings', () => {
+    const rows = bootRows({ cpu: 10, gpu: 5, mem: 20, onAc: true, bat: 90, driveTotal: 1000, driveFree: 400, netDown: 0, netUp: 0, volume: 35, muted: false });
+    expect(rows.map((r) => [r.label, r.value, r.sev])).toEqual([
+      ['CPU / GPU', '10% / 5%', 'ok'], ['MEMORY', '20%', 'ok'], ['STORAGE', '40% FREE', 'ok'],
+      ['NETWORK', 'ONLINE', 'ok'], ['AUDIO', '35%', 'ok'], ['POWER', 'AC 90%', 'ok'],
+    ]);
+    expect(bootVerdict(rows).text).toBe('ALL SYSTEMS NOMINAL');
+    expect(bootRows({ driveTotal: 1000, driveFree: 50 })[2].sev).toBe('warn');
+    expect(bootRows({ volume: 35, muted: true })[4].value).toBe('MUTED');
+  });
+
   it('a frame draws the ignition, then the check panel and verdict once due', () => {
     const tl = bootTimeline();
     const rows = bootRows({ cpu: 10, mem: 20, onAc: true, bat: 90 });

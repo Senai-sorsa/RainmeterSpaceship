@@ -21,6 +21,7 @@ test('rendered has hull and corners; picture has the ship image and no corners; 
   await page.screenshot({ path: 'artifacts/frame-picture.png' });
   await choose(page, 'none');
   await expect(page.locator('.frame')).toHaveCount(0);
+  await expect(page.locator('.frame-trim [data-part="Decor"]')).toHaveCount(1); // no art, but the HUD's own neon trim stays
   await page.screenshot({ path: 'artifacts/frame-none.png' });
 });
 

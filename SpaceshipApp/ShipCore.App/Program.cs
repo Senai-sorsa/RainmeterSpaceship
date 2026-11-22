@@ -240,7 +240,7 @@ sealed class Overlay : Form
             var unwired = new UnwiredHost();
             var state = _hostState = new HostState(Path.Combine(appData, "ui-state.json"));
             _router = new MessageRouter(schema, _settings, new ActionGate(unwired, unwired), ConfirmAsync, state, new DialGate(new WindowsDial(), ConfirmAsync), _hits, LaunchApp, OpenTarget,
-                new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else if (k == "calendar") _calendar?.Soon(); else if (k == "apps") ScanApps(); else _status?.Soon(k); }, () => _speed?.Run(), JarvisCommand);
+                new LltGate(new LltRunner(), ConfirmAsync), k => { if (k == "mail") _mail?.Soon(); else if (k == "calendar") _calendar?.Soon(); else if (k == "apps") ScanApps(); else _status?.Soon(k); }, () => _speed?.Run(), JarvisCommand, PickFile);
             var store = _settings;
             _speed = new SpeedRunner((k, v) => store.Set(k, v).Ok, Post);
         }
@@ -444,7 +444,11 @@ sealed class Overlay : Form
         _starting = false;
         if (!_running) { try { cc.Close(); } catch { /* stopped while starting */ } return; }
         _cc = cc;
-        Show();
+        // Not shown yet: the window appears when the first page has loaded (NavigationCompleted -> ApplyVisibility), so there is no empty-window flash before the page paints.
+        // Safety net: if the page never completes, show anyway after 4 s so the HUD can never stay invisible.
+        var showGuard = new System.Windows.Forms.Timer { Interval = 4000 };
+        showGuard.Tick += (_, _) => { showGuard.Stop(); showGuard.Dispose(); if (_running && !Visible) ApplyVisibility(); };
+        showGuard.Start();
         _cc.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
         _cc.DefaultBackgroundColor = Color.Transparent;
         _cc.IsVisible = true;
@@ -480,6 +484,7 @@ sealed class Overlay : Form
         // The page is the only thing this view may show: no links, no redirects, no popups.
         _cc.CoreWebView2.NavigationStarting += (_, a) => a.Cancel = a.Uri != "about:blank" && !a.Uri.StartsWith(UiOrigin, StringComparison.Ordinal);
         _cc.CoreWebView2.NewWindowRequested += (_, a) => a.Handled = true;
+        WatchWallpaper();
         _cc.CoreWebView2.NavigationCompleted += (_, a) => { if (a.IsSuccess) _failures = 0; _jarvisSent = _logSent = _appStateSent = _topSent = null; foreach (var m in _status?.Last ?? []) Post(m); foreach (var m in _net.Last) Post(m); if (_todo.Last is { } t) Post(t); if (_calendar?.Last is { } c) Post(c); if (_mail?.Last is { } ml) Post(ml); if (_speed?.Last is { } sp) Post(sp); if (_covered) Post("{\"type\":\"host.occluded\",\"on\":true}"); PostOnce(); _wallKey = "\0"; _wallPaused = null; SyncWallpaper(); ApplyVisibility(); }; // a new page gets the JARVIS and status state again
         var ui = FindUp(Path.Combine("SpaceshipApp", "SpaceshipUI", "dist"));
         if (ui is null)
@@ -494,6 +499,10 @@ sealed class Overlay : Form
             _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(UiHost, ui, CoreWebView2HostResourceAccessKind.DenyCors);
             // the apps' own icons (app-icons.ps1 output) on a second name; the page only builds URLs from icons.list's checked names
             if (_resources is not null) _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(IconsHost, Directory.CreateDirectory(Path.Combine(_resources, "Icons")).FullName, CoreWebView2HostResourceAccessKind.DenyCors);
+            // the wallpaper's own name, mapped BEFORE the page loads like the two above: mapped only after the load (in SyncWallpaper) the page's requests for it
+            // failed with ERR_NAME_NOT_RESOLVED (live test 2026-11-05, from the WALLPAPER_PAGE_ERROR log line), so no wallpaper ever showed
+            try { _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(WallHost, Directory.CreateDirectory(WallDir).FullName, CoreWebView2HostResourceAccessKind.DenyCors); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_FAILED,{e.GetType().Name}"); }
             _cc.CoreWebView2.Navigate(UiOrigin + "index.html?module=all"); // the full HUD; the page still accepts one name or a list
         }
     }
@@ -595,6 +604,7 @@ sealed class Overlay : Form
         var path = key is null ? null : Wallpaper.FilePath(v!.GetValueOrDefault("WallpaperFile"));
         if (path is not null && !File.Exists(path)) path = null;
         if (key is not null && path is null) _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_REFUSED,not a local video or picture that exists");
+        WallLog($"SYNC,{(key is null ? "off" : path is null ? "refused" : "file ok")}");
         if (path is null) { ShowWallpaper(null); return; }
         try { _cc.CoreWebView2.SetVirtualHostNameToFolderMapping(WallHost, Directory.CreateDirectory(WallDir).FullName, CoreWebView2HostResourceAccessKind.DenyCors); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_FAILED,{e.GetType().Name}"); ShowWallpaper(null); return; }
@@ -602,12 +612,61 @@ sealed class Overlay : Form
         _ = PrepareWallpaper(path, v!.GetValueOrDefault("WallpaperQuality"), key!, _wallWork.Token);
     }
 
-    void ShowWallpaper(string? file) => Post(System.Text.Json.JsonSerializer.Serialize(new
+    void ShowWallpaper(string? file)
     {
-        type = "wallpaper.src",
-        url = file is null ? "" : $"https://{WallHost}/{Uri.EscapeDataString(Path.GetFileName(file))}?v={++_wallGen}",
-        video = file is not null && Wallpaper.Videos.Contains(Path.GetExtension(file)),
-    }));
+        var url = file is null ? "" : $"https://{WallHost}/{Uri.EscapeDataString(Path.GetFileName(file))}?v={++_wallGen}";
+        WallLog($"SHOW,{(file is null ? "none" : Path.GetFileName(file) + " " + new FileInfo(file).Length + " bytes")}");
+        Post(System.Text.Json.JsonSerializer.Serialize(new { type = "wallpaper.src", url, video = file is not null && Wallpaper.Videos.Contains(Path.GetExtension(file)) }));
+        if (file is not null) _ = ProbeWallpaper();
+    }
+
+    // Wallpaper diagnostics (live test 2026-11-05: nothing shows). Log lines only, in the perf log; no behaviour changes. What is logged: what the page asked the
+    // wallpaper host for and the answer, the page's own warnings and errors, and (3 s and 10 s after a wallpaper is sent) the state of the wallpaper element in the page.
+    int _wallLogLines;
+    void WallLog(string what) { if (_wallLogLines++ < 80) _log?.WriteLine($"{DateTime.UtcNow:O},WALLPAPER_{what}"); }
+
+    void WatchWallpaper()
+    {
+        var web = _cc!.CoreWebView2;
+        web.WebResourceResponseReceived += (_, a) =>
+        {
+            if (a.Request.Uri.StartsWith($"https://{WallHost}/", StringComparison.Ordinal)) WallLog($"HTTP,{a.Response.StatusCode},{a.Response.ReasonPhrase}");
+        };
+        try
+        {
+            web.GetDevToolsProtocolEventReceiver("Log.entryAdded").DevToolsProtocolEventReceived += (_, a) =>
+            {
+                using var d = System.Text.Json.JsonDocument.Parse(a.ParameterObjectAsJson);
+                var e = d.RootElement.GetProperty("entry");
+                var level = e.TryGetProperty("level", out var l) ? l.GetString() : "";
+                if (level is not ("error" or "warning")) return;
+                var text = e.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
+                var url = e.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
+                WallLog($"PAGE_{level!.ToUpperInvariant()},{(text.Length > 200 ? text[..200] : text).ReplaceLineEndings(" ")} {(url.Length > 120 ? url[..120] : url)}");
+            };
+            _ = web.CallDevToolsProtocolMethodAsync("Log.enable", "{}");
+        }
+        catch (Exception e) when (e is COMException or InvalidOperationException or ArgumentException) { WallLog($"LOGHOOK_FAILED,{e.GetType().Name}"); }
+    }
+
+    // A fixed script: it only reads the wallpaper element's state and the topmost elements at the screen centre.
+    const string WallProbeScript = "(()=>{const e=document.querySelector('video[src*=\"wallpaper.spaceship.local\"],img[src*=\"wallpaper.spaceship.local\"]');"
+        + "const bg=getComputedStyle(document.documentElement).backgroundColor;const top=document.elementsFromPoint(innerWidth/2,innerHeight/2).slice(0,5).map(x=>x.tagName+'.'+(x.getAttribute('class')||x.getAttribute('data-layer')||'')).join(' > ');"
+        + "if(!e)return JSON.stringify({el:false,bg,top});const r=e.getBoundingClientRect(),c=getComputedStyle(e);"
+        + "const o={el:e.tagName,w:Math.round(r.width),h:Math.round(r.height),z:c.zIndex,vis:c.visibility,op:c.opacity,bg,top};"
+        + "if(e.tagName==='VIDEO'){o.ready=e.readyState;o.net=e.networkState;o.err=e.error?e.error.code+':'+e.error.message:null;o.paused=e.paused;o.t=e.currentTime;o.vw=e.videoWidth;o.vh=e.videoHeight}"
+        + "else{o.done=e.complete;o.nw=e.naturalWidth}return JSON.stringify(o)})()";
+
+    async Task ProbeWallpaper()
+    {
+        foreach (var ms in new[] { 3000, 7000 })
+        {
+            await Task.Delay(ms);
+            if (_cc?.CoreWebView2 is not { } web) return;
+            try { WallLog("PROBE," + (await web.ExecuteScriptAsync(WallProbeScript)).ReplaceLineEndings(" ")); }
+            catch (Exception e) when (e is COMException or InvalidOperationException or ObjectDisposedException) { WallLog($"PROBE_FAILED,{e.GetType().Name}"); return; }
+        }
+    }
 
     // Puts the original in WallDir (a hard link costs no space; another drive gets a copy) and shows it, then, when WallpaperQuality
     // asks for a smaller size, re-encodes it once with Windows' own (hardware) encoder and switches to that. Both are kept for the
@@ -674,6 +733,7 @@ sealed class Overlay : Form
             || SystemInformation.TerminalServerSession; // Remote Desktop: frames would be streamed over the network for nothing (Lively's default)
         if (paused == _wallPaused) return;
         _wallPaused = paused;
+        WallLog($"PAUSE,{(paused ? "on" : "off")}");
         Post($"{{\"type\":\"wallpaper.pause\",\"on\":{(paused ? "true" : "false")}}}");
     }
     static ShipCore.Core.Rect ToRect(Rectangle r) => new(r.Left, r.Top, r.Right, r.Bottom);
@@ -1032,6 +1092,25 @@ sealed class Overlay : Form
     {
         using var top = new Form { TopMost = true, ShowInTaskbar = false };
         return Task.FromResult(MessageBox.Show(top, $"Allow the {id} action?", "CSpace", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes);
+    }
+
+    // The Control Center's Browse button (file.pick): the standard Windows file or folder dialog for one of the path settings (FilePick.Keys), owned by a hidden
+    // topmost form for the same reason as ConfirmAsync. Starts where the setting already points. Returns the chosen path, or null when the person cancels.
+    string? PickFile(string key)
+    {
+        if (!FilePick.Keys.TryGetValue(key, out var spec)) return null;
+        var current = (_settings?.Get(new[] { key }).GetValueOrDefault(key) ?? "").Trim().Trim('"');
+        using var top = new Form { TopMost = true, ShowInTaskbar = false };
+        if (spec.Folder)
+        {
+            using var f = new FolderBrowserDialog { Description = spec.Title, UseDescriptionForTitle = true, ShowNewFolderButton = true };
+            if (Directory.Exists(current)) f.InitialDirectory = current;
+            return f.ShowDialog(top) == DialogResult.OK ? f.SelectedPath : null;
+        }
+        using var d = new OpenFileDialog { Title = spec.Title, Filter = spec.Filter, CheckFileExists = true, Multiselect = false };
+        var dir = string.IsNullOrEmpty(current) ? null : Path.GetDirectoryName(current);
+        if (dir is not null && Directory.Exists(dir)) d.InitialDirectory = dir;
+        return d.ShowDialog(top) == DialogResult.OK ? d.FileName : null;
     }
 
     /// <summary>The assembly version (the csproj Version), without build metadata.</summary>

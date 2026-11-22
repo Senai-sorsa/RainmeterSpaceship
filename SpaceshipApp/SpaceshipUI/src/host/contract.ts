@@ -1,4 +1,5 @@
 import keys from '../../../../contract/config-keys.json';
+import { PICK_KEYS } from '../settings/pick';
 
 /** Mirror of the host's message check (contract/fixtures/ui-to-host.json is the shared test). Returns the problem, or null when the message is well formed. Value rules per key are the store's job, not this one's. */
 const KEY = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
@@ -40,6 +41,7 @@ export function messageProblem(m: unknown): string | null {
       return Number.isSafeInteger(m.id) && (m.id as number) >= 0 ? null : 'bad id';
     case 'status.refresh': return m.kind === undefined || (typeof m.kind === 'string' && ['llt', 'upkeep', 'dev', 'mail', 'calendar'].includes(m.kind)) ? null : 'bad kind';
     case 'speed.run': return null;
+    case 'file.pick': return typeof m.key === 'string' && Object.prototype.hasOwnProperty.call(PICK_KEYS, m.key) ? null : 'bad key';
     case 'jarvis.cmd':
       if (typeof m.cmd !== 'string' || !JARVIS_CMDS.includes(m.cmd)) return 'bad cmd';
       return m.cmd !== 'ask' || (typeof m.text === 'string' && m.text.length <= 500) ? null : 'bad text';

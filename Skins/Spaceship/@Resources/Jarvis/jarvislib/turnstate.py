@@ -28,6 +28,18 @@ DID_ASK = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doin
                      r"done|run|added|locked|snoozed|moved|forgotten))\b", re.I)
 
 
+# the open question "what did you do?" is answered from code; "did you set a timer?" (yes/no) still goes to the model with the list in its prompt
+DID_WHAT = re.compile(r"\b(?:what (?:did|have|were) you (?:just )?(?:do|done|doing|run|change)|what actions)\b", re.I)
+
+
+def did_report(limit=4):
+    """"What did you just do?" answered from the list of real actions (oldest first, the last `limit`), never by the model."""
+    rows = list(did)[-limit:]
+    if not rows:
+        return "I haven't done anything yet."
+    return "I " + ", then I ".join(line if ok else f"{line} (it failed)" for _, line, ok in rows) + "."
+
+
 def did_add(what, target=None, ok=True):
     line = DID.get(what, str(what).replace("_", " "))
     try:                                                       # an odd target never stops the action itself

@@ -35,6 +35,26 @@ describe('target reticle', () => {
     expect(inside(zone, s.pos[0], s.pos[1])).toBe(true);
   });
 
+  it('with the HUD off the reticle may go lower than the zone, but never past the glass edges', () => {
+    const low = zone.h - 102 + 60; // centre whose bottom is 60 px below the zone: only the free roam allows it
+    expect(inside(zone, zone.w / 2, low)).toBe(false);
+    expect(inside(zone, zone.w / 2, low, true)).toBe(true);
+    expect(inside(zone, zone.w / 2, 2000, true)).toBe(false); // past the glass's foot
+    let deepest = 0;
+    for (const r of [0, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999]) for (const q of [0, 0.2, 0.5, 0.8, 0.999]) {
+      let k = 0;
+      const [x, y] = pickNext(zone, [zone.w / 2, zone.h / 2], () => (k++ % 2 ? q : r), true);
+      expect(inside(zone, x, y, true)).toBe(true);
+      deepest = Math.max(deepest, y);
+    }
+    expect(deepest).toBeGreaterThan(zone.h - 102);
+  });
+  it('a roam heading low is redirected once the HUD is back on', () => {
+    const s = targetState(zone);
+    s.to = [zone.w / 2, 400]; s.from = [zone.w / 2, 100]; s.pos = [zone.w / 2, 150]; s.dur = 5;
+    targetMove(s, zone, {}, 1, () => 0.5, false);
+    expect(s.to === null || inside(zone, s.to[0], s.to[1])).toBe(true);
+  });
   it('a parked reticle does not move', () => {
     const s = targetState(zone);
     const before = [...s.pos];

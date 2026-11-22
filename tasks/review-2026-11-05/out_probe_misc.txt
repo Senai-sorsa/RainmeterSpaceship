@@ -1,0 +1,109 @@
+== crisis()  (text, expected, got)
+OK   I want to die True True
+OK   i wanna end it all True True
+OK   I'm thinking about killing myself True True
+OK   I am going to hurt myself True True
+OK   I want to kill myself True True
+DIFF my life is not worth living True False
+DIFF I don't see the point in living anymore True False
+DIFF everyone would be better off without me True False
+OK   I'm going to end my life True True
+DIFF I took too many pills True False
+DIFF I feel like giving up on everything True False
+DIFF I might just disappear forever True False
+DIFF no reason to go on True False
+DIFF I'm going to kill myself laughing False True
+OK   this homework is killing me False False
+OK   I could just die of embarrassment False False
+OK   how do I kill a process False False
+DIFF what is suicide squad about False True
+DIFF the movie suicide squad False True
+== crisis() with JarvisSeriousTopics=0 (setting off): False
+== directed(text, answering) ->  (note: JarvisRoomAsk default 0 turns 'ask' into silence)
+  'I want to die'                            answering=False: ask   [?]
+  'thanks'                                   answering=False: yes   [yes]
+  "what's the weather"                       answering=False: yes   [yes]
+  "yeah I'm not sure about that"             answering=False: ask   [?]
+  'set the volume to 10'                     answering=False: yes   [yes]
+  'no'                                       answering=False: yes   [yes]
+  "hey mom I'll be there in five"            answering=False: ask   [no/ask]
+  'did you hear that'                        answering=False: yes   [yes]
+  'okay then'                                answering=False: no   [?]
+  'that was funny'                           answering=False: ask   [?]
+  'I want to die'                            answering=True: yes   [yes]
+== is_yes
+  'yes'                  -> True
+  'yes please'           -> True
+  'yeah sure'            -> False
+  'sure thing'           -> False
+  'uh huh'               -> False
+  "yes but don't"        -> False
+  'go for it'            -> False
+  'absolutely'           -> False
+  'yes jarvis'           -> True
+  'yes sir'              -> True
+  'okay'                 -> True
+  'ok do it'             -> False
+  'do it'                -> True
+  'yes do it'            -> True
+  'yep'                  -> True
+  'affirmative'          -> True
+  'correct'              -> False
+  'right'                -> False
+  'yes lock it'          -> False
+  'no'                   -> False
+  'nope'                 -> False
+  'not yet'              -> False
+  'yes go ahead'         -> True
+  'please'               -> False
+  'negative'             -> False
+  'yeah go on'           -> False
+== level_fix after / without a volume change
+  no change  'twenty'       -> None
+  no change  '20'           -> None
+  no change  'about 20%'    -> Decision(kind='act', action='volume', target=('set', 20), prompt='Did you mean the volume at 20 percent?', via='context')
+  no change  'make it 30'   -> None
+  no change  '150'          -> None
+  no change  'forty percent' -> Decision(kind='act', action='volume', target=('set', 40), prompt='Did you mean the volume at 40 percent?', via='context')
+  no change  '2'            -> None
+  after vol  'twenty'       -> Decision(kind='act', action='volume', target=('set', 20), prompt=None, via='context')
+  after vol  '20'           -> Decision(kind='act', action='volume', target=('set', 20), prompt=None, via='context')
+  after vol  'about 20%'    -> Decision(kind='act', action='volume', target=('set', 20), prompt=None, via='context')
+  after vol  'make it 30'   -> Decision(kind='act', action='volume', target=('set', 30), prompt=None, via='context')
+  after vol  '150'          -> None
+  after vol  'forty percent' -> Decision(kind='act', action='volume', target=('set', 40), prompt=None, via='context')
+  after vol  '2'            -> Decision(kind='act', action='volume', target=('set', 2), prompt=None, via='context')
+  after vol  'a bit louder' -> None
+== followup.takes() after a volume change (undo window)
+  'a bit louder'                     route=act.volume  takes=True
+  'make it 30'                       route=chat.None  takes=True
+  'thanks'                           route=chat.None  takes=False
+  "what's the weather"               route=chat.None  takes=False
+  'undo'                             route=undo.None  takes=True
+  'and a timer for 5 minutes'        route=remind.set  takes=True
+  'no'                               route=chat.None  takes=False
+  'volume 30'                        route=act.volume  takes=True
+== followup.mode_after
+  act.volume: undo
+  chat.None: ear
+  remind.set: undo
+  remind.list: ear
+  memory.save: undo
+  memory.list: ear
+  say.None: ear
+  undo.None: undo
+  level.None: ear
+  diag.cpu: ear
+  brief.None: ear
+  notes.None: ear
+  fact.None: ear
+== strip_name
+  'Jarvis, set a timer'                -> 'set a timer'
+  'hey jarvis set a timer'             -> 'set a timer'
+  'travis set the volume to ten'       -> 'travis set the volume to ten'
+  'set a timer jarvis'                 -> 'set a timer jarvis'
+  'okay jarvis'                        -> 'okay jarvis'
+  'Jarvis'                             -> 'Jarvis'
+  'service, lock the pc'               -> 'lock the pc'
+  'clover mute'                        -> 'mute'
+tripwires: 0 model calls: 0

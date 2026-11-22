@@ -1,0 +1,41 @@
+'travis set the volume to ten'                       -> chat.None target=None prompt='None' via=rule reread=True
+'set a timer for 5 minutes jarvis'                   -> remind.set target=('timer', None, '5 minutes jarvis', 'in' prompt='None' via=rule reread=False
+'volume to 30 please jarvis'                         -> chat.None target=None prompt='None' via=rule reread=True
+'jarvis volume 30'                                   -> act.volume target=('set', 30) prompt='None' via=rule reread=False
+'hey travis, mute'                                   -> act.mute target=None prompt='None' via=rule reread=False
+'set a timer for five minutes please'                -> remind.set target=('timer', 1793761500.0, '', 'in') prompt='None' via=rule reread=False
+'play the next song please'                          -> act.media target=next prompt='None' via=rule reread=False
+'stop'                                               -> chat.None target=None prompt='None' via=rule reread=False
+'stop the timer'                                     -> remind.cancel target=('timer', '') prompt='None' via=rule reread=False
+'stop the alarm'                                     -> remind.cancel target=('alarm', '') prompt='None' via=rule reread=False
+'pause it'                                           -> chat.None target=None prompt='None' via=rule reread=True
+'resume the music'                                   -> act.media target=playpause prompt='None' via=rule reread=False
+'cancel'                                             -> chat.None target=None prompt='None' via=rule reread=False
+'cancel that timer'                                  -> say.None target=None prompt='Which one?' via=rule reread=False
+'cancel it'                                          -> say.None target=None prompt='Which one?' via=rule reread=False
+'turn it off'                                        -> chat.None target=None prompt='None' via=rule reread=False
+'turn it up'                                         -> act.volume target=('step', 10) prompt='None' via=rule reread=False
+'louder'                                             -> act.volume target=('step', 10) prompt='None' via=rule reread=False
+'quieter'                                            -> act.volume target=('step', -10) prompt='None' via=rule reread=False
+'mute it'                                            -> chat.None target=None prompt='None' via=rule reread=True
+'what is the time'                                   -> fact.None target=None prompt="It's 3:00 PM." via=rule reread=False
+'what time is it in tokyo'                           -> chat.None target=None prompt='None' via=rule reread=False
+'set a timer for 0 minutes'                          -> remind.set target=('timer', 1793761200.0, '', 'in') prompt='None' via=rule reread=False
+'set a timer for 5 hours'                            -> remind.set target=('timer', 1793779200.0, '', 'in') prompt='None' via=rule reread=False
+'set a timer for 100 hours'                          -> remind.set target=('timer', 1794121200.0, '', 'in') prompt='None' via=rule reread=False
+'wake me at 25:00'                                   -> chat.None target=None prompt='None' via=rule reread=True
+'set an alarm for 7:75'                              -> say.None target=None prompt='Could you say that again?' via=rule reread=True
+'volume minus 5'                                     -> chat.None target=None prompt='None' via=rule reread=True
+'set the volume to negative ten'                     -> say.None target=None prompt='Could you say that again?' via=rule reread=True
+'set volume to 3.5'                                  -> act.volume target=('set', 3) prompt='None' via=rule reread=False
+'set the volume to 0'                                -> act.volume target=('set', 0) prompt='None' via=rule reread=False
+'remind me in 0 minutes'                             -> remind.set target=('reminder', 1793761200.0, '', 'in 0 min prompt='None' via=rule reread=False
+'remind me yesterday at 5'                           -> remind.set target=('reminder', 1793768400.0, 'about yester prompt='None' via=rule reread=False
+'set an alarm for 7 am tomorrow and cancel it'       -> say.None target=None prompt='Could you say that again?' via=rule reread=True
+'set a timer for 5 minutes then undo'                -> remind.set target=('timer', None, '5 minutes then undo', ' prompt='None' via=rule reread=False
+'lock'                                               -> act.lock target=None prompt='You want me to lock the PC. Confirm with yes.' via=rule reread=False
+'shutdown'                                           -> act.shutdown target=None prompt="You're asking me to shut down the PC. Confirm with" via=rule reread=False
+'restart'                                            -> act.restart target=None prompt="You're asking me to restart the PC. Confirm with y" via=rule reread=False
+'sleep'                                              -> act.sleep target=None prompt='You want me to put the PC to sleep. Confirm with y' via=rule reread=False
+'mute and lock the computer'                         -> chat.None target=None prompt='None' via=rule reread=True
+'set the volume to 20 and lock the pc'               -> say.None target=None prompt='Could you say that again?' via=rule reread=True

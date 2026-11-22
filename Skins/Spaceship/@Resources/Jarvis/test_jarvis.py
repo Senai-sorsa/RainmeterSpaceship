@@ -1464,8 +1464,9 @@ assert mem("Remember that my dentist is on Fridays.") == "Noted: my dentist is o
 assert mem("Jarvis, remember my bike is in the shed") == "Noted: my bike is in the shed."
 assert mem("remember my bike is in the shed") == "Noted: my bike is in the shed." and len(j.load_memory()) == 2   # not twice
 assert mem("what have I told you to remember") == "I remember 2 things: my dentist is on Fridays; my bike is in the shed."
-for text in ("Do you remember that film?", "do you remember that film", "remember to buy milk", "forget it", "Remember that film?"):
+for text in ("Do you remember that film?", "do you remember that film", "forget it", "Remember that film?"):
     assert j.route(text)[0] == "chat", text
+assert j.route("remember to buy milk")[:2] == ("remind", "set"), "a reminder request with no time: he asks When? (review 2026-11-05: the model used to promise one)"
 assert j.route("forget the cooking reminder")[0] == "remind"
 assert "FACTS THE USER TOLD YOU (use them exactly):\n- my dentist is on Fridays\n- my bike is in the shed" in j.system_prompt()
 assert "TOLD YOU" not in j.system_prompt("Tell me a joke.")                  # M4a: only the facts the question is about
@@ -4443,11 +4444,14 @@ assert MD.chat_cap("mirror", [MD.ADD["homework"]]) == 5 and MD.chat_cap("playful
 j.setting = lambda name, default="": default
 for s in ("I want to kill myself.", "sometimes I think about suicide", "I don't want to be alive anymore", "I keep hurting myself"):
     assert MD.crisis(s), s
-for s in ("kill the process", "this exam is killing me", "my phone died", "I'm dying to see that movie"):
+for s in ("kill the process", "this exam is killing me", "my phone died", "I'm dying to see that movie",
+          "I'm going to kill myself laughing", "what is suicide squad about", "that cake is to die for"):    # idioms and titles are not a crisis
     assert not MD.crisis(s), s
+for s in ("my life is not worth living", "I took too many pills", "everyone would be better off without me"):
+    assert MD.crisis(s), s
 assert "988" in MD.CRISIS_LINE
 j.setting = lambda name, default="": "0" if name == "JarvisSeriousTopics" else default
-assert not MD.crisis("I want to kill myself"), "SERIOUS TOPICS off turns the fixed line off too"
+assert MD.crisis("I want to kill myself"), "SERIOUS TOPICS only controls the mood: the fixed crisis line stays on (review 2026-11-05)"
 j.setting = lambda name, default="": default
 # claims and promises he cannot keep
 import jarvislib.routing as RT

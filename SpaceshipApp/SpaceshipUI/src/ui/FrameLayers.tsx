@@ -8,7 +8,7 @@ import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
 import { PictureTrim } from './PictureTrim';
 import { stageBox } from './stage';
-import { blankStrayIcon, consoleCutout, fixPanelSlabs, type SlabZone } from './panelSlab';
+import { blankStrayIcon, blankWingLines, consoleCutout, fixPanelSlabs, type SlabZone } from './panelSlab';
 import { seatInPicture } from '../modules/pictureSlots';
 import layout from '../generated/layout.json';
 import { bootRunning } from './settle';
@@ -24,8 +24,8 @@ const n = (v: Record<string, string>, k: string, d: number) => { const x = Numbe
 const alpha = (x: number) => Math.min(255, Math.max(0, x)) / 255;
 // the HUD's own trim kept in fitted mode: everything except the top 330 units and the bottom console (x 700..1860, y 1380..1600), which PictureTrim draws on the art's edges
 // the cut-out's sides are the bottom panels' slab edges, not a fixed 700 and 1860: the slabs reach into that range and lost a corner to the clip
-const decorClip = (zones: SlabZone[]) => {
-  const { left, right } = consoleCutout(zones), pc = (x: number) => `${((x / 2560) * 100).toFixed(3)}%`;
+const decorClip = (zones: SlabZone[], sc = 1) => {
+  const { left, right } = consoleCutout(zones, 700, 1860, sc), pc = (x: number) => `${((x / 2560) * 100).toFixed(3)}%`;
   return `polygon(0 20.625%, 100% 20.625%, 100% 100%, ${pc(right)} 100%, ${pc(right)} 86.25%, ${pc(left)} 86.25%, ${pc(left)} 100%, 0 100%)`;
 };
 const fill = { position: 'absolute', inset: 0, backgroundSize: '100% 100%' } as const;
@@ -34,7 +34,6 @@ const fill = { position: 'absolute', inset: 0, backgroundSize: '100% 100%' } as 
 export function FrameLayers({ style, values }: { style: FrameStyle; values: Record<string, string> }) {
   // the bottom panels' zones, seated like the modules are, so the glass slab behind each one follows its card (panelSlab.ts)
   const slabZones = useMemo(() => layout.zones.filter((z) => z.id === 'B_panelL' || z.id === 'B_panelR').map((z) => (style === 'fitted' ? seatInPicture(z) : z)) as SlabZone[], [style]);
-  if (style === 'none') return null;
   // sized from the HUD canvas (stage.ts), so it cannot disagree with it; until the first measurement the CSS rule (the same fit) applies
   const sb = stageBox.value;
   const frameBox = sb ? { left: `${sb.left}px`, top: `${sb.top}px`, width: `${sb.width}px` } : undefined;
@@ -55,11 +54,16 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
   const tier = n(values, 'PerfTier', 0);
   // Frame.ini's Shape parts: Glass under everything (rendered only), Accents/Spill/Lights/Decor over it (Decor in both styles)
   const vars = { ...values, ColorAccent: rgb };
+  // the modules' drawing scale (Hud.tsx), which the panel slabs follow in the fitted frame (the other frames keep their slabs as they were)
+  const sc = style === 'fitted' ? n(values, 'Scale', 1) : 1;
+  // No frame: no art and no glass, but the HUD's own neon trim (Decor: the top, wing and bottom lines and the panel slabs) stays. It is not a .frame element: the
+  // frame-mode tests count those, and None still has no frame layers.
+  if (style === 'none') return <div class="frame-trim" aria-hidden="true" style={frameBox}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>;
   return (
     // the frame is the 16:10 area the modules' svg letterboxes into (.frame in ui.css: width min(100vw, 160vh), top-left of that area), from the window
     // size alone. It must NOT follow the HUD-size value: a page Scale other than the design 0.67 made it 1.5x too big against the modules (live test)
     <div class="frame" data-frame={style} aria-hidden="true" style={frameBox}>
-      {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} zones={slabZones} />}
+      {pic ? tint('glass_pic', alpha(tintA), 'alpha', accent) : <Parts names={['Glass']} vars={vars} zones={slabZones} sc={sc} />}
       {/* picture frames: the glare is CSpace's own cleaned layer (tools/clean_glass_fx.cjs): the skin's had an odd bright triangular spot in the right window */}
       {pic
         ? <div class="frame-layer" data-layer="glass_fx_pic" style={{ ...fill, backgroundImage: `url(${glassFxClean})`, opacity: alpha(n(values, 'GlassGlare', 12) * 21) }} />
@@ -81,10 +85,10 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
       {style === 'fitted' ? (
         <>
           {/* the top 330 units and the bottom console of the HUD's own trim are hidden: PictureTrim draws them along the picture's slots and band instead */}
-          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: decorClip(slabZones) }}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>
+          <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: decorClip(slabZones, sc) }}><Parts names={['Decor']} vars={vars} zones={slabZones} sc={sc} fitted /></div>
           <PictureTrim accent={accent} tier={tier} />
         </>
-      ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} zones={slabZones} />}
+      ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} zones={slabZones} sc={sc} />}
     </div>
   );
 }
@@ -92,11 +96,11 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
 const PARTS = parts as unknown as Record<string, [string, Record<string, string>][]>;
 
 /** The named Parts/*.inc sections as one SVG in the canvas units, stretched over the frame like the layer images. */
-function Parts({ names, vars, zones }: { names: string[]; vars: Record<string, string>; zones: SlabZone[] }) {
+function Parts({ names, vars, zones, sc = 1, fitted = false }: { names: string[]; vars: Record<string, string>; zones: SlabZone[]; sc?: number; fitted?: boolean }) {
   const key = names.join();
   // only the variables the parts read, so a clock tick or an unrelated setting does not rebuild a hundred shapes
   const deps = ['ColorAccent', 'GlowAlpha', 'GlowWidth', 'CoreWhite', 'GlassTint'].map((k) => vars[k]);
-  const shapes = useMemo(() => names.flatMap((p) => (PARTS[`${p}.inc`] ?? []).flatMap(([, sec]) => partShapes(p === 'Decor' ? fixPanelSlabs(blankStrayIcon(sec), zones) : sec, vars))), [key, zones, ...deps]);
+  const shapes = useMemo(() => names.flatMap((p) => (PARTS[`${p}.inc`] ?? []).flatMap(([, sec]) => partShapes(p === 'Decor' ? fixPanelSlabs(fitted ? blankWingLines(blankStrayIcon(sec)) : blankStrayIcon(sec), zones, sc) : sec, vars))), [key, zones, sc, fitted, ...deps]);
   return (
     <svg class="frame-parts" data-part={key} viewBox="0 0 2560 1600" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
       {shapes.map((s, i) => {

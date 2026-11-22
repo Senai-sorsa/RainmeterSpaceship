@@ -111,7 +111,7 @@ export function consoleFrame(st: ConsoleState, cfg: ConsoleConfig, view: Console
   // CARGO and CFG: plain glowing labels with a short underline
   const boxes = [{ label: 'CARGO', hit: 6, tip: '' }, { label: 'CFG', hit: 7, tip: 'Control Center' }];
   boxes.forEach((b, i) => {
-    const x0 = RX(BOX[i][0]), x1 = RX(BOX[i][1]), y0 = ry(46), y1 = ry(55), cx = (x0 + x1) / 2;
+    const x0 = RX(BOX[i][0]), x1 = RX(BOX[i][1]), y0 = ry(46) - 3, y1 = ry(55) - 3, cx = (x0 + x1) / 2;
     c.text(cx, (y0 + y1) / 2, b.label, { size: 5.6, weight: 700, align: 'CenterCenter', color: style.accent });
     c.hair(cx - (x1 - x0) * 0.32, y1 + 2, cx + (x1 - x0) * 0.32, y1 + 2, style.accent, 1.2, 150);
     hits.push({ id: b.hit, x: x0, y: y0, w: x1 - x0, h: y1 - y0, tip: b.tip });

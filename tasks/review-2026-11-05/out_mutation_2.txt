@@ -1,0 +1,13 @@
+M05b typed ask not confirmed by mic: SURVIVED (no test caught it)  [176s] test_jarvis: OK | tripwires hit: 0
+M27 watchdog 3 min: SURVIVED (no test caught it)  [178s] test_jarvis: OK | tripwires hit: 0
+M28 never mind ends: timeout (loop/hang = caught in practice)  [420s] 
+M29 what did you hear: caught  [64s] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M30 say that again: caught  [63s] ^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M31 no data fixed reply: caught  [59s] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: ('', [{'role': 'assistant', 'content': 'Ha, sir.'}])
+M32 diagnostics: caught  [175s] ^^^^^^^^^^^ | AssertionError: ['You are Clover, the AI assistant inside the user\'s 
+M33 act needs yes: caught  [36s] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M34 claims filter: caught  [63s] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError
+M35 grounded filter: caught  [37s] ^^^^^^^^^^^^ | AssertionError
+M36 diag close protected: SURVIVED (no test caught it)  [177s] test_jarvis: OK | tripwires hit: 0
+M37 new topic: caught  [68s] ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | AssertionError: ('New topic.', ['route: chat.chat via model, total 0.0
+MUT_DONE

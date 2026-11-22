@@ -77,3 +77,36 @@ describe('blankStrayIcon', () => {
     expect(blankStrayIcon(bare)).toBe(bare);
   });
 });
+
+describe('slab follows the modules drawing scale', () => {
+  it('slabPath at scale 1 is the unscaled path, and at 1.005 every vertex moves by 0.5% of its pre-matrix position (the card is drawn at (x + px) * s)', () => {
+    const z = zone('B_panelR');
+    expect(slabPath(z, 7, 1)).toBe(slabPath(z));
+    const [a, b, c, d] = z.matrix, sc = 1.005;
+    const v1 = verts(slabPath(z)), v2 = verts(slabPath(z, 7, sc));
+    const x1 = z.x + z.w + 7, y0 = z.y - 7; // the first vertex: top-right
+    expect(v2[0][0] - v1[0][0]).toBeCloseTo((a * x1 + c * y0) * (sc - 1), 0);
+    expect(v2[0][1] - v1[0][1]).toBeCloseTo((b * x1 + d * y0) * (sc - 1), 0);
+  });
+  it('fixPanelSlabs passes the scale through', () => {
+    const z = zone('B_panelR');
+    const out = fixPanelSlabs(decor, [z], 1.005) as Record<string, string>;
+    expect(out.P41).toBe(slabPath(z, 7, 1.005));
+  });
+});
+
+describe('blankWingLines', () => {
+  const sec = decor as Record<string, string>;
+  it('blanks exactly the eight shapes of the two far bottom lines of the real Decor section', async () => {
+    const { blankWingLines } = await import('../src/ui/panelSlab');
+    const out = blankWingLines(sec);
+    const changed = Object.keys(sec).filter((k) => out[k] !== sec[k]).sort();
+    expect(changed).toEqual(['Shape17', 'Shape18', 'Shape19', 'Shape20', 'Shape21', 'Shape22', 'Shape23', 'Shape24']);
+    for (const k of changed) expect(out[k]).toMatch(/^Rectangle 0,0,0,0/);
+  });
+  it('leaves a section whose P17 is something else untouched', async () => {
+    const { blankWingLines } = await import('../src/ui/panelSlab');
+    const other = { ...sec, P17: '1,2 | LineTo 3,4' };
+    expect(blankWingLines(other)).toBe(other);
+  });
+});

@@ -89,7 +89,7 @@ export function TopModule({ style, values, hide = '' }: { style: Style; values: 
     if (it.kind === 'action' && it.action === 'status.refresh') { host.send({ type: 'status.refresh' }); say('REFRESHING'); return; }
     if (it.kind !== 'ui') return;
     if (it.name === 'drawer') drawerOpen.value = drawerOpen.value ? null : {};
-    else if (it.name === 'control') controlOpen.value = true;
+    else if (it.name === 'control') controlOpen.value = !controlOpen.value; // a second click on CFG closes it
     else if (it.name === 'hud') hudHidden.value = !hudHidden.value;
     else if (it.name === 'perf') store.set('PerfOverride', String(it.value));
     else if (it.name === 'master') {

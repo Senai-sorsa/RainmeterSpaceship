@@ -12,7 +12,7 @@ from .mood import act_mood, command as mood_command, timed as mood_timed, timed_
 from .reply.fixed import CANT, CANT_LINE, CLAIM_LINE, NEAR_MISS   # noqa: F401  (re-exported: routing.CLAIM_LINE etc.)
 from .base import NAME, log, setting, todo_note
 from .calc import _num, fact_answer
-from .confirm import DANGER, NAMES
+from .confirm import DANGER, DANGER_ASK, NAMES
 from .diag import is_own_model, is_protected
 from .llm import chat_json
 from .memory import ACTIVE_TTL, MEMORY_BAD, fact_save, facts_about, load_gist, load_memory, load_topics, save_gist, save_memory, save_topics, talk_forget, talk_list
@@ -35,6 +35,8 @@ AI_UP = re.compile(r"\b(?:up|louder|raise|more|increase|boost|crank)\b|\btoo (?:
 AI_WORDS = re.compile(r"\b(?:" + "|".join(AI_CUES.values()) + ")")
 AI_NOT = re.compile(r"(?:how|why|what|when|who|where|which|whose|should|shall|is|are|was|were|do|does|did|has|had)\b|"
                     r".*\b(?:yesterday|earlier|ago|last (?:night|week)|explain|tell me about)\b")
+# "Please do not lower the volume", "never turn it down", "I said don't mute": the words name the command but refuse it
+NEGATED = re.compile(r"\b(?:don'?t|do not|doesn'?t|does not|never|not|no need to|without)\b")
 AI_SCHEMA = {"type": "object", "properties": {"commands": {"type": "array", "items": {"type": "object", "properties": {
     "intent": {"type": "string", "enum": list(AI_CUES) + ["chat"]}, "when": {"type": "string"}, "label": {"type": "string"},
     "number": {"type": "integer"}}, "required": ["intent"]}}}, "required": ["commands"]}
@@ -60,7 +62,7 @@ Now: {now}."""
 def ask_ai(text, routed):
     """Only a near-miss, or a chat line with a command word that is not a question or about the past, goes to the AI."""
     t = re.sub(r"^(?:(?:and|then|so|now|okay|ok|alright|um|uh|yo|hey|hi)[,.]? +)+", "", strip_name(text).strip().lower())
-    if (setting("JarvisAIRouter", "1") != "1" or AI_NOT.match(t)
+    if (setting("JarvisAIRouter", "1") != "1" or AI_NOT.match(t) or NEGATED.search(t)
             or t.endswith("?") and not re.match(r"(?:can|could|would|will) you\b", t)):
         return False
     return routed[3] == NEAR_MISS or routed[0] == "chat" and bool(AI_WORDS.search(t))
@@ -218,11 +220,13 @@ UNBUILT_CAPS = {
     "display": r"wallpaper|(?:desktop )?background|resolution|screen ?saver",
     "account": r"hibernat\w*|sign (?:me )?out|log (?:me )?(?:off|out)",
     "keyboard light": r"keyboard (?:light|backlight)",
+    "calendar": r"(?:meeting|appointment|event)s?\b.*\bcalendar|calendar\b.*\b(?:meeting|appointment|event)s?|"
+                r"(?:add|put|schedule|book|create)\b.*\b(?:to|on|in) (?:my |the )?calendar|(?:schedule|book) (?:a |an |the )?(?:meeting|appointment)",
 }
 UNBUILT = re.compile(r"\b(?:" + "|".join(f"(?P<{k.replace(' ', '_')}>{v})" for k, v in UNBUILT_CAPS.items()) + r")\b")
 UNBUILT_ASK = re.compile(r"(?:i (?:want|need) (?:you )?to |i'?d like (?:you )?to )?(?:set|turn|change|make|dim|brighten|"
                          r"darken|lower|raise|increase|decrease|reduce|boost|switch|connect|disconnect|pair|unpair|enable|"
-                         r"disable|activate|deactivate|toggle|put|hibernate|sign|log|mute|unmute|open|start)\b")
+                         r"disable|activate|deactivate|toggle|put|hibernate|sign|log|mute|unmute|open|start|add|schedule|book|create)\b")
 
 
 def strip_name(text):
@@ -316,7 +320,8 @@ WILL_HAPPEN = re.compile(r"\b(?:computer|pc|laptop|screen|system)(?: will| is go
                          r"shut down|sleep|turn off|power off)\b|"
                          r"\b(?:is|are) now (?:open|opened|running|launched|closed|playing|paused|muted|unmuted)\b", re.I)
 CANT_PROMISE = re.compile(r"\bI(?:['’]ll| will| am going to|'m going to) (?:now )?(?:go ahead and )?(?:send|e-?mail|text|"
-                          r"message|call(?! (?:you|me|it|him|her|them)\b)|phone|dial|order|book|buy|purchase|pay|post|"
+                          r"message|call(?! (?:you|me|it|him|her|them)\b)|phone|dial|order|book|buy|purchase|pay|post|schedule|arrange|set (?:it|that|this) up|"
+                          r"remind (?:you|me)|add (?:it|that|this|a \w+|an \w+) to (?:your|the|my) calendar|put (?:it|that|this) on (?:your|the|my) calendar|"
                           r"tweet|upload|download|install|translate|transcribe|provide (?:a )?(?:real-?time )?translation|"
                           r"record|delete|erase|look (?:it |that )?up online|search the web|browse)\b|"
                           # "I can inform your professor" / "I can forward a message" (2026-11-03): he has no way to
@@ -409,8 +414,16 @@ def route(text):
     named, text = said != text, said
     t = text.strip().lower().rstrip(".!?")
     # "then change the volume", "Okay, set an alarm": a word that joins it to the last sentence is not the command
+    # "set a timer for five minutes, Jarvis" / "volume 30 please jarvis": a name at the end is not part of the command
+    # (a bare trailing name is only taken off after a comma or a word that ends a command, so "who is jarvis" stays whole)
+    t = re.sub(rf",\s*{NAME}$", "", t)
+    t = re.sub(rf"\b(minutes?|seconds?|hours?|percent|please|up|down|louder|quieter|off|on|mute|unmute|volume|alarm|timer|pc|computer|\d+%?) {NAME}$", r"\1", t)
     t = re.sub(r"^(?:(?:and|then|so|now|okay|ok|alright|um|uh|yo|hey|hi)[,.]? +)+|,? please$", "", t)
-    if DANGER.search(t):
+    # "set the volume to 30, no, 40" / "to 30, I mean 40": the last number is the one meant
+    fixed_num = re.match(r"(.+?\b(?:to|at|for|by)) [\w.%]+(?: percent)?,? (?:no|actually|i mean|i meant|make that|sorry),? ([\w.%]+(?: percent)?)$", t)
+    if fixed_num:
+        t = fixed_num.group(1) + " " + fixed_num.group(2)
+    if DANGER.search(t) and not DANGER_ASK.match(t):
         return ("guard", None, None, None)
     # actions only for commands ("lock my computer", "jarvis, could you open chrome"), never for questions about them
     # ("should I restart my computer?", "how do I close a for loop?")
@@ -479,6 +492,18 @@ def _rules_followups(text, named, t, whole, cmd):
     op = reminder_cmd(t, cmd, time.time())
     if op:
         return ("remind", op[0], op[1:], None)
+    m = re.fullmatch(r"(?:make|change|set) (?:it|that|this)(?: to| for)? (.+)", cmd)
+    if m and undo and undo[1] == "reminder" and time.time() < undo[0] and undo[2] and undo[2][-1][2] == "timer":
+        said = "make the timer " + m.group(1)                  # only right after a timer was set; "make it 50" is still a volume
+        op = reminder_cmd(said, said, time.time())
+        if op:
+            return ("remind", op[0], op[1:], None)
+    m = re.match(r"(?:please )?(?:remember to|don'?t let me forget to|do not let me forget to|make sure (?:i|that i) remember to) (.+)", cmd)
+    if m:                                                      # the model can't keep this promise; the reminder code can
+        said = "remind me to " + m.group(1)
+        op = reminder_cmd(said, said, time.time())
+        if op:
+            return ("remind", op[0], op[1:], None)
 
 
 def _rules_memory(text, named, t, whole, cmd):
@@ -544,6 +569,9 @@ def _rules_memory(text, named, t, whole, cmd):
 
 def _rules_lookup(text, named, t, whole, cmd):
     """notes search, installed apps. Returns a route, or None when nothing here matches (the next area is tried)."""
+    m = re.search(r"\bwhat(?:'s| is| did i (?:write|put|say|note|save)) (?:in|on|about) (?:my|the) (?:notes?|vault|obsidian)(?: (?:about|on|for) (.+))?$", t)
+    if m:
+        return ("notes", None, (m.group(1) or "").strip() or "notes", None)
     m = re.search(r"\b(?:search|check|look (?:through|in)|find|what do)\b.*\b(?:my )?(?:notes?|vault|obsidian)\b(?:.*?\b(?:for|about|on)\b\s+(.+))?", t)
     if m:
         q = m.group(1) or re.sub(r"\b(search|check|look|through|in|find|what|do|my|notes?|vault|obsidian|say)\b", " ", t)
@@ -678,6 +706,7 @@ def _rules_display(text, named, t, whole, cmd):
     m = (re.match(rf"(dim|darken|brighten) (?:the |my )?(?:screen|display){bit}$", cmd)
          or re.match(rf"make (?:the |my )?(?:screen|display) (brighter|dimmer|darker){bit}$", cmd)
          or re.match(rf"turn (up|down) {bright}{bit}$", cmd) or re.match(rf"turn {bright} (up|down){bit}$", cmd)
+         or re.match(rf"{bright} (up|down){bit}$", cmd)
          or re.match(rf"(raise|increase|boost|lower|decrease|reduce) {bright}{bit}$", cmd))
     n = m and (_num(m.group(2)) if m.group(2) else 10)
     if m and n is not None:
@@ -724,6 +753,10 @@ def _rules_sound(text, named, t, whole, cmd):
             return ("say", None, None, "I can set it between 0 and 100.")
         if n is not None:
             return ("act", "volume", ("set", int(n)), None)
+    m = re.fullmatch(r"(?:(?:it|that|this)(?:'s| is) |(?:it|that) was )?(?:a (?:bit|little) |way |much |really |so |just )?too (loud|noisy|quiet|soft|low)|"
+                     r"(?:i )?(?:can'?t|cannot|barely) hear (?:you|it|that|anything)(?: well)?", cmd)
+    if m:                                                      # Q-02: "too loud" is a volume step (10), the way the word says
+        return ("act", "volume", ("step", -10 if m.group(1) in ("loud", "noisy") else 10), None) if m.group(1) else ("act", "volume", ("step", 10), None)
     soft = r"(?:a (?:bit|little|tad) |slightly )?"               # "a bit" is the same 10 steps as plain "louder"
     m = re.match(rf"{soft}(?:(?:turn |make )?(?:it |(?:the )?(?:volume|sound|music) ){soft}(up|down|louder|quieter)|"
                  rf"turn (up|down) (?:it|the (?:volume|sound|music))|(louder|quieter))(?: (?:a )?(?:bit|little|tad)(?: more)?| slightly|"
@@ -761,7 +794,8 @@ def _rules_apps(text, named, t, whole, cmd):
             return ("say", None, None, f"I won't close {exe.replace('.exe', '')}, Windows needs it.")
         if exe:
             return ("act", "close", exe, f"You want me to close {exe.replace('.exe', '')}. Unsaved work could be lost. Confirm with yes.")
-        return ("say", None, None, f"I don't see {m.group(1)} open.")
+        if best_app(m.group(1)):                               # a real app that is not open; "close the door" / "close the deal" is not an app
+            return ("say", None, None, f"I don't see {m.group(1)} open.")
     # "pull up Chrome" (semi-live 2026-11-03: went to the model, which said "Chrome is now open" - nothing had opened)
     m = re.match(r"(?:open|launch|start|run|pull up|bring up|fire up|boot up|load up)\s+(?:the\s+|up\s+)?(.+?)(?:\s+app(?:lication)?)?$", cmd)
     if m and not re.search(r"\b(log|transcript|history|conversation|chat|pop ?up)\b", m.group(1)):
