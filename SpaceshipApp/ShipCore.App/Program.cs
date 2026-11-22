@@ -642,11 +642,14 @@ sealed class Overlay : Form
             web.GetDevToolsProtocolEventReceiver("Log.entryAdded").DevToolsProtocolEventReceived += (_, a) =>
             {
                 using var d = System.Text.Json.JsonDocument.Parse(a.ParameterObjectAsJson);
-                var e = d.RootElement.GetProperty("entry");
-                var level = e.TryGetProperty("level", out var l) ? l.GetString() : "";
+                // Untrusted shape: a throw here would surface on the UI thread, so anything unexpected is skipped.
+                if (d.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object || !d.RootElement.TryGetProperty("entry", out var e)
+                    || e.ValueKind != System.Text.Json.JsonValueKind.Object) return;
+                static string Str(System.Text.Json.JsonElement o, string k) => o.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() ?? "" : "";
+                var level = Str(e, "level");
                 if (level is not ("error" or "warning")) return;
-                var text = e.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
-                var url = e.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
+                var text = Str(e, "text");
+                var url = Str(e, "url");
                 PageLog($"PAGE_{level!.ToUpperInvariant()},{(text.Length > 200 ? text[..200] : text).ReplaceLineEndings(" ")} {(url.Length > 120 ? url[..120] : url)}");
             };
             _ = web.CallDevToolsProtocolMethodAsync("Log.enable", "{}");
