@@ -615,10 +615,13 @@ sealed class Overlay : Form
     void ShowWallpaper(string? file)
     {
         var url = file is null ? "" : $"https://{WallHost}/{Uri.EscapeDataString(Path.GetFileName(file))}?v={++_wallGen}";
-        WallLog($"SHOW,{(file is null ? "none" : Path.GetFileName(file) + " " + new FileInfo(file).Length + " bytes")}");
+        WallLog($"SHOW,{(file is null ? "none" : Path.GetFileName(file) + " " + SizeOf(file))}");
         Post(System.Text.Json.JsonSerializer.Serialize(new { type = "wallpaper.src", url, video = file is not null && Wallpaper.Videos.Contains(Path.GetExtension(file)) }));
         if (file is not null) _ = ProbeWallpaper();
     }
+
+    // The file can vanish between the sync check and here; a log line must never stop wallpaper.src from being posted.
+    static string SizeOf(string file) { try { return new FileInfo(file).Length + " bytes"; } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return "len=?"; } }
 
     // Wallpaper diagnostics (live test 2026-11-05: nothing shows). Log lines only, in the perf log; no behaviour changes. What is logged: what the page asked the
     // wallpaper host for and the answer, the page's own warnings and errors, and (3 s and 10 s after a wallpaper is sent) the state of the wallpaper element in the page.
