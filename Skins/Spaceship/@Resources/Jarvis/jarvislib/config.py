@@ -48,6 +48,7 @@ DEFAULTS = {
     "JarvisMic": "",
     "JarvisSilence": "1.0",          # mic.py also reads it raw ("" = not set) to decide whether JarvisFastEnd applies
     "JarvisFastEnd": "1",
+    "JarvisSmartTurn": "0",          # endturn.py: 1 = Smart Turn judges each pause (needs turn/smart-turn-v3.2-cpu.onnx)
     "JarvisDuck": "1",
     "JarvisDuckLevel": "30",
     "JarvisWhisper": "small.en",

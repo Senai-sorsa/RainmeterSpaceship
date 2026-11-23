@@ -3,9 +3,9 @@
 Plan: `tasks/PLAN-2026-11-22-phases-A-F.md`. Each entry lists what was done, the gate result, and what still needs a live test.
 Loops this session: 30 min work loop, 2 h safety check.
 
-## Waiting on a yes from you
-- Smart Turn v3.2 model (download), livekit-rtc for echo cancelling (install): not done until you say yes.
-- Live microphone runs for D1/D2 (replay bank recording), and launching the real app for B/C screenshots and perf.
+## Approvals
+- 2026-11-22: you said yes to all of it: Smart Turn v3.2 download, livekit-rtc install, the wake bank recording,
+  launching the real app for B/C screenshots and perf, and pushing.
 
 ## Log
 
@@ -50,6 +50,18 @@ Loops this session: 30 min work loop, 2 h safety check.
   went to the model. It is now undo too (`routing._rules_undo`); "forget that" is left to memory/chat on purpose.
 - Test: `tests/test_phase_a.py` (scratch that / no, scratch that = undo; "scratch that off my list" is not).
 - Gate: rc=0, 0 tripwires, 0 golden diffs (the phrase was not in the corpus).
+
+### 2026-11-22: E1/E2 Smart Turn v3.2 end-of-turn (behind JarvisSmartTurn, default 0)
+- Downloaded `smart-turn-v3.2-cpu.onnx` (8,679,182 B, the size on HF; sha256 2bb02631...7e4f) from `pipecat-ai/smart-turn-v3`
+  into `Jarvis/turn/` (git-ignored by `**/*.onnx`). Licence BSD-2-Clause, copied to `turn/LICENSE-smart-turn.txt`.
+- `jarvislib/endturn.py` follows Daily's `inference.py` (last 8 s, zero-padded in front, normalised, Whisper log-mel
+  80x800) but uses faster_whisper's FeatureExtractor, so no transformers/torch. One CPU thread; ~26 ms per call warm, ~70 ms first.
+- `mic._listen`: with the setting on, each 0.27 s pause is judged once: >= 0.5 ends the listen there; below it, the
+  listen waits up to 3 s of quiet (the research report's numbers). Any load/run error logs `smart turn off` and the old timers stay.
+- Test: `tests/test_endturn.py` (fake mic: off = 0.7 s timer, finished = stops at the pause, unfinished = 3 s cap,
+  unavailable = timer; plus one real model run on silence). Gate: rc=0, 0 tripwires, 0 golden diffs.
+- Needs live: turn on `JarvisSmartTurn=1` and check you are not cut off and short commands end faster. Setup-Jarvis.ps1
+  does not download the model yet (a fresh install has the setting but not the file; enabled() then stays off).
 
 ## Safety checks
 - 2026-11-22 (1st, 2 h loop): checked b97e0c7, 9ed5316. Gate rc=0 (test_jarvis venv + py3 exit 0, 0 tripwires; host_pipe 0 failed;

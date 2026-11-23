@@ -2,6 +2,7 @@
 import os
 import re
 import time
+from . import endturn
 from .audio import speakers
 from .base import DUCK_FILE, MICS_FILE, S, cancel, log, mic, problem, setting
 
@@ -141,6 +142,7 @@ FAST_END = 0.7                                                 # seconds of quie
 SHORT_TALK = 100                                               # "short": the first 100 blocks (3 s) since speech began
 onset = [0.0]                                                 # seconds the last _listen waited before speech began
 peak = [0.0]                                                   # U5: the loudest 30 ms block (rms, 0-1) of the last _listen
+TURN_GAP, TURN_CAP = 9, 100                                    # Smart Turn: asked after 0.27 s of quiet; "not done" waits up to 3 s
 
 
 def _listen(patience=6, dim_after=None):
@@ -158,6 +160,7 @@ def _listen(patience=6, dim_after=None):
     # JarvisSilence always wins, and JarvisFastEnd=0 turns it off.
     fast_blocks = int(FAST_END / 0.03) if setting("JarvisFastEnd", "1") == "1" and not setting("JarvisSilence", "") else quiet_blocks
     talked = 0
+    smart, asked, hold = endturn.enabled(), False, False
     stream = None
     try:
         stream = sd.InputStream(samplerate=rate, channels=1, dtype="float32", blocksize=block, device=mic_device())
@@ -182,7 +185,7 @@ def _listen(patience=6, dim_after=None):
                         onset[0] = waited * 0.03
                         if dim:
                             S.set(state="listening")        # 8a: speech began in the dim part of the window
-                    started, silent = True, 0
+                    started, silent, asked, hold = True, 0, False, False   # each new pause is judged again
                     peak[0] = max(peak[0], rms)
                 elif started:
                     silent += 1
@@ -192,7 +195,15 @@ def _listen(patience=6, dim_after=None):
                     waited += 1
                     frames = (frames + [x.copy()])[-10:]     # keep 0.3 s before speech starts
                 talked += started
-                if started and silent > (fast_blocks if talked <= SHORT_TALK else quiet_blocks):
+                if smart and started and not asked and silent == TURN_GAP:
+                    asked, p = True, endturn.complete(np.concatenate(frames))
+                    if p is not None:
+                        log(f"end of turn: {p:.2f} after {talked * 0.03:.1f} s")
+                        if p >= 0.5:
+                            break
+                        hold = True                        # mid-sentence pause ("set a timer for... uh"): keep listening
+                limit = fast_blocks if talked <= SHORT_TALK else quiet_blocks
+                if started and silent > (max(limit, TURN_CAP) if hold else limit):
                     break
                 if dim_after and not started and not dim and waited * 0.03 > dim_after:
                     dim = True

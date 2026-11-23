@@ -20,7 +20,8 @@ voice (.onnx), or the built-in Windows voice as the always-available fallback.
 Settings (Settings.inc, all adjustable in Control Center > CLOVER): JarvisModel, JarvisModelFast (used while the HUD
 is on its LITE / LOW tiers, i.e. the GPU is busy), JarvisWhisper, JarvisWhisperDevice, JarvisVoice, JarvisVoiceRate,
 JarvisKokoroVoice, JarvisChime, JarvisMutedPopup, JarvisKeepAlive, JarvisContext (model memory in tokens),
-JarvisSilence (seconds of silence before he answers, default 1), JarvisFirstWords (he starts speaking after this many
+JarvisSilence (seconds of silence before he answers, default 1), JarvisSmartTurn (1 = the Smart Turn model judges each
+pause: ends a finished sentence sooner, waits up to 3 s through an unfinished one; default 0), JarvisFirstWords (he starts speaking after this many
 words, default 5; 0 = wait for a whole sentence), ObsidianTodo (open to-dos), JarvisProfile ("about me" note),
 JarvisVault (Obsidian vault folder for "search my notes" - default: the to-do note's folder).
 JarvisSmartSearch (1 = ChromaDB meaning-based note search, falls back to keywords), JarvisWakeWord (default 1 = say "Hey Jarvis" instead of clicking; 0 = off), JarvisWakeSensitivity (0.2-0.9, lower = more sensitive), JarvisIdleUnload (minutes without a turn before the speech models are freed, default 10; 0 = keep them loaded).
