@@ -11,6 +11,7 @@ from .player import player, smooth_on
 
 HEADPHONES = re.compile(r"head ?phones?|head ?set|ear ?buds?|ear ?phones?|airpods|\bbuds\d*\b|in-?ear", re.I)
 _out_name = [0.0, ""]                                          # when the output device name was last read, the name
+first_sound = [None]                                           # E6: when this turn's first clip began (the turn resets it)
 
 
 def headphone_gain(device_name, level):
@@ -41,6 +42,8 @@ def play_samples(a, rate, progress=None, lead_ms=None):
     given, is called after each block (the pop-up types the sentence at speaking pace).
     lead_ms (JarvisVoiceSmooth=1 only, given by his own speech and fillers): the clip goes to the persistent stream, trimmed
     and faded, after that many ms of silence. Everything else (chimes, dings) keeps the old stream-per-call path."""
+    if first_sound[0] is None:
+        first_sound[0] = time.time() + (lead_ms / 1000 if lead_ms is not None and smooth_on() else 0)   # smooth: after its lead silence
     import numpy as np
     import sounddevice as sd
     ch = 1 if a.ndim == 1 else a.shape[1]

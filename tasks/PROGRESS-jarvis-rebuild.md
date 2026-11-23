@@ -96,3 +96,8 @@ Loops this session: 30 min work loop, 2 h safety check.
   run_all OK; route and reply goldens 0 diffs). Added lines: no subprocess/ctypes/delete/power/shell calls, no secrets, no new
   dependency or model. The trace holds code strings only (no `result` built from your words). The only file overwrite is the
   trace's own `.old` rotation, the same as `jarvis.log`. Nothing reverted. **Last checked commit: 9ed5316**
+
+### E6 first-sound timing (2026-11-22)
+- `voice/output.play_samples` stamps `first_sound` on the turn's first clip (status filler, fixed line or model reply; smooth mode adds its lead silence). The turn resets it at end of speech, and the E0 trace gets `ms.first_sound` plus a `timing: end of speech -> first sound` log line. Target: under 1.2 s on the fast path.
+- Test: `tests/test_first_sound.py` (fake speakers). Gate rc=0, 0 diffs.
+- Limit: a reminder ring from another thread during the turn would count as the first sound (rare). Real numbers need live turns: read `ms.first_sound` from the trace after a few commands.

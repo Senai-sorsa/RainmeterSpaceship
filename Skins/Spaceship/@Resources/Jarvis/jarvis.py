@@ -70,6 +70,7 @@ from jarvislib.mic import (_listen, _mic_missing, _duck, follow_name_wait, follo
 from jarvislib.mic import peak as mic_peak
 from jarvislib.notes import STOP, search_notes, vault_dir
 from jarvislib.untrusted import clean_hits
+from jarvislib.voice.output import first_sound
 from jarvislib.speech import (FILLERS, HIDE_LOG, SHOW_LOG, _filler_audio, _filler_thread, _filler_voice, _speak_queue,
     filler, filler_done, first_words, muted, play_samples, prepare_fillers, say_text_only, sentences_from, speak_all)
 from jarvislib.calc import (MONTHS, ONES, TENS, UNITS, UNIT_ROWS, WEEKDAYS, _num, _remind_bad, amount, calc,
@@ -974,6 +975,7 @@ def _hear(tier, follow, woke, mode, left, typed, way):
     if (audio is None and typed is None) or cancel.is_set():
         return
     t_spoke = way["t"] = time.time()
+    first_sound[0] = None                                  # E6: the next clip that plays is the first sound you hear
     log(f"timing: listening -> end of speech {t_spoke - t_listen:.2f}s")
     way["ms"]["listen"] = round((t_spoke - t_listen) * 1000)
     S.set(state="thinking", level=0.0)
@@ -1395,6 +1397,9 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             act = f" {act}" if isinstance(act, str) and re.fullmatch(r"[a-z_]+", act) else ""
             tag = f"{way['lane']}." if "lane" in way else ""
             done = "stopped" if cancel.is_set() else way.get("result", "said")
+            if "t" in way and first_sound[0] is not None:     # E6: end of speech -> first sound (target under 1.2 s on the fast path)
+                way["ms"]["first_sound"] = round((first_sound[0] - way["t"]) * 1000)
+                log(f"timing: end of speech -> first sound {first_sound[0] - way['t']:.2f}s")
             log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s -> {done}")
             trace({"turn": round(turn_started[0], 3), "follow": follow, "woke": bool(woke), "typed": typed is not None,
                    "kind": way["kind"], "action": act.strip() or None, "lane": way.get("lane"), "via": way["via"],
