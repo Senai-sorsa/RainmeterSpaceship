@@ -45,4 +45,12 @@ for s in ("scratch that", "no, scratch that", "cancel that", "take that back"):
     assert routing.route(s)[0] == "undo", s
 assert routing.route("scratch that off my list")[0] != "undo"
 
+# E1: a closing phrase ends the conversation silently; thanks alone and "I'm good" (an answer to "how are you") stay chat
+for s in ("that's all", "that's all for now", "we're done", "stop listening", "goodbye", "bye", "no thanks", "nothing else",
+          "Okay, thanks, that's all.", "That's all, Jarvis.", "No, I'm good.", "no that's it"):
+    assert routing.route(s)[0] == "end", s
+for s in ("thanks", "thank you", "i'm good", "is that all you can do", "that's it for the timer", "say goodbye to my mom",
+          "we're done with the essay, what next", "that's everything I need to know about rome"):
+    assert routing.route(s)[0] != "end", s
+
 print("test_phase_a: OK")

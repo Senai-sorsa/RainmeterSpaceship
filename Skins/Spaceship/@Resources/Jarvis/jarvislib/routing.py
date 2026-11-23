@@ -451,6 +451,12 @@ def _rules_undo(text, named, t, whole, cmd):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
         return ("end", None, None, None)                       # T1: he drops it and says nothing (jarvis.py: control)
+    names = "|".join([NAME] + NAMES)
+    if re.fullmatch(rf"(?:(?:ok(?:ay)?|alright|great|cool|perfect|thanks|thank you|{names})[,.!]? +)*"
+                    r"(?:that'?s (?:all|it|everything)(?: for now)?|(?:we'?re|i'?m) (?:done|all set)(?: for now)?|nothing else"
+                    r"|no,? (?:thanks|thank you|i'?m good|that'?s (?:all|it))|stop listening|(?:good ?)?bye|see you(?: later)?)"
+                    rf"(?:[,.!]? +(?:thanks|thank you|{names}))*[.!]?", whole):
+        return ("end", None, None, None)                       # E1: "that's all" / "we're done" closes the follow-up, silently
 
 
 def _rules_other_device(text, named, t, whole, cmd):

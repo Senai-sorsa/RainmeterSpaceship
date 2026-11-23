@@ -78,6 +78,19 @@ Loops this session: 30 min work loop, 2 h safety check.
   `! "%LOCALAPPDATA%/SpaceshipHUD/venv/Scripts/python.exe" tools/record_wake_bank.py wake 15 desk`, then `wake 15 room`,
   then `room 30`. After that the offline scorer (current wake rules vs the older setup) can run.
 
+### 2026-11-22: E2 hotword prompt: already in place, no change
+- `hearing._decode` already passes `hotwords="Clover Jarvis"` and `initial_prompt=HINT`; faster-whisper 1.2.1 uses both
+  (hotwords first, then the hint as previous text). The wake name can only be Jarvis or Clover, both covered.
+
+### 2026-11-22: E1 closing phrases end the conversation
+- "that's all", "we're done", "stop listening", "no thanks", "nothing else", "bye", "ok thanks, that's all" (whole utterance,
+  with or without his name) now take the silent `end` route that "never mind" uses: no words, follow-up closed. Before, all
+  went to the model, which answered and could keep the ear open. Left to the model on purpose: "thanks" alone (he can reply
+  in character) and a bare "I'm good" (an answer to "how are you?").
+- Test: `tests/test_phase_a.py` (12 closers end, 8 near-misses don't). Route golden: 2 intended diffs ("That's all." and
+  "that's all" are now `end`). Gate: rc=0, 0 tripwires, 0 golden diffs after regenerating.
+- Needs live: whether a silent stop after "that's all" feels right, or he should say a short "Very good." first.
+
 ## Safety checks
 - 2026-11-22 (1st, 2 h loop): checked b97e0c7, 9ed5316. Gate rc=0 (test_jarvis venv + py3 exit 0, 0 tripwires; host_pipe 0 failed;
   run_all OK; route and reply goldens 0 diffs). Added lines: no subprocess/ctypes/delete/power/shell calls, no secrets, no new
