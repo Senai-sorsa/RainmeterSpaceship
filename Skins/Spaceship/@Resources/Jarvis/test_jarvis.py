@@ -1963,6 +1963,14 @@ with open(j.TRACE_FILE, encoding="utf-8") as _f:
 _t = _json.loads(_raw)
 assert _t["kind"] == "chat" and _t["via"] == "model" and not _t["woke"] and {"listen", "stt", "reply_start"} <= set(_t["ms"]), _t
 assert "essay" not in _raw and "groceries" not in _raw, _raw
+assert _t["wake"] is None, _t                                         # a click: no wake score
+j.wake_info[:] = [0.61, "W0"]
+seq = iter(["Tell me a joke."])
+heard[0], speaks[0] = 0, 1
+j.turn(0, woke=True)
+with open(j.TRACE_FILE, encoding="utf-8") as _f:
+    _t = _json.loads(_f.read().splitlines()[-1])
+assert _t["woke"] and _t["wake"] == [0.61, "W0"], _t                     # E0: a woken turn carries the wake score and way
 j.setting = lambda name, default="": default
 assert j.route("I'm still in four loop, so what's the name for it?")[0] == "chat" and not j.room_talk(
     "I'm still in four loop, so what's the name for it?")                         # a question is answered as before

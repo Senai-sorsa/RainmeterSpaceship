@@ -34,5 +34,14 @@ Loops this session: 30 min work loop, 2 h safety check.
 - Gate: rc=0, 0 tripwires, 0 golden diffs.
 - Not yet: wake score / VAD per turn in the trace (needs the wake loop to pass them to the turn).
 
+### 2026-11-22: E0 tracing: wake score and way per woken turn
+- The wake loop keeps the last wake's score and way (`W0`/`HV`) in `wake_info`; the trace adds `"wake": [score, way]`
+  on the first exchange of a woken turn (null for clicks, typing and follow-ups).
+- Test: a click turn has `wake: null`; a woken turn carries `[0.61, "W0"]`. Gate: rc=0, 0 tripwires, 0 golden diffs.
+- Still not traced: the VAD value and near-miss peaks (near misses are already logged as `wake: near miss`).
+
 ## Safety checks
-- (none yet) last checked commit: 8da8683
+- 2026-11-22 (1st, 2 h loop): checked b97e0c7, 9ed5316. Gate rc=0 (test_jarvis venv + py3 exit 0, 0 tripwires; host_pipe 0 failed;
+  run_all OK; route and reply goldens 0 diffs). Added lines: no subprocess/ctypes/delete/power/shell calls, no secrets, no new
+  dependency or model. The trace holds code strings only (no `result` built from your words). The only file overwrite is the
+  trace's own `.old` rotation, the same as `jarvis.log`. Nothing reverted. **Last checked commit: 9ed5316**

@@ -696,6 +696,7 @@ def watchdog(started):
 
 
 turn_id = [0.0]
+wake_info = [None, None]                                       # E0: the last wake's score and way, for the trace
 turn_started = [0.0]                                           # when the running turn began (exchange() only)
 NO_FOLLOW = re.compile(r"(?:Okay, never mind|Okay, no \w+|Okay, I left (?:them|it)|Cancelled)\.$")   # he was told to drop it: no follow-up
 # a whole reply that means "stop" / "we're done", in any turn: he stops without answering (FR6 L1). Also Whisper's
@@ -1396,7 +1397,8 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s -> {done}")
             trace({"turn": round(turn_started[0], 3), "follow": follow, "woke": bool(woke), "typed": typed is not None,
                    "kind": way["kind"], "action": act.strip() or None, "lane": way.get("lane"), "via": way["via"],
-                   "result": done, "total_ms": round((time.time() - way["t"]) * 1000), "ms": way["ms"]})
+                   "result": done, "total_ms": round((time.time() - way["t"]) * 1000), "ms": way["ms"],
+                   "wake": wake_info[:] if woke and not follow else None})
         S.set(state="idle", level=0.0)
         quiet_talk.typed[0] = False
         busy.release()
@@ -1577,6 +1579,7 @@ def wake_loop():
             if follow is not None:
                 last_score = 0.0
                 log(f"wake word heard ({score:.2f}, {way})" if not talking else f"barge-in ({'voice' if follow else 'wake'})")
+                wake_info[:] = [round(float(score), 3), way]
                 if talking:
                     stop_now("barge-in")
                 drop()
