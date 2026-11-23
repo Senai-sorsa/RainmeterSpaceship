@@ -120,3 +120,12 @@ Loops this session: 30 min work loop, 2 h safety check.
 
 ### E5 memory: already in place, no change (2026-11-22)
 - Checked through `routing.route` on a temp data folder: "remember that ..." saves (asks "Replace?" when it overlaps an old fact), "what do you remember about me" lists, "forget about X" reads the matches back and asks yes, "forget everything" asks first; talk recall (M2) and the gist (M3) come back only when a question is about them, by shared words or MiniLM meaning (already installed). nomic-embed-text was not swapped in: no measured need, and it would change every meaning threshold.
+
+### E0 mic overflow log (4a479b1, 2026-11-22)
+- The microphone loop logs dropped (overflowed) input blocks once per listen, so a live Smart Turn test can show whether `endturn.complete` inside the read loop loses audio.
+
+### UI fixes (2026-11-22)
+- 587b7c2: the bottom info panels (the right one shows the PC name) now sit centred on their glass slabs in every frame mode (rendered, picture, fitted, none), not only fitted. e2e `panel-slab.spec.ts` checks the slab centre against the card centre in all four modes at two sizes.
+- a8ad57e: tiny chrome corner caps (46 x 6 canvas units, no filters) in the Picture (fitted) frame only; setting `CornerPieces` (default 1). Tests: `tests/cornerPieces.test.ts` and e2e `corner-pieces.spec.ts` (shown only in fitted, sit in the corners at 1920/2560/3840 widths, and the filled shape covers no click target; the top-right one wraps around the SETTINGS button).
+- Checks: vitest 70 files / 540 tests passed, tsc clean, corner-pieces + panel-slab e2e 20/20 passed. Known, not caused by this: 3 `picture-slots.spec` failures (`left-category.l`, the same on HEAD before the change) and a flaky `frame.spec`.
+- Needs a live look in the real app.
