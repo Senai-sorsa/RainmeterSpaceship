@@ -101,3 +101,12 @@ Loops this session: 30 min work loop, 2 h safety check.
 - `voice/output.play_samples` stamps `first_sound` on the turn's first clip (status filler, fixed line or model reply; smooth mode adds its lead silence). The turn resets it at end of speech, and the E0 trace gets `ms.first_sound` plus a `timing: end of speech -> first sound` log line. Target: under 1.2 s on the fast path.
 - Test: `tests/test_first_sound.py` (fake speakers). Gate rc=0, 0 diffs.
 - Limit: a reminder ring from another thread during the turn would count as the first sound (rare). Real numbers need live turns: read `ms.first_sound` from the trace after a few commands.
+
+### E6 remaining items: already in place, no change (2026-11-22)
+- Kokoro input over ~250 characters (kokoro-onnx#184): the installed kokoro-onnx 0.6.1 splits the phonemes itself into balanced batches of at most 510, at word boundaries, so no cap is needed on our side.
+- Old audio leaking after a barge-in (pipecat#6806): on cancel `player.play` calls `_drop()` (abort + close, which discards the buffered audio and WASAPI's resampler), and the next clip opens a fresh stream.
+- "Interrupt only after 2+ words or 0.4 s": barge-in is a Vosk stop-phrase grammar on echo-cancelled audio, not voice activity, so "yeah" never cuts a reply. Not applicable.
+- What is left for E6 is live: read `ms.first_sound` from the trace after some fast-path commands (target under 1.2 s).
+
+### E5 memory: already in place, no change (2026-11-22)
+- Checked through `routing.route` on a temp data folder: "remember that ..." saves (asks "Replace?" when it overlaps an old fact), "what do you remember about me" lists, "forget about X" reads the matches back and asks yes, "forget everything" asks first; talk recall (M2) and the gist (M3) come back only when a question is about them, by shared words or MiniLM meaning (already installed). nomic-embed-text was not swapped in: no measured need, and it would change every meaning threshold.
