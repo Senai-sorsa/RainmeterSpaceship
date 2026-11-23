@@ -6,6 +6,7 @@ const MODES: Record<string, Record<string, string>> = {
   rendered: { UseShipImage: '0', PictureFit: '0' },
   picture: { UseShipImage: '1', PictureFit: '0' },
   fitted: { UseShipImage: '1', PictureFit: '1' },
+  none: { FrameOff: '1' },
 };
 
 for (const [mode, cfg] of Object.entries(MODES)) {
@@ -41,6 +42,8 @@ for (const [mode, cfg] of Object.entries(MODES)) {
         expect(panel.t - s.t, name + ' slab top vs panel top').toBeLessThanOrEqual(22 * k);
         expect(s.t, name + ' slab top').toBeLessThanOrEqual(panel.t + 2 * k);
         expect(s.b, name + ' slab bottom').toBeGreaterThanOrEqual(panel.b - 22 * k);
+        // centred across: the card sat about 9 units to one side of its slab at Scale 1.005 (the fitted-mode fix, now in every mode)
+        expect(Math.abs((s.l + s.r) / 2 - (panel.l + panel.r) / 2), name + ' slab centre vs panel centre').toBeLessThanOrEqual(4 * k);
       }
     });
   }

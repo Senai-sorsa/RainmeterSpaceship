@@ -54,11 +54,11 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
   const tier = n(values, 'PerfTier', 0);
   // Frame.ini's Shape parts: Glass under everything (rendered only), Accents/Spill/Lights/Decor over it (Decor in both styles)
   const vars = { ...values, ColorAccent: rgb };
-  // the modules' drawing scale (Hud.tsx), which the panel slabs follow in the fitted frame (the other frames keep their slabs as they were)
-  const sc = style === 'fitted' ? n(values, 'Scale', 1) : 1;
+  // the modules' drawing scale (Hud.tsx), which the panel slabs follow so each card sits centred on its glass (first fixed in fitted; now every frame)
+  const sc = n(values, 'Scale', 1);
   // No frame: no art and no glass, but the HUD's own neon trim (Decor: the top, wing and bottom lines and the panel slabs) stays. It is not a .frame element: the
   // frame-mode tests count those, and None still has no frame layers.
-  if (style === 'none') return <div class="frame-trim" aria-hidden="true" style={frameBox}><Parts names={['Decor']} vars={vars} zones={slabZones} /></div>;
+  if (style === 'none') return <div class="frame-trim" aria-hidden="true" style={frameBox}><Parts names={['Decor']} vars={vars} zones={slabZones} sc={sc} /></div>;
   return (
     // the frame is the 16:10 area the modules' svg letterboxes into (.frame in ui.css: width min(100vw, 160vh), top-left of that area), from the window
     // size alone. It must NOT follow the HUD-size value: a page Scale other than the design 0.67 made it 1.5x too big against the modules (live test)
