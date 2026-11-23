@@ -18,5 +18,21 @@ Loops this session: 30 min work loop, 2 h safety check.
 - Not done: the 25 s cap check after a wake (`for_me`) is false-wake protection and is unchanged.
   Needs live: your long monologues in the replay bank (D2 bank not recorded yet).
 
+### 2026-11-22: wake refractory (second report): already covered, no change
+- After a wake the loop closes the stream, resets the model and sleeps 1 s, and the turn holds `busy` until it ends,
+  so a second wake cannot start a turn. Adding a timer would change nothing.
+
+### 2026-11-22: E4 confirmation binding: already in place, no change
+- `run_action` runs an "ask" row only with the exact `(action, target)` you said yes to; `ask_yes` decides the yes
+  in code with a 15 s expiry; the model never approves. The shell-surrogate deny waits until a tool takes arguments.
+
+### 2026-11-22: E0 tracing (part 2 of E0)
+- `base.trace()` appends one JSON line per turn to `Data/jarvis_trace.jsonl` (git-ignored, rotated at 512 KB like the log):
+  turn id, follow/woke/typed, kind/action/lane/via/result (code names), total ms and stage ms
+  (`open`, `listen`, `stt`, `reply_start`, `reply_done`). Never the words.
+- Test: the D1 click turn leaves a trace line with the stage times and without the spoken words.
+- Gate: rc=0, 0 tripwires, 0 golden diffs.
+- Not yet: wake score / VAD per turn in the trace (needs the wake loop to pass them to the turn).
+
 ## Safety checks
 - (none yet) last checked commit: 8da8683

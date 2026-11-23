@@ -48,7 +48,7 @@ from jarvislib import hearing
 from jarvislib.base import (CMD_FILE, CONVO_FILE, DATA, DUCK_FILE, ENV_FILE, JARVIS_WORD, LIVE_FILE, LOG_FILE, NAME,
     MEMORYSTATUSEX, MICS_FILE, MODELS_FILE, NO_WINDOW, OLLAMA, RES, S, STATE_FILE, SYSTEM_POWER_STATUS, State, WAKE_OFF,
     busy, cancel, convo_add, live, log, mic, missing_packages, name_until, problem, rainmeter_running, read_kv,
-    setting, settings, single_instance, stop_now, todo_note, write_atomic)
+    setting, settings, single_instance, stop_now, todo_note, trace, write_atomic, TRACE_FILE)
 from jarvislib.stopwords import STOP_PHRASES, StopWords, far, far_add, saying, stop_heard
 from jarvislib.gpu import cpu_in_use, cpu_threads, gpu
 from jarvislib.hearing import (HINT, PHANTOM, _cuda_dlls, _decode, _gpu_try, _load_whisper, _whisper_dev,
@@ -898,6 +898,7 @@ def _record_chat(reply, model, t_spoke, text, kind, apart, quiet, close_offer, l
     else:
         _moved.discard(model)
     log(f"timing: end of speech -> reply done {time.time() - t_spoke:.2f}s ({model})")
+    way["ms"]["reply_done"] = round((time.time() - t_spoke) * 1000)
     if not reply and not cancel.is_set():
         problem(f"{model} gave no answer - try again, or pick another model in Control Center > CLOVER")
         return
@@ -962,6 +963,7 @@ def _hear(tier, follow, woke, mode, left, typed, way):
         if typed is None:
             time.sleep(chime())                            # don't record the chime
     log(f"timing: click -> listening {time.time() - t_click:.2f}s")
+    way["ms"]["open"] = round((time.time() - t_click) * 1000)
     t_listen = time.time()
     hud = []
     reading = threading.Thread(target=lambda: hud.append(sensors()), daemon=True)
@@ -971,6 +973,7 @@ def _hear(tier, follow, woke, mode, left, typed, way):
         return
     t_spoke = way["t"] = time.time()
     log(f"timing: listening -> end of speech {t_spoke - t_listen:.2f}s")
+    way["ms"]["listen"] = round((t_spoke - t_listen) * 1000)
     S.set(state="thinking", level=0.0)
     try:
         text = typed if typed is not None else transcribe(audio)
@@ -978,6 +981,7 @@ def _hear(tier, follow, woke, mode, left, typed, way):
         problem("Speech recognition isn't installed - run Control Center > CLOVER > SETUP")
         return
     log(f"timing: end of speech -> text {time.time() - t_spoke:.2f}s")
+    way["ms"]["stt"] = round((time.time() - t_spoke) * 1000)
     log(f"you: {len(text.split())} words")                # counts only: the words stay in the pop-up log
     if down:                                               # the problem is already shown; only a crisis phrase is answered (from code)
         if text and mood.crisis(text) and not cancel.is_set():
@@ -1316,6 +1320,7 @@ def _answer(turn, model, way, left, follow, typed, hud, reading, t_spoke, kind, 
     collected, spoke = [], None
     way["via"] = "model"
     log(f"timing: end of speech -> reply start {time.time() - t_spoke:.2f}s")
+    way["ms"]["reply_start"] = round((time.time() - t_spoke) * 1000)
     temp = 0 if lane == "info" else 0.5
     stream = no_pardon(lambda m: chat_stream(model, m, temp), messages,
                        lane == "chat" and (typed is not None or heard_score[0] >= -1.7 or len(turn.text.split()) >= 4))   # only real garbage may get "Pardon?" (reply/pardon.py)
@@ -1338,7 +1343,7 @@ def exchange(tier, follow, woke, mode, left, typed=None):
     if not busy.acquire(blocking=False):
         log("turn ignored: busy")                              # a count, no words
         return
-    way = {}                                                   # 6j: which path answered; logged once in finally
+    way = {"ms": {}}                                           # 6j: which path answered; logged once in finally. ms: E0 stage times
     cancel.clear()
     typed_turn[0] = typed is not None
     quiet_talk.typed[0] = typed is not None                    # typed in the chat: the answer is the chat, not the speakers
@@ -1389,6 +1394,9 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             tag = f"{way['lane']}." if "lane" in way else ""
             done = "stopped" if cancel.is_set() else way.get("result", "said")
             log(f"route: {tag}{way['kind']}{act} via {way['via']}, total {time.time() - way['t']:.2f}s -> {done}")
+            trace({"turn": round(turn_started[0], 3), "follow": follow, "woke": bool(woke), "typed": typed is not None,
+                   "kind": way["kind"], "action": act.strip() or None, "lane": way.get("lane"), "via": way["via"],
+                   "result": done, "total_ms": round((time.time() - way["t"]) * 1000), "ms": way["ms"]})
         S.set(state="idle", level=0.0)
         quiet_talk.typed[0] = False
         busy.release()

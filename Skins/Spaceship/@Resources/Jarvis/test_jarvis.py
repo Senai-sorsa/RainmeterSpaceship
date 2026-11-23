@@ -1955,6 +1955,14 @@ _asked = len(asked)
 j.turn(0)
 assert not j.busy.locked() and len(prompts) == n + 1, heard[0]       # D1: clicked, so answered at once, no question
 assert j.history[0]["content"].endswith(ROOM) and not any(a in j.ROOM_ASKS for a in asked[_asked:]), asked[_asked:]
+# E0: that turn left one trace line: stage times and code names, never the words (TRACE_FILE is in the temp Data)
+import json as _json
+assert j.TRACE_FILE.startswith(sys.argv[1]), j.TRACE_FILE
+with open(j.TRACE_FILE, encoding="utf-8") as _f:
+    _raw = _f.read().splitlines()[-1]
+_t = _json.loads(_raw)
+assert _t["kind"] == "chat" and _t["via"] == "model" and not _t["woke"] and {"listen", "stt", "reply_start"} <= set(_t["ms"]), _t
+assert "essay" not in _raw and "groceries" not in _raw, _raw
 j.setting = lambda name, default="": default
 assert j.route("I'm still in four loop, so what's the name for it?")[0] == "chat" and not j.room_talk(
     "I'm still in four loop, so what's the name for it?")                         # a question is answered as before

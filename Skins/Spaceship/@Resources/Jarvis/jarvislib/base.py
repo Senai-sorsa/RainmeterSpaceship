@@ -21,6 +21,7 @@ ENV_FILE = os.path.join(DATA, "jarvis_env.txt")      # written by the HUD: MUTED
 CONVO_FILE = os.path.join(DATA, "jarvis_log.txt")    # the conversation the log pop-up shows (U|unix|text, J|unix|text)
 LIVE_FILE = os.path.join(DATA, "jarvis_live.txt")    # the reply being written right now
 LOG_FILE = os.path.join(DATA, "jarvis.log")
+TRACE_FILE = os.path.join(DATA, "jarvis_trace.jsonl")   # E0: one line per turn, numbers and code names only (never words)
 MODELS_FILE = os.path.join(DATA, "jarvis_models.txt")   # installed Ollama models, for the Control Center
 MICS_FILE = os.path.join(DATA, "jarvis_mics.txt")       # input devices, for the Control Center
 BT_FILE = os.path.join(DATA, "jarvis_bt.txt")           # paired Bluetooth audio devices, for the Control Center
@@ -42,6 +43,18 @@ def log(msg):
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S  ") + str(msg) + "\n")
     except OSError:
+        pass
+
+
+def trace(rec):
+    """E0: append one turn's record (stage times in ms, route names from the code) as a JSON line; rotated like the log."""
+    import json
+    try:
+        if os.path.exists(TRACE_FILE) and os.path.getsize(TRACE_FILE) > 512_000:
+            os.replace(TRACE_FILE, TRACE_FILE + ".old")
+        with open(TRACE_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+    except (OSError, TypeError, ValueError):
         pass
 
 
