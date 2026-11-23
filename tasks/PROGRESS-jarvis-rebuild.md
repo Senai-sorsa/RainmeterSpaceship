@@ -40,6 +40,17 @@ Loops this session: 30 min work loop, 2 h safety check.
 - Test: a click turn has `wake: null`; a woken turn carries `[0.61, "W0"]`. Gate: rc=0, 0 tripwires, 0 golden diffs.
 - Still not traced: the VAD value and near-miss peaks (near misses are already logged as `wake: near miss`).
 
+### 2026-11-22: E0 Ollama stream timeout: already in place, no change
+- `llm.chat_stream` reads in its own thread with a 120 s socket timeout, polls cancel every 0.2 s, retries once before
+  the first piece, and the 91 s turn watchdog sits on top. Nothing to add.
+
+### 2026-11-22: E3 "cancel that" family
+- Probed the cancel phrases by context. "cancel that" / "undo that" / "take that back" are undo; "cancel it" points at the
+  item just set or listed (`pick_last`, tested at `test_jarvis.py:2689`); "never mind" ends quietly. Gap: "scratch that"
+  went to the model. It is now undo too (`routing._rules_undo`); "forget that" is left to memory/chat on purpose.
+- Test: `tests/test_phase_a.py` (scratch that / no, scratch that = undo; "scratch that off my list" is not).
+- Gate: rc=0, 0 tripwires, 0 golden diffs (the phrase was not in the corpus).
+
 ## Safety checks
 - 2026-11-22 (1st, 2 h loop): checked b97e0c7, 9ed5316. Gate rc=0 (test_jarvis venv + py3 exit 0, 0 tripwires; host_pipe 0 failed;
   run_all OK; route and reply goldens 0 diffs). Added lines: no subprocess/ctypes/delete/power/shell calls, no secrets, no new

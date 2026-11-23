@@ -447,7 +447,7 @@ def route(text):
 def _rules_undo(text, named, t, whole, cmd):
     """undo / never mind. Returns a route, or None when nothing here matches (the next area is tried)."""
     if re.fullmatch(rf"(?:(?:no|oh|oops|wait|actually|never ?mind|{'|'.join([NAME] + NAMES)})[,.!]? +)*"
-                    r"(?:undo(?: that| it)?|put it back|cancel that|take that back|back to (?:before|how it was|how you were))", whole):
+                    r"(?:undo(?: that| it)?|put it back|cancel that|scratch that|take that back|back to (?:before|how it was|how you were))", whole):
         return ("undo", None, None, None)
     if re.search(r"\bnever ?mind\b|\bactually,? (?:don'?t|do not|no)\b", whole):   # "set a timer for... never mind"
         return ("end", None, None, None)                       # T1: he drops it and says nothing (jarvis.py: control)

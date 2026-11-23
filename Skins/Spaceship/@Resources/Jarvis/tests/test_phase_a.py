@@ -40,4 +40,9 @@ turnstate.undo[:] = [now - 1, "volume", 30]                    # expired: no con
 assert routing.route("make it 50")[0] == "chat"
 turnstate.undo[:] = []
 
+# E3 "cancel that" family: "scratch that" undoes the last action like "cancel that" (it went to the model before)
+for s in ("scratch that", "no, scratch that", "cancel that", "take that back"):
+    assert routing.route(s)[0] == "undo", s
+assert routing.route("scratch that off my list")[0] != "undo"
+
 print("test_phase_a: OK")
