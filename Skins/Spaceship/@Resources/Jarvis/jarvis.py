@@ -747,9 +747,10 @@ def directed(text, answering):
 
 
 def room_talk(text):
-    """FR5 N3: long talk with no question, no "you" and not his name: likely meant for someone else in the room."""
+    """FR5 N3: long talk with no question, no "you" and not his name: likely meant for someone else in the room.
+    D1: 60 words, not 25 (a long request to him was dropped); only asked in the open ear (understand(ear=...))."""
     words = re.findall(r"[a-z']+", text.lower().replace("’", "'"))
-    return len(words) >= 25 and "?" not in text and not {"you", "your", "you're", "clover", "jarvis"} & set(words)
+    return len(words) >= 60 and "?" not in text and not {"you", "your", "you're", "clover", "jarvis"} & set(words)
 
 
 NEW_TOPIC = re.compile(r"(?:(?:ok|okay|alright),? )?(?:let'?s )?(?:(?:start|have) )?(?:a )?(?:new |change (?:the )?)(?:topic|subject)(?:[,.!?:;-]+\s*|\s*$)", re.I)
@@ -788,8 +789,9 @@ def percent_follow(text, before):
     return f"what's {m.group(1)} percent of {was.group(2)}" if was and n is not None else None
 
 
-def understand(text, model, quiet, room):
-    """Rules first, then the last exchange, then the model only on a miss. kind "room": likely not for him."""
+def understand(text, model, quiet, room, ear=True):
+    """Rules first, then the last exchange, then the model only on a miss. kind "room": likely not for him.
+    ear: heard in the open ear with no question of his pending (D1: never right after the wake word, a click or typing)."""
     more = percent_follow(text, recent["you"])
     kind, action, target, prompt = fix_route(text, route(more)) if more else fix_route(text, route(text))
     via = "rule"
@@ -797,7 +799,8 @@ def understand(text, model, quiet, room):
         lone = None if more else level_fix(strip_name(text))
         if lone:                                               # still asked back below if Whisper was unsure
             kind, action, target, prompt, via = lone
-        elif text != room and room_talk(text) and not mood.crisis(text):
+        elif ear and text != room and room_talk(text) and not mood.crisis(text):
+            log(f"room?: {len(text.split())} words in the open ear, no question, no you, no name")
             return Decision("room", None, None, None, "rule")
     if ask_ai(text, (kind, action, target, prompt)):           # a missed command: the AI's reading, checked, or as before
         filler("confirm_wait", quiet)                          # "One moment." while the model reads it; the answer waits for it
@@ -1046,6 +1049,7 @@ class Turn:
 
     def __init__(self, text, model, quiet, way, left):
         self.text, self.model, self.quiet, self.room, self.way, self.left = text, model, quiet, None, way, left
+        self.ear = False                                       # D1: set by exchange() for open-ear speech he did not ask for
 
 
 def _fixed(turn, reply):
@@ -1146,7 +1150,7 @@ def _preempt(turn, way, woke, left):
 def _command(turn, model, way, left):
     """Command stage: understand the words (rules, follow-ups, the AI reread) and finish every kind that ends with a fixed reply: end, room, heard, again, empty data, confirmations, several commands, diagnostics, command replies, actions. Returns what the model path still needs, or None when the turn ended here."""
     fixed = lambda reply: _fixed(turn, reply)
-    kind, action, target, prompt, via = understand(turn.text, model, turn.quiet, turn.room)
+    kind, action, target, prompt, via = understand(turn.text, model, turn.quiet, turn.room, turn.ear)
     way.update(kind=kind, action=action, via=via)
     if kind == "end":                                      # T1: "... never mind": dropped, no words, no listening
         way.update(kind="control")
@@ -1349,6 +1353,8 @@ def exchange(tier, follow, woke, mode, left, typed=None):
             return
         convo_add("U", text)
         turn = Turn(text, model, muted(), way, left)               # what the stages below share
+        turn.ear = (mode is not None and typed is None and time.time() >= offer.get("expires", 0)
+                    and not asked_you(recent["me"]))
         for k in ("kind", "via", "result"):                   # words came: each path below sets its own
             way.pop(k)
 

@@ -1938,21 +1938,23 @@ j.sensors = real_sensors
 j.setting = lambda name, default="": default
 
 # ---- FR5 N3: long room talk -> "Were you talking to me?"; "yes" answers what was said, "no" ends it
+# D1: 60+ words, and only in the open ear; after a click (or the wake word, or typing) the same words are answered
 ROOM = ("So I'm going to go ahead and get started on the essay now and then we will see how it goes after lunch "
-        "with the others, okay okay okay.")
+        "with the others, and then after that I think we should probably head over to the store to pick up the "
+        "groceries for the week because the fridge is almost empty and we are out of milk and eggs again, okay okay okay.")
 assert j.room_talk(ROOM) and not j.room_talk(ROOM[:-1] + "?") and not j.room_talk("Jarvis, " + ROOM)
 assert not j.room_talk("I think you should go ahead " + ROOM) and not j.room_talk("Tell me a joke.")
-for answer, answered in (("Yes.", True), ("No.", False)):
-    j.setting = lambda name, default="": "1" if name == "JarvisRoomAsk" else default
-    j.offer.clear(), j.history.clear()
-    seq, n = iter([ROOM, answer]), len(prompts)
-    heard[0], speaks[0] = 0, 2
-    j.muted, j.listen, j.transcribe = (lambda: False), _listen, (lambda a: next(seq, ""))
-    j.turn(0)
-    assert not j.busy.locked() and heard[0] == (3 if answered else 2), (answer, heard[0])
-    assert (len(prompts) == n + 1) is answered, answer                 # the model ran only after "yes"
-    assert (j.history[:1] == [{"role": "user", "content": ROOM}]) is answered, j.history
-    assert asked[-1] in j.ROOM_ASKS                 # asked once (reply_line is faked above)
+assert not j.room_talk(" ".join(ROOM.split()[:40]))                  # D1: 40 words to him is a request, not room talk
+assert j.understand(ROOM, "m", True, "")[0] == "room" and j.understand(ROOM, "m", True, "", ear=False)[0] == "chat"
+j.setting = lambda name, default="": "1" if name == "JarvisRoomAsk" else default
+j.offer.clear(), j.history.clear()
+seq, n = iter([ROOM]), len(prompts)
+heard[0], speaks[0] = 0, 1
+j.muted, j.listen, j.transcribe = (lambda: False), _listen, (lambda a: next(seq, ""))
+_asked = len(asked)
+j.turn(0)
+assert not j.busy.locked() and len(prompts) == n + 1, heard[0]       # D1: clicked, so answered at once, no question
+assert j.history[0]["content"].endswith(ROOM) and not any(a in j.ROOM_ASKS for a in asked[_asked:]), asked[_asked:]
 j.setting = lambda name, default="": default
 assert j.route("I'm still in four loop, so what's the name for it?")[0] == "chat" and not j.room_talk(
     "I'm still in four loop, so what's the name for it?")                         # a question is answered as before
