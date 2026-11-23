@@ -96,6 +96,16 @@ Loops this session: 30 min work loop, 2 h safety check.
   run_all OK; route and reply goldens 0 diffs). Added lines: no subprocess/ctypes/delete/power/shell calls, no secrets, no new
   dependency or model. The trace holds code strings only (no `result` built from your words). The only file overwrite is the
   trace's own `.old` rotation, the same as `jarvis.log`. Nothing reverted. **Last checked commit: 9ed5316**
+- 2026-11-22 (2nd, 2 h loop): checked 121b12d, 63a4966, 1166d79, 209fe80, a22f1e7, dec0ea0, 658cfd5. Gate rc=0 (test_jarvis venv + py3
+  exit 0, 0 tripwires; host_pipe 0 failed; run_all OK; route and reply goldens 0 diffs). Separately under tests/guarded_run.py:
+  test_jarvis OK, test_endturn, test_first_sound, test_phase_a: 0 tripwires each. Added lines: no subprocess/ctypes/delete/power/
+  shell/network calls, no secrets. Model output: Smart Turn's probability only decides when listening ends (no OS action); the new
+  "scratch that" / closing-phrase routes are fixed regexes on your words, not model output ("end" does nothing; undo is the existing
+  path). Dependencies and models: the Smart Turn ONNX and livekit-rtc both had your yes; the .onnx is git-ignored (`**/*.onnx`), only
+  its BSD-2 licence is committed. The wake bank recorder writes only to the git-ignored `tests/wake_bank/`, never overwrites (next free
+  number) and deletes nothing. The trace adds only numbers and code strings (wake score/way, ms.first_sound). Nothing reverted.
+  Note: with JarvisSmartTurn=1, `endturn.complete` runs inside the mic read loop (26-73 ms against 30 ms blocks), so the input buffer
+  absorbs it; watch for input overflow in a live test. **Last checked commit: 658cfd5**
 
 ### E6 first-sound timing (2026-11-22)
 - `voice/output.play_samples` stamps `first_sound` on the turn's first clip (status filler, fixed line or model reply; smooth mode adds its lead silence). The turn resets it at end of speech, and the E0 trace gets `ms.first_sound` plus a `timing: end of speech -> first sound` log line. Target: under 1.2 s on the fast path.
