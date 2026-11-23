@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.argv[1:] = [tempfile.mkdtemp()]                            # temp RES: no real Settings.inc, no real jarvis.log
 
 reads = [0]
+late = []                                                      # read numbers that report an overflow
 
 
 class FakeStream:
@@ -30,7 +31,7 @@ class FakeStream:
 
     def read(self, n):
         reads[0] += 1
-        return np.full((n, 1), 0.1 if reads[0] <= 40 else 0.0, np.float32), False
+        return np.full((n, 1), 0.1 if reads[0] <= 40 else 0.0, np.float32), reads[0] in late
 
 
 sys.modules["sounddevice"] = types.SimpleNamespace(InputStream=FakeStream)
@@ -55,6 +56,15 @@ assert run(True, 0.9) == 40 + mic.TURN_GAP                      # finished: stop
 assert asked == [(40 + mic.TURN_GAP) * 480]                     # all the speech so far, with the pause
 assert run(True, 0.2) == 40 + mic.TURN_CAP + 1                  # not finished: waits the 3 s cap
 assert run(True, None) == 40 + 24                               # model unavailable: the plain timer
+
+logged = []
+mic.log = logged.append
+late[:] = [3, 7]
+run(False, None)
+assert logged == ["microphone: 2 block(s) overflowed (audio dropped)"], logged   # dropped audio is counted, once per listen
+late[:], logged[:] = [], []
+run(False, None)
+assert not logged, logged
 
 import importlib  # noqa: E402
 real = importlib.reload(endturn)

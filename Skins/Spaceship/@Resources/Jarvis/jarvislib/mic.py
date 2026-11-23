@@ -161,6 +161,7 @@ def _listen(patience=6, dim_after=None):
     fast_blocks = int(FAST_END / 0.03) if setting("JarvisFastEnd", "1") == "1" and not setting("JarvisSilence", "") else quiet_blocks
     talked = 0
     smart, asked, hold = endturn.enabled(), False, False
+    lost = 0                                                   # blocks the device dropped because a read came late
     stream = None
     try:
         stream = sd.InputStream(samplerate=rate, channels=1, dtype="float32", blocksize=block, device=mic_device())
@@ -171,7 +172,8 @@ def _listen(patience=6, dim_after=None):
         with stream as stream_ctx:
             t0 = time.time()
             while not cancel.is_set():
-                data, _ = stream_ctx.read(block)
+                data, over = stream_ctx.read(block)
+                lost += bool(over)
                 x = data[:, 0]
                 rms = float(np.sqrt(np.mean(x * x)) + 1e-9)
                 if floor is None:
@@ -216,6 +218,8 @@ def _listen(patience=6, dim_after=None):
         problem("The microphone stopped (" + str(e).split("\n")[0][:60] + ")", popup=False)
         return None
     finally:
+        if lost:                                               # E0: a slow step in this loop (Smart Turn) shows up here
+            log(f"microphone: {lost} block(s) overflowed (audio dropped)")
         if stream is not None:
             try:
                 stream.close()
