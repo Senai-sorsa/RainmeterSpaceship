@@ -63,6 +63,21 @@ Loops this session: 30 min work loop, 2 h safety check.
 - Needs live: turn on `JarvisSmartTurn=1` and check you are not cut off and short commands end faster. Setup-Jarvis.ps1
   does not download the model yet (a fresh install has the setting but not the file; enabled() then stays off).
 
+### 2026-11-22: livekit-rtc installed; not wired in (echo cancelling already exists)
+- `pip install livekit` in the venv: exit 0, livekit 1.3.0 (Apache-2.0) plus aiofiles and types-protobuf; numpy unchanged.
+- Finding: `stopwords.StopWords` already runs WebRTC AEC (`pywebrtc-audio` 0.2.0, Apache-2.0, in requirements.txt) with
+  what the player is playing (`far_add`) as the reference. livekit's `AudioProcessingModule` is the same WebRTC code, so
+  swapping would add a dependency for no gain. livekit stays installed but unused; `pip uninstall livekit` removes it.
+- The gap that is left: while he speaks, the **wake model** still gets the raw microphone (it only raises the threshold
+  by 0.2). Feeding it the echo-cancelled block is the next AEC step; it changes barge-in, so it waits for a live test.
+
+### 2026-11-22: D2 wake bank recorder
+- `tools/record_wake_bank.py` writes 16 kHz mono int16 wav to `Jarvis/tests/wake_bank/{wake,room}/` (git-ignored twice:
+  `**/*.wav` and the folder). Checked with a fake mic (names, numbering, wav format). Not run on your mic.
+- Your part (from the Jarvis folder):
+  `! "%LOCALAPPDATA%/SpaceshipHUD/venv/Scripts/python.exe" tools/record_wake_bank.py wake 15 desk`, then `wake 15 room`,
+  then `room 30`. After that the offline scorer (current wake rules vs the older setup) can run.
+
 ## Safety checks
 - 2026-11-22 (1st, 2 h loop): checked b97e0c7, 9ed5316. Gate rc=0 (test_jarvis venv + py3 exit 0, 0 tripwires; host_pipe 0 failed;
   run_all OK; route and reply goldens 0 diffs). Added lines: no subprocess/ctypes/delete/power/shell calls, no secrets, no new

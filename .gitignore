@@ -59,3 +59,5 @@ release/*.rmskin
 Skins/Spaceship/@Resources/Jarvis/tools/semi-live-results/
 # your recorded voice clips for tools/hearing_eval.py: personal, never commit
 Skins/Spaceship/@Resources/Jarvis/tools/hearing-clips/
+# D2 wake test bank: your own voice and room audio, never committed
+Skins/Spaceship/@Resources/Jarvis/tests/wake_bank/
