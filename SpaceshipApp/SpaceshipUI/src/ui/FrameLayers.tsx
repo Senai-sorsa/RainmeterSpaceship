@@ -7,6 +7,7 @@ import { partShapes } from './frameParts';
 import { orbLightBackground, spillBackground } from './spill';
 import { jarvisFeed } from '../host/jarvisFeed';
 import { PictureTrim } from './PictureTrim';
+import { CornerPieces } from './CornerPieces';
 import { stageBox } from './stage';
 import { blankStrayIcon, blankWingLines, consoleCutout, fixPanelSlabs, type SlabZone } from './panelSlab';
 import { seatInPicture } from '../modules/pictureSlots';
@@ -87,6 +88,7 @@ export function FrameLayers({ style, values }: { style: FrameStyle; values: Reco
           {/* the top 330 units and the bottom console of the HUD's own trim are hidden: PictureTrim draws them along the picture's slots and band instead */}
           <div class="frame-layer" data-layer="decor-lower" style={{ ...fill, clipPath: decorClip(slabZones, sc) }}><Parts names={['Decor']} vars={vars} zones={slabZones} sc={sc} fitted /></div>
           <PictureTrim accent={accent} tier={tier} />
+          {values.CornerPieces !== '0' && <CornerPieces accent={accent} />}
         </>
       ) : <Parts names={pic ? ['Decor'] : ['Accents', 'Spill', 'Lights', 'Decor']} vars={vars} zones={slabZones} sc={sc} />}
     </div>

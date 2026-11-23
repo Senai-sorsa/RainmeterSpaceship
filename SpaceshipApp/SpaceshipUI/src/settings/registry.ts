@@ -75,6 +75,7 @@ add('display', 'Frame', 'normal', [
   ['frameStyle', 'Cockpit frame', 'Rendered hull, your picture, the picture with the HUD fitted to it, or no frame.', sel('rendered|Rendered', 'picture|Picture', 'fitted|Picture (fitted)', 'none|None'), 'rendered', { w: 'look', virtual: 1 }],
   ['FrameBrightness', 'Frame brightness', 'Brightness of the hull in percent.', sl(0, 100, 5), '95'],
   ['HullAlpha', 'Hull opacity', 'Opacity of the hull, 0 to 255.', sl(0, 255, 5), '255'],
+  ['CornerPieces', 'Corner caps', 'Tiny chrome caps on the screen corners (Picture fitted only).', tog, '1'],
 ]);
 add('display', 'Frame', 'normal', [ // the two real keys behind frameStyle
   ['UseShipImage', 'Frame uses picture', 'Set by Cockpit frame.', tog, '0', { hide: 1 }],

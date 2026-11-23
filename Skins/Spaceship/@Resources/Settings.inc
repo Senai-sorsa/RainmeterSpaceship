@@ -70,6 +70,8 @@ LensFx=1
 DepthHaze=1
 ; screen bezels: a dark recess and a faint lip round each display (FULL and LITE)
 ScreenBezel=1
+; corner caps: tiny chrome caps on the four screen corners, Picture (fitted) frame only
+CornerPieces=1
 ; orb light: the orb lights the hull a little more while JARVIS listens or speaks (FULL only)
 StateLight=1
 ; rendered hull: use the Blender-rendered cockpit shell with live-tinted light from the screens (FULL; LITE/LOW/STEALTH get the static art only)

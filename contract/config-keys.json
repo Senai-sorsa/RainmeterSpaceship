@@ -366,6 +366,14 @@
       "default": "0.3"
     },
     {
+      "key": "CornerPieces",
+      "file": "Settings.inc",
+      "control": {
+        "kind": "toggle"
+      },
+      "default": "1"
+    },
+    {
       "key": "CT_BottomAudio",
       "file": "State.inc",
       "control": {
